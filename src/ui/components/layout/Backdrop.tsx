@@ -9,7 +9,7 @@ export function Backdrop() {
       <div className="absolute top-24 -right-16 h-6 w-[26rem] rotate-[-35deg] rounded-full bg-gradient-to-r from-violet/0 via-magenta/50 to-pink/70 opacity-60 blur-[1px] max-md:hidden" />
       <div className="absolute top-[26rem] -left-24 h-10 w-[30rem] rotate-[-35deg] rounded-full bg-gradient-to-r from-pink/60 via-magenta/40 to-violet/0 opacity-50 max-md:hidden" />
       <div className="absolute top-40 left-[8%] h-20 w-14 bg-dots opacity-40 max-lg:hidden" />
-      <div className="absolute top-[30rem] right-[6%] size-24 rounded-full border-[5px] border-electric/40 [border-left-color:var(--color-pink)] opacity-50 max-lg:hidden" />
+      <div className="absolute top-[30rem] right-[6%] size-24 animate-[spin_6s_linear_infinite] rounded-full border-[5px] border-electric/40 [border-left-color:var(--color-pink)] opacity-60 max-lg:hidden" />
     </div>
   );
 }

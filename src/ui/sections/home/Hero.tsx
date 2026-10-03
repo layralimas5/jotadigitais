@@ -5,6 +5,7 @@ import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
 import { Backdrop } from "@/ui/components/layout/Backdrop";
 import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
+import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
 
 const HERO_PREVIEW = {
@@ -22,16 +23,35 @@ const PROOF_POINTS = [
   { icon: Mail, label: "Acesso entregue no seu e-mail" },
 ] as const;
 
-function FloatingChip({ className, children, delay }: { className: string; children: React.ReactNode; delay: number }) {
+const FLOAT_DURATION_S = 3.2;
+const FLOAT_DISTANCE_PX = 10;
+
+interface FloatingChipProps {
+  positionClassName: string;
+  className: string;
+  children: React.ReactNode;
+  delay: number;
+  /** Defasagem do ciclo para os selos não subirem juntos. */
+  floatOffset?: number;
+}
+
+/** Entra com fade e depois fica flutuando, subindo e descendo sem parar. */
+function FloatingChip({ positionClassName, className, children, delay, floatOffset = 0 }: FloatingChipProps) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.7, delay, ease: EASE_OUT_EXPO }}
-      className={className}
+      className={cn("absolute", positionClassName)}
+      animate={reduceMotion ? undefined : { y: [0, -FLOAT_DISTANCE_PX, 0] }}
+      transition={{ duration: FLOAT_DURATION_S, delay: delay + floatOffset, repeat: Infinity, ease: "easeInOut" }}
     >
-      {children}
+      <motion.div
+        initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.7, delay, ease: EASE_OUT_EXPO }}
+        className={className}
+      >
+        {children}
+      </motion.div>
     </motion.div>
   );
 }
@@ -111,7 +131,8 @@ export function Hero() {
 
           <FloatingChip
             delay={0.6}
-            className="absolute top-[38%] -left-8 flex items-center gap-2.5 rounded-2xl border border-white/10 bg-surface/90 px-3.5 py-2.5 shadow-2xl shadow-black/50 backdrop-blur sm:-left-28"
+            positionClassName="top-[38%] -left-8 sm:-left-28"
+            className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-surface/90 px-3.5 py-2.5 shadow-2xl shadow-black/50 backdrop-blur"
           >
             <VerifiedBadge className="size-7" />
             <div>
@@ -122,7 +143,9 @@ export function Hero() {
 
           <FloatingChip
             delay={0.8}
-            className="absolute -right-4 -bottom-6 rounded-2xl border border-white/10 bg-surface/90 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur sm:-right-20"
+            floatOffset={FLOAT_DURATION_S / 2}
+            positionClassName="-right-4 -bottom-6 sm:-right-20"
+            className="rounded-2xl border border-white/10 bg-surface/90 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur"
           >
             <p className="text-[0.68rem] text-mist">Pedidos recusados pelo TikTok</p>
             <p className="font-display text-2xl font-bold text-alert">~60%</p>

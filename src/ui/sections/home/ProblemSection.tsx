@@ -32,7 +32,7 @@ function ScreenshotCrop({ src, alt, width, height, tone, fadeClassName }: Screen
   return (
     <figure
       className={cn(
-        "relative mt-6 aspect-[5/4] overflow-hidden rounded-2xl border shadow-2xl shadow-black/50",
+        "relative mx-auto mt-6 aspect-[9/7] w-full max-w-[17rem] overflow-hidden rounded-2xl border shadow-2xl shadow-black/50",
         tone === "alert" ? "border-alert/30" : "border-electric/30",
       )}
     >
@@ -72,7 +72,7 @@ export function ProblemSection() {
               src="/images/tiktok-shop-rejeitada.webp"
               alt="Print do TikTok Shop: Sua solicitação de conta foi rejeitada. No momento, você não se qualifica para o acesso de criador do TikTok Shop."
               width={720}
-              height={585}
+              height={560}
               tone="alert"
               fadeClassName="from-white"
             />
