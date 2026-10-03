@@ -1,8 +1,6 @@
-import { Quote } from "lucide-react";
 import { Marquee } from "@/ui/components/Marquee";
 import { Reveal } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
-import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { cn } from "@/ui/lib/cn";
 
 type PrintKind = "result" | "delivered";
@@ -75,22 +73,6 @@ const PRINTS: PrintProof[] = [
   },
 ];
 
-type TextProof =
-  | { kind: "stat"; value: string; label: string; author: string }
-  | { kind: "quote"; text: string; author: string };
-
-/** Números e falas tirados dos mesmos prints, sem arredondar para cima. */
-const TEXT_PROOFS: TextProof[] = [
-  { kind: "stat", value: "R$ 203,7 mil", label: "em vendas com comissão (GMV) no mês", author: "Marina" },
-  { kind: "quote", text: "Mas é o q eu falei, ele postava esporadicamente e já deu isso kkkk", author: "Marina" },
-  { kind: "stat", value: "R$ 29,2 mil", label: "em vendas com comissão (GMV) em um único dia", author: "Taah" },
-  { kind: "quote", text: "Não to acreditando", author: "Taah" },
-  { kind: "stat", value: "2,9 mil", label: "itens vendidos com comissão no mês", author: "Marina" },
-  { kind: "quote", text: "Tá melhor que o meu principal", author: "Taah" },
-  { kind: "stat", value: "920", label: "itens vendidos com comissão em um dia", author: "Taah" },
-  { kind: "quote", text: "Esse foi o GMV e comissão do mês que compramos", author: "Marina" },
-];
-
 const kindTag: Record<PrintKind, { label: string; className: string }> = {
   result: { label: "Resultado", className: "bg-pink/90 text-white" },
   delivered: { label: "Conta entregue", className: "bg-electric/90 text-ink" },
@@ -107,7 +89,6 @@ function PrintCard({ proof }: { proof: PrintProof }) {
             alt={proof.alt}
             width={proof.width}
             height={proof.height}
-            loading="lazy"
             decoding="async"
             draggable={false}
             className="h-[21rem] w-auto transition-transform duration-500 group-hover:scale-[1.03] sm:h-[25rem]"
@@ -124,34 +105,6 @@ function PrintCard({ proof }: { proof: PrintProof }) {
         <figcaption className="px-2 pt-3 pb-1.5">
           <p className="font-display text-sm font-semibold text-white">{proof.title}</p>
           <p className="mt-0.5 text-xs text-mist">{proof.subtitle}</p>
-        </figcaption>
-      </figure>
-    </li>
-  );
-}
-
-function TextProofCard({ proof }: { proof: TextProof }) {
-  return (
-    <li className="w-[17rem] shrink-0 sm:w-[19rem]">
-      <figure className="flex h-full flex-col justify-between rounded-3xl border border-line bg-surface p-6">
-        {proof.kind === "stat" ? (
-          <div>
-            <p className="font-display text-3xl font-bold tracking-tight whitespace-nowrap text-gradient-brand">
-              {proof.value}
-            </p>
-            <p className="mt-2 text-sm text-fog">{proof.label}</p>
-          </div>
-        ) : (
-          <div>
-            <Quote aria-hidden className="size-5 text-electric" />
-            <blockquote className="mt-3 text-base text-pretty text-white">"{proof.text}"</blockquote>
-          </div>
-        )}
-        <figcaption className="mt-6 flex items-center gap-2 text-xs text-mist">
-          <VerifiedBadge className="size-4" />
-          <span>
-            <span className="font-semibold text-fog">{proof.author}</span>, cliente do TikTok Shop
-          </span>
         </figcaption>
       </figure>
     </li>
@@ -186,15 +139,10 @@ export function Results() {
         </div>
       </div>
 
-      <Reveal className="relative mt-14 space-y-5">
+      <Reveal className="relative mt-14">
         <Marquee label="Prints de resultados e contas entregues" durationSeconds={55}>
           {PRINTS.map((proof) => (
             <PrintCard key={proof.src} proof={proof} />
-          ))}
-        </Marquee>
-        <Marquee label="Números e falas de clientes" durationSeconds={45}>
-          {TEXT_PROOFS.map((proof) => (
-            <TextProofCard key={proof.kind === "stat" ? proof.value : proof.text} proof={proof} />
           ))}
         </Marquee>
       </Reveal>

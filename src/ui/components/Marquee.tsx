@@ -1,22 +1,32 @@
 import { useReducedMotion } from "framer-motion";
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/ui/lib/cn";
 
 interface MarqueeProps {
   children: ReactNode;
   label: string;
-  /** Segundos para uma volta completa. Maior = mais devagar. */
+  /** Segundos para os itens passarem uma vez. Maior = mais devagar. */
   durationSeconds?: number;
+  /**
+   * Quantas vezes os itens se repetem em cada metade da faixa. Garante que uma metade
+   * seja mais larga que qualquer tela, para nunca aparecer espaço vazio no fim do loop.
+   */
+  repeat?: number;
   className?: string;
 }
 
 const EDGE_FADE = "[mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]";
 
+function Repeated({ children, times }: { children: ReactNode; times: number }) {
+  return Array.from({ length: times }, (_, index) => <Fragment key={index}>{children}</Fragment>);
+}
+
 /**
- * Faixa em loop infinito para a esquerda. O conteúdo é duplicado e a faixa anda 50%,
- * então a emenda é invisível. Pausa no hover; com movimento reduzido vira rolagem manual.
+ * Faixa em loop contínuo para a esquerda. As duas metades são idênticas e a faixa anda
+ * exatamente 50%, então o último item emenda no primeiro sem salto nem espaço.
+ * Pausa no hover; com movimento reduzido vira rolagem manual.
  */
-export function Marquee({ children, label, durationSeconds = 40, className }: MarqueeProps) {
+export function Marquee({ children, label, durationSeconds = 40, repeat = 3, className }: MarqueeProps) {
   const reduceMotion = useReducedMotion();
 
   if (reduceMotion) {
@@ -27,13 +37,15 @@ export function Marquee({ children, label, durationSeconds = 40, className }: Ma
     );
   }
 
-  const style = { "--marquee-duration": `${durationSeconds}s` } as CSSProperties;
+  const style = { "--marquee-duration": `${durationSeconds * repeat}s` } as CSSProperties;
   return (
     <div role="region" aria-label={label} className={cn("group/marquee overflow-hidden", EDGE_FADE, className)}>
       <div className="flex w-max animate-marquee group-hover/marquee:[animation-play-state:paused]" style={style}>
-        <ul className="flex shrink-0 items-stretch gap-5 pr-5">{children}</ul>
+        <ul className="flex shrink-0 items-stretch gap-5 pr-5">
+          <Repeated times={repeat}>{children}</Repeated>
+        </ul>
         <ul aria-hidden className="flex shrink-0 items-stretch gap-5 pr-5">
-          {children}
+          <Repeated times={repeat}>{children}</Repeated>
         </ul>
       </div>
     </div>
