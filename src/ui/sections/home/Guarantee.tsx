@@ -38,10 +38,14 @@ export function Guarantee() {
         />
         <Reveal stagger className="grid gap-4 sm:grid-cols-2">
           {ITEMS.map(({ icon: Icon, title, text }) => (
-            <RevealItem key={title} className="rounded-3xl border border-line bg-surface/70 p-6">
-              <Icon aria-hidden className="size-6 text-electric" />
-              <h3 className="mt-5 font-display font-semibold text-white">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-mist">{text}</p>
+            <RevealItem key={title}>
+              <div className="hover-pulse h-full rounded-3xl border border-line bg-surface/70 p-6">
+                <span className="pulse-icon inline-grid size-11 place-items-center rounded-xl border border-white/10 bg-ink text-electric">
+                  <Icon aria-hidden className="size-5" />
+                </span>
+                <h3 className="mt-5 font-display font-semibold text-white">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-mist">{text}</p>
+              </div>
             </RevealItem>
           ))}
         </Reveal>

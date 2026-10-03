@@ -8,16 +8,21 @@ const RESULTS = [
     period: "em comissões no mês",
     quote: "Mas é o que eu falei, ele postava esporadicamente e já deu isso.",
     author: "Marina",
-    detail: "cliente do TikTok Shop",
+    image: "/images/depoimento-marina.webp",
+    alt: "Conversa no WhatsApp com a cliente Marina mostrando o painel do TikTok Shop com R$ 23,5 mil em comissões estimadas no mês.",
   },
   {
     amount: "R$ 2.900",
-    period: "em comissões nos primeiros dias",
+    period: "em comissões em um único dia",
     quote: "Não tô acreditando. Tá melhor que o meu principal.",
     author: "Taah",
-    detail: "cliente do TikTok Shop",
+    image: "/images/depoimento-taah.webp",
+    alt: "Conversa no WhatsApp com a cliente Taah mostrando o painel do TikTok Shop com R$ 2,9 mil em comissões estimadas no dia.",
   },
 ] as const;
+
+const PRINT_WIDTH = 553;
+const PRINT_HEIGHT = 1200;
 
 export function Results() {
   return (
@@ -31,22 +36,42 @@ export function Results() {
           id="resultados-title"
           eyebrow="Resultados de clientes"
           title="Quem comprou, já está vendendo"
-          description="Comissões de afiliado de clientes que compraram contas com o Shop liberado."
+          description="Prints reais das conversas com clientes que compraram contas com o Shop liberado."
         />
 
-        <Reveal stagger className="mt-14 grid gap-5 md:grid-cols-2">
+        <Reveal stagger className="mt-14 grid gap-5 lg:grid-cols-2">
           {RESULTS.map((result) => (
-            <RevealItem key={result.author} className="flex flex-col rounded-3xl border border-line bg-surface p-7 md:p-9">
-              <p className="font-display text-5xl font-bold tracking-tight text-gradient-brand md:text-6xl">
-                {result.amount}
-              </p>
-              <p className="mt-2 text-sm text-mist">{result.period}</p>
-              <figure className="mt-8 flex-1 border-t border-line pt-6">
-                <Quote aria-hidden className="size-5 text-electric" />
-                <blockquote className="mt-3 text-lg text-pretty text-white">"{result.quote}"</blockquote>
-                <figcaption className="mt-4 text-sm text-mist">
-                  <span className="font-semibold text-fog">{result.author}</span>, {result.detail}
-                </figcaption>
+            <RevealItem key={result.author}>
+              <figure className="group flex h-full flex-col gap-7 overflow-hidden rounded-3xl border border-line bg-surface p-6 sm:flex-row sm:items-center md:p-8">
+                <div className="relative mx-auto w-48 shrink-0 sm:mx-0 sm:w-44 md:w-52">
+                  <div
+                    aria-hidden
+                    className="absolute inset-4 rounded-[2rem] bg-gradient-brand opacity-50 blur-2xl transition-opacity duration-500 group-hover:opacity-80"
+                  />
+                  <img
+                    src={result.image}
+                    alt={result.alt}
+                    width={PRINT_WIDTH}
+                    height={PRINT_HEIGHT}
+                    loading="lazy"
+                    decoding="async"
+                    className="relative h-auto w-full -rotate-2 drop-shadow-2xl transition-transform duration-500 group-hover:rotate-0"
+                  />
+                </div>
+
+                <div className="flex flex-1 flex-col">
+                  <p className="font-display text-4xl font-bold tracking-tight whitespace-nowrap text-gradient-brand">
+                    {result.amount}
+                  </p>
+                  <p className="mt-2 text-sm text-mist">{result.period}</p>
+                  <div className="mt-6 border-t border-line pt-6">
+                    <Quote aria-hidden className="size-5 text-electric" />
+                    <blockquote className="mt-3 text-lg text-pretty text-white">"{result.quote}"</blockquote>
+                    <figcaption className="mt-4 text-sm text-mist">
+                      <span className="font-semibold text-fog">{result.author}</span>, cliente do TikTok Shop
+                    </figcaption>
+                  </div>
+                </div>
               </figure>
             </RevealItem>
           ))}

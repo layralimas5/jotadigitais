@@ -42,15 +42,17 @@ export function HowItWorks() {
             className="absolute top-7 right-[12%] left-[12%] hidden h-px bg-gradient-to-r from-pink/0 via-electric/50 to-pink/0 lg:block"
           />
           {STEPS.map(({ icon: Icon, title, text }, index) => (
-            <RevealItem as="li" key={title} className="relative rounded-3xl border border-line bg-surface/70 p-6">
-              <div className="flex items-center justify-between">
-                <span className="relative grid size-14 place-items-center rounded-2xl border border-white/10 bg-ink text-electric">
-                  <Icon aria-hidden className="size-6" />
-                </span>
-                <span className="font-display text-4xl font-bold text-white/[0.07]">0{index + 1}</span>
+            <RevealItem as="li" key={title} className="relative">
+              <div className="hover-pulse h-full rounded-3xl border border-line bg-surface/70 p-6">
+                <div className="flex items-center justify-between">
+                  <span className="pulse-icon grid size-14 place-items-center rounded-2xl border border-white/10 bg-ink text-electric">
+                    <Icon aria-hidden className="size-6" />
+                  </span>
+                  <span className="font-display text-4xl font-bold text-white/[0.07]">0{index + 1}</span>
+                </div>
+                <h3 className="mt-6 font-display text-lg font-semibold text-white">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-mist">{text}</p>
               </div>
-              <h3 className="mt-6 font-display text-lg font-semibold text-white">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-mist">{text}</p>
             </RevealItem>
           ))}
         </Reveal>

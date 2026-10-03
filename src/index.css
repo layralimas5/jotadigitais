@@ -83,15 +83,45 @@
   background-size: 10px 10px;
 }
 
-@keyframes marquee {
-  from {
-    transform: translateX(0);
+@keyframes card-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 0 1px rgb(39 153 255 / 0.25),
+      0 10px 40px -24px rgb(39 153 255 / 0.3);
   }
-  to {
-    transform: translateX(-50%);
+  50% {
+    transform: scale(1.025);
+    box-shadow:
+      0 0 0 1px rgb(39 153 255 / 0.6),
+      0 22px 60px -18px rgb(39 153 255 / 0.55);
   }
 }
 
-@utility animate-marquee {
-  animation: marquee 40s linear infinite;
+@keyframes icon-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+/* Pulsação leve enquanto o mouse (ou o foco do teclado) está no card. */
+@utility hover-pulse {
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease;
+  &:hover,
+  &:focus-within {
+    animation: card-pulse 1.8s ease-in-out infinite;
+    border-color: rgb(39 153 255 / 0.5);
+    background-color: var(--color-surface-2);
+  }
+  &:hover .pulse-icon,
+  &:focus-within .pulse-icon {
+    animation: icon-pulse 1.8s ease-in-out infinite;
+  }
 }

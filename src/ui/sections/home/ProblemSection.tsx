@@ -2,6 +2,7 @@ import { Check, X } from "lucide-react";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
+import { cn } from "@/ui/lib/cn";
 
 const FROM_SCRATCH = [
   "Meses postando para crescer a conta",
@@ -16,6 +17,38 @@ const WITH_JOTA = [
   "Sem documentos vinculados à conta",
   "Você troca nome, @ e foto e já pode vender",
 ] as const;
+
+interface ScreenshotCropProps {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  tone: "alert" | "electric";
+  fadeClassName: string;
+}
+
+/** Print real do app, recortado no topo com um esmaecido embaixo para parecer cortado. */
+function ScreenshotCrop({ src, alt, width, height, tone, fadeClassName }: ScreenshotCropProps) {
+  return (
+    <figure
+      className={cn(
+        "relative mt-6 aspect-[5/4] overflow-hidden rounded-2xl border shadow-2xl shadow-black/50",
+        tone === "alert" ? "border-alert/30" : "border-electric/30",
+      )}
+    >
+      <img
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        loading="lazy"
+        decoding="async"
+        className="size-full object-cover object-top"
+      />
+      <div aria-hidden className={cn("absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent", fadeClassName)} />
+    </figure>
+  );
+}
 
 export function ProblemSection() {
   return (
@@ -35,12 +68,14 @@ export function ProblemSection() {
         <Reveal stagger className="mt-14 grid gap-5 md:grid-cols-2">
           <RevealItem className="rounded-3xl border border-line bg-surface/60 p-7 md:p-9">
             <p className="text-sm font-semibold text-mist">Criando sua própria conta</p>
-            <div className="mt-6 rounded-2xl border border-alert/25 bg-alert/[0.06] p-4">
-              <p className="text-sm font-semibold text-white">Sua solicitação de conta foi rejeitada.</p>
-              <p className="mt-1 text-xs leading-relaxed text-mist">
-                No momento, você não se qualifica para o acesso de criador do TikTok Shop.
-              </p>
-            </div>
+            <ScreenshotCrop
+              src="/images/tiktok-shop-rejeitada.webp"
+              alt="Print do TikTok Shop: Sua solicitação de conta foi rejeitada. No momento, você não se qualifica para o acesso de criador do TikTok Shop."
+              width={720}
+              height={585}
+              tone="alert"
+              fadeClassName="from-white"
+            />
             <ul className="mt-7 space-y-3.5">
               {FROM_SCRATCH.map((item) => (
                 <li key={item} className="flex gap-3 text-sm text-fog">
@@ -58,12 +93,14 @@ export function ProblemSection() {
               <p className="flex items-center gap-2 text-sm font-semibold text-white">
                 <VerifiedBadge className="size-5" /> Com uma conta Jota Digitais
               </p>
-              <div className="mt-6 rounded-2xl border border-electric/25 bg-electric/[0.07] p-4">
-                <p className="text-sm font-semibold text-white">Bem-vindo à Central de Criadores do TikTok Shop</p>
-                <p className="mt-1 text-xs leading-relaxed text-mist">
-                  Publique seu primeiro vídeo com produtos à venda e comece a ganhar.
-                </p>
-              </div>
+              <ScreenshotCrop
+                src="/images/tiktok-shop-central.webp"
+                alt="Print do TikTok Shop: Central de criadores do TikTok Shop, publique seu primeiro vídeo com produtos à venda."
+                width={738}
+                height={880}
+                tone="electric"
+                fadeClassName="from-[#121212]"
+              />
               <ul className="mt-7 space-y-3.5">
                 {WITH_JOTA.map((item) => (
                   <li key={item} className="flex gap-3 text-sm text-fog">
