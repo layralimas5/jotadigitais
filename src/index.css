@@ -83,6 +83,16 @@
   background-size: 10px 10px;
 }
 
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@utility animate-marquee {
+  animation: marquee var(--marquee-duration, 40s) linear infinite;
+}
+
 @keyframes card-pulse {
   0%,
   100% {
