@@ -1,12 +1,37 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { ButtonLink } from "@/ui/components/Button";
 import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/AccountCard";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
 import { ErrorState } from "@/ui/components/StateViews";
+import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useAccounts } from "@/ui/hooks/useStore";
 
 const FEATURED_COUNT = 6;
+const MOBILE_COUNT = 3;
+
+function StockStrip({ count }: { count: number }) {
+  return (
+    <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-6 text-sm text-fog">
+      <p className="flex items-center gap-2.5">
+        <span aria-hidden className="relative flex size-2">
+          <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/70" />
+          <span className="relative size-2 rounded-full bg-emerald-400" />
+        </span>
+        <span>
+          <strong className="font-semibold text-white tabular-nums">{count}</strong>{" "}
+          {count === 1 ? "conta disponível" : "contas disponíveis"} agora
+        </span>
+      </p>
+      <p className="flex items-center gap-2">
+        <VerifiedBadge className="size-4" /> Central de Criadores ativa em todas
+      </p>
+      <p className="flex items-center gap-2">
+        <ShieldCheck aria-hidden className="size-4 text-electric" /> Entrega com garantia
+      </p>
+    </div>
+  );
+}
 
 export function FeaturedAccounts() {
   const accounts = useAccounts({ onlyAvailable: true, sort: "recent" });
@@ -21,10 +46,12 @@ export function FeaturedAccounts() {
             title="Contas prontas para vender"
             description="Cada conta é única. Quando alguém compra, ela sai da vitrine."
           />
-          <ButtonLink to="/contas" variant="secondary" className="self-start md:self-auto">
+          <ButtonLink to="/contas" variant="secondary" className="hidden self-start sm:inline-flex md:self-auto">
             Ver todas <ArrowRight className="size-4" />
           </ButtonLink>
         </div>
+
+        {accounts.status === "success" && <StockStrip count={accounts.data.length} />}
 
         <div className="mt-12">
           {accounts.status === "loading" && (
@@ -37,12 +64,17 @@ export function FeaturedAccounts() {
           {accounts.status === "error" && <ErrorState message={accounts.error.message} onRetry={accounts.retry} />}
           {accounts.status === "success" && (
             <Reveal as="ul" stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {accounts.data.slice(0, FEATURED_COUNT).map((account) => (
-                <RevealItem as="li" key={account.id}>
+              {accounts.data.slice(0, FEATURED_COUNT).map((account, index) => (
+                <RevealItem as="li" key={account.id} className={index >= MOBILE_COUNT ? "hidden sm:block" : undefined}>
                   <AccountCard account={account} />
                 </RevealItem>
               ))}
             </Reveal>
+          )}
+          {accounts.status === "success" && accounts.data.length > MOBILE_COUNT && (
+            <ButtonLink to="/contas" variant="secondary" className="mt-6 w-full justify-center sm:hidden">
+              Ver as {accounts.data.length} contas <ArrowRight className="size-4" />
+            </ButtonLink>
           )}
         </div>
       </div>

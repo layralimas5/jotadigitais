@@ -9,7 +9,7 @@ const GRADIENTS = [
   "from-electric-soft to-magenta",
 ] as const;
 
-function gradientFor(id: string): string {
+export function gradientFor(id: string): string {
   const hash = [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return GRADIENTS[hash % GRADIENTS.length] ?? GRADIENTS[0];
 }

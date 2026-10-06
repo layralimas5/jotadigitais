@@ -119,24 +119,12 @@ export function Results() {
         className="pointer-events-none absolute top-1/3 left-1/2 h-[30rem] w-[60rem] -translate-x-1/2 rounded-full bg-violet/15 blur-[160px]"
       />
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <SectionHeading
-            id="resultados-title"
-            eyebrow="Resultados de clientes"
-            title="Quem comprou, já está vendendo"
-            description="Prints reais: comissões de clientes e contas entregues com o TikTok Shop liberado."
-          />
-          <Reveal className="flex gap-3">
-            <div className="flex-1 rounded-2xl border border-line bg-surface/70 px-4 py-4 sm:flex-none sm:px-5">
-              <p className="font-display text-xl font-bold whitespace-nowrap text-white sm:text-2xl">R$ 23,5 mil</p>
-              <p className="text-xs text-mist">Marina, comissões no mês</p>
-            </div>
-            <div className="flex-1 rounded-2xl border border-line bg-surface/70 px-4 py-4 sm:flex-none sm:px-5">
-              <p className="font-display text-xl font-bold whitespace-nowrap text-white sm:text-2xl">R$ 2,9 mil</p>
-              <p className="text-xs text-mist">Taah, comissões em um dia</p>
-            </div>
-          </Reveal>
-        </div>
+        <SectionHeading
+          id="resultados-title"
+          eyebrow="Resultados de clientes"
+          title="Quem comprou, já está vendendo"
+          description="Prints reais: comissões de clientes e contas entregues com o TikTok Shop liberado."
+        />
       </div>
 
       <Reveal className="relative mt-14">
