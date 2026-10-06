@@ -1,9 +1,7 @@
 import { ArrowRight, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
-  followersToFullShop,
   formatCount,
-  fullShopProgress,
   isNewListing,
   isPurchasable,
   shopTierOf,
@@ -43,34 +41,6 @@ function CardCover({ account }: { account: TikTokAccount }) {
         ) : (
           <StatusBadge status={account.status} />
         )}
-      </div>
-    </div>
-  );
-}
-
-function ShopProgress({ account }: { account: TikTokAccount }) {
-  const tier = shopTierOf(account);
-  const missing = followersToFullShop(account);
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-3">
-        <ShopTierBadge tier={tier} />
-        <span className="text-[0.7rem] text-mist">
-          {tier === "full" ? "Todos os produtos liberados" : `Faltam ${formatCount(missing)} p/ o completo`}
-        </span>
-      </div>
-      <div
-        className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"
-        role="progressbar"
-        aria-label="Progresso até o Shop completo"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Math.round(fullShopProgress(account) * 100)}
-      >
-        <div
-          className={cn("h-full rounded-full", tier === "full" ? "bg-electric" : "bg-gradient-brand")}
-          style={{ width: `${fullShopProgress(account) * 100}%` }}
-        />
       </div>
     </div>
   );
@@ -128,7 +98,7 @@ export function AccountCard({ account }: { account: TikTokAccount }) {
           </dl>
 
           <div className="mt-4">
-            <ShopProgress account={account} />
+            <ShopTierBadge tier={shopTierOf(account)} />
           </div>
 
           <div className="mt-6 flex items-end justify-between gap-3 border-t border-line pt-5">
@@ -170,7 +140,7 @@ export function AccountCardSkeleton() {
           </div>
         </div>
         <div className="mt-6 h-9 w-1/3 animate-pulse rounded bg-white/[0.07]" />
-        <div className="mt-4 h-1.5 animate-pulse rounded-full bg-white/[0.05]" />
+        <div className="mt-4 h-6 w-28 animate-pulse rounded-full bg-white/[0.05]" />
         <div className="mt-6 h-12 animate-pulse rounded border-t border-line bg-white/[0.04]" />
       </div>
     </div>

@@ -36,7 +36,7 @@ export const FAQ_ITEMS = [
   },
 ] as const;
 
-function FaqItem({ question, answer }: { question: string; answer: string }) {
+export function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
   const panelId = useId();

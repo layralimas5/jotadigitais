@@ -40,11 +40,6 @@ export function shopTierOf(account: Pick<TikTokAccount, "followers">): ShopTier 
   return account.followers >= FULL_SHOP_MIN_FOLLOWERS ? "full" : "pilot";
 }
 
-/** Quanto falta (0 a 1) para a conta sair do Shop piloto. */
-export function fullShopProgress(account: Pick<TikTokAccount, "followers">): number {
-  return Math.min(account.followers / FULL_SHOP_MIN_FOLLOWERS, 1);
-}
-
 export function followersToFullShop(account: Pick<TikTokAccount, "followers">): number {
   return Math.max(FULL_SHOP_MIN_FOLLOWERS - account.followers, 0);
 }

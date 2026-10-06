@@ -2,7 +2,7 @@ import type { AccountStatus, ShopTier } from "@/domain/account";
 import { cn } from "@/ui/lib/cn";
 
 const tierCopy: Record<ShopTier, { label: string; className: string }> = {
-  full: { label: "Shop completo", className: "border-electric/40 bg-electric/10 text-electric-soft" },
+  full: { label: "TikTok Shop ativo", className: "border-electric/40 bg-electric/10 text-electric-soft" },
   pilot: { label: "Shop piloto", className: "border-pink/35 bg-pink/10 text-pink" },
 };
 

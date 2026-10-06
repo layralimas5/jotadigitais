@@ -2,7 +2,7 @@ import { CreditCard, MailCheck, MousePointerClick, Sparkles } from "lucide-react
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
 
-const STEPS = [
+export const STEPS = [
   {
     icon: MousePointerClick,
     title: "Escolha a conta",
