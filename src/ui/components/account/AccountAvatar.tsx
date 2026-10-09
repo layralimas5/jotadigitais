@@ -1,4 +1,4 @@
-import type { TikTokAccount } from "@/domain/account";
+import type { Account } from "@/domain/account";
 import { cn } from "@/ui/lib/cn";
 
 const GRADIENTS = [
@@ -25,7 +25,7 @@ function initialsOf(name: string): string {
 }
 
 interface AccountAvatarProps {
-  account: Pick<TikTokAccount, "id" | "displayName">;
+  account: Pick<Account, "id" | "displayName">;
   className?: string;
 }
 

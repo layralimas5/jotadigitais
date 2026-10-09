@@ -3,15 +3,17 @@ import { ChevronRight } from "lucide-react";
 import { useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { siteConfig } from "@/app/config";
-import { formatCount, isPurchasable, shopTierOf, type TikTokAccount } from "@/domain/account";
+import { formatCount, isPurchasable, type Account } from "@/domain/account";
 import { AccountNotFoundError } from "@/domain/errors";
 import { formatBRL } from "@/domain/money";
+import { PLATFORM_LABEL } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
-import { NicheTag, ShopTierBadge, StatusBadge } from "@/ui/components/account/AccountBadges";
+import { AccountBadgePill, NicheTag, PlatformTag, StatusBadge } from "@/ui/components/account/AccountBadges";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccount } from "@/ui/hooks/useStore";
+import { accountBadge, audienceLabel, profileStats, verifiedLabel } from "@/ui/lib/account-presenter";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 import { AccountBuyBox } from "@/ui/sections/account/AccountBuyBox";
 import {
@@ -25,11 +27,11 @@ import { MobileBuyBar } from "@/ui/sections/account/MobileBuyBar";
 import { RelatedAccounts } from "@/ui/sections/account/RelatedAccounts";
 import { FAQ_ITEMS, FaqItem } from "@/ui/sections/home/Faq";
 
-function Breadcrumb({ account }: { account?: TikTokAccount }) {
+function Breadcrumb({ account }: { account?: Account }) {
   const crumbs = [
     { label: "Início", to: "/" },
     { label: "Contas", to: "/contas" },
-    ...(account ? [{ label: account.niche, to: `/contas?nicho=${encodeURIComponent(account.niche)}` }] : []),
+    ...(account ? [{ label: PLATFORM_LABEL[account.platform], to: `/contas?rede=${account.platform}` }] : []),
   ];
   return (
     <nav aria-label="Navegação estrutural" className="mb-8">
@@ -52,14 +54,14 @@ function Breadcrumb({ account }: { account?: TikTokAccount }) {
   );
 }
 
-function ProductJsonLd({ account }: { account: TikTokAccount }) {
+function ProductJsonLd({ account }: { account: Account }) {
   const data = {
     "@context": "https://schema.org",
     "@type": "Product",
-    name: `Conta de TikTok ${account.displayName}`,
-    description: `Conta de ${account.niche} com ${account.followers} seguidores e TikTok Shop ativo.`,
+    name: `Conta de ${PLATFORM_LABEL[account.platform]} ${account.displayName}`,
+    description: `Conta de ${PLATFORM_LABEL[account.platform]} com ${account.followers} ${audienceLabel(account).toLowerCase()}.`,
     sku: account.slug,
-    category: account.niche,
+    category: account.niche ?? PLATFORM_LABEL[account.platform],
     brand: { "@type": "Brand", name: siteConfig.name },
     offers: {
       "@type": "Offer",
@@ -73,31 +75,26 @@ function ProductJsonLd({ account }: { account: TikTokAccount }) {
   return <script type="application/ld+json">{JSON.stringify(data)}</script>;
 }
 
-function AccountHeader({ account }: { account: TikTokAccount }) {
+function AccountHeader({ account }: { account: Account }) {
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <ShopTierBadge tier={shopTierOf(account)} />
-        <NicheTag niche={account.niche} />
+        <PlatformTag platform={account.platform} />
+        <AccountBadgePill badge={accountBadge(account)} />
+        {account.niche && <NicheTag niche={account.niche} />}
         <StatusBadge status={account.status} />
       </div>
-      <h1 className="mt-5 flex items-center gap-2 font-display text-4xl font-semibold tracking-tight text-white md:text-5xl">
+      <h1 className="mt-5 flex items-center gap-2 font-display text-[clamp(2rem,1.4rem+3vw,3rem)] leading-tight font-semibold tracking-tight text-white">
         {account.displayName}
-        <VerifiedBadge className="size-7" label="Central de Criadores ativa" />
+        <VerifiedBadge className="size-7" label={verifiedLabel(account)} />
       </h1>
       <p className="mt-2 text-lg text-mist">{account.handle}</p>
 
       <dl className="mt-8 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60">
-        {[
-          { label: "Seguidores", value: account.followers },
-          { label: "Curtidas", value: account.likes },
-          { label: "Seguindo", value: account.following },
-        ].map((stat) => (
-          <div key={stat.label} className="px-4 py-5 text-center">
+        {profileStats(account).map((stat) => (
+          <div key={stat.label} className="px-2 py-4 text-center sm:px-4 sm:py-5">
             <dt className="text-xs text-mist">{stat.label}</dt>
-            <dd className="mt-1 font-display text-2xl font-semibold text-white tabular-nums">
-              {formatCount(stat.value)}
-            </dd>
+            <dd className="mt-1 font-display text-xl font-semibold text-white tabular-nums sm:text-2xl">{stat.value}</dd>
           </div>
         ))}
       </dl>
@@ -105,28 +102,29 @@ function AccountHeader({ account }: { account: TikTokAccount }) {
   );
 }
 
-function AccountFaq() {
+function AccountFaq({ account }: { account: Account }) {
+  const items = FAQ_ITEMS.filter((item) => !("tiktokOnly" in item) || account.platform === "tiktok");
   return (
     <section aria-labelledby="faq-conta-title">
       <h2 id="faq-conta-title" className="font-display text-xl font-semibold text-white md:text-2xl">
         Dúvidas sobre a compra
       </h2>
       <div className="mt-2 border-t border-line">
-        {FAQ_ITEMS.map((item) => (
-          <FaqItem key={item.question} {...item} />
+        {items.map((item) => (
+          <FaqItem key={item.question} question={item.question} answer={item.answer} />
         ))}
       </div>
     </section>
   );
 }
 
-function AccountDetail({ account }: { account: TikTokAccount }) {
+function AccountDetail({ account }: { account: Account }) {
   const reduceMotion = useReducedMotion();
   const ctaRef = useRef<HTMLDivElement>(null);
   const ctaInView = useInView(ctaRef);
   useDocumentMeta(
     `${account.displayName} (${account.handle})`,
-    `Conta de TikTok de ${account.niche} com ${formatCount(account.followers)} seguidores e TikTok Shop ativo por ${formatBRL(account.price)}.`,
+    `Conta de ${PLATFORM_LABEL[account.platform]} com ${formatCount(account.followers)} ${audienceLabel(account).toLowerCase()} por ${formatBRL(account.price)}.`,
   );
 
   const enter = (delay: number) => ({
@@ -156,13 +154,13 @@ function AccountDetail({ account }: { account: TikTokAccount }) {
           <AccountSpecs account={account} />
         </div>
         <div className="space-y-14">
-          <AccountIncluded />
+          <AccountIncluded account={account} />
           <AccountDelivery />
         </div>
       </div>
 
       <div className="mt-20 border-t border-line pt-16">
-        <AccountFaq />
+        <AccountFaq account={account} />
       </div>
 
       <div className="mt-20 border-t border-line pt-16">

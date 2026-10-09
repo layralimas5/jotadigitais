@@ -14,12 +14,13 @@ export const FAQ_ITEMS = [
   },
   {
     question: "O que é o Shop piloto?",
+    tiktokOnly: true,
     answer: `Contas com menos de ${FULL_SHOP_MIN_FOLLOWERS.toLocaleString("pt-BR")} seguidores estão no modo piloto (fase beta) do TikTok Shop. Tudo funciona normalmente, só alguns produtos ainda não ficam disponíveis para afiliação até a conta crescer.`,
   },
   {
     question: "O nicho da conta importa?",
     answer:
-      "Não. Você pode mudar o tipo de conteúdo e vender produtos de qualquer categoria. Os seguidores também não precisam ser de um gênero específico.",
+      "Não. Você pode mudar o tipo de conteúdo e falar com qualquer público. Os seguidores também não precisam ser de um gênero específico.",
   },
   {
     question: "Vou perder seguidores quando trocar os dados?",
@@ -96,7 +97,7 @@ export function Faq() {
         />
         <Reveal className="border-t border-line">
           {FAQ_ITEMS.map((item) => (
-            <FaqItem key={item.question} {...item} />
+            <FaqItem key={item.question} question={item.question} answer={item.answer} />
           ))}
         </Reveal>
       </div>

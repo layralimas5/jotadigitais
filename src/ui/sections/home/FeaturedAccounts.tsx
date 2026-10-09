@@ -24,7 +24,7 @@ function StockStrip({ count }: { count: number }) {
         </span>
       </p>
       <p className="flex items-center gap-2">
-        <VerifiedBadge className="size-4" /> Central de Criadores ativa em todas
+        <VerifiedBadge className="size-4" /> Conferidas uma a uma antes de entrar
       </p>
       <p className="flex items-center gap-2">
         <ShieldCheck aria-hidden className="size-4 text-electric" /> Entrega com garantia

@@ -1,23 +1,27 @@
-import type { AccountStatus, ShopTier } from "@/domain/account";
+import type { AccountStatus } from "@/domain/account";
+import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
+import type { AccountBadge, BadgeTone } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
+import { PlatformGlyph } from "../PlatformGlyph";
 
-const tierCopy: Record<ShopTier, { label: string; className: string }> = {
-  full: { label: "TikTok Shop ativo", className: "border-electric/40 bg-electric/10 text-electric-soft" },
-  pilot: { label: "Shop piloto", className: "border-pink/35 bg-pink/10 text-pink" },
+const toneClass: Record<BadgeTone, string> = {
+  electric: "border-electric/40 bg-electric/10 text-electric-soft",
+  pink: "border-pink/35 bg-pink/10 text-pink",
+  emerald: "border-emerald-400/35 bg-emerald-400/10 text-emerald-300",
+  mist: "border-white/15 bg-white/[0.05] text-fog",
 };
 
-export function ShopTierBadge({ tier, className }: { tier: ShopTier; className?: string }) {
-  const { label, className: tone } = tierCopy[tier];
+export function AccountBadgePill({ badge, className }: { badge: AccountBadge; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide",
-        tone,
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide whitespace-nowrap",
+        toneClass[badge.tone],
         className,
       )}
     >
       <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      {label}
+      {badge.label}
     </span>
   );
 }
@@ -32,6 +36,20 @@ export function StatusBadge({ status }: { status: AccountStatus }) {
   return (
     <span className="inline-flex items-center rounded-full border border-white/15 bg-black/70 px-2.5 py-1 text-[0.7rem] font-semibold text-fog backdrop-blur">
       {statusCopy[status]}
+    </span>
+  );
+}
+
+export function PlatformTag({ platform, className }: { platform: Platform; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-2.5 py-1 text-[0.7rem] font-semibold text-white backdrop-blur",
+        className,
+      )}
+    >
+      <PlatformGlyph platform={platform} className="size-3.5" />
+      {PLATFORM_LABEL[platform]}
     </span>
   );
 }

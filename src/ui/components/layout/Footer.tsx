@@ -27,7 +27,7 @@ export function Footer() {
         <div className="col-span-2 md:col-span-1">
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-mist sm:mt-5">
-            Contas de TikTok com a Central de Criadores do TikTok Shop liberada, prontas para você vender.
+            Contas de TikTok, Instagram, YouTube e Facebook conferidas e prontas para você usar.
           </p>
           <p className="mt-4 text-sm text-fog italic sm:mt-6">Jesus é o caminho, a verdade e a vida.</p>
         </div>

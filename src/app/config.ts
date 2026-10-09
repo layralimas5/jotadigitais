@@ -8,3 +8,11 @@ export const siteConfig = {
   whatsappUrl: whatsappNumber ? `https://wa.me/${whatsappNumber}` : null,
   guaranteeDays: 7,
 } as const;
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+
+/** A chave anon é pública por desenho: quem protege os dados são as políticas RLS do banco. */
+export const backendConfig = {
+  supabase: supabaseUrl && supabaseAnonKey ? { url: supabaseUrl, anonKey: supabaseAnonKey } : null,
+} as const;

@@ -2,19 +2,32 @@ import { useCallback, useState } from "react";
 import { container } from "@/app/container";
 import type { AccountFilter } from "@/application/ports";
 import type { CheckoutData } from "@/application/schemas";
-import { getAccount, getOrder, listAccounts, placeOrder, type PlacedOrder } from "@/application/use-cases";
+import {
+  getAccount,
+  getOrder,
+  listAccounts,
+  listTestimonials,
+  placeOrder,
+  type PlacedOrder,
+} from "@/application/use-cases";
 import { useAsync } from "./useAsync";
 
+const { store } = container;
+
 export function useAccounts(filter: AccountFilter) {
-  return useAsync(() => listAccounts(container, filter), JSON.stringify(filter), { keepPrevious: true });
+  return useAsync(() => listAccounts(store, filter), JSON.stringify(filter), { keepPrevious: true });
 }
 
 export function useAccount(slug: string) {
-  return useAsync(() => getAccount(container, slug), slug);
+  return useAsync(() => getAccount(store, slug), slug);
+}
+
+export function useTestimonials() {
+  return useAsync(() => listTestimonials(store), "testimonials");
 }
 
 export function useOrder(code: string) {
-  return useAsync(() => getOrder(container, code), code);
+  return useAsync(() => getOrder(store, code), code);
 }
 
 type PlaceOrderState = { status: "idle" } | { status: "submitting" } | { status: "error"; message: string };
@@ -25,7 +38,7 @@ export function usePlaceOrder() {
   const submit = useCallback(async (accountId: string, data: CheckoutData): Promise<PlacedOrder | null> => {
     setState({ status: "submitting" });
     try {
-      const placed = await placeOrder(container, accountId, data);
+      const placed = await placeOrder(store, accountId, data);
       setState({ status: "idle" });
       return placed;
     } catch (error) {

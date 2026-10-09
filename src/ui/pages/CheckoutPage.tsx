@@ -1,19 +1,20 @@
 import { ArrowLeft, CreditCard, Lock, Mail, QrCode } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
-import { formatCount, isPurchasable, shopTierOf, type TikTokAccount } from "@/domain/account";
+import { formatCount, isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
-import { ShopTierBadge } from "@/ui/components/account/AccountBadges";
+import { AccountBadgePill, PlatformTag } from "@/ui/components/account/AccountBadges";
 import { ChoiceCard, TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useCheckoutForm, formatWhatsapp } from "@/ui/hooks/useCheckoutForm";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccount, usePlaceOrder } from "@/ui/hooks/useStore";
+import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
 
-function OrderSummary({ account }: { account: TikTokAccount }) {
+function OrderSummary({ account }: { account: Account }) {
   return (
     <aside aria-labelledby="resumo-title" className="rounded-3xl border border-line bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
       <h2 id="resumo-title" className="font-display text-lg font-semibold text-white">
@@ -24,15 +25,18 @@ function OrderSummary({ account }: { account: TikTokAccount }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-white">{account.displayName}</p>
           <p className="truncate text-sm text-mist">
-            {account.handle} · {formatCount(account.followers)} seguidores
+            {account.handle} · {formatCount(account.followers)} {audienceLabel(account).toLowerCase()}
           </p>
         </div>
       </div>
-      <ShopTierBadge tier={shopTierOf(account)} className="mt-4" />
+      <div className="mt-4 flex flex-wrap gap-2">
+        <PlatformTag platform={account.platform} />
+        <AccountBadgePill badge={accountBadge(account)} />
+      </div>
 
       <dl className="mt-6 space-y-3 border-t border-line pt-5 text-sm">
         <div className="flex justify-between text-mist">
-          <dt>Conta TikTok</dt>
+          <dt>Conta</dt>
           <dd className="tabular-nums">{formatBRL(account.price)}</dd>
         </div>
         <div className="flex justify-between text-mist">
@@ -53,7 +57,7 @@ function OrderSummary({ account }: { account: TikTokAccount }) {
   );
 }
 
-function CheckoutForm({ account }: { account: TikTokAccount }) {
+function CheckoutForm({ account }: { account: Account }) {
   const navigate = useNavigate();
   const placeOrder = usePlaceOrder();
   const submitting = placeOrder.state.status === "submitting";
@@ -195,7 +199,7 @@ function CheckoutForm({ account }: { account: TikTokAccount }) {
   );
 }
 
-function CheckoutContent({ account }: { account: TikTokAccount }) {
+function CheckoutContent({ account }: { account: Account }) {
   useDocumentMeta(`Checkout ${account.handle}`);
   if (!isPurchasable(account)) {
     return (

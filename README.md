@@ -1,50 +1,60 @@
 # Jota Digitais
 
-Loja de contas de TikTok com a Central de Criadores do TikTok Shop já liberada.
+Loja de contas de TikTok, Instagram, YouTube e Facebook, com painel para o Jota cadastrar o estoque,
+publicar depoimentos e acompanhar pedidos.
 
 ## Rodar
 
 ```bash
 npm install
-cp .env.example .env   # opcional: número do WhatsApp de suporte
-npm run dev            # http://localhost:5210
+cp .env.example .env   # WhatsApp de suporte e, quando houver, as chaves do Supabase
+npm run dev            # http://localhost:5210  (painel em /admin)
 npm run build          # typecheck + build de produção
+npm run db:test        # testa as migrations do banco num Postgres em memória
 ```
+
+Sem as chaves do Supabase o projeto roda em **modo demonstração**, com os dados no navegador.
+Para ligar o banco de verdade, siga [docs/sistema.md](docs/sistema.md).
 
 ## Stack
 
 React 19 + TypeScript strict + Vite + Tailwind CSS 4 + Framer Motion + React Router + zod.
+Backend no Supabase (Postgres com RLS, Auth e Storage).
 
 ## Estrutura
 
 ```
 src/
-  domain/          entidades e regras (conta, pedido, dinheiro, erros)
-  application/     portas (interfaces), validação do checkout e casos de uso
-  infrastructure/  implementações das portas (estoque em memória, pedidos no localStorage, pagamento pendente)
-  app/             container de dependências, config e rotas
-  ui/              componentes, hooks, seções da home e páginas
+  domain/          entidades e regras (conta por rede social, depoimento, pedido, erros)
+  application/     portas (interfaces), schemas zod, casos de uso da loja e do painel
+  infrastructure/  supabase/ (produção), demo/ (navegador) e pagamento pendente
+  app/             container (escolhe Supabase ou demo pelas variáveis), config e rotas
+  ui/              loja (páginas, seções, componentes) e admin/ (painel)
+supabase/
+  migrations/      tabelas, RLS, funções de pedido e bucket de imagens
+scripts/
+  db-test.mjs      testes do banco
 ```
 
-As páginas só falam com os casos de uso pelos hooks em `ui/hooks/useStore.ts`. Trocar o
-backend é trocar a implementação em `app/container.ts`.
+As telas só falam com os casos de uso. Trocar o backend é trocar a implementação em `app/container.ts`.
 
 ## Páginas
 
 - `/` home (hero, problema, contas em destaque, como funciona, resultados, garantia, dúvidas)
-- `/contas` vitrine com busca, filtro por nicho e faixa de seguidores, ordenação (estado na URL)
-- `/contas/:slug` detalhe da conta
-- `/checkout/:slug` dados do comprador + forma de pagamento
+- `/contas` vitrine com busca, filtro por rede social e faixa de seguidores, ordenação (estado na URL)
+- `/contas/:slug` detalhe da conta, com ficha técnica própria de cada rede
+- `/checkout/:slug` dados do comprador + forma de pagamento (reserva a conta por 2 horas)
 - `/pedido/:code` confirmação do pedido
 - `/termos` termos de compra e garantia
+- `/admin` painel: contas, depoimentos e pedidos (login obrigatório)
 
 ## O que ainda é provisório
 
 | Item | Hoje | Próximo passo |
 |---|---|---|
-| Estoque | `infrastructure/seed/accounts.ts`, perfis e preços fictícios | Tabela no Supabase + painel para cadastrar contas |
-| Pagamento | `PendingPaymentGateway` registra o pedido sem cobrar | Implementar `PaymentGateway` com o gateway escolhido (Pix + cartão 12x) e webhook de confirmação |
-| Entrega por e-mail | Só o texto da tela de confirmação | Enviar login/senha após o webhook de pagamento, via serviço de e-mail transacional |
-| Pedidos | `localStorage` do navegador | Tabela de pedidos com RLS |
+| Banco | Pronto nas migrations, projeto Supabase ainda não criado | Criar o projeto e seguir `docs/sistema.md` |
+| Pagamento | `PendingPaymentGateway` registra o pedido sem cobrar; o Jota confirma no painel | Gateway real (Pix + cartão 12x) com webhook de confirmação |
+| Entrega por e-mail | Só o texto da tela de confirmação | E-mail transacional após a confirmação do pagamento |
 | Garantia | 7 dias, troca ou reembolso (texto provisório) | Confirmar a política real com o cliente |
+| Copy da home | Ainda fala só de TikTok Shop | Ajustar se a oferta principal passar a ser multirrede |
 | Logo | Recriado em código a partir do Canva | Substituir pelo arquivo oficial se existir |

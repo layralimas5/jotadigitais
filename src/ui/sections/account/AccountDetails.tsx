@@ -1,45 +1,8 @@
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  FULL_SHOP_MIN_FOLLOWERS,
-  followersToFullShop,
-  shopTierOf,
-  type TikTokAccount,
-} from "@/domain/account";
+import type { Account } from "@/domain/account";
+import { descriptionOf, includedOf, specsOf } from "@/ui/lib/account-presenter";
 import { STEPS } from "@/ui/sections/home/HowItWorks";
-
-const INCLUDED = [
-  "Central de Criadores do TikTok Shop ativa",
-  "Seguidores reais e brasileiros",
-  "Sem documentos vinculados",
-  "Troca livre de nome, @ e foto",
-  "Login e senha entregues por e-mail",
-] as const;
-
-const number = new Intl.NumberFormat("pt-BR");
-const ratio = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
-const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" });
-
-function shopStatus(account: TikTokAccount): string {
-  if (shopTierOf(account) === "full") return "Ativo, com todos os produtos liberados";
-  return `Piloto (completo a partir de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores, faltam ${number.format(followersToFullShop(account))})`;
-}
-
-function specsOf(account: TikTokAccount): { label: string; value: string }[] {
-  return [
-    { label: "Nicho atual", value: account.niche },
-    { label: "Seguidores", value: number.format(account.followers) },
-    { label: "Curtidas", value: number.format(account.likes) },
-    { label: "Seguindo", value: number.format(account.following) },
-    { label: "Curtidas por seguidor", value: ratio.format(account.likes / Math.max(account.followers, 1)) },
-    { label: "TikTok Shop", value: shopStatus(account) },
-    { label: "Central de Criadores", value: "Ativa" },
-    { label: "Origem dos seguidores", value: "Brasil" },
-    { label: "Documentos vinculados", value: "Nenhum" },
-    { label: "Troca de nome, @ e foto", value: "Liberada" },
-    { label: "Anunciada em", value: date.format(new Date(account.listedAt)) },
-  ];
-}
 
 function DetailBlock({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -52,30 +15,24 @@ function DetailBlock({ id, title, children }: { id: string; title: string; child
   );
 }
 
-export function AccountDescription({ account }: { account: TikTokAccount }) {
-  const pilot = shopTierOf(account) === "pilot";
+export function AccountDescription({ account }: { account: Account }) {
   return (
     <DetailBlock id="sobre-title" title="Sobre esta conta">
-      <div className="space-y-4 text-base leading-relaxed text-fog">
-        <p>
-          Conta de {account.niche.toLowerCase()} com {number.format(account.followers)} seguidores reais e brasileiros e{" "}
-          {number.format(account.likes)} curtidas. A Central de Criadores do TikTok Shop já está ativa: depois da compra
-          você troca nome, @ e foto e começa a afiliar produtos na vitrine.
-        </p>
-        <p>
-          {pilot
-            ? `O Shop está em modo piloto, como em toda conta com menos de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores. Funciona normalmente; alguns produtos liberam conforme a conta cresce.`
-            : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação."}
-        </p>
-        <p className="text-mist">
-          O nicho é só o conteúdo de hoje. Você pode mudar o tipo de vídeo e vender produtos de qualquer categoria.
-        </p>
+      <div className="space-y-4 text-base leading-relaxed whitespace-pre-line text-fog">
+        {descriptionOf(account).map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+        {account.niche && (
+          <p className="text-mist">
+            O nicho é só o conteúdo de hoje. Você pode mudar o tipo de publicação e o público que quer atingir.
+          </p>
+        )}
       </div>
     </DetailBlock>
   );
 }
 
-export function AccountSpecs({ account }: { account: TikTokAccount }) {
+export function AccountSpecs({ account }: { account: Account }) {
   return (
     <DetailBlock id="ficha-title" title="Ficha técnica">
       <dl className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface/60">
@@ -90,11 +47,11 @@ export function AccountSpecs({ account }: { account: TikTokAccount }) {
   );
 }
 
-export function AccountIncluded() {
+export function AccountIncluded({ account }: { account: Account }) {
   return (
     <DetailBlock id="incluso-title" title="O que está incluso">
       <ul className="space-y-3">
-        {INCLUDED.map((item) => (
+        {includedOf(account).map((item) => (
           <li key={item} className="flex items-center gap-3 text-sm text-fog">
             <span className="grid size-5 shrink-0 place-items-center rounded-full bg-electric/15 text-electric">
               <Check aria-hidden className="size-3" strokeWidth={3} />

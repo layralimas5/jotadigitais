@@ -1,13 +1,13 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { siteConfig } from "@/app/config";
-import type { TikTokAccount } from "@/domain/account";
+import type { Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink } from "@/ui/components/Button";
 import { cn } from "@/ui/lib/cn";
 
 interface MobileBuyBarProps {
-  account: TikTokAccount;
+  account: Account;
   visible: boolean;
 }
 

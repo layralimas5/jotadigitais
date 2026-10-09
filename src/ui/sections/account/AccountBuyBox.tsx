@@ -1,30 +1,36 @@
 import { CreditCard, LifeBuoy, Mail, MessageCircle, QrCode, ShieldCheck } from "lucide-react";
 import type { Ref } from "react";
 import { siteConfig } from "@/app/config";
-import { isPurchasable, type TikTokAccount } from "@/domain/account";
+import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink, buttonClasses } from "@/ui/components/Button";
+import { guaranteeText } from "@/ui/lib/account-presenter";
 
-const PERKS = [
-  {
-    icon: Mail,
-    title: "Entrega por e-mail",
-    text: "Login, senha e passo a passo logo após a confirmação do pagamento.",
-  },
-  {
-    icon: ShieldCheck,
-    title: `${siteConfig.guaranteeDays} dias de garantia`,
-    text: "Shop inativo na entrega? Você recebe outra conta ou o dinheiro de volta.",
-  },
-  {
-    icon: LifeBuoy,
-    title: "Suporte na troca",
-    text: "Ajudamos a trocar nome, @, foto e a fazer a primeira afiliação.",
-  },
-] as const;
+function perksOf(account: Account) {
+  return [
+    {
+      icon: Mail,
+      title: "Entrega por e-mail",
+      text: "Login, senha e passo a passo logo após a confirmação do pagamento.",
+    },
+    {
+      icon: ShieldCheck,
+      title: `${siteConfig.guaranteeDays} dias de garantia`,
+      text: guaranteeText(account),
+    },
+    {
+      icon: LifeBuoy,
+      title: "Suporte na troca",
+      text:
+        account.platform === "tiktok"
+          ? "Ajudamos a trocar nome, @, foto e a fazer a primeira afiliação."
+          : "Ajudamos a trocar nome, @, foto e a deixar a conta com a sua cara.",
+    },
+  ];
+}
 
-function Availability({ account }: { account: TikTokAccount }) {
+function Availability({ account }: { account: Account }) {
   if (isPurchasable(account)) {
     return (
       <p className="flex items-center gap-2 text-sm text-fog">
@@ -43,7 +49,7 @@ function Availability({ account }: { account: TikTokAccount }) {
   );
 }
 
-function SupportLink({ account }: { account: TikTokAccount }) {
+function SupportLink({ account }: { account: Account }) {
   const href = siteConfig.whatsappUrl
     ? `${siteConfig.whatsappUrl}?text=${encodeURIComponent(`Olá! Tenho uma dúvida sobre a conta ${account.handle}.`)}`
     : siteConfig.instagramUrl;
@@ -61,7 +67,7 @@ function SupportLink({ account }: { account: TikTokAccount }) {
 }
 
 interface AccountBuyBoxProps {
-  account: TikTokAccount;
+  account: Account;
   ctaRef?: Ref<HTMLDivElement>;
 }
 
@@ -101,7 +107,7 @@ export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
       </div>
 
       <ul className="mt-6 space-y-4 border-t border-line pt-6">
-        {PERKS.map(({ icon: Icon, title, text }) => (
+        {perksOf(account).map(({ icon: Icon, title, text }) => (
           <li key={title} className="flex gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-electric/10 text-electric">
               <Icon aria-hidden className="size-4" />

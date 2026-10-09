@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import type { TikTokAccount } from "@/domain/account";
+import type { Account } from "@/domain/account";
 import { ButtonLink } from "@/ui/components/Button";
 import { AccountCard } from "@/ui/components/account/AccountCard";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
@@ -7,15 +7,15 @@ import { useAccounts } from "@/ui/hooks/useStore";
 
 const RELATED_COUNT = 3;
 
-/** Mesmo nicho primeiro, depois as mais recentes. */
-function pickRelated(current: TikTokAccount, accounts: TikTokAccount[]): TikTokAccount[] {
+/** Mesma rede primeiro, depois as mais recentes. */
+function pickRelated(current: Account, accounts: Account[]): Account[] {
   const others = accounts.filter((account) => account.id !== current.id);
-  const sameNiche = others.filter((account) => account.niche === current.niche);
-  const rest = others.filter((account) => account.niche !== current.niche);
-  return [...sameNiche, ...rest].slice(0, RELATED_COUNT);
+  const samePlatform = others.filter((account) => account.platform === current.platform);
+  const rest = others.filter((account) => account.platform !== current.platform);
+  return [...samePlatform, ...rest].slice(0, RELATED_COUNT);
 }
 
-export function RelatedAccounts({ account }: { account: TikTokAccount }) {
+export function RelatedAccounts({ account }: { account: Account }) {
   const accounts = useAccounts({ onlyAvailable: true, sort: "recent" });
   if (accounts.status !== "success") return null;
 

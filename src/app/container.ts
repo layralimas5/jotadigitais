@@ -1,11 +1,61 @@
+import { createClient } from "@supabase/supabase-js";
+import type { AdminDeps } from "@/application/admin-use-cases";
 import type { UseCaseDeps } from "@/application/use-cases";
-import { InMemoryAccountRepository } from "@/infrastructure/in-memory-account-repository";
-import { LocalStorageOrderRepository } from "@/infrastructure/local-storage-order-repository";
+import { DemoDatabase } from "@/infrastructure/demo/demo-database";
+import {
+  DemoAccountRepository,
+  DemoOrderRepository,
+  DemoTestimonialRepository,
+} from "@/infrastructure/demo/demo-repositories";
+import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
-import { SEED_ACCOUNTS } from "@/infrastructure/seed/accounts";
+import {
+  SupabaseAccountRepository,
+  SupabaseOrderRepository,
+  SupabaseTestimonialRepository,
+} from "@/infrastructure/supabase/supabase-repositories";
+import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
+import { backendConfig } from "./config";
 
-export const container: UseCaseDeps = {
-  accounts: new InMemoryAccountRepository(SEED_ACCOUNTS),
-  orders: new LocalStorageOrderRepository(),
-  payments: new PendingPaymentGateway(),
-};
+export type BackendMode = "supabase" | "demo";
+
+interface Container {
+  mode: BackendMode;
+  store: UseCaseDeps;
+  admin: AdminDeps;
+}
+
+function supabaseContainer(url: string, anonKey: string): Container {
+  const client = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+  const accounts = new SupabaseAccountRepository(client);
+  const testimonials = new SupabaseTestimonialRepository(client);
+  const orders = new SupabaseOrderRepository(client);
+  return {
+    mode: "supabase",
+    store: { accounts, testimonials, orders, payments: new PendingPaymentGateway() },
+    admin: {
+      auth: new SupabaseAuthService(client),
+      accounts,
+      testimonials,
+      orders,
+      images: new SupabaseImageStorage(client),
+    },
+  };
+}
+
+/** Sem Supabase configurado, site e painel rodam com dados guardados no próprio navegador. */
+function demoContainer(): Container {
+  const db = new DemoDatabase();
+  const accounts = new DemoAccountRepository(db);
+  const testimonials = new DemoTestimonialRepository(db);
+  const orders = new DemoOrderRepository(db);
+  return {
+    mode: "demo",
+    store: { accounts, testimonials, orders, payments: new PendingPaymentGateway() },
+    admin: { auth: new DemoAuthService(), accounts, testimonials, orders, images: new DemoImageStorage() },
+  };
+}
+
+export const container: Container = backendConfig.supabase
+  ? supabaseContainer(backendConfig.supabase.url, backendConfig.supabase.anonKey)
+  : demoContainer();

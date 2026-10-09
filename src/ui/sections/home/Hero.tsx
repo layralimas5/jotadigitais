@@ -1,20 +1,20 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Mail, ShieldCheck, Wallet } from "lucide-react";
 import { ButtonLink } from "@/ui/components/Button";
-import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
+import { PhoneProfile, type ProfilePreview } from "@/ui/components/account/PhoneProfile";
 import { Backdrop } from "@/ui/components/layout/Backdrop";
 import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
 
-const HERO_PREVIEW = {
+const HERO_PREVIEW: ProfilePreview = {
   id: "hero-preview",
+  platform: "tiktok",
   displayName: "Sua Loja Aqui",
   handle: "@sualoja.aqui",
   followers: 1259,
-  likes: 2123,
-  following: 0,
+  stats: { likes: 2123, following: 0 },
 };
 
 const PROOF_POINTS = [

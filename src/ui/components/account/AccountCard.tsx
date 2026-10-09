@@ -1,21 +1,16 @@
-import { ArrowRight, Heart } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import {
-  formatCount,
-  isNewListing,
-  isPurchasable,
-  shopTierOf,
-  type TikTokAccount,
-} from "@/domain/account";
+import { formatCount, isNewListing, isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
+import { accountBadge, audienceLabel, cardMetric, verifiedLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
-import { TikTokGlyph } from "../TikTokGlyph";
+import { PlatformGlyph } from "../PlatformGlyph";
 import { VerifiedBadge } from "../VerifiedBadge";
 import { AccountAvatar, gradientFor } from "./AccountAvatar";
-import { NicheTag, ShopTierBadge, StatusBadge } from "./AccountBadges";
+import { AccountBadgePill, PlatformTag, StatusBadge } from "./AccountBadges";
 
-function CardCover({ account }: { account: TikTokAccount }) {
+function CardCover({ account }: { account: Account }) {
   const available = isPurchasable(account);
   return (
     <div aria-hidden className="relative h-[4.5rem] overflow-hidden sm:h-24">
@@ -27,9 +22,12 @@ function CardCover({ account }: { account: TikTokAccount }) {
       />
       <div className="absolute inset-0 bg-grid opacity-60" />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface" />
-      <TikTokGlyph className="absolute -right-3 -bottom-6 size-20 text-white/[0.06] sm:size-28 transition-transform duration-500 group-hover:-rotate-6" />
+      <PlatformGlyph
+        platform={account.platform}
+        className="absolute -right-3 -bottom-6 size-20 text-white/[0.06] transition-transform duration-500 group-hover:-rotate-6 sm:size-28"
+      />
       <div className="absolute top-3 right-3 left-3 flex items-center justify-between sm:top-4 sm:right-4 sm:left-4">
-        <NicheTag niche={account.niche} />
+        <PlatformTag platform={account.platform} />
         {available && isNewListing(account) ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[0.7rem] font-semibold text-ink">
             <span className="relative flex size-1.5">
@@ -46,8 +44,10 @@ function CardCover({ account }: { account: TikTokAccount }) {
   );
 }
 
-export function AccountCard({ account }: { account: TikTokAccount }) {
+export function AccountCard({ account }: { account: Account }) {
   const available = isPurchasable(account);
+  const badge = accountBadge(account);
+  const metric = cardMetric(account);
   return (
     <article
       className={cn(
@@ -75,34 +75,31 @@ export function AccountCard({ account }: { account: TikTokAccount }) {
                 >
                   {account.displayName}
                 </Link>
-                {available && <VerifiedBadge className="size-4" label="Central de Criadores ativa" />}
+                {available && <VerifiedBadge className="size-4" label={verifiedLabel(account)} />}
               </h3>
               <p className="truncate text-sm text-mist">{account.handle}</p>
             </div>
           </div>
 
-          {/* No mobile o selo do Shop sobe para esta linha e o card perde uma faixa inteira de altura. */}
+          {/* No mobile o selo sobe para esta linha e o card perde uma faixa inteira de altura. */}
           <div className="mt-4 flex items-end justify-between gap-4 sm:mt-6">
             <dl>
-              <dt className="text-[0.7rem] text-mist">Seguidores</dt>
+              <dt className="text-[0.7rem] text-mist">{audienceLabel(account)}</dt>
               <dd className="font-display text-2xl font-bold tracking-tight text-white tabular-nums sm:text-3xl">
                 {formatCount(account.followers)}
               </dd>
             </dl>
             <div className="flex flex-col items-end gap-2 text-right">
-              <ShopTierBadge tier={shopTierOf(account)} className="sm:hidden" />
-              <dl>
-                <dt className="sr-only">Curtidas</dt>
-                <dd className="flex items-center gap-1.5 text-sm font-medium text-fog tabular-nums">
-                  <Heart aria-hidden className="size-3.5 text-pink" />
-                  {formatCount(account.likes)} curtidas
-                </dd>
-              </dl>
+              <AccountBadgePill badge={badge} className="sm:hidden" />
+              <p className="flex items-center gap-1.5 text-sm font-medium text-fog tabular-nums">
+                <metric.icon aria-hidden className="size-3.5 text-pink" />
+                {metric.text}
+              </p>
             </div>
           </div>
 
           <div className="mt-4 max-sm:hidden">
-            <ShopTierBadge tier={shopTierOf(account)} />
+            <AccountBadgePill badge={badge} />
           </div>
 
           <div className="mt-4 flex items-end justify-between gap-3 border-t border-line pt-4 sm:mt-6 sm:pt-5">
