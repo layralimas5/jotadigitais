@@ -27,7 +27,6 @@ interface Screenshot {
   height: number;
   tone: Tone;
   fadeClassName: string;
-  caption: string;
 }
 
 const REJECTED: Screenshot = {
@@ -37,7 +36,6 @@ const REJECTED: Screenshot = {
   height: 560,
   tone: "alert",
   fadeClassName: "from-white",
-  caption: "Pedido recusado",
 };
 
 const APPROVED: Screenshot = {
@@ -47,7 +45,6 @@ const APPROVED: Screenshot = {
   height: 880,
   tone: "electric",
   fadeClassName: "from-[#121212]",
-  caption: "Shop liberado",
 };
 
 /** Print real do app, recortado no topo com um esmaecido embaixo para parecer cortado. */
@@ -91,23 +88,6 @@ function ToneMark({ tone }: { tone: Tone }) {
   );
 }
 
-/** No mobile os dois prints ficam lado a lado, como um antes e depois, e os cards levam só a lista. */
-function ScreenshotPair() {
-  return (
-    <RevealItem className="grid grid-cols-2 gap-3 md:hidden">
-      {[REJECTED, APPROVED].map((shot) => (
-        <figure key={shot.src}>
-          <ScreenshotCrop shot={shot} className="aspect-[6/5]" />
-          <figcaption className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-fog">
-            <ToneMark tone={shot.tone} />
-            {shot.caption}
-          </figcaption>
-        </figure>
-      ))}
-    </RevealItem>
-  );
-}
-
 function ChecklistItems({ items, tone }: { items: readonly string[]; tone: Tone }) {
   return (
     <ul className="mt-4 space-y-2.5 md:mt-7 md:space-y-3.5">
@@ -121,7 +101,8 @@ function ChecklistItems({ items, tone }: { items: readonly string[]; tone: Tone 
   );
 }
 
-const desktopShot = "mx-auto mt-6 aspect-[9/7] w-full max-w-[17rem] max-md:hidden";
+/** Cada print fica dentro do card que ele ilustra, em qualquer tela. */
+const shotClassName = "mx-auto mt-4 aspect-[9/7] w-full max-w-[15rem] md:mt-6 md:max-w-[17rem]";
 
 export function ProblemSection() {
   return (
@@ -139,11 +120,9 @@ export function ProblemSection() {
         />
 
         <Reveal stagger className="mt-8 grid gap-3 md:mt-14 md:grid-cols-2 md:gap-5">
-          <ScreenshotPair />
-
-          <RevealItem className="mt-2 rounded-3xl border border-line bg-surface/60 p-5 md:mt-0 md:p-9">
+          <RevealItem className="rounded-3xl border border-line bg-surface/60 p-5 md:p-9">
             <p className="text-sm font-semibold text-mist">Criando sua própria conta</p>
-            <ScreenshotCrop shot={REJECTED} className={desktopShot} />
+            <ScreenshotCrop shot={REJECTED} className={shotClassName} />
             <ChecklistItems items={FROM_SCRATCH} tone="alert" />
           </RevealItem>
 
@@ -152,7 +131,7 @@ export function ProblemSection() {
               <p className="flex items-center gap-2 text-sm font-semibold text-white">
                 <VerifiedBadge className="size-5" /> Com uma conta Jota Digitais
               </p>
-              <ScreenshotCrop shot={APPROVED} className={desktopShot} />
+              <ScreenshotCrop shot={APPROVED} className={shotClassName} />
               <ChecklistItems items={WITH_JOTA} tone="electric" />
             </div>
           </RevealItem>

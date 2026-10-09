@@ -125,19 +125,19 @@ export function Hero() {
           </motion.ul>
         </motion.div>
 
-        <div className="relative mx-auto">
+        {/* No celular o mockup sai: título, frase e botão cabem na primeira tela. */}
+        <div className="relative mx-auto max-sm:hidden">
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 40, rotate: -4 }}
             animate={{ opacity: 1, y: 0, rotate: -3 }}
             transition={{ duration: 0.9, delay: 0.15, ease: EASE_OUT_EXPO }}
-            className="max-sm:[zoom:0.8]"
           >
             <PhoneProfile account={HERO_PREVIEW} />
           </motion.div>
 
           <FloatingChip
             delay={0.6}
-            positionClassName="-top-3 -left-7 sm:top-[38%] sm:-left-28"
+            positionClassName="top-[38%] -left-28"
             className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-surface/90 px-3.5 py-2.5 shadow-2xl shadow-black/50 backdrop-blur"
           >
             <VerifiedBadge className="size-7" />
@@ -150,7 +150,7 @@ export function Hero() {
           <FloatingChip
             delay={0.8}
             floatOffset={FLOAT_DURATION_S / 2}
-            positionClassName="-right-6 -bottom-5 sm:-right-20 sm:-bottom-6"
+            positionClassName="-right-20 -bottom-6"
             className="rounded-2xl border border-white/10 bg-surface/90 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur"
           >
             <p className="text-[0.68rem] text-mist">Pedidos recusados pelo TikTok</p>
