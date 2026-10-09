@@ -76,14 +76,17 @@ function SiteLink({ className }: { className?: string }) {
   );
 }
 
-function Brand() {
+/** Na barra lateral o nome "Sistema" fica embaixo do logo; no topo do celular, ao lado. */
+function Brand({ stacked = false }: { stacked?: boolean }) {
   return (
-    <div className="flex items-center gap-3">
-      <Link to="/admin/contas" aria-label="Sistema, início" className="rounded-md">
-        <Logo />
-      </Link>
-      <span className="rounded-full border border-line-strong px-2.5 py-0.5 text-[0.7rem] font-semibold text-fog">Sistema</span>
-    </div>
+    <Link
+      to="/admin/contas"
+      aria-label="Sistema Jota Digitais, início"
+      className={cn("flex rounded-md", stacked ? "flex-col items-start gap-2" : "items-center gap-3")}
+    >
+      <Logo />
+      <span className="font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase">Sistema</span>
+    </Link>
   );
 }
 
@@ -92,8 +95,8 @@ function Sidebar({ email }: { email: string }) {
   const reduceMotion = useReducedMotion();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
-      <div className="flex h-16 items-center border-b border-line px-5">
-        <Brand />
+      <div className="border-b border-line px-5 py-5">
+        <Brand stacked />
       </div>
       <nav aria-label="Sistema" className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
