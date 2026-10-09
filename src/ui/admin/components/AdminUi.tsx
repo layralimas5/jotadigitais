@@ -1,6 +1,6 @@
-import { CheckCircle2, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 export function PageHeader({ title, description, action }: { title: string; description?: ReactNode; action?: ReactNode }) {
   return (
@@ -24,43 +24,24 @@ export function FormSection({ title, description, children }: { title: string; d
   );
 }
 
-interface FlashState {
-  flash?: string;
+/** Botão "+" no alcance do polegar, acima da barra de navegação. Só no celular. */
+export function Fab({ to, label }: { to: string; label: string }) {
+  return (
+    <Link
+      to={to}
+      aria-label={label}
+      className="fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 grid size-14 place-items-center rounded-full bg-electric text-ink shadow-[0_12px_40px_-8px_rgb(39_153_255/0.8)] transition-transform active:scale-90 md:hidden"
+    >
+      <Plus aria-hidden className="size-6" strokeWidth={2.5} />
+    </Link>
+  );
 }
 
-/** Mensagem de sucesso que chega pela navegação (ex.: "Conta salva") e some sozinha. */
-export function FlashNotice() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const incoming = (location.state as FlashState | null)?.flash;
-  const [text, setText] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!incoming) return;
-    setText(incoming);
-    // Limpa do histórico para a mensagem não voltar ao recarregar ou navegar de volta.
-    navigate(location.pathname + location.search, { replace: true, state: null });
-  }, [incoming, navigate, location.pathname, location.search]);
-
-  useEffect(() => {
-    if (!text) return;
-    const timer = setTimeout(() => setText(null), 5000);
-    return () => clearTimeout(timer);
-  }, [text]);
-
-  if (!text) return null;
+/** Barra fixa no rodapé do celular para a ação principal da tela (ex.: Salvar). */
+export function MobileActionBar({ children }: { children: ReactNode }) {
   return (
-    <div
-      role="status"
-      className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200"
-    >
-      <span className="flex items-center gap-2">
-        <CheckCircle2 aria-hidden className="size-4" />
-        {text}
-      </span>
-      <button type="button" onClick={() => setText(null)} aria-label="Fechar aviso" className="rounded-full p-1 hover:bg-white/10">
-        <X aria-hidden className="size-4" />
-      </button>
+    <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-line bg-black/90 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden">
+      {children}
     </div>
   );
 }

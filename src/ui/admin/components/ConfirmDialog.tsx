@@ -27,7 +27,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, pending,
       ref={ref}
       onClose={onClose}
       aria-labelledby="confirm-title"
-      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-3xl border border-line-strong bg-surface p-6 text-white backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(26rem,calc(100vw-2rem))] rounded-3xl border border-line-strong bg-surface p-6 text-white backdrop:bg-black/70 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-sm:open:animate-[sheet-up_0.25s_var(--ease-out-expo)]"
     >
       <h2 id="confirm-title" className="font-display text-lg font-semibold">
         {title}

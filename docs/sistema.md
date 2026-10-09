@@ -21,8 +21,9 @@ Tudo o que ele salva aparece no site na hora.
 ## Modo demonstração
 
 Sem `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`, site e painel rodam com dados no `localStorage` do navegador
-(estoque fictício nas quatro redes). O login aceita qualquer e-mail e senha. Serve para mostrar e testar, não
-para produção: cada navegador tem os próprios dados.
+(estoque fictício nas quatro redes). O painel abre direto, sem login, e o menu do site mostra o botão
+"Sistema". Serve para mostrar e testar, não para produção: cada navegador tem os próprios dados.
+Com o Supabase ligado, o botão some do site e o painel volta a exigir login.
 
 ## Ligar o Supabase (uma vez)
 

@@ -10,7 +10,7 @@ import { AccountCard } from "@/ui/components/account/AccountCard";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, SelectField, TextAreaField, ToggleField } from "../components/FormControls";
 import { GalleryField } from "../components/ImageUpload";
@@ -24,6 +24,7 @@ import {
   type AccountFormValues,
 } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
+import { useToast } from "../toast";
 
 const STATUS_OPTIONS = ACCOUNT_STATUSES.map((value) => ({ value, label: ACCOUNT_STATUS_LABEL[value] }));
 const PLATFORM_OPTIONS = PLATFORMS.map((value) => ({
@@ -169,6 +170,7 @@ function focusFirstError(form: HTMLFormElement, errors: AccountFormErrors) {
 
 function AccountEditor({ account }: { account: Account | null }) {
   const navigate = useNavigate();
+  const toast = useToast();
   const form = useAccountForm(account ? fromAccount(account) : emptyAccountForm());
   const { values, errors, set } = form;
   const save = useMutation((deps, data: AccountData) => saveAccount(deps, account?.id ?? null, data));
@@ -184,16 +186,24 @@ function AccountEditor({ account }: { account: Account | null }) {
     const result = form.validate();
     if (!result.data) {
       focusFirstError(formElement, result.errors);
+      toast.show("Revise os campos marcados em vermelho.", "error");
       return;
     }
     const saved = await save.run(result.data);
-    if (saved) navigate("/admin/contas", { state: { flash: `Conta ${saved.handle} salva. Já aparece no site.` } });
+    if (!saved) {
+      toast.show("Não foi possível salvar. Veja o aviso no formulário.", "error");
+      return;
+    }
+    toast.show(`Conta ${saved.handle} salva. Já aparece no site.`);
+    navigate("/admin/contas");
   };
 
   const onDelete = async () => {
     if (!account) return;
     const removed = await remove.run(account.id);
-    if (removed) navigate("/admin/contas", { state: { flash: `Conta ${account.handle} apagada.` } });
+    if (!removed) return;
+    toast.show(`Conta ${account.handle} apagada.`);
+    navigate("/admin/contas");
   };
 
   return (
@@ -290,7 +300,7 @@ function AccountEditor({ account }: { account: Account | null }) {
           <LivePreview values={values} accountId={account?.id ?? "preview"} />
           {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
           {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full" disabled={save.pending}>
+          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
             {save.pending ? "Salvando…" : account ? "Salvar alterações" : "Cadastrar conta"}
           </Button>
           {account && (
@@ -300,6 +310,15 @@ function AccountEditor({ account }: { account: Account | null }) {
           )}
           {remove.error && <InlineError message={remove.error.message} />}
         </aside>
+
+        <MobileActionBar>
+          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/contas")}>
+            Voltar
+          </Button>
+          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
+            {save.pending ? "Salvando…" : account ? "Salvar" : "Cadastrar conta"}
+          </Button>
+        </MobileActionBar>
       </form>
 
       {account && (

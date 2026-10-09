@@ -1,7 +1,6 @@
 import { Lock } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { container } from "@/app/container";
 import { signIn } from "@/application/admin-use-cases";
 import { ValidationError } from "@/application/schemas";
 import { Button } from "@/ui/components/Button";
@@ -75,11 +74,6 @@ export default function LoginPage() {
             </Button>
           </form>
         </div>
-        {container.mode === "demo" && (
-          <p className="mt-4 text-center text-xs leading-relaxed text-pink">
-            Modo demonstração: qualquer e-mail e senha (6+ caracteres) entram. Conecte o Supabase para ativar o login real.
-          </p>
-        )}
       </div>
     </main>
   );

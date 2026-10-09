@@ -1,8 +1,8 @@
-import { ExternalLink, Plus, Search } from "lucide-react";
+import { ChevronDown, ExternalLink, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { normalizeSearch } from "@/application/catalog";
-import { listAllAccounts } from "@/application/admin-use-cases";
+import { listAllAccounts, saveAccount } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, formatCount, type Account, type AccountStatus } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { PLATFORMS, PLATFORM_LABEL, type Platform } from "@/domain/platform";
@@ -12,8 +12,9 @@ import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { ACCOUNT_STATUS_LABEL, audienceLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
-import { FlashNotice, LoadingBlock, PageHeader } from "../components/AdminUi";
-import { useAdminQuery } from "../hooks";
+import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { useAdminQuery, useMutation } from "../hooks";
+import { useToast } from "../toast";
 
 const statusTone: Record<AccountStatus, string> = {
   available: "bg-emerald-400/10 text-emerald-300 border-emerald-400/30",
@@ -21,11 +22,27 @@ const statusTone: Record<AccountStatus, string> = {
   sold: "bg-white/[0.05] text-mist border-white/15",
 };
 
-function StatusPill({ status }: { status: AccountStatus }) {
+type StatusChange = (account: Account, status: AccountStatus) => void;
+
+/** Troca rápida de status sem abrir o cadastro. No celular abre o seletor nativo do sistema. */
+function StatusSelect({ account, onChange, disabled }: { account: Account; onChange: StatusChange; disabled: boolean }) {
   return (
-    <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", statusTone[status])}>
-      {ACCOUNT_STATUS_LABEL[status]}
-    </span>
+    <label className={cn("relative z-10 inline-flex items-center rounded-full border text-xs font-semibold", statusTone[account.status])}>
+      <span className="sr-only">Status de {account.handle}</span>
+      <select
+        value={account.status}
+        disabled={disabled}
+        onChange={(event) => onChange(account, event.target.value as AccountStatus)}
+        className="cursor-pointer appearance-none bg-transparent py-1 pr-7 pl-3 focus:outline-none disabled:cursor-wait"
+      >
+        {ACCOUNT_STATUSES.map((option) => (
+          <option key={option} value={option} className="bg-surface text-white">
+            {ACCOUNT_STATUS_LABEL[option]}
+          </option>
+        ))}
+      </select>
+      <ChevronDown aria-hidden className="pointer-events-none absolute right-2 size-3.5" />
+    </label>
   );
 }
 
@@ -63,7 +80,13 @@ function SiteLink({ account }: { account: Account }) {
   );
 }
 
-function AccountsTable({ accounts }: { accounts: Account[] }) {
+interface ListProps {
+  accounts: Account[];
+  onStatusChange: StatusChange;
+  busy: boolean;
+}
+
+function AccountsTable({ accounts, onStatusChange, busy }: ListProps) {
   return (
     <div className="hidden overflow-hidden rounded-3xl border border-line md:block">
       <table className="w-full text-left text-sm">
@@ -86,7 +109,7 @@ function AccountsTable({ accounts }: { accounts: Account[] }) {
                 {formatCount(account.followers)} <span className="text-xs text-mist">{audienceLabel(account).toLowerCase()}</span>
               </td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(account.price)}</td>
-              <td className="px-4 py-3"><StatusPill status={account.status} /></td>
+              <td className="px-4 py-3"><StatusSelect account={account} onChange={onStatusChange} disabled={busy} /></td>
               <td className="px-4 py-3 text-right"><SiteLink account={account} /></td>
             </tr>
           ))}
@@ -96,11 +119,14 @@ function AccountsTable({ accounts }: { accounts: Account[] }) {
   );
 }
 
-function AccountsCards({ accounts }: { accounts: Account[] }) {
+function AccountsCards({ accounts, onStatusChange, busy }: ListProps) {
   return (
     <ul className="space-y-2.5 md:hidden">
       {accounts.map((account) => (
-        <li key={account.id} className="relative rounded-2xl border border-line bg-surface/60 p-4">
+        <li
+          key={account.id}
+          className="relative rounded-2xl border border-line bg-surface/60 p-4 transition-transform active:scale-[0.985] active:bg-surface"
+        >
           <div className="flex items-start justify-between gap-3">
             <AccountIdentity account={account} />
             <SiteLink account={account} />
@@ -111,7 +137,7 @@ function AccountsCards({ accounts }: { accounts: Account[] }) {
             </span>
             <span className="flex items-center gap-2">
               <span className="font-semibold text-white tabular-nums">{formatBRL(account.price)}</span>
-              <StatusPill status={account.status} />
+              <StatusSelect account={account} onChange={onStatusChange} disabled={busy} />
             </span>
           </div>
         </li>
@@ -122,6 +148,20 @@ function AccountsCards({ accounts }: { accounts: Account[] }) {
 
 export default function AccountsListPage() {
   const accounts = useAdminQuery(listAllAccounts, "admin-accounts");
+  const toast = useToast();
+  const changeStatus = useMutation((deps, account: Account, status: AccountStatus) =>
+    saveAccount(deps, account.id, { ...account, status }),
+  );
+
+  const onStatusChange: StatusChange = async (account, status) => {
+    const saved = await changeStatus.run(account, status);
+    if (!saved) {
+      toast.show("Não foi possível mudar o status.", "error");
+      return;
+    }
+    toast.show(`${saved.handle}: ${ACCOUNT_STATUS_LABEL[status].toLowerCase()}`);
+    accounts.reload();
+  };
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState<Platform | "all">("all");
   const [status, setStatus] = useState<AccountStatus | "all">("all");
@@ -142,12 +182,11 @@ export default function AccountsListPage() {
 
   return (
     <div className="space-y-6">
-      <FlashNotice />
       <PageHeader
         title="Contas"
         description={accounts.status === "success" ? `${total} cadastradas, ${available} disponíveis na vitrine.` : "Estoque da vitrine."}
         action={
-          <ButtonLink to="/admin/contas/nova" className="w-full sm:w-auto">
+          <ButtonLink to="/admin/contas/nova" className="max-md:hidden">
             <Plus aria-hidden className="size-4" /> Nova conta
           </ButtonLink>
         }
@@ -213,10 +252,11 @@ export default function AccountsListPage() {
       )}
       {visible.length > 0 && (
         <>
-          <AccountsTable accounts={visible} />
-          <AccountsCards accounts={visible} />
+          <AccountsTable accounts={visible} onStatusChange={onStatusChange} busy={changeStatus.pending} />
+          <AccountsCards accounts={visible} onStatusChange={onStatusChange} busy={changeStatus.pending} />
         </>
       )}
+      <Fab to="/admin/contas/nova" label="Nova conta" />
     </div>
   );
 }

@@ -1,16 +1,22 @@
+import { motion, useReducedMotion } from "framer-motion";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Pencil, Plus } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { listAllTestimonials, moveTestimonial, saveTestimonial } from "@/application/admin-use-cases";
 import type { Testimonial } from "@/domain/testimonial";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
-import { FlashNotice, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
+import { useToast } from "../toast";
 
 const KIND_LABEL = { result: "Resultado", delivered: "Conta entregue" } as const;
 
-function IconButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) {
+const iconButtonClass =
+  "grid size-10 place-items-center rounded-full border border-line-strong text-fog transition-[color,border-color,transform] hover:border-white/30 hover:text-white active:scale-90";
+
+function IconButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
     <button
       type="button"
@@ -18,7 +24,7 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="grid size-9 place-items-center rounded-full border border-line-strong text-fog transition-colors hover:border-white/30 hover:text-white disabled:pointer-events-none disabled:opacity-30"
+      className={cn(iconButtonClass, "disabled:pointer-events-none disabled:opacity-30")}
     >
       {children}
     </button>
@@ -27,18 +33,28 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
 
 export default function TestimonialsListPage() {
   const testimonials = useAdminQuery(listAllTestimonials, "admin-testimonials");
-  const move = useMutation(moveTestimonial);
+  const toast = useToast();
+  const reduceMotion = useReducedMotion();
+  const move = useMutation(async (deps, items: Testimonial[], id: string, direction: -1 | 1) => {
+    await moveTestimonial(deps, items, id, direction);
+    return true;
+  });
   const toggle = useMutation((deps, item: Testimonial) => saveTestimonial(deps, item.id, { ...item, published: !item.published }));
   const busy = move.pending || toggle.pending;
-  const actionError = move.error ?? toggle.error;
 
   const onMove = async (items: Testimonial[], id: string, direction: -1 | 1) => {
-    await move.run(items, id, direction);
+    const moved = await move.run(items, id, direction);
+    if (!moved) toast.show("Não foi possível mudar a ordem.", "error");
     testimonials.reload();
   };
 
   const onToggle = async (item: Testimonial) => {
-    await toggle.run(item);
+    const saved = await toggle.run(item);
+    if (!saved) {
+      toast.show("Não foi possível alterar o depoimento.", "error");
+      return;
+    }
+    toast.show(saved.published ? "Depoimento publicado no site." : "Depoimento tirado do site.");
     testimonials.reload();
   };
 
@@ -46,7 +62,6 @@ export default function TestimonialsListPage() {
 
   return (
     <div className="space-y-6">
-      <FlashNotice />
       <PageHeader
         title="Depoimentos"
         description={
@@ -55,12 +70,11 @@ export default function TestimonialsListPage() {
             : "Prints de resultados e de contas entregues."
         }
         action={
-          <ButtonLink to="/admin/depoimentos/novo" className="w-full sm:w-auto">
+          <ButtonLink to="/admin/depoimentos/novo" className="max-md:hidden">
             <Plus aria-hidden className="size-4" /> Novo depoimento
           </ButtonLink>
         }
       />
-      {actionError && <InlineError message={actionError.message} />}
 
       {testimonials.status === "loading" && <LoadingBlock />}
       {testimonials.status === "error" && <ErrorState message={testimonials.error.message} onRetry={testimonials.reload} />}
@@ -74,11 +88,18 @@ export default function TestimonialsListPage() {
       {testimonials.status === "success" && testimonials.data.length > 0 && (
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {testimonials.data.map((item, index, items) => (
-            <li
+            <motion.li
               key={item.id}
-              className={cn("flex gap-4 rounded-2xl border border-line bg-surface/60 p-3", !item.published && "opacity-60")}
+              layout={!reduceMotion}
+              transition={{ type: "spring", stiffness: 420, damping: 36 }}
+              className={cn(
+                "flex gap-4 rounded-2xl border border-line bg-surface/60 p-3 transition-opacity",
+                !item.published && "opacity-60",
+              )}
             >
-              <img src={item.imageUrl} alt="" className="h-36 w-20 shrink-0 rounded-xl bg-white object-cover object-top" />
+              <Link to={`/admin/depoimentos/${item.id}`} className="shrink-0 rounded-xl" aria-label={`Editar ${item.title}`}>
+                <img src={item.imageUrl} alt="" className="h-36 w-20 rounded-xl bg-white object-cover object-top" />
+              </Link>
               <div className="flex min-w-0 flex-1 flex-col">
                 <p className="text-[0.7rem] font-semibold tracking-wide text-electric uppercase">
                   {index + 1}. {KIND_LABEL[item.kind]}
@@ -100,20 +121,16 @@ export default function TestimonialsListPage() {
                   <IconButton label={item.published ? "Tirar do site" : "Publicar no site"} onClick={() => void onToggle(item)} disabled={busy}>
                     {item.published ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
                   </IconButton>
-                  <Link
-                    to={`/admin/depoimentos/${item.id}`}
-                    aria-label={`Editar ${item.title}`}
-                    title="Editar"
-                    className="grid size-9 place-items-center rounded-full border border-line-strong text-fog transition-colors hover:border-white/30 hover:text-white"
-                  >
+                  <Link to={`/admin/depoimentos/${item.id}`} aria-label={`Editar ${item.title}`} title="Editar" className={iconButtonClass}>
                     <Pencil aria-hidden className="size-4" />
                   </Link>
                 </div>
               </div>
-            </li>
+            </motion.li>
           ))}
         </ol>
       )}
+      <Fab to="/admin/depoimentos/novo" label="Novo depoimento" />
     </div>
   );
 }

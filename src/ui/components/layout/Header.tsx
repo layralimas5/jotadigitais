@@ -1,10 +1,14 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { LayoutDashboard, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
+import { container } from "@/app/container";
 import { cn } from "@/ui/lib/cn";
 import { ButtonLink } from "../Button";
 import { Logo } from "../Logo";
+
+/** Atalho para o painel só enquanto o banco não está ligado: em produção o Jota entra por /admin. */
+const SHOW_SYSTEM_LINK = container.mode === "demo";
 
 const NAV_ITEMS = [
   { to: "/contas", label: "Contas" },
@@ -72,6 +76,17 @@ export function Header() {
           <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem]">
             Ver contas
           </ButtonLink>
+          {SHOW_SYSTEM_LINK && (
+            <ButtonLink
+              to="/admin"
+              variant="secondary"
+              aria-label="Abrir o sistema"
+              className="max-sm:size-9 max-sm:px-0"
+            >
+              <LayoutDashboard aria-hidden className="size-4" />
+              <span className="max-sm:hidden">Sistema</span>
+            </ButtonLink>
+          )}
           <button
             type="button"
             className="-mr-2 grid size-10 place-items-center rounded-full text-white hover:bg-white/[0.06] md:hidden"
@@ -112,6 +127,13 @@ export function Header() {
                   Ver contas disponíveis
                 </ButtonLink>
               </li>
+              {SHOW_SYSTEM_LINK && (
+                <li className="pt-2">
+                  <ButtonLink to="/admin" variant="secondary" size="lg" className="w-full">
+                    <LayoutDashboard aria-hidden className="size-4" /> Abrir o sistema
+                  </ButtonLink>
+                </li>
+              )}
             </ul>
           </motion.nav>
         )}

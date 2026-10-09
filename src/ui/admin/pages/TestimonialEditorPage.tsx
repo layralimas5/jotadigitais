@@ -8,11 +8,12 @@ import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { PrintCard } from "@/ui/sections/home/Results";
-import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, TextAreaField, ToggleField } from "../components/FormControls";
 import { SingleImageField } from "../components/ImageUpload";
 import { useAdminQuery, useMutation } from "../hooks";
+import { useToast } from "../toast";
 
 const EMPTY: TestimonialData = {
   kind: "result",
@@ -29,6 +30,7 @@ const FIELD_ORDER = ["imageUrl", "title", "subtitle", "imageAlt"] as const;
 
 function TestimonialEditor({ testimonial }: { testimonial: Testimonial | null }) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [values, setValues] = useState<TestimonialData>(testimonial ?? EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -59,16 +61,24 @@ function TestimonialEditor({ testimonial }: { testimonial: Testimonial | null })
     if (!result.data) {
       const first = FIELD_ORDER.find((field) => result.errors[field]);
       if (first) formElement.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+      toast.show("Revise os campos marcados em vermelho.", "error");
       return;
     }
     const saved = await save.run(result.data);
-    if (saved) navigate("/admin/depoimentos", { state: { flash: `Depoimento "${saved.title}" salvo.` } });
+    if (!saved) {
+      toast.show("Não foi possível salvar. Veja o aviso no formulário.", "error");
+      return;
+    }
+    toast.show(`Depoimento "${saved.title}" salvo.`);
+    navigate("/admin/depoimentos");
   };
 
   const onDelete = async () => {
     if (!testimonial) return;
     const removed = await remove.run(testimonial.id);
-    if (removed) navigate("/admin/depoimentos", { state: { flash: "Depoimento apagado." } });
+    if (!removed) return;
+    toast.show("Depoimento apagado.");
+    navigate("/admin/depoimentos");
   };
 
   const preview: Testimonial | null = values.imageUrl
@@ -160,7 +170,7 @@ function TestimonialEditor({ testimonial }: { testimonial: Testimonial | null })
           )}
           {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
           {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full" disabled={save.pending}>
+          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
             {save.pending ? "Salvando…" : testimonial ? "Salvar alterações" : "Publicar depoimento"}
           </Button>
           {testimonial && (
@@ -170,6 +180,15 @@ function TestimonialEditor({ testimonial }: { testimonial: Testimonial | null })
           )}
           {remove.error && <InlineError message={remove.error.message} />}
         </aside>
+
+        <MobileActionBar>
+          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/depoimentos")}>
+            Voltar
+          </Button>
+          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
+            {save.pending ? "Salvando…" : testimonial ? "Salvar" : "Publicar depoimento"}
+          </Button>
+        </MobileActionBar>
       </form>
 
       {testimonial && (

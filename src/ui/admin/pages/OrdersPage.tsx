@@ -1,3 +1,4 @@
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Mail, MessageCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -12,6 +13,7 @@ import { cn } from "@/ui/lib/cn";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useAdminQuery, useMutation } from "../hooks";
+import { useToast } from "../toast";
 
 type Tab = "open" | "delivered" | "canceled" | "all";
 
@@ -37,6 +39,13 @@ const ACTION_LABEL: Record<OrderStatus, string> = {
 };
 
 const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
+
+const DONE_MESSAGE: Record<OrderStatus, string> = {
+  awaiting_payment: "",
+  paid: "Pagamento confirmado. A conta segue reservada.",
+  delivered: "Pedido entregue. A conta saiu da vitrine.",
+  canceled: "Pedido cancelado. A conta voltou para a vitrine.",
+};
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -66,8 +75,16 @@ interface OrderCardProps {
 function OrderCard({ order, busy, onAction }: OrderCardProps) {
   const whatsapp = whatsappLink(order);
   const actions = ORDER_TRANSITIONS[order.status];
+  const reduceMotion = useReducedMotion();
   return (
-    <li className="rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
+    <motion.li
+      layout={!reduceMotion}
+      initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduceMotion ? undefined : { opacity: 0, x: -24 }}
+      transition={{ duration: 0.25 }}
+      className="rounded-2xl border border-line bg-surface/60 p-4 sm:p-5"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-sm font-semibold text-white">{order.code}</p>
@@ -120,6 +137,7 @@ function OrderCard({ order, busy, onAction }: OrderCardProps) {
             <Button
               key={status}
               variant={status === "canceled" ? "ghost" : "primary"}
+              size="lg"
               disabled={busy}
               onClick={() => onAction(order, status)}
               className={status === "canceled" ? "text-[#ff7a7a] hover:text-[#ff9a9a]" : undefined}
@@ -129,13 +147,17 @@ function OrderCard({ order, busy, onAction }: OrderCardProps) {
           ))}
         </div>
       )}
-    </li>
+    </motion.li>
   );
 }
 
 export default function OrdersPage() {
   const orders = useAdminQuery(listOrders, "admin-orders");
-  const change = useMutation(changeOrderStatus);
+  const toast = useToast();
+  const change = useMutation(async (deps, order: Order, status: OrderStatus) => {
+    await changeOrderStatus(deps, order, status);
+    return true;
+  });
   const [tab, setTab] = useState<Tab>("open");
   const [toCancel, setToCancel] = useState<Order | null>(null);
 
@@ -146,8 +168,13 @@ export default function OrdersPage() {
   }, [orders, tab]);
 
   const apply = async (order: Order, status: OrderStatus) => {
-    await change.run(order, status);
+    const result = await change.run(order, status);
     setToCancel(null);
+    if (!result) {
+      toast.show("Não foi possível atualizar o pedido.", "error");
+      return;
+    }
+    toast.show(DONE_MESSAGE[status]);
     orders.reload();
   };
 
@@ -195,9 +222,11 @@ export default function OrdersPage() {
       )}
       {visible.length > 0 && (
         <ul className="space-y-3">
-          {visible.map((order) => (
-            <OrderCard key={order.code} order={order} busy={change.pending} onAction={onAction} />
-          ))}
+          <AnimatePresence initial={false}>
+            {visible.map((order) => (
+              <OrderCard key={order.code} order={order} busy={change.pending} onAction={onAction} />
+            ))}
+          </AnimatePresence>
         </ul>
       )}
 

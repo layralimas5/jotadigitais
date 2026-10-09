@@ -1,42 +1,24 @@
 import type { AdminSession, AuthService, ImageStorage, PreparedImage, UploadedImage } from "@/application/ports";
 
-const SESSION_KEY = "jota:demo-admin";
-
-function readSession(): AdminSession | null {
-  try {
-    const email = window.sessionStorage.getItem(SESSION_KEY);
-    return email ? { email } : null;
-  } catch {
-    return null;
-  }
-}
+const DEMO_SESSION: AdminSession = { email: "Modo demonstração" };
 
 /**
- * Login de demonstração: aceita qualquer e-mail e senha válidos e vale só nesta aba.
- * Não protege nada de verdade, porque no modo demo os dados também só existem neste navegador.
+ * Sem banco conectado o painel abre direto, sem login: os dados só existem neste navegador,
+ * então não há nada a proteger. Com o Supabase ligado, o login volta a ser obrigatório.
  */
 export class DemoAuthService implements AuthService {
-  private listeners = new Set<(session: AdminSession | null) => void>();
-
   async getSession(): Promise<AdminSession | null> {
-    return readSession();
+    return DEMO_SESSION;
   }
 
-  async signIn(email: string): Promise<AdminSession> {
-    window.sessionStorage.setItem(SESSION_KEY, email);
-    const session = { email };
-    this.listeners.forEach((listener) => listener(session));
-    return session;
+  async signIn(): Promise<AdminSession> {
+    return DEMO_SESSION;
   }
 
-  async signOut(): Promise<void> {
-    window.sessionStorage.removeItem(SESSION_KEY);
-    this.listeners.forEach((listener) => listener(null));
-  }
+  async signOut(): Promise<void> {}
 
-  onChange(listener: (session: AdminSession | null) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  onChange(): () => void {
+    return () => {};
   }
 }
 

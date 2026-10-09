@@ -146,3 +146,10 @@
     }
   }
 }
+
+/* Diálogo de confirmação sobe de baixo no celular, como folha. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
