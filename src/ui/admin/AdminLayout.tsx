@@ -37,7 +37,7 @@ function DemoBanner() {
   if (container.mode !== "demo") return null;
   return (
     <div className="border-b border-pink/25 bg-pink/10">
-      <p className="mx-auto flex max-w-6xl items-start gap-2 px-4 py-2 text-xs leading-relaxed text-pink sm:items-center sm:px-6">
+      <p className="mx-auto flex max-w-6xl items-start gap-2 px-4 py-2 text-xs leading-relaxed text-pink sm:items-center sm:px-6 md:px-8">
         <FlaskConical aria-hidden className="mt-0.5 size-4 shrink-0 sm:mt-0" />
         Modo demonstração: o que você salvar fica neste navegador e já aparece no site aberto nele.
       </p>
@@ -45,63 +45,99 @@ function DemoBanner() {
   );
 }
 
-function TopBar({ email }: { email: string }) {
+function SignOutButton({ className }: { className?: string }) {
   const { signOut } = useAdminSession();
+  if (!REQUIRES_LOGIN) return null;
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6">
-        <div className="flex items-center gap-3">
-          <Link to="/admin/contas" aria-label="Sistema, início" className="rounded-md">
-            <Logo />
-          </Link>
-          <span className="rounded-full border border-line-strong px-2.5 py-0.5 text-[0.7rem] font-semibold text-fog">
-            Sistema
-          </span>
-        </div>
+    <button
+      type="button"
+      onClick={() => void signOut()}
+      className={cn("flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-mist hover:bg-white/[0.06] hover:text-white", className)}
+    >
+      <LogOut aria-hidden className="size-4" />
+      Sair
+    </button>
+  );
+}
 
-        <nav aria-label="Sistema" className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors",
-                  isActive ? "bg-white/[0.08] text-white" : "text-mist hover:text-white",
-                )
-              }
-            >
-              <Icon aria-hidden className="size-4" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+function SiteLink({ className }: { className?: string }) {
+  return (
+    <a
+      href="/"
+      target="_blank"
+      rel="noreferrer"
+      className={cn(
+        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-mist transition-colors hover:bg-white/[0.06] hover:text-white",
+        className,
+      )}
+    >
+      <ExternalLink aria-hidden className="size-4" /> Ver site
+    </a>
+  );
+}
 
-        <div className="flex items-center gap-1">
-          <a
-            href="/"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-mist transition-colors hover:bg-white/[0.06] hover:text-white"
-          >
-            Ver site <ExternalLink aria-hidden className="size-3.5" />
-          </a>
-          {REQUIRES_LOGIN && (
-            <>
-              <span className="hidden max-w-[12rem] truncate px-2 text-xs text-mist lg:block" title={email}>
-                {email}
-              </span>
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                aria-label="Sair"
-                className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm text-mist hover:bg-white/[0.06] hover:text-white"
-              >
-                <LogOut aria-hidden className="size-4" />
-                <span className="max-sm:hidden">Sair</span>
-              </button>
-            </>
-          )}
+function Brand() {
+  return (
+    <div className="flex items-center gap-3">
+      <Link to="/admin/contas" aria-label="Sistema, início" className="rounded-md">
+        <Logo />
+      </Link>
+      <span className="rounded-full border border-line-strong px-2.5 py-0.5 text-[0.7rem] font-semibold text-fog">Sistema</span>
+    </div>
+  );
+}
+
+/** Menu lateral fixo à esquerda, do tablet para cima. */
+function Sidebar({ email }: { email: string }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
+      <div className="flex h-16 items-center border-b border-line px-5">
+        <Brand />
+      </div>
+      <nav aria-label="Sistema" className="flex-1 space-y-1 p-3">
+        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+          <NavLink key={to} to={to} className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium">
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <motion.span
+                    layoutId="sidebar-active"
+                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
+                    className="absolute inset-0 rounded-xl border border-electric/30 bg-electric/10"
+                  />
+                )}
+                <Icon aria-hidden className={cn("relative size-[1.1rem]", isActive ? "text-electric" : "text-mist")} />
+                <span className={cn("relative", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="space-y-1 border-t border-line p-3">
+        <SiteLink />
+        {REQUIRES_LOGIN && (
+          <>
+            <p className="truncate px-3 pt-1 text-xs text-mist" title={email}>
+              {email}
+            </p>
+            <SignOutButton className="w-full" />
+          </>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/** Topo enxuto no celular: a navegação fica na barra de baixo. */
+function MobileTopBar() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl md:hidden">
+      <div className="flex h-14 items-center justify-between gap-3 px-4">
+        <Brand />
+        <div className="flex items-center">
+          <SiteLink className="rounded-full" />
+          <SignOutButton className="rounded-full" />
         </div>
       </div>
     </header>
@@ -157,13 +193,16 @@ export function AdminProtected() {
 
   return (
     <>
-      <TopBar email={state.session.email} />
-      <DemoBanner />
-      <main id="conteudo" className="mx-auto max-w-6xl px-4 pt-5 pb-32 sm:px-6 md:pt-10 md:pb-16">
-        <Suspense fallback={<LoadingBlock />}>
-          <Outlet />
-        </Suspense>
-      </main>
+      <Sidebar email={state.session.email} />
+      <div className="md:pl-60">
+        <MobileTopBar />
+        <DemoBanner />
+        <main id="conteudo" className="mx-auto max-w-6xl px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16">
+          <Suspense fallback={<LoadingBlock />}>
+            <Outlet />
+          </Suspense>
+        </main>
+      </div>
       {!editing && <BottomNav />}
     </>
   );

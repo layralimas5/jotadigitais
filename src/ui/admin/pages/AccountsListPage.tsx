@@ -88,7 +88,7 @@ interface ListProps {
 
 function AccountsTable({ accounts, onStatusChange, busy }: ListProps) {
   return (
-    <div className="hidden overflow-hidden rounded-3xl border border-line md:block">
+    <div className="hidden overflow-hidden rounded-3xl border border-line lg:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-surface text-xs text-mist">
           <tr>
@@ -121,7 +121,7 @@ function AccountsTable({ accounts, onStatusChange, busy }: ListProps) {
 
 function AccountsCards({ accounts, onStatusChange, busy }: ListProps) {
   return (
-    <ul className="space-y-2.5 md:hidden">
+    <ul className="grid gap-2.5 lg:hidden">
       {accounts.map((account) => (
         <li
           key={account.id}
@@ -192,7 +192,7 @@ export default function AccountsListPage() {
         }
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 lg:flex-row">
         <label className="relative flex-1">
           <span className="sr-only">Buscar conta</span>
           <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-mist" />
@@ -204,7 +204,7 @@ export default function AccountsListPage() {
             className="h-11 w-full rounded-full border border-line-strong bg-surface pr-4 pl-11 text-sm text-white placeholder:text-mist focus:border-electric focus:outline-none"
           />
         </label>
-        <div className="grid grid-cols-2 gap-3 sm:flex">
+        <div className="grid grid-cols-2 gap-3 lg:flex">
           <label>
             <span className="sr-only">Rede</span>
             <select
