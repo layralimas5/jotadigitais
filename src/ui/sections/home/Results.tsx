@@ -82,8 +82,8 @@ function PrintCard({ proof }: { proof: PrintProof }) {
   const tag = kindTag[proof.kind];
   return (
     <li className="shrink-0">
-      <figure className="group relative h-full rounded-[1.75rem] border border-line bg-surface p-2.5 transition-colors duration-300 hover:border-white/20">
-        <div className={cn("overflow-hidden", proof.kind === "result" ? "rounded-[1.6rem]" : "rounded-[1.25rem] bg-white")}>
+      <figure className="group relative h-full rounded-[1.5rem] border border-line bg-surface p-2 transition-colors duration-300 hover:border-white/20 sm:rounded-[1.75rem] sm:p-2.5">
+        <div className={cn("overflow-hidden", proof.kind === "result" ? "rounded-[1.35rem] sm:rounded-[1.6rem]" : "rounded-[1.1rem] bg-white sm:rounded-[1.25rem]")}>
           <img
             src={proof.src}
             alt={proof.alt}
@@ -91,18 +91,18 @@ function PrintCard({ proof }: { proof: PrintProof }) {
             height={proof.height}
             decoding="async"
             draggable={false}
-            className="h-[21rem] w-auto transition-transform duration-500 group-hover:scale-[1.03] sm:h-[25rem]"
+            className="h-[18rem] w-auto transition-transform duration-500 group-hover:scale-[1.03] sm:h-[25rem]"
           />
         </div>
         <span
           className={cn(
-            "absolute top-5 left-5 rounded-full px-2.5 py-1 text-[0.65rem] font-semibold shadow-lg backdrop-blur",
+            "absolute top-4 left-4 rounded-full px-2.5 py-1 text-[0.65rem] font-semibold shadow-lg backdrop-blur sm:top-5 sm:left-5",
             tag.className,
           )}
         >
           {tag.label}
         </span>
-        <figcaption className="px-2 pt-3 pb-1.5">
+        <figcaption className="px-1.5 pt-2.5 pb-1 sm:px-2 sm:pt-3 sm:pb-1.5">
           <p className="font-display text-sm font-semibold text-white">{proof.title}</p>
           <p className="mt-0.5 text-xs text-mist">{proof.subtitle}</p>
         </figcaption>
@@ -113,10 +113,10 @@ function PrintCard({ proof }: { proof: PrintProof }) {
 
 export function Results() {
   return (
-    <section aria-labelledby="resultados-title" className="relative overflow-hidden border-y border-line bg-night py-24 md:py-32">
+    <section aria-labelledby="resultados-title" className="relative overflow-hidden border-y border-line bg-night py-14 sm:py-20 md:py-32">
       <div
         aria-hidden
-        className="pointer-events-none absolute top-1/3 left-1/2 h-[30rem] w-[60rem] -translate-x-1/2 rounded-full bg-violet/15 blur-[160px]"
+        className="pointer-events-none absolute top-1/3 left-1/2 h-72 w-[28rem] -translate-x-1/2 rounded-full bg-violet/15 blur-[90px] md:h-[30rem] md:w-[60rem] md:blur-[160px]"
       />
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
@@ -127,7 +127,7 @@ export function Results() {
         />
       </div>
 
-      <Reveal className="relative mt-14">
+      <Reveal className="relative mt-7 sm:mt-14">
         <Marquee label="Prints de resultados e contas entregues" durationSeconds={55}>
           {PRINTS.map((proof) => (
             <PrintCard key={proof.src} proof={proof} />
@@ -135,7 +135,7 @@ export function Results() {
         </Marquee>
       </Reveal>
 
-      <p className="relative mx-auto mt-10 max-w-6xl px-4 text-xs text-mist sm:px-6">
+      <p className="relative mx-auto mt-6 max-w-6xl px-4 text-xs leading-relaxed text-mist sm:mt-10 sm:px-6">
         Resultados individuais. O ganho depende do nicho, dos produtos escolhidos e da frequência de postagem. Não há
         garantia de faturamento. Nos perfis entregues, nome, @ e foto foram desfocados para preservar os novos donos.
       </p>

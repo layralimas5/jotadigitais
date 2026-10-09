@@ -51,7 +51,7 @@ export function FaqItem({ question, answer }: { question: string; answer: string
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((value) => !value)}
-          className="flex w-full items-center justify-between gap-6 py-6 text-left font-display text-base font-medium text-white transition-colors hover:text-electric-soft md:text-lg"
+          className="flex w-full items-center justify-between gap-4 py-4 text-left font-display text-[0.95rem] font-medium text-white transition-colors hover:text-electric-soft sm:gap-6 sm:py-6 sm:text-base md:text-lg"
         >
           {question}
           <span
@@ -76,7 +76,7 @@ export function FaqItem({ question, answer }: { question: string; answer: string
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             className="overflow-hidden"
           >
-            <p className="max-w-2xl pb-6 text-sm leading-relaxed text-mist md:text-base">{answer}</p>
+            <p className="max-w-2xl pb-4 text-sm leading-relaxed text-mist sm:pb-6 md:text-base">{answer}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -86,8 +86,8 @@ export function FaqItem({ question, answer }: { question: string; answer: string
 
 export function Faq() {
   return (
-    <section id="duvidas" aria-labelledby="duvidas-title" className="relative border-t border-line bg-night py-24 md:py-32">
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+    <section id="duvidas" aria-labelledby="duvidas-title" className="relative border-t border-line bg-night py-14 sm:py-20 md:py-32">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:gap-12 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
         <SectionHeading
           id="duvidas-title"
           eyebrow="Dúvidas"

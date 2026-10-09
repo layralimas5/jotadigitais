@@ -15,7 +15,7 @@ import { useAccount, usePlaceOrder } from "@/ui/hooks/useStore";
 
 function OrderSummary({ account }: { account: TikTokAccount }) {
   return (
-    <aside aria-labelledby="resumo-title" className="rounded-3xl border border-line bg-surface p-6 lg:sticky lg:top-24">
+    <aside aria-labelledby="resumo-title" className="rounded-3xl border border-line bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
       <h2 id="resumo-title" className="font-display text-lg font-semibold text-white">
         Resumo do pedido
       </h2>
@@ -65,24 +65,28 @@ function CheckoutForm({ account }: { account: TikTokAccount }) {
   const { values, errors, setField, handleSubmit } = useCheckoutForm(onValid);
 
   return (
-    <form noValidate onSubmit={handleSubmit} className="space-y-10" aria-busy={submitting}>
-      <fieldset className="space-y-5">
+    <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10" aria-busy={submitting}>
+      <fieldset className="space-y-4 sm:space-y-5">
         <legend className="font-display text-lg font-semibold text-white">1. Seus dados</legend>
         <TextField
           label="Nome completo"
           name="name"
           autoComplete="name"
+          autoCapitalize="words"
           value={values.name}
           onChange={(event) => setField("name", event.target.value)}
           error={errors.name}
         />
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
           <TextField
             label="E-mail"
             name="email"
             type="email"
             inputMode="email"
             autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={values.email}
             onChange={(event) => setField("email", event.target.value)}
             error={errors.email}
@@ -94,6 +98,9 @@ function CheckoutForm({ account }: { account: TikTokAccount }) {
             type="email"
             inputMode="email"
             autoComplete="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={values.emailConfirmation}
             onChange={(event) => setField("emailConfirmation", event.target.value)}
             error={errors.emailConfirmation}
@@ -200,7 +207,7 @@ function CheckoutContent({ account }: { account: TikTokAccount }) {
     );
   }
   return (
-    <div className="grid gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
+    <div className="grid grid-cols-1 gap-8 sm:gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
       <CheckoutForm account={account} />
       <div className="order-first lg:order-none">
         <OrderSummary account={account} />
@@ -227,7 +234,7 @@ export default function CheckoutPage() {
         </h1>
         <div className="mt-10">
           {account.status === "loading" && (
-            <div aria-busy="true" className="grid gap-10 lg:grid-cols-[1.35fr_1fr]">
+            <div aria-busy="true" className="grid grid-cols-1 gap-10 lg:grid-cols-[1.35fr_1fr]">
               <div className="h-[32rem] animate-pulse rounded-3xl bg-white/[0.04]" />
               <div className="h-80 animate-pulse rounded-3xl bg-white/[0.04]" />
             </div>

@@ -25,7 +25,7 @@ function WhatsAppButton() {
       target="_blank"
       rel="noreferrer"
       aria-label="Falar com o suporte no WhatsApp"
-      className="fixed right-4 bottom-4 z-40 grid size-14 place-items-center rounded-full bg-[#25d366] text-ink shadow-lg shadow-black/40 transition-transform hover:scale-105 sm:right-6 sm:bottom-6"
+      className="fixed right-4 bottom-4 z-40 grid size-12 place-items-center rounded-full bg-[#25d366] text-ink shadow-lg shadow-black/40 transition-transform hover:scale-105 sm:right-6 sm:bottom-6 sm:size-14"
     >
       <MessageCircle className="size-6" />
     </a>

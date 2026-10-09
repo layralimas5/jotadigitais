@@ -18,41 +18,114 @@ const WITH_JOTA = [
   "Você troca nome, @ e foto e já pode vender",
 ] as const;
 
-interface ScreenshotCropProps {
+type Tone = "alert" | "electric";
+
+interface Screenshot {
   src: string;
   alt: string;
   width: number;
   height: number;
-  tone: "alert" | "electric";
+  tone: Tone;
   fadeClassName: string;
+  caption: string;
 }
 
+const REJECTED: Screenshot = {
+  src: "/images/tiktok-shop-rejeitada.webp",
+  alt: "Print do TikTok Shop: Sua solicitação de conta foi rejeitada. No momento, você não se qualifica para o acesso de criador do TikTok Shop.",
+  width: 720,
+  height: 560,
+  tone: "alert",
+  fadeClassName: "from-white",
+  caption: "Pedido recusado",
+};
+
+const APPROVED: Screenshot = {
+  src: "/images/tiktok-shop-central.webp",
+  alt: "Print do TikTok Shop: Central de criadores do TikTok Shop, publique seu primeiro vídeo com produtos à venda.",
+  width: 738,
+  height: 880,
+  tone: "electric",
+  fadeClassName: "from-[#121212]",
+  caption: "Shop liberado",
+};
+
 /** Print real do app, recortado no topo com um esmaecido embaixo para parecer cortado. */
-function ScreenshotCrop({ src, alt, width, height, tone, fadeClassName }: ScreenshotCropProps) {
+function ScreenshotCrop({ shot, className }: { shot: Screenshot; className?: string }) {
   return (
-    <figure
+    <div
       className={cn(
-        "relative mx-auto mt-6 aspect-[9/7] w-full max-w-[17rem] overflow-hidden rounded-2xl border shadow-2xl shadow-black/50",
-        tone === "alert" ? "border-alert/30" : "border-electric/30",
+        "relative overflow-hidden rounded-2xl border shadow-2xl shadow-black/50",
+        shot.tone === "alert" ? "border-alert/30" : "border-electric/30",
+        className,
       )}
     >
       <img
-        src={src}
-        alt={alt}
-        width={width}
-        height={height}
+        src={shot.src}
+        alt={shot.alt}
+        width={shot.width}
+        height={shot.height}
         loading="lazy"
         decoding="async"
         className="size-full object-cover object-top"
       />
-      <div aria-hidden className={cn("absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t to-transparent", fadeClassName)} />
-    </figure>
+      <div
+        aria-hidden
+        className={cn("absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t md:h-16 to-transparent", shot.fadeClassName)}
+      />
+    </div>
   );
 }
 
+const toneIcon: Record<Tone, { icon: typeof X; className: string }> = {
+  alert: { icon: X, className: "bg-alert/15 text-alert" },
+  electric: { icon: Check, className: "bg-electric/15 text-electric" },
+};
+
+function ToneMark({ tone }: { tone: Tone }) {
+  const { icon: Icon, className } = toneIcon[tone];
+  return (
+    <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full", className)}>
+      <Icon aria-hidden className="size-3" strokeWidth={3} />
+    </span>
+  );
+}
+
+/** No mobile os dois prints ficam lado a lado, como um antes e depois, e os cards levam só a lista. */
+function ScreenshotPair() {
+  return (
+    <RevealItem className="grid grid-cols-2 gap-3 md:hidden">
+      {[REJECTED, APPROVED].map((shot) => (
+        <figure key={shot.src}>
+          <ScreenshotCrop shot={shot} className="aspect-[6/5]" />
+          <figcaption className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-fog">
+            <ToneMark tone={shot.tone} />
+            {shot.caption}
+          </figcaption>
+        </figure>
+      ))}
+    </RevealItem>
+  );
+}
+
+function ChecklistItems({ items, tone }: { items: readonly string[]; tone: Tone }) {
+  return (
+    <ul className="mt-4 space-y-2.5 md:mt-7 md:space-y-3.5">
+      {items.map((item) => (
+        <li key={item} className="flex gap-3 text-sm text-fog">
+          <ToneMark tone={tone} />
+          {item}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const desktopShot = "mx-auto mt-6 aspect-[9/7] w-full max-w-[17rem] max-md:hidden";
+
 export function ProblemSection() {
   return (
-    <section aria-labelledby="problema-title" className="relative py-24 md:py-32">
+    <section aria-labelledby="problema-title" className="relative py-14 sm:py-20 md:py-32">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="problema-title"
@@ -65,52 +138,22 @@ export function ProblemSection() {
           description="O TikTok recusa boa parte dos pedidos para entrar no Shop. Com a conta pronta, você pula direto para a parte que dá dinheiro."
         />
 
-        <Reveal stagger className="mt-14 grid gap-5 md:grid-cols-2">
-          <RevealItem className="rounded-3xl border border-line bg-surface/60 p-7 md:p-9">
+        <Reveal stagger className="mt-8 grid gap-3 md:mt-14 md:grid-cols-2 md:gap-5">
+          <ScreenshotPair />
+
+          <RevealItem className="mt-2 rounded-3xl border border-line bg-surface/60 p-5 md:mt-0 md:p-9">
             <p className="text-sm font-semibold text-mist">Criando sua própria conta</p>
-            <ScreenshotCrop
-              src="/images/tiktok-shop-rejeitada.webp"
-              alt="Print do TikTok Shop: Sua solicitação de conta foi rejeitada. No momento, você não se qualifica para o acesso de criador do TikTok Shop."
-              width={720}
-              height={560}
-              tone="alert"
-              fadeClassName="from-white"
-            />
-            <ul className="mt-7 space-y-3.5">
-              {FROM_SCRATCH.map((item) => (
-                <li key={item} className="flex gap-3 text-sm text-fog">
-                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-alert/15 text-alert">
-                    <X aria-hidden className="size-3" strokeWidth={3} />
-                  </span>
-                  {item}
-                </li>
-              ))}
-            </ul>
+            <ScreenshotCrop shot={REJECTED} className={desktopShot} />
+            <ChecklistItems items={FROM_SCRATCH} tone="alert" />
           </RevealItem>
 
           <RevealItem className="relative rounded-3xl bg-gradient-brand p-px">
-            <div className="h-full rounded-[calc(1.5rem-1px)] bg-surface p-7 md:p-9">
+            <div className="h-full rounded-[calc(1.5rem-1px)] bg-surface p-5 md:p-9">
               <p className="flex items-center gap-2 text-sm font-semibold text-white">
                 <VerifiedBadge className="size-5" /> Com uma conta Jota Digitais
               </p>
-              <ScreenshotCrop
-                src="/images/tiktok-shop-central.webp"
-                alt="Print do TikTok Shop: Central de criadores do TikTok Shop, publique seu primeiro vídeo com produtos à venda."
-                width={738}
-                height={880}
-                tone="electric"
-                fadeClassName="from-[#121212]"
-              />
-              <ul className="mt-7 space-y-3.5">
-                {WITH_JOTA.map((item) => (
-                  <li key={item} className="flex gap-3 text-sm text-fog">
-                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-electric/15 text-electric">
-                      <Check aria-hidden className="size-3" strokeWidth={3} />
-                    </span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
+              <ScreenshotCrop shot={APPROVED} className={desktopShot} />
+              <ChecklistItems items={WITH_JOTA} tone="electric" />
             </div>
           </RevealItem>
         </Reveal>

@@ -28,23 +28,25 @@ const ITEMS = [
 
 export function Guarantee() {
   return (
-    <section id="garantia" aria-labelledby="garantia-title" className="relative py-24 md:py-32">
-      <div className="mx-auto grid max-w-6xl gap-14 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+    <section id="garantia" aria-labelledby="garantia-title" className="relative py-14 sm:py-20 md:py-32">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:gap-14 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <SectionHeading
           id="garantia-title"
           eyebrow="Garantia"
           title="Compra segura, do Pix ao primeiro vídeo"
           description="Você não fica sozinho depois do pagamento. A conta chega conferida e com suporte para começar."
         />
-        <Reveal stagger className="grid gap-4 sm:grid-cols-2">
+        <Reveal stagger className="grid gap-3 sm:grid-cols-2 sm:gap-4">
           {ITEMS.map(({ icon: Icon, title, text }) => (
             <RevealItem key={title}>
-              <div className="hover-pulse h-full rounded-3xl border border-line bg-surface/70 p-6">
-                <span className="pulse-icon inline-grid size-11 place-items-center rounded-xl border border-white/10 bg-ink text-electric">
+              <div className="hover-pulse flex h-full gap-4 rounded-2xl border border-line bg-surface/70 p-4 sm:block sm:rounded-3xl sm:p-6">
+                <span className="pulse-icon inline-grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-ink text-electric sm:size-11">
                   <Icon aria-hidden className="size-5" />
                 </span>
-                <h3 className="mt-5 font-display font-semibold text-white">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-mist">{text}</p>
+                <div className="min-w-0">
+                  <h3 className="font-display font-semibold text-white sm:mt-5">{title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-mist sm:mt-2">{text}</p>
+                </div>
               </div>
             </RevealItem>
           ))}

@@ -21,6 +21,12 @@
   --font-display: "Sora Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-logo: "Archivo Black", "Sora Variable", sans-serif;
 
+  /* Escala fluida para o mobile (360 a 430px). Do md para cima os breakpoints assumem. */
+  --text-hero: clamp(2.3rem, 1.25rem + 4.6vw, 2.75rem);
+  --text-hero--line-height: 1.05;
+  --text-section: clamp(1.75rem, 1.15rem + 2.8vw, 2.25rem);
+  --text-section--line-height: 1.15;
+
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -119,19 +125,24 @@
   }
 }
 
-/* Pulsação leve enquanto o mouse (ou o foco do teclado) está no card. */
+/*
+ * Pulsação leve enquanto o mouse (ou o foco do teclado) está no card.
+ * Só em telas com hover de verdade: no toque o :hover gruda e o card ficaria pulsando sem parar.
+ */
 @utility hover-pulse {
   transition:
     border-color 0.3s ease,
     background-color 0.3s ease;
-  &:hover,
-  &:focus-within {
-    animation: card-pulse 1.8s ease-in-out infinite;
-    border-color: rgb(39 153 255 / 0.5);
-    background-color: var(--color-surface-2);
-  }
-  &:hover .pulse-icon,
-  &:focus-within .pulse-icon {
-    animation: icon-pulse 1.8s ease-in-out infinite;
+  @media (hover: hover) {
+    &:hover,
+    &:focus-within {
+      animation: card-pulse 1.8s ease-in-out infinite;
+      border-color: rgb(39 153 255 / 0.5);
+      background-color: var(--color-surface-2);
+    }
+    &:hover .pulse-icon,
+    &:focus-within .pulse-icon {
+      animation: icon-pulse 1.8s ease-in-out infinite;
+    }
   }
 }

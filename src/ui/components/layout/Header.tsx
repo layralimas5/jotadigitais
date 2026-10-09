@@ -46,7 +46,7 @@ export function Header() {
         scrolled || open ? "border-b border-white/[0.06] bg-black/70 backdrop-blur-xl" : "border-b border-transparent",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16 sm:px-6">
         <Link to="/" aria-label="Jota Digitais, página inicial" className="rounded-md">
           <Logo />
         </Link>
@@ -69,12 +69,12 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <ButtonLink to="/contas" className="hidden sm:inline-flex">
+          <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem]">
             Ver contas
           </ButtonLink>
           <button
             type="button"
-            className="grid size-10 place-items-center rounded-full text-white hover:bg-white/[0.06] md:hidden"
+            className="-mr-2 grid size-10 place-items-center rounded-full text-white hover:bg-white/[0.06] md:hidden"
             aria-expanded={open}
             aria-controls="mobile-menu"
             aria-label={open ? "Fechar menu" : "Abrir menu"}
@@ -96,12 +96,12 @@ export function Header() {
             transition={{ duration: 0.25 }}
             className="overflow-hidden md:hidden"
           >
-            <ul className="space-y-1 px-4 pt-2 pb-6">
+            <ul className="space-y-0.5 px-4 pt-1 pb-5">
               {NAV_ITEMS.map((item) => (
                 <li key={item.to}>
                   <Link
                     to={item.to}
-                    className="block rounded-xl px-3 py-3 font-display text-lg text-white hover:bg-white/[0.05]"
+                    className="block rounded-xl px-3 py-2.5 font-display text-base text-white hover:bg-white/[0.05]"
                   >
                     {item.label}
                   </Link>

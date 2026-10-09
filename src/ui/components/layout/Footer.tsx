@@ -23,13 +23,13 @@ export function Footer() {
   const year = new Date().getFullYear();
   return (
     <footer className="relative border-t border-line bg-night">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div>
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-6 sm:py-14 md:grid-cols-[1.4fr_1fr_1fr] md:gap-10">
+        <div className="col-span-2 md:col-span-1">
           <Logo />
-          <p className="mt-5 max-w-xs text-sm text-mist">
+          <p className="mt-4 max-w-xs text-sm text-mist sm:mt-5">
             Contas de TikTok com a Central de Criadores do TikTok Shop liberada, prontas para você vender.
           </p>
-          <p className="mt-6 text-sm text-fog italic">Jesus é o caminho, a verdade e a vida.</p>
+          <p className="mt-4 text-sm text-fog italic sm:mt-6">Jesus é o caminho, a verdade e a vida.</p>
         </div>
 
         <nav aria-label="Rodapé">
@@ -75,7 +75,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-line">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-xs text-mist sm:px-6 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-xs leading-relaxed text-mist sm:gap-3 sm:px-6 sm:py-6 md:flex-row md:items-center md:justify-between">
           <p>
             © {year} Jota Digitais. Não somos afiliados, patrocinados ou endossados pelo TikTok ou pela ByteDance.
           </p>

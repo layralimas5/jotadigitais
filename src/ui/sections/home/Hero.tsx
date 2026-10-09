@@ -59,9 +59,9 @@ function FloatingChip({ positionClassName, className, children, delay, floatOffs
 export function Hero() {
   const reduceMotion = useReducedMotion();
   return (
-    <section aria-labelledby="hero-title" className="relative overflow-hidden pt-28 pb-16 md:pt-36 md:pb-20">
+    <section aria-labelledby="hero-title" className="relative overflow-hidden pt-24 pb-14 sm:pt-28 sm:pb-16 md:pt-36 md:pb-20">
       <Backdrop />
-      <div className="relative mx-auto grid max-w-6xl items-center gap-16 px-4 sm:px-6 lg:grid-cols-[1.15fr_1fr]">
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 sm:gap-16 sm:px-6 lg:grid-cols-[1.15fr_1fr]">
         <motion.div
           variants={reduceMotion ? undefined : staggerContainer}
           initial="hidden"
@@ -70,9 +70,9 @@ export function Hero() {
         >
           <motion.p
             variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pr-4 pl-1.5 text-xs font-medium text-fog backdrop-blur"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pr-3.5 pl-1.5 text-[0.72rem] font-medium text-fog backdrop-blur sm:pr-4 sm:text-xs"
           >
-            <span className="grid size-6 place-items-center rounded-full bg-white text-ink">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-ink">
               <TikTokGlyph className="size-3.5" />
             </span>
             Central de Criadores do TikTok Shop já liberada
@@ -81,14 +81,14 @@ export function Hero() {
           <motion.h1
             id="hero-title"
             variants={fadeUp}
-            className="mt-7 font-display text-[2.6rem] leading-[1.05] font-semibold tracking-tight text-balance text-white sm:text-6xl lg:text-[4.1rem]"
+            className="mt-5 font-display text-hero font-semibold tracking-tight text-balance text-white sm:mt-7 sm:text-6xl sm:leading-[1.05] lg:text-[4.1rem]"
           >
             Sua conta no TikTok Shop, <span className="text-gradient-brand">já aprovada.</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
-            className="mx-auto mt-6 max-w-xl text-base text-pretty text-mist sm:text-lg lg:mx-0"
+            className="mx-auto mt-4 max-w-xl text-[0.95rem] leading-relaxed text-pretty text-mist sm:mt-6 sm:text-lg lg:mx-0"
           >
             Pule a fila de análise que recusa a maioria dos pedidos. Escolha uma conta com o Shop ativo, troque nome, @ e
             foto, e comece a afiliar produtos e ganhar comissão hoje.
@@ -96,24 +96,29 @@ export function Hero() {
 
           <motion.div
             variants={fadeUp}
-            className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start"
+            className="mt-7 flex flex-col items-center gap-1 sm:mt-9 sm:flex-row sm:justify-center sm:gap-3 lg:justify-start"
           >
             <ButtonLink to="/contas" size="lg" className="w-full sm:w-auto">
               Ver contas disponíveis
               <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
             </ButtonLink>
-            <ButtonLink to="/#como-funciona" variant="secondary" size="lg" className="w-full sm:w-auto">
+            <ButtonLink
+              to="/#como-funciona"
+              variant="secondary"
+              size="lg"
+              className="max-sm:h-11 max-sm:border-transparent max-sm:bg-transparent max-sm:text-fog sm:w-auto"
+            >
               Como funciona
             </ButtonLink>
           </motion.div>
 
           <motion.ul
             variants={fadeUp}
-            className="mt-10 flex flex-col items-center gap-3 text-sm text-fog sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-6 lg:justify-start"
+            className="mt-5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-2 text-[0.78rem] text-fog sm:mt-10 sm:gap-x-6 sm:gap-y-3 sm:text-sm lg:justify-start"
           >
             {PROOF_POINTS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-2">
-                <Icon aria-hidden className="size-4 text-electric" />
+              <li key={label} className="flex items-center gap-1.5 sm:gap-2">
+                <Icon aria-hidden className="size-3.5 text-electric sm:size-4" />
                 {label}
               </li>
             ))}
@@ -125,13 +130,14 @@ export function Hero() {
             initial={reduceMotion ? false : { opacity: 0, y: 40, rotate: -4 }}
             animate={{ opacity: 1, y: 0, rotate: -3 }}
             transition={{ duration: 0.9, delay: 0.15, ease: EASE_OUT_EXPO }}
+            className="max-sm:[zoom:0.8]"
           >
             <PhoneProfile account={HERO_PREVIEW} />
           </motion.div>
 
           <FloatingChip
             delay={0.6}
-            positionClassName="top-[38%] -left-8 sm:-left-28"
+            positionClassName="-top-3 -left-7 sm:top-[38%] sm:-left-28"
             className="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-surface/90 px-3.5 py-2.5 shadow-2xl shadow-black/50 backdrop-blur"
           >
             <VerifiedBadge className="size-7" />
@@ -144,7 +150,7 @@ export function Hero() {
           <FloatingChip
             delay={0.8}
             floatOffset={FLOAT_DURATION_S / 2}
-            positionClassName="-right-4 -bottom-6 sm:-right-20"
+            positionClassName="-right-6 -bottom-5 sm:-right-20 sm:-bottom-6"
             className="rounded-2xl border border-white/10 bg-surface/90 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur"
           >
             <p className="text-[0.68rem] text-mist">Pedidos recusados pelo TikTok</p>
