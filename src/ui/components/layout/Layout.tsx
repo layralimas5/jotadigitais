@@ -1,7 +1,7 @@
 import { MessageCircle } from "lucide-react";
 import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { siteConfig } from "@/app/config";
+import { StoreSettingsProvider, useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 
@@ -18,10 +18,11 @@ function ScrollManager() {
 }
 
 function WhatsAppButton() {
-  if (!siteConfig.whatsappUrl) return null;
+  const { whatsappUrl } = useStoreSettings();
+  if (!whatsappUrl) return null;
   return (
     <a
-      href={siteConfig.whatsappUrl}
+      href={whatsappUrl}
       target="_blank"
       rel="noreferrer"
       aria-label="Falar com o suporte no WhatsApp"
@@ -42,7 +43,7 @@ function PageFallback() {
 
 export function Layout() {
   return (
-    <>
+    <StoreSettingsProvider>
       <a
         href="#conteudo"
         className="sr-only z-[60] rounded-full bg-electric px-4 py-2 font-semibold text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -58,6 +59,6 @@ export function Layout() {
       </main>
       <Footer />
       <WhatsAppButton />
-    </>
+    </StoreSettingsProvider>
   );
 }

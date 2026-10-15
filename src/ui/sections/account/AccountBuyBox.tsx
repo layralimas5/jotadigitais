@@ -1,13 +1,13 @@
 import { CreditCard, LifeBuoy, Mail, MessageCircle, QrCode, ShieldCheck } from "lucide-react";
 import type { Ref } from "react";
-import { siteConfig } from "@/app/config";
 import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink, buttonClasses } from "@/ui/components/Button";
+import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { guaranteeText } from "@/ui/lib/account-presenter";
 
-function perksOf(account: Account) {
+function perksOf(account: Account, guaranteeDays: number) {
   return [
     {
       icon: Mail,
@@ -16,7 +16,7 @@ function perksOf(account: Account) {
     },
     {
       icon: ShieldCheck,
-      title: `${siteConfig.guaranteeDays} dias de garantia`,
+      title: `${guaranteeDays} dias de garantia`,
       text: guaranteeText(account),
     },
     {
@@ -50,9 +50,10 @@ function Availability({ account }: { account: Account }) {
 }
 
 function SupportLink({ account }: { account: Account }) {
-  const href = siteConfig.whatsappUrl
-    ? `${siteConfig.whatsappUrl}?text=${encodeURIComponent(`Olá! Tenho uma dúvida sobre a conta ${account.handle}.`)}`
-    : siteConfig.instagramUrl;
+  const { whatsappUrl, instagramUrl } = useStoreSettings();
+  const href = whatsappUrl
+    ? `${whatsappUrl}?text=${encodeURIComponent(`Olá! Tenho uma dúvida sobre a conta ${account.handle}.`)}`
+    : instagramUrl;
   return (
     <a
       href={href}
@@ -61,7 +62,7 @@ function SupportLink({ account }: { account: Account }) {
       className={buttonClasses({ variant: "secondary", size: "lg", className: "w-full" })}
     >
       <MessageCircle aria-hidden className="size-4" />
-      Tirar dúvida {siteConfig.whatsappUrl ? "no WhatsApp" : "no Instagram"}
+      Tirar dúvida {whatsappUrl ? "no WhatsApp" : "no Instagram"}
     </a>
   );
 }
@@ -73,6 +74,7 @@ interface AccountBuyBoxProps {
 
 export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
   const available = isPurchasable(account);
+  const { guaranteeDays } = useStoreSettings();
   return (
     <div className="rounded-3xl border border-line bg-surface p-6 md:p-7">
       <p className="text-sm text-mist">Valor da conta</p>
@@ -107,7 +109,7 @@ export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
       </div>
 
       <ul className="mt-6 space-y-4 border-t border-line pt-6">
-        {perksOf(account).map(({ icon: Icon, title, text }) => (
+        {perksOf(account, guaranteeDays).map(({ icon: Icon, title, text }) => (
           <li key={title} className="flex gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-electric/10 text-electric">
               <Icon aria-hidden className="size-4" />

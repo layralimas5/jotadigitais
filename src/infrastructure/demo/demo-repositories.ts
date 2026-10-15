@@ -4,6 +4,7 @@ import type {
   AccountRepository,
   AdminAccountRepository,
   AdminOrderRepository,
+  AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   NewOrder,
   OrderRepository,
@@ -25,6 +26,7 @@ import {
   type Order,
   type OrderStatus,
 } from "@/domain/order";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 
@@ -259,5 +261,24 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
 
   private toPublic(order: Order): Order {
     return { ...order, customer: { ...order.customer, email: maskEmail(order.customer.email), whatsapp: null } };
+  }
+}
+
+export class DemoStoreSettingsRepository implements AdminStoreSettingsRepository {
+  constructor(
+    private readonly db: DemoDatabase,
+    private readonly defaults: StoreSettings,
+  ) {}
+
+  async get(): Promise<StoreSettings> {
+    return this.db.read().settings ?? this.defaults;
+  }
+
+  async save(settings: StoreSettings): Promise<StoreSettings> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      state.settings = settings;
+      return settings;
+    });
   }
 }

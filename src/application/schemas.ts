@@ -131,6 +131,45 @@ export const signInSchema = z.object({
   password: z.string().min(6, "A senha tem pelo menos 6 caracteres."),
 });
 
+export const changePasswordSchema = z
+  .object({
+    password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),
+    confirmation: z.string(),
+  })
+  .refine((data) => data.password === data.confirmation, {
+    path: ["confirmation"],
+    message: "As senhas não conferem.",
+  });
+
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
+
+// ---------------------------------------------------------------------------
+// Configurações da loja (mesmas regras da tabela store_settings)
+// ---------------------------------------------------------------------------
+
+export const storeSettingsSchema = z.object({
+  whatsappNumber: z
+    .string()
+    .transform(onlyDigits)
+    .refine((digits) => digits === "" || (digits.length >= 12 && digits.length <= 13), {
+      message: "Use DDI + DDD + número, ex.: 55 11 91234-5678.",
+    })
+    .transform((digits) => digits || null),
+  instagramHandle: z
+    .string()
+    .trim()
+    .min(1, "Informe o @ do Instagram.")
+    .transform((value) => (value.startsWith("@") ? value : `@${value}`))
+    .pipe(z.string().regex(/^@[A-Za-z0-9._]{1,30}$/, "Use só letras, números, ponto e sublinhado.")),
+  guaranteeDays: z
+    .number({ message: "Informe um número de dias." })
+    .int("Use um número inteiro.")
+    .min(1, "A garantia precisa ter pelo menos 1 dia.")
+    .max(90, "Use no máximo 90 dias."),
+});
+
+export type StoreSettingsInput = z.input<typeof storeSettingsSchema>;
+
 export class ValidationError extends Error {
   constructor(
     message: string,

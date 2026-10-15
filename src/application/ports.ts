@@ -1,6 +1,7 @@
 import type { Account, AccountData } from "@/domain/account";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { Platform } from "@/domain/platform";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,10 @@ export interface PaymentGateway {
   createCharge(order: Order): Promise<PaymentCharge>;
 }
 
+export interface StoreSettingsRepository {
+  get(): Promise<StoreSettings>;
+}
+
 // ---------------------------------------------------------------------------
 // Painel administrativo
 // ---------------------------------------------------------------------------
@@ -62,7 +67,12 @@ export interface AuthService {
   getSession(): Promise<AdminSession | null>;
   signIn(email: string, password: string): Promise<AdminSession>;
   signOut(): Promise<void>;
+  changePassword(newPassword: string): Promise<void>;
   onChange(listener: (session: AdminSession | null) => void): () => void;
+}
+
+export interface AdminStoreSettingsRepository extends StoreSettingsRepository {
+  save(settings: StoreSettings): Promise<StoreSettings>;
 }
 
 export interface AdminAccountRepository {

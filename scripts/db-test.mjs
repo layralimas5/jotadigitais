@@ -273,6 +273,35 @@ async function main() {
     "terceiro pedido aberto do mesmo e-mail é barrado",
   );
 
+  console.log("\nconfigurações da loja");
+  const settings = await as("anon", null, () => db.query(`select instagram_handle, guarantee_days from public.store_settings`));
+  check(settings.rows.length === 1 && settings.rows[0].guarantee_days === 7, "visitante lê a linha única de configurações");
+
+  const strangerSettings = await as("authenticated", STRANGER_ID, () =>
+    db.query(`update public.store_settings set guarantee_days = 30 returning id`),
+  );
+  check(strangerSettings.rows.length === 0, "usuário que não é admin não altera as configurações");
+
+  const adminSettings = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.store_settings set whatsapp_number = '5511912345678', guarantee_days = 15 returning guarantee_days`),
+  );
+  check(adminSettings.rows[0]?.guarantee_days === 15, "admin altera as configurações");
+
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.store_settings set whatsapp_number = '123'`)),
+      /check constraint/,
+    ),
+    "banco recusa WhatsApp sem DDI e DDD",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.store_settings (id) values (false)`)),
+      /permission denied|row-level security|check constraint/,
+    ),
+    "não dá para criar uma segunda linha",
+  );
+
   console.log("\nimagens");
   check(
     await rejects(

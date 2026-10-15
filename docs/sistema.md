@@ -48,6 +48,8 @@ Com o Supabase ligado, o botão some do site e o painel volta a exigir login.
    VITE_SUPABASE_ANON_KEY=...
    ```
 7. Entrar em `/admin` e cadastrar o estoque real. Os 6 depoimentos atuais já entram pela migration.
+8. Em **Configurações**, preencher WhatsApp do suporte, Instagram e dias de garantia. Com o banco ligado,
+   o site usa o que estiver salvo ali (a tabela `store_settings` nasce com o WhatsApp vazio).
 
 ## Testes
 

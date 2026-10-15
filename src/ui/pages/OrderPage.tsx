@@ -1,7 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Clock, Inbox, Sparkles } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { siteConfig } from "@/app/config";
 import { OrderNotFoundError } from "@/domain/errors";
 import { formatBRL } from "@/domain/money";
 import type { Order } from "@/domain/order";
@@ -10,6 +9,7 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useOrder } from "@/ui/hooks/useStore";
+import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 
 const PAYMENT_LABEL: Record<Order["paymentMethod"], string> = { pix: "Pix", card: "Cartão de crédito" };
@@ -49,6 +49,7 @@ function NextSteps({ order }: { order: Order }) {
 
 function OrderConfirmation({ order }: { order: Order }) {
   const reduceMotion = useReducedMotion();
+  const { whatsappUrl } = useStoreSettings();
   useDocumentMeta(`Pedido ${order.code}`);
   const firstName = order.customer.name.split(" ")[0];
 
@@ -92,9 +93,9 @@ function OrderConfirmation({ order }: { order: Order }) {
         <ButtonLink to="/contas" variant="secondary">
           Voltar para a vitrine
         </ButtonLink>
-        {siteConfig.whatsappUrl && (
+        {whatsappUrl && (
           <a
-            href={`${siteConfig.whatsappUrl}?text=${encodeURIComponent(`Olá! Meu pedido é o ${order.code}.`)}`}
+            href={`${whatsappUrl}?text=${encodeURIComponent(`Olá! Meu pedido é o ${order.code}.`)}`}
             target="_blank"
             rel="noreferrer"
             className="text-sm text-electric-soft underline-offset-4 hover:underline"

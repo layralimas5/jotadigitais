@@ -1,9 +1,9 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { siteConfig } from "@/app/config";
 import type { Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink } from "@/ui/components/Button";
+import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { cn } from "@/ui/lib/cn";
 
 interface MobileBuyBarProps {
@@ -14,6 +14,7 @@ interface MobileBuyBarProps {
 /** Aparece no celular quando o botão de compra principal sai da tela. */
 export function MobileBuyBar({ account, visible }: MobileBuyBarProps) {
   const reduceMotion = useReducedMotion();
+  const { whatsappUrl } = useStoreSettings();
   return (
     <AnimatePresence>
       {visible && (
@@ -24,7 +25,7 @@ export function MobileBuyBar({ account, visible }: MobileBuyBarProps) {
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
             "fixed inset-x-0 bottom-0 z-30 border-t border-line bg-night/90 py-3 pl-4 backdrop-blur-xl lg:hidden",
-            siteConfig.whatsappUrl ? "pr-[5.5rem]" : "pr-4",
+            whatsappUrl ? "pr-[5.5rem]" : "pr-4",
           )}
         >
           <div className="flex items-center justify-between gap-3">

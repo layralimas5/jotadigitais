@@ -1,11 +1,13 @@
 import type { Account } from "@/domain/account";
 import { InvalidTransitionError } from "@/domain/errors";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
   AdminAccountRepository,
   AdminOrderRepository,
   AdminSession,
+  AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AuthService,
   ImageStorage,
@@ -13,13 +15,21 @@ import type {
   PreparedImage,
   UploadedImage,
 } from "./ports";
-import { accountDataSchema, parseOrThrow, signInSchema, testimonialDataSchema } from "./schemas";
+import {
+  accountDataSchema,
+  changePasswordSchema,
+  parseOrThrow,
+  signInSchema,
+  storeSettingsSchema,
+  testimonialDataSchema,
+} from "./schemas";
 
 export interface AdminDeps {
   auth: AuthService;
   accounts: AdminAccountRepository;
   testimonials: AdminTestimonialRepository;
   orders: AdminOrderRepository;
+  settings: AdminStoreSettingsRepository;
   images: ImageStorage;
 }
 
@@ -84,6 +94,19 @@ export function listOrders(deps: AdminDeps): Promise<Order[]> {
 export async function changeOrderStatus(deps: AdminDeps, order: Order, status: OrderStatus): Promise<void> {
   if (!canTransition(order.status, status)) throw new InvalidTransitionError();
   await deps.orders.updateStatus(order.code, status);
+}
+
+export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {
+  const { password } = parseOrThrow(changePasswordSchema, raw);
+  return deps.auth.changePassword(password);
+}
+
+export function getStoreSettings(deps: AdminDeps): Promise<StoreSettings> {
+  return deps.settings.get();
+}
+
+export function saveStoreSettings(deps: AdminDeps, raw: unknown): Promise<StoreSettings> {
+  return deps.settings.save(parseOrThrow(storeSettingsSchema, raw));
 }
 
 export function uploadImage(deps: AdminDeps, image: PreparedImage, folder: MediaFolder): Promise<UploadedImage> {

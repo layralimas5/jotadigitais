@@ -1,7 +1,7 @@
-import { siteConfig } from "@/app/config";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
+import { useStoreSettings, type StoreContact } from "@/ui/hooks/useStoreSettings";
 
-const SECTIONS = [
+const sectionsFor = ({ guaranteeDays, instagramHandle }: StoreContact) => [
   {
     title: "1. O que você está comprando",
     body: "Uma conta de TikTok já criada, com seguidores e com acesso à Central de Criadores do TikTok Shop liberado no momento da entrega. As informações de seguidores, curtidas e status do Shop são as exibidas na página da conta na data da compra.",
@@ -12,7 +12,7 @@ const SECTIONS = [
   },
   {
     title: "3. Garantia",
-    body: `Você tem ${siteConfig.guaranteeDays} dias a partir da entrega para relatar qualquer problema de acesso ou de status do Shop. Se a conta não corresponder ao anunciado, oferecemos outra conta equivalente ou o reembolso integral.`,
+    body: `Você tem ${guaranteeDays} dias a partir da entrega para relatar qualquer problema de acesso ou de status do Shop. Se a conta não corresponder ao anunciado, oferecemos outra conta equivalente ou o reembolso integral.`,
   },
   {
     title: "4. Uso da conta",
@@ -24,11 +24,12 @@ const SECTIONS = [
   },
   {
     title: "6. Contato",
-    body: `Dúvidas ou suporte pelo Instagram ${siteConfig.instagramHandle}.`,
+    body: `Dúvidas ou suporte pelo Instagram ${instagramHandle}.`,
   },
-] as const;
+];
 
 export default function TermsPage() {
+  const sections = sectionsFor(useStoreSettings());
   useDocumentMeta("Termos de compra e garantia");
   return (
     <div className="pt-28 pb-24 md:pt-36">
@@ -38,7 +39,7 @@ export default function TermsPage() {
           Termos de compra e garantia
         </h1>
         <div className="mt-12 space-y-10">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <section key={section.title}>
               <h2 className="font-display text-xl font-semibold text-white">{section.title}</h2>
               <p className="mt-3 leading-relaxed text-mist">{section.body}</p>

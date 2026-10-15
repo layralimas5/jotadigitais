@@ -1,11 +1,11 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ExternalLink, FlaskConical, ImageIcon, LogOut, Package, Receipt } from "lucide-react";
+import { ExternalLink, ImageIcon, Package, Receipt, Settings } from "lucide-react";
 import { Suspense, useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useMatch } from "react-router-dom";
-import { container } from "@/app/container";
 import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
+import { UserMenu } from "./components/UserMenu";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
@@ -13,9 +13,8 @@ const NAV_ITEMS = [
   { to: "/admin/contas", label: "Contas", icon: Package },
   { to: "/admin/depoimentos", label: "Depoimentos", icon: ImageIcon },
   { to: "/admin/pedidos", label: "Pedidos", icon: Receipt },
+  { to: "/admin/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
-
-const REQUIRES_LOGIN = container.mode === "supabase";
 
 /** O painel não deve aparecer no Google. */
 function useNoIndex() {
@@ -33,33 +32,6 @@ function useNoIndex() {
   }, []);
 }
 
-function DemoBanner() {
-  if (container.mode !== "demo") return null;
-  return (
-    <div className="border-b border-pink/25 bg-pink/10">
-      <p className="mx-auto flex max-w-6xl items-start gap-2 px-4 py-2 text-xs leading-relaxed text-pink sm:items-center sm:px-6 md:px-8">
-        <FlaskConical aria-hidden className="mt-0.5 size-4 shrink-0 sm:mt-0" />
-        Modo demonstração: o que você salvar fica neste navegador e já aparece no site aberto nele.
-      </p>
-    </div>
-  );
-}
-
-function SignOutButton({ className }: { className?: string }) {
-  const { signOut } = useAdminSession();
-  if (!REQUIRES_LOGIN) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => void signOut()}
-      className={cn("flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-mist hover:bg-white/[0.06] hover:text-white", className)}
-    >
-      <LogOut aria-hidden className="size-4" />
-      Sair
-    </button>
-  );
-}
-
 function SiteLink({ className }: { className?: string }) {
   return (
     <a
@@ -71,18 +43,18 @@ function SiteLink({ className }: { className?: string }) {
         className,
       )}
     >
-      <ExternalLink aria-hidden className="size-4" /> Ver site
+      <ExternalLink aria-hidden className="size-4" /> <span className="max-sm:sr-only">Ver site</span>
     </a>
   );
 }
 
-/** Na barra lateral o nome "Sistema" fica embaixo do logo; no topo do celular, ao lado. */
+/** Na barra lateral o nome "Sistema" fica centralizado embaixo do logo; no topo do celular, ao lado. */
 function Brand({ stacked = false }: { stacked?: boolean }) {
   return (
     <Link
       to="/admin/contas"
       aria-label="Sistema Jota Digitais, início"
-      className={cn("flex rounded-md", stacked ? "flex-col items-start gap-2" : "items-center gap-3")}
+      className={cn("flex rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
     >
       <Logo />
       <span className="font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase">Sistema</span>
@@ -91,11 +63,11 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
 }
 
 /** Menu lateral fixo à esquerda, do tablet para cima. */
-function Sidebar({ email }: { email: string }) {
+function Sidebar() {
   const reduceMotion = useReducedMotion();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
-      <div className="border-b border-line px-5 py-5">
+      <div className="flex justify-center border-b border-line px-5 py-5">
         <Brand stacked />
       </div>
       <nav aria-label="Sistema" className="flex-1 space-y-1 p-3">
@@ -117,16 +89,8 @@ function Sidebar({ email }: { email: string }) {
           </NavLink>
         ))}
       </nav>
-      <div className="space-y-1 border-t border-line p-3">
+      <div className="border-t border-line p-3">
         <SiteLink />
-        {REQUIRES_LOGIN && (
-          <>
-            <p className="truncate px-3 pt-1 text-xs text-mist" title={email}>
-              {email}
-            </p>
-            <SignOutButton className="w-full" />
-          </>
-        )}
       </div>
     </aside>
   );
@@ -138,10 +102,21 @@ function MobileTopBar() {
     <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl md:hidden">
       <div className="flex h-14 items-center justify-between gap-3 px-4">
         <Brand />
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
           <SiteLink className="rounded-full" />
-          <SignOutButton className="rounded-full" />
+          <UserMenu />
         </div>
+      </div>
+    </header>
+  );
+}
+
+/** Barra do topo no tablet e no computador, com o menu do usuário à direita. */
+function DesktopTopBar() {
+  return (
+    <header className="sticky top-0 z-30 hidden border-b border-line bg-ink/85 backdrop-blur-xl md:block">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-end px-8">
+        <UserMenu />
       </div>
     </header>
   );
@@ -155,7 +130,7 @@ function BottomNav() {
       aria-label="Sistema"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
     >
-      <div className="grid grid-cols-3 px-2 py-1.5">
+      <div className="grid grid-cols-4 px-2 py-1.5">
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className="relative flex flex-col items-center gap-0.5 rounded-2xl py-2 text-[0.7rem] font-medium">
             {({ isActive }) => (
@@ -196,10 +171,10 @@ export function AdminProtected() {
 
   return (
     <>
-      <Sidebar email={state.session.email} />
+      <Sidebar />
       <div className="md:pl-60">
         <MobileTopBar />
-        <DemoBanner />
+        <DesktopTopBar />
         <main id="conteudo" className="mx-auto max-w-6xl px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16">
           <Suspense fallback={<LoadingBlock />}>
             <Outlet />

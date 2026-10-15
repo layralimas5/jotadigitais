@@ -1,5 +1,6 @@
 import type { Account } from "@/domain/account";
 import type { Order } from "@/domain/order";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
 
@@ -12,6 +13,8 @@ export interface DemoState {
   testimonials: Testimonial[];
   /** Pedidos com o e-mail completo, como o banco guardaria. */
   orders: Order[];
+  /** Opcional para não apagar o estoque de quem já usava o painel antes das configurações existirem. */
+  settings?: StoreSettings;
 }
 
 function seedState(): DemoState {

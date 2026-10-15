@@ -5,6 +5,7 @@ import type {
   AccountRepository,
   AdminAccountRepository,
   AdminOrderRepository,
+  AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   NewOrder,
   OrderRepository,
@@ -19,6 +20,7 @@ import {
   TooManyOpenOrdersError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import {
   ACCOUNT_COLUMNS,
@@ -237,5 +239,51 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
   async updateStatus(code: string, status: OrderStatus): Promise<void> {
     const { error } = await this.client.from("orders").update({ status }).eq("code", code);
     if (error) failFromRpc(error);
+  }
+}
+
+const SETTINGS_COLUMNS = "whatsapp_number, instagram_handle, guarantee_days";
+
+interface StoreSettingsRow {
+  whatsapp_number: string | null;
+  instagram_handle: string;
+  guarantee_days: number;
+}
+
+const toStoreSettings = (row: StoreSettingsRow): StoreSettings => ({
+  whatsappNumber: row.whatsapp_number,
+  instagramHandle: row.instagram_handle,
+  guaranteeDays: row.guarantee_days,
+});
+
+/** Linha única (`id = true`) criada pela migration; o painel só atualiza. */
+export class SupabaseStoreSettingsRepository implements AdminStoreSettingsRepository {
+  constructor(
+    private readonly client: SupabaseClient,
+    private readonly defaults: StoreSettings,
+  ) {}
+
+  async get(): Promise<StoreSettings> {
+    const { data, error } = await this.client
+      .from("store_settings")
+      .select(SETTINGS_COLUMNS)
+      .maybeSingle<StoreSettingsRow>();
+    if (error) fail(error);
+    return data ? toStoreSettings(data) : this.defaults;
+  }
+
+  async save(settings: StoreSettings): Promise<StoreSettings> {
+    const { data, error } = await this.client
+      .from("store_settings")
+      .update({
+        whatsapp_number: settings.whatsappNumber,
+        instagram_handle: settings.instagramHandle,
+        guarantee_days: settings.guaranteeDays,
+      })
+      .eq("id", true)
+      .select(SETTINGS_COLUMNS)
+      .single<StoreSettingsRow>();
+    if (error) fail(error);
+    return toStoreSettings(data);
   }
 }
