@@ -115,7 +115,7 @@ function MobileTopBar() {
 function DesktopTopBar() {
   return (
     <header className="sticky top-0 z-30 hidden border-b border-line bg-ink/85 backdrop-blur-xl md:block">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-end px-8">
+      <div className="flex h-16 items-center justify-end px-8">
         <UserMenu />
       </div>
     </header>
@@ -175,7 +175,7 @@ export function AdminProtected() {
       <div className="md:pl-60">
         <MobileTopBar />
         <DesktopTopBar />
-        <main id="conteudo" className="mx-auto max-w-6xl px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16">
+        <main id="conteudo" className="px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16">
           <Suspense fallback={<LoadingBlock />}>
             <Outlet />
           </Suspense>

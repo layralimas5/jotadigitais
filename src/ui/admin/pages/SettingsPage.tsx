@@ -91,30 +91,32 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
     <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
       <div className="space-y-5">
         <FormSection title="Contato" description="Aparece no rodapé, no botão flutuante, na página de cada conta e na confirmação do pedido.">
-          <TextField
-            label="WhatsApp do suporte"
-            name="whatsappNumber"
-            type="tel"
-            inputMode="tel"
-            autoComplete="off"
-            placeholder="55 11 91234-5678"
-            value={form.whatsappNumber}
-            onChange={(event) => update({ whatsappNumber: event.target.value })}
-            error={errors.whatsappNumber}
-            hint="Com 55 e DDD. Deixe vazio para esconder os botões de WhatsApp do site."
-          />
-          <TextField
-            label="Instagram"
-            name="instagramHandle"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="@jotadigitais"
-            maxLength={31}
-            value={form.instagramHandle}
-            onChange={(event) => update({ instagramHandle: event.target.value })}
-            error={errors.instagramHandle}
-          />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <TextField
+              label="WhatsApp do suporte"
+              name="whatsappNumber"
+              type="tel"
+              inputMode="tel"
+              autoComplete="off"
+              placeholder="55 11 91234-5678"
+              value={form.whatsappNumber}
+              onChange={(event) => update({ whatsappNumber: event.target.value })}
+              error={errors.whatsappNumber}
+              hint="Com 55 e DDD. Deixe vazio para esconder os botões de WhatsApp do site."
+            />
+            <TextField
+              label="Instagram"
+              name="instagramHandle"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="@jotadigitais"
+              maxLength={31}
+              value={form.instagramHandle}
+              onChange={(event) => update({ instagramHandle: event.target.value })}
+              error={errors.instagramHandle}
+            />
+          </div>
         </FormSection>
 
         <FormSection title="Garantia" description="O prazo aparece na home, na página de cada conta e nos termos de compra.">

@@ -72,7 +72,7 @@ export default function MyAccountPage() {
   return (
     <>
       <PageHeader title="Minha conta" description="Seu acesso ao sistema." />
-      <div className="mt-6 max-w-2xl space-y-5">
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-start">
         <FormSection title="Acesso">
           <dl>
             <dt className="text-sm font-medium text-fog">Conectado como</dt>
