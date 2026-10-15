@@ -205,7 +205,7 @@ export default function AccountsListPage() {
           />
         </label>
         <div className="grid grid-cols-2 gap-3 lg:flex lg:shrink-0">
-          <label className="lg:w-52">
+          <label className="lg:w-40">
             <span className="sr-only">Rede</span>
             <select
               value={platform}
@@ -220,7 +220,7 @@ export default function AccountsListPage() {
               ))}
             </select>
           </label>
-          <label className="lg:w-52">
+          <label className="lg:w-40">
             <span className="sr-only">Status</span>
             <select
               value={status}
@@ -235,7 +235,7 @@ export default function AccountsListPage() {
               ))}
             </select>
           </label>
-          <ButtonLink to="/admin/contas/nova" className="h-11 w-52 max-lg:hidden">
+          <ButtonLink to="/admin/contas/nova" className="h-11 w-40 shadow-none hover:shadow-none max-lg:hidden">
             <Plus aria-hidden className="size-4" /> Nova conta
           </ButtonLink>
         </div>
