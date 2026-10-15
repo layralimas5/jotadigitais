@@ -2,10 +2,10 @@ import type { Account } from "@/domain/account";
 import type { Testimonial } from "@/domain/testimonial";
 import type { DistributiveOmit } from "@/shared/types";
 
-type SeedAccount = DistributiveOmit<Account, "reservedUntil" | "description" | "images" | "avatarUrl">;
+type SeedAccount = DistributiveOmit<Account, "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId">;
 
 function account(seed: SeedAccount): Account {
-  return { description: null, avatarUrl: null, images: [], reservedUntil: null, ...seed };
+  return { description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, ...seed };
 }
 
 /** Estoque de demonstração com perfis fictícios. Só aparece quando o Supabase não está configurado. */

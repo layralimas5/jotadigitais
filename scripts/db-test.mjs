@@ -16,7 +16,7 @@ const SUPABASE_STUBS = `
   create role anon nologin;
   create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, last_sign_in_at timestamptz);
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
   $$;
@@ -421,6 +421,62 @@ async function main() {
   check(anonExpenses === 0, "visitante não enxerga o financeiro");
   const strangerExpenses = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.expenses`));
   check(strangerExpenses.rows.length === 0, "usuário que não é admin não enxerga o financeiro");
+
+  console.log("\nparceiros");
+  const partner = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.partners (name, whatsapp, pix_key, commission_percent)
+       values ('Fornecedor Teste', '11912345678', 'chave@pix.com', 30) returning id`,
+    ),
+  );
+  const partnerId = partner.rows[0]?.id;
+  check(Boolean(partnerId), "admin cadastra parceiro");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.partners (name, commission_percent) values ('Demais', 120)`)),
+      /check constraint/,
+    ),
+    "comissão acima de 100% é recusada",
+  );
+  const anonPartners = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.partners`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.partners`)).rows.length;
+    }),
+  );
+  check(anonPartners === 0, "visitante não enxerga parceiros");
+  const strangerPartners = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.partners`));
+  check(strangerPartners.rows.length === 0, "usuário que não é admin não enxerga parceiros");
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set partner_id = $1 where id = $2`, [partnerId, youtubeId]));
+  await as("authenticated", ADMIN_ID, () => db.query(`delete from public.partners where id = $1`, [partnerId]));
+  const unlinked = await db.query(`select partner_id from public.accounts where id = $1`, [youtubeId]);
+  check(unlinked.rows[0]?.partner_id === null, "apagar o parceiro deixa a conta como da loja");
+
+  console.log("\nfinalizados");
+  const delivered = await db.query(`select delivered_at from public.orders where status = 'delivered'`);
+  check(
+    delivered.rows.length > 0 && delivered.rows.every((row) => row.delivered_at !== null),
+    "pedido entregue guarda a data da entrega",
+  );
+
+  console.log("\nusuários");
+  const users = await as("authenticated", ADMIN_ID, () => db.query(`select * from public.list_admin_users()`));
+  check(users.rows.length === 1 && users.rows[0]?.email === "jota@exemplo.com", "admin lista os usuários com e-mail");
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select * from public.list_admin_users()`)), /forbidden/),
+    "usuário que não é admin não lista os usuários",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.list_admin_users()`)), /permission denied/),
+    "visitante não lista os usuários",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.admin_users (user_id) values ($1)`, [STRANGER_ID])),
+      /row-level security|permission denied/,
+    ),
+    "ninguém vira admin pelo painel sem passar pela função do servidor",
+  );
 
   console.log("\nimagens");
   check(

@@ -111,6 +111,7 @@ export const accountBaseSchema = z.object({
   avatarUrl: optionalImageUrl,
   images: z.array(imageUrl).max(8, "Use no máximo 8 imagens."),
   listedAt: z.iso.date("Data inválida."),
+  partnerId: z.string().min(1).nullable().default(null),
 });
 
 export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);
@@ -197,6 +198,34 @@ export const leadDataSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Parceiros (mesmas regras da tabela partners)
+// ---------------------------------------------------------------------------
+
+export const partnerDataSchema = z.object({
+  name: personName,
+  whatsapp: optionalWhatsapp,
+  instagram: optionalInstagram,
+  pixKey: optionalText(140),
+  commissionPercent: z
+    .number({ message: "Informe a porcentagem. Ex.: 30." })
+    .min(0, "Não pode ser negativa.")
+    .max(100, "Use no máximo 100%.")
+    .multipleOf(0.01, "Use no máximo duas casas decimais."),
+  notes: optionalText(2000),
+  active: z.boolean(),
+});
+
+// ---------------------------------------------------------------------------
+// Usuários do sistema
+// ---------------------------------------------------------------------------
+
+export const newAdminUserSchema = z.object({
+  name: personName,
+  email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
+  password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),
+});
+
+// ---------------------------------------------------------------------------
 // Automação: modelos de mensagem
 // ---------------------------------------------------------------------------
 
@@ -255,9 +284,11 @@ export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
 // ---------------------------------------------------------------------------
 
 export const storeSettingsSchema = z.object({
+  // Aceita null para que o dado já validado pela tela passe de novo pelo caso de uso.
   whatsappNumber: z
     .string()
-    .transform(onlyDigits)
+    .nullable()
+    .transform((value) => onlyDigits(value ?? ""))
     .refine((digits) => digits === "" || (digits.length >= 12 && digits.length <= 13), {
       message: "Use DDI + DDD + número, ex.: 55 11 91234-5678.",
     })

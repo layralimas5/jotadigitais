@@ -19,7 +19,13 @@ const AccountEditorPage = lazy(() => import("@/ui/admin/pages/AccountEditorPage"
 const TestimonialsListPage = lazy(() => import("@/ui/admin/pages/TestimonialsListPage"));
 const TestimonialEditorPage = lazy(() => import("@/ui/admin/pages/TestimonialEditorPage"));
 const OrdersPage = lazy(() => import("@/ui/admin/pages/OrdersPage"));
-const SettingsPage = lazy(() => import("@/ui/admin/pages/SettingsPage"));
+const SitePage = lazy(() => import("@/ui/admin/pages/SitePage"));
+const DashboardPage = lazy(() => import("@/ui/admin/pages/DashboardPage"));
+const FinalizedPage = lazy(() => import("@/ui/admin/pages/FinalizedPage"));
+const PartnersPage = lazy(() => import("@/ui/admin/pages/PartnersPage"));
+const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
+const UsersPage = lazy(() => import("@/ui/admin/pages/UsersPage"));
+const UserEditorPage = lazy(() => import("@/ui/admin/pages/UserEditorPage"));
 const MyAccountPage = lazy(() => import("@/ui/admin/pages/MyAccountPage"));
 const CustomersPage = lazy(() => import("@/ui/admin/pages/CustomersPage"));
 const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPage"));
@@ -53,7 +59,8 @@ export const router = createBrowserRouter([
       {
         element: <AdminProtected />,
         children: [
-          { index: true, element: <Navigate to="contas" replace /> },
+          { index: true, element: <Navigate to="dashboard" replace /> },
+          { path: "dashboard", element: <DashboardPage /> },
           { path: "contas", element: <AccountsListPage /> },
           { path: "contas/nova", element: <AccountEditorPage /> },
           { path: "contas/:id", element: <AccountEditorPage /> },
@@ -61,6 +68,7 @@ export const router = createBrowserRouter([
           { path: "depoimentos/novo", element: <TestimonialEditorPage /> },
           { path: "depoimentos/:id", element: <TestimonialEditorPage /> },
           { path: "pedidos", element: <OrdersPage /> },
+          { path: "finalizados", element: <FinalizedPage /> },
           { path: "financeiro", element: <FinancePage /> },
           { path: "financeiro/despesas/nova", element: <ExpenseEditorPage /> },
           { path: "financeiro/despesas/:id", element: <ExpenseEditorPage /> },
@@ -68,13 +76,19 @@ export const router = createBrowserRouter([
           { path: "clientes/novo", element: <CustomerEditorPage /> },
           { path: "clientes/cadastro/:id", element: <CustomerEditorPage /> },
           { path: "clientes/:key", element: <CustomerDetailPage /> },
+          { path: "parceiros", element: <PartnersPage /> },
+          { path: "parceiros/novo", element: <PartnerEditorPage /> },
+          { path: "parceiros/:id", element: <PartnerEditorPage /> },
           { path: "crm", element: <CrmPage /> },
           { path: "crm/novo", element: <LeadEditorPage /> },
           { path: "crm/:id", element: <LeadEditorPage /> },
           { path: "automacao", element: <AutomationPage /> },
           { path: "apis", element: <ApisPage /> },
           { path: "mais", element: <MorePage /> },
-          { path: "configuracoes", element: <SettingsPage /> },
+          { path: "site", element: <SitePage /> },
+          { path: "configuracoes", element: <Navigate to="/admin/site" replace /> },
+          { path: "usuarios", element: <UsersPage /> },
+          { path: "usuarios/novo", element: <UserEditorPage /> },
           { path: "minha-conta", element: <MyAccountPage /> },
         ],
       },

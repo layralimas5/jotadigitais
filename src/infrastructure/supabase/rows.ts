@@ -23,10 +23,11 @@ const accountRowSchema = z.object({
   images: z.array(z.string()),
   stats: z.unknown(),
   listed_at: z.string(),
+  partner_id: z.string().nullable(),
 });
 
 export const ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at";
+  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, partner_id";
 
 export function toAccount(raw: unknown): Account {
   const row = accountRowSchema.parse(raw);
@@ -42,6 +43,7 @@ export function toAccount(raw: unknown): Account {
     avatarUrl: row.avatar_url,
     images: row.images,
     listedAt: row.listed_at,
+    partnerId: row.partner_id,
   });
   const platformStats = platformStatsSchema.parse({ platform: row.platform, stats: row.stats });
   return { ...base, ...platformStats, id: row.id, reservedUntil: row.reserved_until };
@@ -62,6 +64,7 @@ export function toAccountRow(data: AccountData) {
     images: data.images,
     stats: data.stats,
     listed_at: data.listedAt,
+    partner_id: data.partnerId,
   };
 }
 
@@ -122,10 +125,12 @@ const orderRowSchema = z.object({
   status: z.enum(ORDER_STATUSES),
   expires_at: z.string(),
   created_at: z.string(),
+  // A página pública do pedido (`get_order`) não devolve a data de entrega.
+  delivered_at: z.string().nullish(),
 });
 
 export const ORDER_COLUMNS =
-  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at, created_at";
+  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at, created_at, delivered_at";
 
 export function toOrder(raw: unknown): Order {
   const row = orderRowSchema.parse(raw);
@@ -141,5 +146,6 @@ export function toOrder(raw: unknown): Order {
     status: row.status,
     expiresAt: row.expires_at,
     createdAt: row.created_at,
+    deliveredAt: row.delivered_at ?? null,
   };
 }

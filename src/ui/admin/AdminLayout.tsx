@@ -6,7 +6,7 @@ import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
 import { UserMenu } from "./components/UserMenu";
-import { BOTTOM_NAV_ITEMS, MORE_ITEMS, NAV_GROUPS } from "./navigation";
+import { BOTTOM_NAV_ITEMS, HOME_PATH, MORE_ITEMS, NAV_GROUPS } from "./navigation";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
@@ -18,6 +18,8 @@ const EDITOR_ROUTES = [
   "/admin/clientes/novo",
   "/admin/clientes/cadastro/:id",
   "/admin/financeiro/despesas/:id",
+  "/admin/parceiros/:id",
+  "/admin/usuarios/novo",
 ];
 
 /** Telas de leitura e preenchimento: centralizadas numa largura confortável em vez de esticadas até a borda. */
@@ -26,7 +28,7 @@ const FORM_ROUTES = [
   "/admin/clientes/:key",
   "/admin/automacao",
   "/admin/apis",
-  "/admin/configuracoes",
+  "/admin/site",
   "/admin/minha-conta",
 ];
 
@@ -71,7 +73,7 @@ function SiteLink({ className }: { className?: string }) {
 function Brand({ stacked = false }: { stacked?: boolean }) {
   return (
     <Link
-      to="/admin/contas"
+      to={HOME_PATH}
       aria-label="Sistema Jota Digitais, início"
       className={cn("flex rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
     >
@@ -91,8 +93,10 @@ function Sidebar() {
       </div>
       <nav aria-label="Sistema" className="flex-1 space-y-5 overflow-y-auto p-3">
         {NAV_GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
+          <div key={group.label ?? "inicio"}>
+            {group.label && (
+              <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
+            )}
             <ul className="space-y-0.5">
               {group.items.map(({ to, label, icon: Icon }) => (
                 <li key={to}>

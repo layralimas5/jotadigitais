@@ -4,8 +4,6 @@ import { Link } from "react-router-dom";
 import { loadFinance } from "@/application/admin-use-cases";
 import {
   EXPENSE_CATEGORY_LABEL,
-  PERIOD_LABEL,
-  PERIOD_PRESETS,
   entriesOf,
   rangeOf,
   summarizeFinance,
@@ -18,50 +16,14 @@ import { ButtonLink } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { Kpi } from "../components/Kpi";
+import { PeriodFilter } from "../components/PeriodFilter";
 import { RevenueChart, SERIES_COLOR } from "../finance/RevenueChart";
 import { useAdminQuery } from "../hooks";
 import { formatIsoDate } from "../lib/dates";
 
 const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
 const MAX_ENTRIES = 30;
-
-function PeriodFilter({ value, onChange }: { value: PeriodPreset; onChange: (preset: PeriodPreset) => void }) {
-  return (
-    <div role="group" aria-label="Período" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
-      {PERIOD_PRESETS.map((preset) => (
-        <button
-          key={preset}
-          type="button"
-          aria-pressed={value === preset}
-          onClick={() => onChange(preset)}
-          className={cn(
-            "shrink-0 rounded-full border px-4 py-2 text-sm transition-colors",
-            value === preset ? "border-electric bg-electric/15 text-white" : "border-line-strong text-mist hover:text-white",
-          )}
-        >
-          {PERIOD_LABEL[preset]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "positive" | "negative" }) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border p-4",
-        tone === "positive" && "border-emerald-400/30 bg-emerald-400/[0.06]",
-        tone === "negative" && "border-alert/30 bg-alert/[0.06]",
-        !tone && "border-line bg-surface/60",
-      )}
-    >
-      <dt className="text-xs text-mist">{label}</dt>
-      <dd className="mt-1 font-display text-xl font-semibold text-white tabular-nums sm:text-2xl">{value}</dd>
-      {hint && <dd className="mt-0.5 text-xs text-mist">{hint}</dd>}
-    </div>
-  );
-}
 
 function Kpis({ summary }: { summary: FinanceSummary }) {
   const profitTone = summary.profit > 0 ? "positive" : summary.profit < 0 ? "negative" : undefined;

@@ -8,6 +8,7 @@ import { TextField } from "@/ui/components/form/Fields";
 import { Logo } from "@/ui/components/Logo";
 import { InlineError, LoadingBlock } from "../components/AdminUi";
 import { useMutation } from "../hooks";
+import { HOME_PATH } from "../navigation";
 import { useAdminSession } from "../session";
 
 interface FromState {
@@ -21,7 +22,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const login = useMutation(signIn);
-  const destination = (location.state as FromState | null)?.from ?? "/admin/contas";
+  const destination = (location.state as FromState | null)?.from ?? HOME_PATH;
 
   if (state.status === "loading") return <LoadingBlock label="Verificando acesso" />;
   if (state.status === "signed-in") return <Navigate to={destination} replace />;

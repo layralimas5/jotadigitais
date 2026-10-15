@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, ShieldUser, UserRound } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
@@ -23,7 +23,7 @@ function useCloseOnOutsideClick(open: boolean, close: () => void, root: RefObjec
   }, [open, close, root]);
 }
 
-/** Ícone do usuário no canto superior direito: Minha conta, Configurações e Sair. */
+/** Ícone do usuário no canto superior direito: Minha conta, Usuários e Sair. */
 export function UserMenu() {
   const { state, signOut } = useAdminSession();
   const [open, setOpen] = useState(false);
@@ -118,8 +118,8 @@ export function UserMenu() {
               <Link role="menuitem" tabIndex={-1} to="/admin/minha-conta" className={itemClass}>
                 <UserRound aria-hidden className="size-4" /> Minha conta
               </Link>
-              <Link role="menuitem" tabIndex={-1} to="/admin/configuracoes" className={itemClass}>
-                <Settings aria-hidden className="size-4" /> Configurações
+              <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" className={itemClass}>
+                <ShieldUser aria-hidden className="size-4" /> Usuários
               </Link>
               <button
                 role="menuitem"

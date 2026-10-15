@@ -31,6 +31,8 @@ export interface AccountFormValues {
   watchHours: string;
   monetized: boolean;
   facebookKind: FacebookKind;
+  /** Vazio quando a conta é da própria loja. */
+  partnerId: string;
 }
 
 export type AccountFormErrors = Record<string, string>;
@@ -61,6 +63,7 @@ export function emptyAccountForm(): AccountFormValues {
     watchHours: "",
     monetized: false,
     facebookKind: "page",
+    partnerId: "",
   };
 }
 
@@ -100,6 +103,7 @@ export function fromAccount(account: Account): AccountFormValues {
     description: account.description ?? "",
     avatarUrl: account.avatarUrl ?? "",
     images: account.images,
+    partnerId: account.partnerId ?? "",
   };
   switch (account.platform) {
     case "tiktok":
@@ -163,6 +167,7 @@ export function toRawAccount(values: AccountFormValues) {
     avatarUrl: values.avatarUrl || null,
     images: values.images,
     listedAt: values.listedAt,
+    partnerId: values.partnerId || null,
   };
 }
 

@@ -1,7 +1,7 @@
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteAccount, findAccount, saveAccount } from "@/application/admin-use-cases";
+import { deleteAccount, findAccount, listPartners, saveAccount } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORMS, PLATFORM_LABEL, type Platform } from "@/domain/platform";
@@ -24,6 +24,7 @@ import {
   type AccountFormValues,
 } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
+import { formatPercent } from "../lib/percent";
 import { useToast } from "../toast";
 
 const STATUS_OPTIONS = ACCOUNT_STATUSES.map((value) => ({ value, label: ACCOUNT_STATUS_LABEL[value] }));
@@ -163,6 +164,41 @@ function LivePreview({ values, accountId }: { values: AccountFormValues; account
   );
 }
 
+const OWN_STOCK_OPTION = { value: "", label: "Da loja (sem parceiro)" };
+
+/** Parceiros ativos, mais o atual mesmo que tenha sido desativado, para não sumir da conta sem querer. */
+function PartnerSelect({ value, onChange }: { value: string; onChange: (partnerId: string) => void }) {
+  const partners = useAdminQuery(listPartners, "account-partners");
+  if (partners.status !== "success") {
+    return (
+      <SelectField
+        label="Parceiro"
+        name="partnerId"
+        disabled
+        value=""
+        options={[{ value: "", label: partners.status === "error" ? "Não foi possível carregar" : "Carregando…" }]}
+        hint={partners.status === "error" ? partners.error.message : undefined}
+      />
+    );
+  }
+  const options = [
+    OWN_STOCK_OPTION,
+    ...partners.data
+      .filter((partner) => partner.active || partner.id === value)
+      .map((partner) => ({ value: partner.id, label: `${partner.name} (${formatPercent(partner.commissionPercent)})` })),
+  ];
+  return (
+    <SelectField
+      label="Parceiro"
+      name="partnerId"
+      value={value}
+      options={options}
+      onChange={(event) => onChange(event.target.value)}
+      hint="Quem forneceu a conta. A comissão dele sai das vendas finalizadas."
+    />
+  );
+}
+
 function focusFirstError(form: HTMLFormElement, errors: AccountFormErrors) {
   const first = ACCOUNT_FIELD_ORDER.find((field) => errors[field]);
   if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
@@ -287,6 +323,7 @@ function AccountEditor({ account }: { account: Account | null }) {
               hint="Se ficar vazio, o site monta um texto com os números da conta."
               maxLength={2000}
             />
+            <PartnerSelect value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
 
           <FormSection title="Prints da conta (opcional)" description="Aparecem na galeria da página da conta. Desfoque dados pessoais antes de enviar.">

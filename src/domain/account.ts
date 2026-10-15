@@ -66,6 +66,8 @@ export interface AccountBase {
   avatarUrl: string | null;
   images: string[];
   listedAt: string;
+  /** Parceiro que forneceu a conta. Nulo quando a conta é da própria loja. */
+  partnerId: string | null;
 }
 
 /** Dados que o administrador preenche. */

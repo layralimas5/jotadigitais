@@ -8,23 +8,29 @@ import type {
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
+  AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
+  AdminUserRepository,
   NewOrder,
   OrderRepository,
   TestimonialRepository,
 } from "@/application/ports";
 import { effectiveStatus, isPurchasable, type Account, type AccountData } from "@/domain/account";
+import { sameEmail, type AdminUser, type NewAdminUser } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
+  AdminUserEmailTakenError,
+  CannotRemoveAdminUserError,
   CustomerEmailTakenError,
   CustomerNotFoundError,
   ExpenseNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
+  PartnerNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
@@ -40,6 +46,7 @@ import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Expense, ExpenseData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
+import type { Partner, PartnerData } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
@@ -225,6 +232,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         status: "awaiting_payment",
         expiresAt: new Date(now + RESERVATION_HOLD_MINUTES * MINUTE_MS).toISOString(),
         createdAt: new Date(now).toISOString(),
+        deliveredAt: null,
       };
       state.orders.push(created);
       account.status = "reserved";
@@ -251,6 +259,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       if (!order) throw new Error(`Pedido ${code} não encontrado.`);
       if (!canTransition(order.status, status)) throw new InvalidTransitionError();
       order.status = status;
+      if (status === "delivered") order.deliveredAt = new Date().toISOString();
 
       const account = state.accounts.find((item) => item.id === order.accountId);
       if (!account) return;
@@ -463,6 +472,96 @@ export class DemoExpenseRepository implements AdminExpenseRepository {
     await simulateLatency();
     this.db.write((state) => {
       state.expenses = (state.expenses ?? []).filter((expense) => expense.id !== id);
+    });
+  }
+}
+
+const byName = (a: Partner, b: Partner) => a.name.localeCompare(b.name, "pt-BR");
+
+export class DemoPartnerRepository implements AdminPartnerRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listAll(): Promise<Partner[]> {
+    return [...(this.db.read().partners ?? [])].sort(byName);
+  }
+
+  async findById(id: string): Promise<Partner | null> {
+    return (this.db.read().partners ?? []).find((partner) => partner.id === id) ?? null;
+  }
+
+  async create(data: PartnerData): Promise<Partner> {
+    await simulateLatency();
+    const partner: Partner = { ...data, id: newId("ptn"), createdAt: new Date().toISOString() };
+    return this.db.write((state) => {
+      state.partners = [...(state.partners ?? []), partner];
+      return partner;
+    });
+  }
+
+  async update(id: string, data: PartnerData): Promise<Partner> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const current = (state.partners ?? []).find((partner) => partner.id === id);
+      if (!current) throw new PartnerNotFoundError();
+      const updated: Partner = { ...current, ...data };
+      state.partners = (state.partners ?? []).map((partner) => (partner.id === id ? updated : partner));
+      return updated;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.partners = (state.partners ?? []).filter((partner) => partner.id !== id);
+      for (const account of state.accounts) if (account.partnerId === id) account.partnerId = null;
+    });
+  }
+}
+
+/** Sem banco não há login de verdade: a lista existe para mostrar a tela, e a senha não é guardada. */
+const DEMO_OWNER: AdminUser = {
+  id: "usr_owner",
+  name: "Jota",
+  email: "jota@jotadigitais.com.br",
+  createdAt: "2026-10-09T12:00:00.000Z",
+  lastSignInAt: null,
+};
+
+export class DemoAdminUserRepository implements AdminUserRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  private users(state: DemoState): AdminUser[] {
+    return state.adminUsers ?? [DEMO_OWNER];
+  }
+
+  async listAll(): Promise<AdminUser[]> {
+    await simulateLatency();
+    return this.users(this.db.read());
+  }
+
+  async create(input: NewAdminUser): Promise<AdminUser> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const users = this.users(state);
+      if (users.some((user) => sameEmail(user.email, input.email))) throw new AdminUserEmailTakenError(input.email);
+      const user: AdminUser = {
+        id: newId("usr"),
+        name: input.name,
+        email: input.email,
+        createdAt: new Date().toISOString(),
+        lastSignInAt: null,
+      };
+      state.adminUsers = [...users, user];
+      return user;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const users = this.users(state);
+      if (users.length <= 1) throw new CannotRemoveAdminUserError("last");
+      state.adminUsers = users.filter((user) => user.id !== id);
     });
   }
 }

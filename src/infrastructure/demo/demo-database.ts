@@ -1,9 +1,11 @@
 import type { Account } from "@/domain/account";
+import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord } from "@/domain/customer";
 import type { Expense } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { Order } from "@/domain/order";
+import type { Partner } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
@@ -24,6 +26,8 @@ export interface DemoState {
   messageTemplates?: Partial<MessageTemplates>;
   preferences?: Record<string, unknown>;
   expenses?: Expense[];
+  partners?: Partner[];
+  adminUsers?: AdminUser[];
 }
 
 function seedState(): DemoState {

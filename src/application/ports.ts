@@ -1,9 +1,11 @@
 import type { Account, AccountData } from "@/domain/account";
+import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Expense, ExpenseData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
+import type { Partner, PartnerData } from "@/domain/partner";
 import type { Platform } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
@@ -139,6 +141,22 @@ export interface AdminLeadRepository {
   create(data: LeadData): Promise<Lead>;
   update(id: string, data: LeadData): Promise<Lead>;
   moveToStage(id: string, stage: LeadStage): Promise<void>;
+  remove(id: string): Promise<void>;
+}
+
+export interface AdminPartnerRepository {
+  listAll(): Promise<Partner[]>;
+  findById(id: string): Promise<Partner | null>;
+  create(data: PartnerData): Promise<Partner>;
+  update(id: string, data: PartnerData): Promise<Partner>;
+  /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
+  remove(id: string): Promise<void>;
+}
+
+/** Quem entra no sistema. Criar e remover passam pelo servidor, que confere se quem pede é administrador. */
+export interface AdminUserRepository {
+  listAll(): Promise<AdminUser[]>;
+  create(input: NewAdminUser): Promise<AdminUser>;
   remove(id: string): Promise<void>;
 }
 
