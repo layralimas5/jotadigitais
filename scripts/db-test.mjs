@@ -478,6 +478,27 @@ async function main() {
     "ninguém vira admin pelo painel sem passar pela função do servidor",
   );
 
+  console.log("\nlink do perfil e oferta");
+  const linked = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `update public.accounts set profile_url = 'https://www.tiktok.com/@achadinhos.dabia', stats_synced_at = now()
+       where id = $1 returning profile_url`,
+      [tiktokId],
+    ),
+  );
+  check(linked.rows[0]?.profile_url === "https://www.tiktok.com/@achadinhos.dabia", "admin salva o link do perfil");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set profile_url = 'javascript:alert(1)' where id = $1`, [tiktokId])),
+      /check constraint/,
+    ),
+    "link que não começa com https:// é recusado",
+  );
+  const offer = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.message_templates (key, body) values ('account_offer', 'Oi, {nome}! {conta}') returning key`),
+  );
+  check(offer.rows[0]?.key === "account_offer", "admin salva o modelo de oferta de conta");
+
   console.log("\nimagens");
   check(
     await rejects(

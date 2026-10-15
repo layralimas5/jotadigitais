@@ -146,15 +146,17 @@ interface SegmentedFieldProps<T extends string> {
   value: T;
   options: readonly SegmentedOption<T>[];
   onChange: (value: T) => void;
-  columns?: 2 | 4;
+  columns?: 2 | 3 | 4;
 }
 
 /** Grupo de rádios com cara de botões, para escolhas curtas (rede social, tipo de depoimento). */
+const COLUMNS_CLASS = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 sm:grid-cols-4" } as const;
+
 export function SegmentedField<T extends string>({ legend, name, value, options, onChange, columns = 2 }: SegmentedFieldProps<T>) {
   return (
     <fieldset>
       <legend className="text-sm font-medium text-fog">{legend}</legend>
-      <div className={cn("mt-2 grid gap-2", columns === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2")}>
+      <div className={cn("mt-2 grid gap-2", COLUMNS_CLASS[columns])}>
         {options.map((option) => (
           <label
             key={option.value}

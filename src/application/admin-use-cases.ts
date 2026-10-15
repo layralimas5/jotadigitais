@@ -8,6 +8,7 @@ import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
+import type { ProfileLookup } from "@/domain/profile-lookup";
 import { finalizedSales } from "@/domain/sale";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
@@ -25,6 +26,7 @@ import type {
   AdminTestimonialRepository,
   AdminUserRepository,
   AuthService,
+  ProfileLookupService,
   ImageStorage,
   MediaFolder,
   PreparedImage,
@@ -58,6 +60,7 @@ export interface AdminDeps {
   expenses: AdminExpenseRepository;
   partners: AdminPartnerRepository;
   users: AdminUserRepository;
+  profiles: ProfileLookupService;
   images: ImageStorage;
 }
 
@@ -260,6 +263,10 @@ export async function removeAdminUser(deps: AdminDeps, user: AdminUser, currentE
   const users = await deps.users.listAll();
   if (users.length <= 1) throw new CannotRemoveAdminUserError("last");
   await deps.users.remove(user.id);
+}
+
+export function lookupAccountProfile(deps: AdminDeps, url: string): Promise<ProfileLookup> {
+  return deps.profiles.lookup(url.trim());
 }
 
 export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {

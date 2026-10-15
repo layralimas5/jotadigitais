@@ -4,13 +4,14 @@ export const MESSAGE_TEMPLATE_KEYS = [
   "order_delivered",
   "crm_follow_up",
   "customer_hello",
+  "account_offer",
 ] as const;
 
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 
 export type MessageTemplates = Record<MessageTemplateKey, string>;
 
-export const TEMPLATE_VARIABLES = ["nome", "pedido", "conta", "valor", "loja"] as const;
+export const TEMPLATE_VARIABLES = ["nome", "pedido", "conta", "valor", "loja", "rede", "detalhes", "link"] as const;
 
 export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number];
 
@@ -42,6 +43,11 @@ export const MESSAGE_TEMPLATE_INFO: Record<MessageTemplateKey, { title: string; 
     when: "Falar com quem já comprou",
     variables: ["nome", "loja"],
   },
+  account_offer: {
+    title: "Oferecer conta",
+    when: "Enviar os dados de uma conta para quem quer comprar",
+    variables: ["nome", "conta", "rede", "detalhes", "valor", "link", "loja"],
+  },
 };
 
 export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplates = {
@@ -53,6 +59,17 @@ export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplates = {
     "Pronto, {nome}! A conta {conta} foi entregue no seu e-mail (pedido {pedido}). Qualquer dúvida na troca de nome, @ ou foto, me chama aqui.",
   crm_follow_up: "Oi, {nome}! Aqui é da {loja}. Passando para saber se você ainda procura uma conta. Chegaram opções novas.",
   customer_hello: "Olá, {nome}! Aqui é da {loja}.",
+  account_offer: [
+    "Oi, {nome}! Separei essa conta do {rede} para você:",
+    "",
+    "*{conta}*",
+    "{detalhes}",
+    "",
+    "Valor: *{valor}*",
+    "Ver fotos e comprar: {link}",
+    "",
+    "Qualquer dúvida, me chama aqui. {loja}",
+  ].join("\n"),
 };
 
 export const MAX_TEMPLATE_LENGTH = 1000;

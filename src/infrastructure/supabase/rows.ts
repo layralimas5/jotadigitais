@@ -24,10 +24,12 @@ const accountRowSchema = z.object({
   stats: z.unknown(),
   listed_at: z.string(),
   partner_id: z.string().nullable(),
+  profile_url: z.string().nullable(),
+  stats_synced_at: z.string().nullable(),
 });
 
 export const ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, partner_id";
+  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, partner_id, profile_url, stats_synced_at";
 
 export function toAccount(raw: unknown): Account {
   const row = accountRowSchema.parse(raw);
@@ -44,6 +46,8 @@ export function toAccount(raw: unknown): Account {
     images: row.images,
     listedAt: row.listed_at,
     partnerId: row.partner_id,
+    profileUrl: row.profile_url,
+    statsSyncedAt: row.stats_synced_at ? new Date(row.stats_synced_at).toISOString() : null,
   });
   const platformStats = platformStatsSchema.parse({ platform: row.platform, stats: row.stats });
   return { ...base, ...platformStats, id: row.id, reservedUntil: row.reserved_until };
@@ -65,6 +69,8 @@ export function toAccountRow(data: AccountData) {
     stats: data.stats,
     listed_at: data.listedAt,
     partner_id: data.partnerId,
+    profile_url: data.profileUrl,
+    stats_synced_at: data.statsSyncedAt,
   };
 }
 

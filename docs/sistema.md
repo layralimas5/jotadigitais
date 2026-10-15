@@ -5,8 +5,17 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
 
 ## Como funciona
 
-- **Contas**: cada conta tem rede (TikTok, Instagram, YouTube, Facebook) e os números próprios dela.
+- **Contas**: contas monetizadas de TikTok, Instagram e YouTube, cada uma com os números próprios da rede e a
+  marcação de monetização (filtro e selo na lista). Facebook continua aceito só nas contas que já existiam.
   O banco recusa dados de uma rede numa conta de outra.
+  - **Puxar dados**: na ficha, cole o link do perfil e o sistema preenche nome, @, foto, seguidores e os números
+    públicos da rede, com uma análise rápida (médias por vídeo, proporções). Preço, status, horas de exibição do
+    YouTube e monetização não são públicos e ficam para preencher à mão. A leitura usa a página pública do perfil
+    (`supabase/functions/account-lookup/lookup.ts`): se a rede bloquear, o painel avisa e o cadastro manual segue.
+    Em desenvolvimento o próprio Vite responde em `/api/account-lookup`; em produção é a Edge Function `account-lookup`.
+  - **Enviar pelo WhatsApp**: botão em cada conta (lista e ficha) monta a mensagem com os números, o preço e o link
+    da página da conta. Dá para escolher um contato do CRM ou digitar o número; sem número, o WhatsApp abre para
+    escolher a conversa. O texto padrão é o modelo "Oferecer conta", em Automação.
 - **Depoimentos**: print enviado pelo painel, reduzido e convertido para WebP no navegador antes do upload.
   A ordem no painel é a ordem da faixa de resultados da home.
 - **Pedidos**: o checkout chama a função `place_order`, que cria o pedido e reserva a conta numa operação só.
@@ -59,9 +68,10 @@ Com o Supabase ligado, o ícone some do site e o painel volta a exigir login.
    VITE_SUPABASE_URL=...
    VITE_SUPABASE_ANON_KEY=...
    ```
-7. Publicar a função de usuários (cria e remove acessos pela aba Usuários):
+7. Publicar as funções do servidor (Usuários cria e remove acessos; account-lookup puxa os dados pelo link da conta):
    ```bash
    npx supabase functions deploy admin-users
+   npx supabase functions deploy account-lookup
    ```
 8. Entrar em `/admin` e cadastrar o estoque real. Os 6 depoimentos atuais já entram pela migration.
 9. Em **Site**, preencher WhatsApp do suporte, Instagram e dias de garantia. Com o banco ligado,

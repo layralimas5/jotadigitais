@@ -64,8 +64,14 @@ const optionalText = (max: number) =>
     .nullable()
     .transform((value) => (value ? value : null));
 
-export const tiktokStatsSchema = z.object({ likes: count, following: count });
-export const instagramStatsSchema = z.object({ posts: count, following: count, professional: z.boolean() });
+// Contas salvas antes da monetização no TikTok e no Instagram chegam sem o campo: valem como não monetizadas.
+export const tiktokStatsSchema = z.object({ likes: count, following: count, monetized: z.boolean().default(false) });
+export const instagramStatsSchema = z.object({
+  posts: count,
+  following: count,
+  professional: z.boolean(),
+  monetized: z.boolean().default(false),
+});
 export const youtubeStatsSchema = z.object({
   views: count,
   videos: count,
@@ -112,6 +118,15 @@ export const accountBaseSchema = z.object({
   images: z.array(imageUrl).max(8, "Use no máximo 8 imagens."),
   listedAt: z.iso.date("Data inválida."),
   partnerId: z.string().min(1).nullable().default(null),
+  profileUrl: z
+    .string()
+    .trim()
+    .max(300, "Link longo demais.")
+    .nullable()
+    .default(null)
+    .transform((value) => value || null)
+    .refine((value) => value === null || /^https:\/\/[^\s]+$/.test(value), "Use o link completo, começando com https://."),
+  statsSyncedAt: z.iso.datetime({ offset: true }).nullable().default(null),
 });
 
 export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);
@@ -241,6 +256,7 @@ export const messageTemplatesSchema = z.object({
   order_delivered: templateBody,
   crm_follow_up: templateBody,
   customer_hello: templateBody,
+  account_offer: templateBody,
 });
 
 // ---------------------------------------------------------------------------

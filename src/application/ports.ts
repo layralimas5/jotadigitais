@@ -7,6 +7,7 @@ import type { MessageTemplates } from "@/domain/message-template";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { Partner, PartnerData } from "@/domain/partner";
 import type { Platform } from "@/domain/platform";
+import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 
@@ -158,6 +159,11 @@ export interface AdminUserRepository {
   listAll(): Promise<AdminUser[]>;
   create(input: NewAdminUser): Promise<AdminUser>;
   remove(id: string): Promise<void>;
+}
+
+/** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */
+export interface ProfileLookupService {
+  lookup(url: string): Promise<ProfileLookup>;
 }
 
 export type MediaFolder = "accounts" | "testimonials";

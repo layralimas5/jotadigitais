@@ -17,6 +17,7 @@ import {
 } from "@/infrastructure/demo/demo-repositories";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
+import { DevServerProfileLookupService, SupabaseProfileLookupService } from "@/infrastructure/profile-lookup";
 import {
   SupabaseAccountRepository,
   SupabaseCustomerRepository,
@@ -63,6 +64,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       expenses: new SupabaseExpenseRepository(client),
       partners: new SupabasePartnerRepository(client),
       users: new SupabaseAdminUserRepository(client),
+      profiles: new SupabaseProfileLookupService(client),
       images: new SupabaseImageStorage(client),
     },
   };
@@ -91,6 +93,7 @@ function demoContainer(): Container {
       expenses: new DemoExpenseRepository(db),
       partners: new DemoPartnerRepository(db),
       users: new DemoAdminUserRepository(db),
+      profiles: new DevServerProfileLookupService(),
       images: new DemoImageStorage(),
     },
   };
