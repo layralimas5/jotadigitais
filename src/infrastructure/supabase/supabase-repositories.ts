@@ -5,7 +5,9 @@ import type {
   AccountFilter,
   AccountRepository,
   AdminAccountRepository,
+  AdminCustomerRepository,
   AdminLeadRepository,
+  AdminMessageTemplateRepository,
   AdminOrderRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -17,13 +19,22 @@ import type { Account, AccountData } from "@/domain/account";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
+  CustomerEmailTakenError,
+  CustomerNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
+import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import { LEAD_SOURCES, LEAD_STAGES, type Lead, type LeadData, type LeadStage } from "@/domain/lead";
+import {
+  DEFAULT_MESSAGE_TEMPLATES,
+  MESSAGE_TEMPLATE_KEYS,
+  type MessageTemplateKey,
+  type MessageTemplates,
+} from "@/domain/message-template";
 import { PLATFORMS } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
@@ -387,5 +398,94 @@ export class SupabaseLeadRepository implements AdminLeadRepository {
   async remove(id: string): Promise<void> {
     const { error } = await this.client.from("leads").delete().eq("id", id);
     if (error) fail(error);
+  }
+}
+
+const CUSTOMER_COLUMNS = "id, name, email, whatsapp, instagram, notes, created_at";
+
+const customerRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().nullable(),
+  whatsapp: z.string().nullable(),
+  instagram: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+});
+
+function toCustomerRecord(raw: unknown): CustomerRecord {
+  const row = customerRowSchema.parse(raw);
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    whatsapp: row.whatsapp,
+    instagram: row.instagram,
+    notes: row.notes,
+    createdAt: row.created_at,
+  };
+}
+
+function failOnCustomerWrite(error: PostgrestError, email: string | null): never {
+  if (error.code === UNIQUE_VIOLATION && email) throw new CustomerEmailTakenError(email);
+  return fail(error);
+}
+
+export class SupabaseCustomerRepository implements AdminCustomerRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<CustomerRecord[]> {
+    const { data, error } = await this.client.from("customers").select(CUSTOMER_COLUMNS).order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toCustomerRecord);
+  }
+
+  async findById(id: string): Promise<CustomerRecord | null> {
+    const { data, error } = await this.client.from("customers").select(CUSTOMER_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toCustomerRecord(data) : null;
+  }
+
+  async create(input: CustomerRecordData): Promise<CustomerRecord> {
+    const { data, error } = await this.client.from("customers").insert(input).select(CUSTOMER_COLUMNS).single();
+    if (error) failOnCustomerWrite(error, input.email);
+    return toCustomerRecord(data);
+  }
+
+  async update(id: string, input: CustomerRecordData): Promise<CustomerRecord> {
+    const { data, error } = await this.client
+      .from("customers")
+      .update(input)
+      .eq("id", id)
+      .select(CUSTOMER_COLUMNS)
+      .maybeSingle();
+    if (error) failOnCustomerWrite(error, input.email);
+    if (!data) throw new CustomerNotFoundError();
+    return toCustomerRecord(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("customers").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+const templateRowSchema = z.object({ key: z.enum(MESSAGE_TEMPLATE_KEYS), body: z.string() });
+
+export class SupabaseMessageTemplateRepository implements AdminMessageTemplateRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async getAll(): Promise<MessageTemplates> {
+    const { data, error } = await this.client.from("message_templates").select("key, body");
+    if (error) fail(error);
+    const saved = data.map((row) => templateRowSchema.parse(row));
+    return saved.reduce<MessageTemplates>((all, row) => ({ ...all, [row.key]: row.body }), { ...DEFAULT_MESSAGE_TEMPLATES });
+  }
+
+  async save(templates: MessageTemplates): Promise<MessageTemplates> {
+    const rows = (Object.keys(templates) as MessageTemplateKey[]).map((key) => ({ key, body: templates[key] }));
+    const { error } = await this.client.from("message_templates").upsert(rows, { onConflict: "key" });
+    if (error) fail(error);
+    return templates;
   }
 }

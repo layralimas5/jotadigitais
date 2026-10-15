@@ -1,31 +1,35 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ExternalLink, ImageIcon, Package, Receipt, Settings, SquareKanban, Users } from "lucide-react";
+import { Ellipsis, ExternalLink, type LucideIcon } from "lucide-react";
 import { Suspense, useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
 import { UserMenu } from "./components/UserMenu";
+import { BOTTOM_NAV_ITEMS, MORE_ITEMS, NAV_GROUPS } from "./navigation";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
-/** No celular, Configurações fica no menu do usuário para a barra de baixo caber no polegar. */
-const NAV_ITEMS = [
-  { to: "/admin/contas", label: "Contas", icon: Package, inBottomNav: true },
-  { to: "/admin/depoimentos", label: "Depoimentos", icon: ImageIcon, inBottomNav: true },
-  { to: "/admin/pedidos", label: "Pedidos", icon: Receipt, inBottomNav: true },
-  { to: "/admin/clientes", label: "Clientes", icon: Users, inBottomNav: true },
-  { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: true },
-  { to: "/admin/configuracoes", label: "Configurações", icon: Settings, inBottomNav: false },
-] as const;
-
-const BOTTOM_NAV_ITEMS = NAV_ITEMS.filter((item) => item.inBottomNav);
-
 /** Cadastros com a própria barra fixa de salvar no celular: ali a navegação de baixo sai do caminho. */
-const EDITOR_ROUTES = ["/admin/contas/:id", "/admin/depoimentos/:id", "/admin/crm/:id"];
+const EDITOR_ROUTES = [
+  "/admin/contas/:id",
+  "/admin/depoimentos/:id",
+  "/admin/crm/:id",
+  "/admin/clientes/novo",
+  "/admin/clientes/cadastro/:id",
+];
 
-/** Telas de leitura e preenchimento: numa largura confortável em vez de esticadas até a borda. */
-const FORM_ROUTES = [...EDITOR_ROUTES, "/admin/clientes/:key", "/admin/configuracoes", "/admin/minha-conta"];
+/** Telas de leitura e preenchimento: centralizadas numa largura confortável em vez de esticadas até a borda. */
+const FORM_ROUTES = [
+  ...EDITOR_ROUTES,
+  "/admin/clientes/:key",
+  "/admin/automacao",
+  "/admin/apis",
+  "/admin/configuracoes",
+  "/admin/minha-conta",
+];
+
+const MORE_ROUTES = ["/admin/mais", "/admin/minha-conta", ...MORE_ITEMS.map((item) => `${item.to}/*`)];
 
 const matchesAny = (patterns: readonly string[], pathname: string) =>
   patterns.some((pattern) => matchPath(pattern, pathname) !== null);
@@ -84,23 +88,32 @@ function Sidebar() {
       <div className="flex justify-center border-b border-line px-5 py-5">
         <Brand stacked />
       </div>
-      <nav aria-label="Sistema" className="flex-1 space-y-1 p-3">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium">
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <motion.span
-                    layoutId="sidebar-active"
-                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
-                    className="absolute inset-0 rounded-xl border border-electric/30 bg-electric/10"
-                  />
-                )}
-                <Icon aria-hidden className={cn("relative size-[1.1rem]", isActive ? "text-electric" : "text-mist")} />
-                <span className={cn("relative", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
-              </>
-            )}
-          </NavLink>
+      <nav aria-label="Sistema" className="flex-1 space-y-5 overflow-y-auto p-3">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
+            <ul className="space-y-0.5">
+              {group.items.map(({ to, label, icon: Icon }) => (
+                <li key={to}>
+                  <NavLink to={to} className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium">
+                    {({ isActive }) => (
+                      <>
+                        {isActive && (
+                          <motion.span
+                            layoutId="sidebar-active"
+                            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
+                            className="absolute inset-0 rounded-xl border border-electric/30 bg-electric/10"
+                          />
+                        )}
+                        <Icon aria-hidden className={cn("relative size-[1.1rem]", isActive ? "text-electric" : "text-mist")} />
+                        <span className={cn("relative", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
+                      </>
+                    )}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
       </nav>
       <div className="border-t border-line p-3">
@@ -136,18 +149,34 @@ function DesktopTopBar() {
   );
 }
 
+interface BottomNavEntry {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  /** "Mais" fica ativo também nas seções que moram dentro dele. */
+  activeOn?: readonly string[];
+}
+
+const BOTTOM_NAV: readonly BottomNavEntry[] = [
+  ...BOTTOM_NAV_ITEMS,
+  { to: "/admin/mais", label: "Mais", icon: Ellipsis, activeOn: MORE_ROUTES },
+];
+
 /** Navegação no polegar: fixa embaixo no celular, com a aba ativa deslizando entre os itens. */
 function BottomNav() {
   const reduceMotion = useReducedMotion();
+  const { pathname } = useLocation();
   return (
     <nav
       aria-label="Sistema"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
     >
       <div className="grid grid-cols-5 px-1 py-1.5">
-        {BOTTOM_NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {BOTTOM_NAV.map(({ to, label, icon: Icon, activeOn }) => (
           <NavLink key={to} to={to} className="relative flex flex-col items-center gap-0.5 rounded-2xl py-2 text-[0.7rem] font-medium">
-            {({ isActive }) => (
+            {({ isActive: linkActive }) => {
+              const isActive = activeOn ? matchesAny(activeOn, pathname) : linkActive;
+              return (
               <>
                 {isActive && (
                   <motion.span
@@ -159,7 +188,8 @@ function BottomNav() {
                 <Icon aria-hidden className={cn("relative size-5", isActive ? "text-electric" : "text-mist")} />
                 <span className={cn("relative", isActive ? "text-white" : "text-mist")}>{label}</span>
               </>
-            )}
+              );
+            }}
           </NavLink>
         ))}
       </div>
@@ -185,7 +215,7 @@ export function AdminProtected() {
         <DesktopTopBar />
         <main
           id="conteudo"
-          className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "md:max-w-[68rem]")}
+          className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}
         >
           <Suspense fallback={<LoadingBlock />}>
             <Outlet />

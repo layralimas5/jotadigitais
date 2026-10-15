@@ -47,6 +47,20 @@ export class LeadNotFoundError extends Error {
   }
 }
 
+export class CustomerNotFoundError extends Error {
+  constructor() {
+    super("Este cadastro não existe mais. Ele pode ter sido apagado.");
+    this.name = "CustomerNotFoundError";
+  }
+}
+
+export class CustomerEmailTakenError extends Error {
+  constructor(email: string) {
+    super(`Já existe um cliente cadastrado com o e-mail ${email}.`);
+    this.name = "CustomerEmailTakenError";
+  }
+}
+
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("E-mail ou senha incorretos.");

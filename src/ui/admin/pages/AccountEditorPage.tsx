@@ -13,7 +13,7 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, SelectField, TextAreaField, ToggleField } from "../components/FormControls";
-import { GalleryField } from "../components/ImageUpload";
+import { AvatarField, GalleryField } from "../components/ImageUpload";
 import {
   ACCOUNT_FIELD_ORDER,
   emptyAccountForm,
@@ -228,6 +228,13 @@ function AccountEditor({ account }: { account: Account | null }) {
               options={PLATFORM_OPTIONS}
               onChange={(value) => set("platform", value)}
               columns={4}
+            />
+            <AvatarField
+              label="Foto de perfil"
+              hint={`Use a mesma foto do perfil no ${PLATFORM_LABEL[values.platform]}. Aparece na vitrine e na página da conta.`}
+              value={values.avatarUrl}
+              onChange={(url) => set("avatarUrl", url)}
+              error={errors.avatarUrl}
             />
           </FormSection>
 

@@ -1,5 +1,7 @@
 import type { Account } from "@/domain/account";
+import type { CustomerRecord } from "@/domain/customer";
 import type { Lead } from "@/domain/lead";
+import type { MessageTemplates } from "@/domain/message-template";
 import type { Order } from "@/domain/order";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
@@ -17,6 +19,8 @@ export interface DemoState {
   /** Opcionais para não apagar o estoque de quem já usava o painel antes destas partes existirem. */
   settings?: StoreSettings;
   leads?: Lead[];
+  customers?: CustomerRecord[];
+  messageTemplates?: Partial<MessageTemplates>;
 }
 
 function seedState(): DemoState {

@@ -335,6 +335,58 @@ async function main() {
     "banco recusa WhatsApp curto demais",
   );
 
+  console.log("\nclientes");
+  const customer = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.customers (name, email, whatsapp) values ('Ana Lima', 'Ana@Exemplo.com', '11977776666') returning id`),
+  );
+  check(customer.rows.length === 1, "admin cadastra cliente");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.customers (name, email) values ('Outra Ana', 'ana@exemplo.com')`)),
+      /duplicate key|unique/,
+    ),
+    "e-mail repetido é recusado, sem diferenciar maiúscula",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.customers (name) values ('Sem Contato')`)),
+      /customers_has_contact/,
+    ),
+    "cliente precisa de pelo menos um contato",
+  );
+  const anonCustomers = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.customers`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.customers`)).rows.length;
+    }),
+  );
+  check(anonCustomers === 0, "visitante não enxerga clientes");
+  const strangerCustomers = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.customers`));
+  check(strangerCustomers.rows.length === 0, "usuário que não é admin não enxerga clientes");
+
+  console.log("\nmensagens da automação");
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.message_templates (key, body) values ('order_received', 'Olá, {nome}!')
+              on conflict (key) do update set body = excluded.body`),
+  );
+  const templates = await as("authenticated", ADMIN_ID, () => db.query(`select body from public.message_templates`));
+  check(templates.rows[0]?.body === "Olá, {nome}!", "admin salva modelo de mensagem");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.message_templates (key, body) values ('inventado', 'x')`)),
+      /check constraint/,
+    ),
+    "modelo com chave desconhecida é recusado",
+  );
+  const strangerTemplates = await as("authenticated", STRANGER_ID, () => db.query(`select key from public.message_templates`));
+  check(strangerTemplates.rows.length === 0, "usuário que não é admin não lê os modelos");
+
+  console.log("\nfoto da conta");
+  const withAvatar = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.accounts set avatar_url = 'https://exemplo.com/foto.webp' where id = $1 returning avatar_url`, [youtubeId]),
+  );
+  check(withAvatar.rows[0]?.avatar_url === "https://exemplo.com/foto.webp", "admin coloca a foto de perfil da conta");
+
   console.log("\nimagens");
   check(
     await rejects(

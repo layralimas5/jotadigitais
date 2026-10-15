@@ -1,14 +1,16 @@
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listCustomers } from "@/application/admin-use-cases";
 import type { CustomerSummary } from "@/domain/customer";
 import { formatBRL } from "@/domain/money";
+import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { LoadingBlock, PageHeader } from "../components/AdminUi";
-import { useAdminQuery } from "../hooks";
+import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { formatDate } from "../lib/dates";
-import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
+import { personMessage } from "../lib/messages";
+import { whatsappChatUrl } from "../lib/whatsapp";
 
 const customerPath = (customer: Pick<CustomerSummary, "key">) => `/admin/clientes/${encodeURIComponent(customer.key)}`;
 
@@ -23,16 +25,18 @@ function matches(customer: CustomerSummary, query: string): boolean {
   const digits = needle.replace(/\D/g, "");
   return (
     customer.name.toLowerCase().includes(needle) ||
-    customer.email.toLowerCase().includes(needle) ||
+    (customer.email ?? "").toLowerCase().includes(needle) ||
+    (customer.instagram ?? "").toLowerCase().includes(needle) ||
     (digits.length >= 3 && (customer.whatsapp ?? "").includes(digits))
   );
 }
 
 function WhatsAppButton({ customer }: { customer: CustomerSummary }) {
+  const templates = useMessageTemplates();
   if (!customer.whatsapp) return <span className="text-xs text-mist">Sem WhatsApp</span>;
   return (
     <a
-      href={whatsappChatUrl(customer.whatsapp, `Olá, ${firstNameOf(customer.name)}! Aqui é da Jota Digitais.`)}
+      href={whatsappChatUrl(customer.whatsapp, personMessage(templates, "customer_hello", customer.name))}
       target="_blank"
       rel="noreferrer"
       aria-label={`Chamar ${customer.name} no WhatsApp`}
@@ -59,7 +63,7 @@ function CustomerIdentity({ customer }: { customer: CustomerSummary }) {
         >
           {customer.name}
         </Link>
-        <p className="truncate text-xs text-mist">{customer.email}</p>
+        <p className="truncate text-xs text-mist">{customer.email ?? customer.instagram ?? "Sem e-mail"}</p>
       </div>
     </div>
   );
@@ -91,7 +95,7 @@ function CustomersTable({ customers }: { customers: CustomerSummary[] }) {
                 {customer.openOrders > 0 && <span className="ml-1.5 text-xs text-pink">+{customer.openOrders} em aberto</span>}
               </td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(customer.totalSpent)}</td>
-              <td className="px-4 py-3 text-right text-fog">{formatDate(customer.lastOrderAt)}</td>
+              <td className="px-4 py-3 text-right text-fog">{customer.lastOrderAt ? formatDate(customer.lastOrderAt) : <span className="text-mist">Sem pedidos</span>}</td>
             </tr>
           ))}
         </tbody>
@@ -132,11 +136,19 @@ export default function CustomersPage() {
       ? `${customers.data.length} ${customers.data.length === 1 ? "cliente" : "clientes"}, ${formatBRL(
           customers.data.reduce((sum, customer) => sum + customer.totalSpent, 0),
         )} em compras pagas.`
-      : "Quem já fez pedido na loja.";
+      : "Quem compra na loja.";
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Clientes" description={summary} />
+      <PageHeader
+        title="Clientes"
+        description={summary}
+        action={
+          <ButtonLink to="/admin/clientes/novo" className="max-md:hidden">
+            <Plus aria-hidden className="size-4" /> Novo cliente
+          </ButtonLink>
+        }
+      />
 
       <label className="relative block lg:max-w-md">
         <span className="sr-only">Buscar cliente</span>
@@ -155,7 +167,12 @@ export default function CustomersPage() {
       {customers.status === "success" && customers.data.length === 0 && (
         <EmptyState
           title="Nenhum cliente ainda"
-          description="Quem finalizar uma compra no site aparece aqui, com o contato e o histórico de pedidos."
+          description="Quem compra pelo site aparece aqui sozinho. Quem comprou por fora, você cadastra."
+          action={
+            <ButtonLink to="/admin/clientes/novo">
+              <Plus aria-hidden className="size-4" /> Cadastrar cliente
+            </ButtonLink>
+          }
         />
       )}
       {customers.status === "success" && customers.data.length > 0 && visible.length === 0 && (
@@ -167,6 +184,7 @@ export default function CustomersPage() {
           <CustomersCards customers={visible} />
         </>
       )}
+      <Fab to="/admin/clientes/novo" label="Novo cliente" />
     </div>
   );
 }

@@ -25,6 +25,10 @@ const CustomersPage = lazy(() => import("@/ui/admin/pages/CustomersPage"));
 const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPage"));
 const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
 const LeadEditorPage = lazy(() => import("@/ui/admin/pages/LeadEditorPage"));
+const CustomerEditorPage = lazy(() => import("@/ui/admin/pages/CustomerEditorPage"));
+const AutomationPage = lazy(() => import("@/ui/admin/pages/AutomationPage"));
+const ApisPage = lazy(() => import("@/ui/admin/pages/ApisPage"));
+const MorePage = lazy(() => import("@/ui/admin/pages/MorePage"));
 
 export const router = createBrowserRouter([
   {
@@ -56,10 +60,15 @@ export const router = createBrowserRouter([
           { path: "depoimentos/:id", element: <TestimonialEditorPage /> },
           { path: "pedidos", element: <OrdersPage /> },
           { path: "clientes", element: <CustomersPage /> },
+          { path: "clientes/novo", element: <CustomerEditorPage /> },
+          { path: "clientes/cadastro/:id", element: <CustomerEditorPage /> },
           { path: "clientes/:key", element: <CustomerDetailPage /> },
           { path: "crm", element: <CrmPage /> },
           { path: "crm/novo", element: <LeadEditorPage /> },
           { path: "crm/:id", element: <LeadEditorPage /> },
+          { path: "automacao", element: <AutomationPage /> },
+          { path: "apis", element: <ApisPage /> },
+          { path: "mais", element: <MorePage /> },
           { path: "configuracoes", element: <SettingsPage /> },
           { path: "minha-conta", element: <MyAccountPage /> },
         ],

@@ -62,6 +62,8 @@ export interface AccountBase {
   price: Cents;
   status: AccountStatus;
   description: string | null;
+  /** A mesma foto de perfil usada na rede social. Sem ela, o site mostra as iniciais. */
+  avatarUrl: string | null;
   images: string[];
   listedAt: string;
 }

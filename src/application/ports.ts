@@ -1,5 +1,7 @@
 import type { Account, AccountData } from "@/domain/account";
+import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
+import type { MessageTemplates } from "@/domain/message-template";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { Platform } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -97,6 +99,20 @@ export interface AdminTestimonialRepository {
 export interface AdminOrderRepository {
   listAll(): Promise<Order[]>;
   updateStatus(code: string, status: OrderStatus): Promise<void>;
+}
+
+export interface AdminCustomerRepository {
+  listAll(): Promise<CustomerRecord[]>;
+  findById(id: string): Promise<CustomerRecord | null>;
+  create(data: CustomerRecordData): Promise<CustomerRecord>;
+  update(id: string, data: CustomerRecordData): Promise<CustomerRecord>;
+  remove(id: string): Promise<void>;
+}
+
+export interface AdminMessageTemplateRepository {
+  /** Sempre devolve os cinco modelos: o que não foi salvo vem com o texto padrão. */
+  getAll(): Promise<MessageTemplates>;
+  save(templates: MessageTemplates): Promise<MessageTemplates>;
 }
 
 export interface AdminLeadRepository {

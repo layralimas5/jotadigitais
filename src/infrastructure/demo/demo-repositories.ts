@@ -3,7 +3,9 @@ import type {
   AccountFilter,
   AccountRepository,
   AdminAccountRepository,
+  AdminCustomerRepository,
   AdminLeadRepository,
+  AdminMessageTemplateRepository,
   AdminOrderRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -15,6 +17,8 @@ import { effectiveStatus, isPurchasable, type Account, type AccountData } from "
 import {
   AccountNotFoundError,
   AccountUnavailableError,
+  CustomerEmailTakenError,
+  CustomerNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
   SlugTakenError,
@@ -28,7 +32,9 @@ import {
   type Order,
   type OrderStatus,
 } from "@/domain/order";
+import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
+import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
@@ -332,6 +338,71 @@ export class DemoLeadRepository implements AdminLeadRepository {
     await simulateLatency();
     this.db.write((state) => {
       state.leads = (state.leads ?? []).filter((lead) => lead.id !== id);
+    });
+  }
+}
+
+function assertEmailFree(records: readonly CustomerRecord[], email: string | null, ignoreId: string | null) {
+  if (!email) return;
+  const taken = records.some((record) => record.id !== ignoreId && record.email?.toLowerCase() === email.toLowerCase());
+  if (taken) throw new CustomerEmailTakenError(email);
+}
+
+export class DemoCustomerRepository implements AdminCustomerRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listAll(): Promise<CustomerRecord[]> {
+    return this.db.read().customers ?? [];
+  }
+
+  async findById(id: string): Promise<CustomerRecord | null> {
+    return (this.db.read().customers ?? []).find((record) => record.id === id) ?? null;
+  }
+
+  async create(data: CustomerRecordData): Promise<CustomerRecord> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const records = state.customers ?? [];
+      assertEmailFree(records, data.email, null);
+      const record: CustomerRecord = { ...data, id: newId("cust"), createdAt: new Date().toISOString() };
+      state.customers = [record, ...records];
+      return record;
+    });
+  }
+
+  async update(id: string, data: CustomerRecordData): Promise<CustomerRecord> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const records = state.customers ?? [];
+      const current = records.find((record) => record.id === id);
+      if (!current) throw new CustomerNotFoundError();
+      assertEmailFree(records, data.email, id);
+      const updated: CustomerRecord = { ...current, ...data };
+      state.customers = records.map((record) => (record.id === id ? updated : record));
+      return updated;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.customers = (state.customers ?? []).filter((record) => record.id !== id);
+    });
+  }
+}
+
+export class DemoMessageTemplateRepository implements AdminMessageTemplateRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async getAll(): Promise<MessageTemplates> {
+    return { ...DEFAULT_MESSAGE_TEMPLATES, ...this.db.read().messageTemplates };
+  }
+
+  async save(templates: MessageTemplates): Promise<MessageTemplates> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      state.messageTemplates = templates;
+      return templates;
     });
   }
 }

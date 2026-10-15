@@ -1,13 +1,16 @@
 import type { Account } from "@/domain/account";
-import { groupCustomers, type CustomerSummary } from "@/domain/customer";
+import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import { InvalidTransitionError } from "@/domain/errors";
 import type { Lead, LeadStage } from "@/domain/lead";
+import type { MessageTemplates } from "@/domain/message-template";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
   AdminAccountRepository,
+  AdminCustomerRepository,
   AdminLeadRepository,
+  AdminMessageTemplateRepository,
   AdminOrderRepository,
   AdminSession,
   AdminStoreSettingsRepository,
@@ -21,7 +24,9 @@ import type {
 import {
   accountDataSchema,
   changePasswordSchema,
+  customerRecordSchema,
   leadDataSchema,
+  messageTemplatesSchema,
   parseOrThrow,
   signInSchema,
   storeSettingsSchema,
@@ -35,6 +40,8 @@ export interface AdminDeps {
   orders: AdminOrderRepository;
   settings: AdminStoreSettingsRepository;
   leads: AdminLeadRepository;
+  customers: AdminCustomerRepository;
+  templates: AdminMessageTemplateRepository;
   images: ImageStorage;
 }
 
@@ -78,18 +85,9 @@ export function deleteTestimonial(deps: AdminDeps, id: string): Promise<void> {
   return deps.testimonials.remove(id);
 }
 
-export async function moveTestimonial(
-  deps: AdminDeps,
-  current: readonly Testimonial[],
-  id: string,
-  direction: -1 | 1,
-): Promise<void> {
-  const ids = current.map((item) => item.id);
-  const from = ids.indexOf(id);
-  const to = from + direction;
-  if (from === -1 || to < 0 || to >= ids.length) return;
-  [ids[from], ids[to]] = [ids[to] as string, ids[from] as string];
-  await deps.testimonials.reorder(ids);
+/** Grava a ordem da faixa do site: o primeiro id aparece primeiro. */
+export function reorderTestimonials(deps: AdminDeps, ids: readonly string[]): Promise<void> {
+  return deps.testimonials.reorder([...ids]);
 }
 
 export function listOrders(deps: AdminDeps): Promise<Order[]> {
@@ -102,7 +100,21 @@ export async function changeOrderStatus(deps: AdminDeps, order: Order, status: O
 }
 
 export async function listCustomers(deps: AdminDeps): Promise<CustomerSummary[]> {
-  return groupCustomers(await deps.orders.listAll());
+  const [orders, records] = await Promise.all([deps.orders.listAll(), deps.customers.listAll()]);
+  return groupCustomers(orders, records);
+}
+
+export function findCustomerRecord(deps: AdminDeps, id: string): Promise<CustomerRecord | null> {
+  return deps.customers.findById(id);
+}
+
+export function saveCustomerRecord(deps: AdminDeps, id: string | null, raw: unknown): Promise<CustomerRecord> {
+  const data = parseOrThrow(customerRecordSchema, raw);
+  return id ? deps.customers.update(id, data) : deps.customers.create(data);
+}
+
+export function deleteCustomerRecord(deps: AdminDeps, id: string): Promise<void> {
+  return deps.customers.remove(id);
 }
 
 export function listLeads(deps: AdminDeps): Promise<Lead[]> {
@@ -124,6 +136,14 @@ export function moveLead(deps: AdminDeps, id: string, stage: LeadStage): Promise
 
 export function deleteLead(deps: AdminDeps, id: string): Promise<void> {
   return deps.leads.remove(id);
+}
+
+export function getMessageTemplates(deps: AdminDeps): Promise<MessageTemplates> {
+  return deps.templates.getAll();
+}
+
+export function saveMessageTemplates(deps: AdminDeps, raw: unknown): Promise<MessageTemplates> {
+  return deps.templates.save(parseOrThrow(messageTemplatesSchema, raw));
 }
 
 export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {

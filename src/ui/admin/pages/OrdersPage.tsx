@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { changeOrderStatus, listOrders } from "@/application/admin-use-cases";
 import { formatBRL } from "@/domain/money";
+import type { MessageTemplates } from "@/domain/message-template";
 import { ORDER_TRANSITIONS, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
@@ -13,8 +14,9 @@ import { cn } from "@/ui/lib/cn";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { OrderStatusBadge } from "../components/OrderStatusBadge";
-import { useAdminQuery, useMutation } from "../hooks";
-import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
+import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
+import { orderMessage } from "../lib/messages";
+import { whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
 type Tab = "open" | "delivered" | "canceled" | "all";
@@ -44,22 +46,20 @@ const DONE_MESSAGE: Record<OrderStatus, string> = {
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
-function whatsappLink(order: Order): string | null {
+function whatsappLink(order: Order, templates: MessageTemplates): string | null {
   if (!order.customer.whatsapp) return null;
-  return whatsappChatUrl(
-    order.customer.whatsapp,
-    `Olá, ${firstNameOf(order.customer.name)}! Aqui é da Jota Digitais, sobre o pedido ${order.code}.`,
-  );
+  return whatsappChatUrl(order.customer.whatsapp, orderMessage(templates, order));
 }
 
 interface OrderCardProps {
   order: Order;
+  templates: MessageTemplates;
   busy: boolean;
   onAction: (order: Order, status: OrderStatus) => void;
 }
 
-function OrderCard({ order, busy, onAction }: OrderCardProps) {
-  const whatsapp = whatsappLink(order);
+function OrderCard({ order, templates, busy, onAction }: OrderCardProps) {
+  const whatsapp = whatsappLink(order, templates);
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
   return (
@@ -139,6 +139,7 @@ function OrderCard({ order, busy, onAction }: OrderCardProps) {
 
 export default function OrdersPage() {
   const orders = useAdminQuery(listOrders, "admin-orders");
+  const templates = useMessageTemplates();
   const toast = useToast();
   const change = useMutation(async (deps, order: Order, status: OrderStatus) => {
     await changeOrderStatus(deps, order, status);
@@ -210,7 +211,7 @@ export default function OrdersPage() {
         <ul className="space-y-3">
           <AnimatePresence initial={false}>
             {visible.map((order) => (
-              <OrderCard key={order.code} order={order} busy={change.pending} onAction={onAction} />
+              <OrderCard key={order.code} order={order} templates={templates} busy={change.pending} onAction={onAction} />
             ))}
           </AnimatePresence>
         </ul>

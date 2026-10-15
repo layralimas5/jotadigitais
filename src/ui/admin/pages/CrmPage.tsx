@@ -11,6 +11,7 @@ import {
   type Lead,
   type LeadStage,
 } from "@/domain/lead";
+import type { MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
@@ -18,8 +19,9 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { Fab, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FollowUpBadge } from "../components/FollowUpBadge";
-import { useAdminQuery, useMutation } from "../hooks";
+import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
+import { personMessage } from "../lib/messages";
 import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
@@ -67,12 +69,13 @@ function StageSelect({ lead, disabled, onMove }: { lead: Lead; disabled: boolean
 
 interface LeadCardProps {
   lead: Lead;
+  followUpMessage: string;
   today: string;
   busy: boolean;
   onMove: (lead: Lead, stage: LeadStage) => void;
 }
 
-function LeadCard({ lead, today, busy, onMove }: LeadCardProps) {
+function LeadCard({ lead, followUpMessage, today, busy, onMove }: LeadCardProps) {
   const details = [LEAD_SOURCE_LABEL[lead.source], lead.interest ? `quer ${PLATFORM_LABEL[lead.interest]}` : null].filter(Boolean);
   return (
     <li
@@ -98,7 +101,7 @@ function LeadCard({ lead, today, busy, onMove }: LeadCardProps) {
         <StageSelect lead={lead} disabled={busy} onMove={onMove} />
         {lead.whatsapp && (
           <a
-            href={whatsappChatUrl(lead.whatsapp, `Olá, ${firstNameOf(lead.name)}! Aqui é da Jota Digitais.`)}
+            href={whatsappChatUrl(lead.whatsapp, followUpMessage)}
             target="_blank"
             rel="noreferrer"
             aria-label={`Chamar ${lead.name} no WhatsApp`}
@@ -114,13 +117,14 @@ function LeadCard({ lead, today, busy, onMove }: LeadCardProps) {
 
 interface StageColumnProps {
   stage: LeadStage;
+  templates: MessageTemplates;
   leads: Lead[];
   today: string;
   busy: boolean;
   onMove: (lead: Lead, stage: LeadStage) => void;
 }
 
-function StageColumn({ stage, leads, today, busy, onMove }: StageColumnProps) {
+function StageColumn({ stage, templates, leads, today, busy, onMove }: StageColumnProps) {
   const total = sumBudget(leads);
   return (
     <section
@@ -140,7 +144,14 @@ function StageColumn({ stage, leads, today, busy, onMove }: StageColumnProps) {
       ) : (
         <ul className="space-y-2.5">
           {leads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} today={today} busy={busy} onMove={onMove} />
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              followUpMessage={personMessage(templates, "crm_follow_up", lead.name)}
+              today={today}
+              busy={busy}
+              onMove={onMove}
+            />
           ))}
         </ul>
       )}
@@ -179,6 +190,7 @@ function Summary({ leads, today }: { leads: Lead[]; today: string }) {
 
 export default function CrmPage() {
   const leads = useAdminQuery(listLeads, "admin-leads");
+  const templates = useMessageTemplates();
   const toast = useToast();
   const move = useMutation(async (deps, id: string, stage: LeadStage) => {
     await moveLead(deps, id, stage);
@@ -248,6 +260,7 @@ export default function CrmPage() {
               <StageColumn
                 key={stage}
                 stage={stage}
+                templates={templates}
                 leads={visible.filter((lead) => lead.stage === stage)}
                 today={today}
                 busy={move.pending}

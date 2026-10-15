@@ -25,11 +25,23 @@ function initialsOf(name: string): string {
 }
 
 interface AccountAvatarProps {
-  account: Pick<Account, "id" | "displayName">;
+  account: Pick<Account, "id" | "displayName"> & { avatarUrl?: string | null };
   className?: string;
 }
 
+/** Foto de perfil da conta; sem foto cadastrada, as iniciais num degradê. */
 export function AccountAvatar({ account, className }: AccountAvatarProps) {
+  if (account.avatarUrl) {
+    return (
+      <img
+        src={account.avatarUrl}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        className={cn("size-12 shrink-0 rounded-full bg-surface object-cover ring-2 ring-white/10", className)}
+      />
+    );
+  }
   return (
     <span
       aria-hidden

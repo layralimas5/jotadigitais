@@ -13,8 +13,9 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FollowUpBadge } from "../components/FollowUpBadge";
 import { SelectField, TextAreaField } from "../components/FormControls";
 import { emptyLeadForm, fromLead, toRawLead, type LeadFormValues } from "../forms/lead-form";
-import { useAdminQuery, useMutation } from "../hooks";
+import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
+import { personMessage } from "../lib/messages";
 import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
@@ -65,6 +66,7 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
     return true;
   });
   const today = localIsoDate();
+  const templates = useMessageTemplates();
 
   const update = (patch: Partial<LeadFormValues>) => {
     const next = { ...values, ...patch };
@@ -235,7 +237,7 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
             <FollowUpBadge lead={{ stage: values.stage, nextFollowUp: values.nextFollowUp || null }} today={today} />
             {whatsappDigits.length >= 10 && (
               <a
-                href={whatsappChatUrl(whatsappDigits, `Olá, ${firstNameOf(values.name || "tudo bem")}! Aqui é da Jota Digitais.`)}
+                href={whatsappChatUrl(whatsappDigits, personMessage(templates, "crm_follow_up", values.name))}
                 target="_blank"
                 rel="noreferrer"
                 className={buttonClasses({ variant: "secondary", className: "w-full" })}

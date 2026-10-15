@@ -1,9 +1,9 @@
-import { motion, useReducedMotion } from "framer-motion";
-import { ArrowDown, ArrowUp, Eye, EyeOff, Pencil, Plus } from "lucide-react";
-import type { ReactNode } from "react";
+import { Reorder, useDragControls, useReducedMotion } from "framer-motion";
+import { Eye, EyeOff, GripVertical, Pencil, Plus } from "lucide-react";
+import { useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { listAllTestimonials, moveTestimonial, saveTestimonial } from "@/application/admin-use-cases";
-import type { Testimonial } from "@/domain/testimonial";
+import { listAllTestimonials, reorderTestimonials, saveTestimonial } from "@/application/admin-use-cases";
+import type { Testimonial, TestimonialKind } from "@/domain/testimonial";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
@@ -11,10 +11,14 @@ import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
 
-const KIND_LABEL = { result: "Resultado", delivered: "Conta entregue" } as const;
+/** Mesmas etiquetas da faixa de resultados do site. */
+const KIND_TAG: Record<TestimonialKind, { label: string; className: string }> = {
+  result: { label: "Resultado", className: "bg-pink/90 text-white" },
+  delivered: { label: "Conta entregue", className: "bg-electric/90 text-ink" },
+};
 
 const iconButtonClass =
-  "grid size-10 place-items-center rounded-full border border-line-strong text-fog transition-[color,border-color,transform] hover:border-white/30 hover:text-white active:scale-90";
+  "relative z-10 grid size-9 place-items-center rounded-full border border-line-strong text-fog transition-[color,border-color,transform] hover:border-white/30 hover:text-white active:scale-90";
 
 function IconButton({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
@@ -31,21 +35,134 @@ function IconButton({ label, onClick, disabled, children }: { label: string; onC
   );
 }
 
-export default function TestimonialsListPage() {
-  const testimonials = useAdminQuery(listAllTestimonials, "admin-testimonials");
-  const toast = useToast();
+const sameOrder = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((id, index) => id === b[index]);
+
+function moveId(ids: readonly string[], id: string, direction: -1 | 1): string[] {
+  const from = ids.indexOf(id);
+  const to = from + direction;
+  if (from === -1 || to < 0 || to >= ids.length) return [...ids];
+  const next = [...ids];
+  [next[from], next[to]] = [next[to] as string, next[from] as string];
+  return next;
+}
+
+interface PrintItemProps {
+  item: Testimonial;
+  position: number;
+  total: number;
+  busy: boolean;
+  onDragEnd: () => void;
+  onKeyboardMove: (direction: -1 | 1) => void;
+  onToggle: () => void;
+}
+
+/**
+ * Card no mesmo formato do site. Com mouse, arrasta pelo card inteiro; no toque, pela alça (assim o dedo
+ * ainda rola a fileira); no teclado, foco na alça e setas esquerda/direita.
+ */
+function PrintItem({ item, position, total, busy, onDragEnd, onKeyboardMove, onToggle }: PrintItemProps) {
+  const controls = useDragControls();
   const reduceMotion = useReducedMotion();
-  const move = useMutation(async (deps, items: Testimonial[], id: string, direction: -1 | 1) => {
-    await moveTestimonial(deps, items, id, direction);
+  const tag = KIND_TAG[item.kind];
+
+  const onHandleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") onKeyboardMove(-1);
+    else if (event.key === "ArrowRight" || event.key === "ArrowDown") onKeyboardMove(1);
+    else return;
+    event.preventDefault();
+  };
+
+  return (
+    <Reorder.Item
+      value={item.id}
+      dragListener={false}
+      dragControls={controls}
+      onDragEnd={onDragEnd}
+      transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
+      whileDrag={{ scale: 1.03, zIndex: 20, boxShadow: "0 24px 60px -12px rgb(0 0 0 / 0.8)" }}
+      className={cn("relative shrink-0 rounded-[1.5rem]", !item.published && "opacity-55")}
+    >
+      <figure
+        onPointerDown={(event) => event.pointerType === "mouse" && !busy && controls.start(event)}
+        className="h-full rounded-[1.5rem] md:cursor-grab md:active:cursor-grabbing border border-line bg-surface p-2 select-none"
+      >
+        <div className={cn("overflow-hidden", item.kind === "result" ? "rounded-[1.35rem]" : "rounded-[1.1rem] bg-white")}>
+          <img src={item.imageUrl} alt="" draggable={false} className="h-[16rem] w-auto sm:h-[20rem]" />
+        </div>
+        <span className={cn("absolute top-4 left-4 rounded-full px-2.5 py-1 text-[0.65rem] font-semibold shadow-lg backdrop-blur", tag.className)}>
+          {tag.label}
+        </span>
+        <span className="absolute top-4 right-4 grid size-7 place-items-center rounded-full bg-black/70 font-display text-xs font-semibold text-white backdrop-blur tabular-nums">
+          {position}
+        </span>
+        <figcaption className="max-w-[11rem] px-1.5 pt-2.5 sm:max-w-[13rem]">
+          <p className="truncate font-display text-sm font-semibold text-white">{item.title}</p>
+          <p className="mt-0.5 truncate text-xs text-mist">{item.published ? item.subtitle : "Fora do site"}</p>
+        </figcaption>
+        <div className="flex items-center gap-1.5 px-1 pt-2.5 pb-1">
+          <button
+            type="button"
+            aria-label={`Mudar a posição de ${item.title}, hoje ${position} de ${total}. Use as setas para mover.`}
+            title="Arraste para mudar a ordem"
+            disabled={busy}
+            onKeyDown={onHandleKeyDown}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              if (!busy) controls.start(event);
+            }}
+            className={cn(iconButtonClass, "cursor-grab touch-none active:cursor-grabbing disabled:opacity-30")}
+          >
+            <GripVertical aria-hidden className="size-4" />
+          </button>
+          <IconButton label={item.published ? "Tirar do site" : "Publicar no site"} onClick={onToggle} disabled={busy}>
+            {item.published ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
+          </IconButton>
+          <Link
+            to={`/admin/depoimentos/${item.id}`}
+            aria-label={`Editar ${item.title}`}
+            title="Editar"
+            onPointerDown={(event) => event.stopPropagation()}
+            className={iconButtonClass}
+          >
+            <Pencil aria-hidden className="size-4" />
+          </Link>
+        </div>
+      </figure>
+    </Reorder.Item>
+  );
+}
+
+function PrintsRow({ items, onChanged }: { items: Testimonial[]; onChanged: () => void }) {
+  const toast = useToast();
+  const savedOrder = items.map((item) => item.id);
+  const [order, setOrder] = useState<string[]>(savedOrder);
+  const save = useMutation(async (deps, ids: string[]) => {
+    await reorderTestimonials(deps, ids);
     return true;
   });
   const toggle = useMutation((deps, item: Testimonial) => saveTestimonial(deps, item.id, { ...item, published: !item.published }));
-  const busy = move.pending || toggle.pending;
+  const busy = save.pending || toggle.pending;
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const savedKey = savedOrder.join(",");
 
-  const onMove = async (items: Testimonial[], id: string, direction: -1 | 1) => {
-    const moved = await move.run(items, id, direction);
-    if (!moved) toast.show("Não foi possível mudar a ordem.", "error");
-    testimonials.reload();
+  useEffect(() => setOrder(savedKey ? savedKey.split(",") : []), [savedKey]);
+
+  const persist = async (next: string[]) => {
+    if (sameOrder(next, savedOrder)) return;
+    const saved = await save.run(next);
+    if (!saved) {
+      toast.show("Não foi possível salvar a nova ordem.", "error");
+      setOrder(savedOrder);
+      return;
+    }
+    toast.show("Ordem salva. O site já mostra assim.");
+    onChanged();
+  };
+
+  const onKeyboardMove = (id: string, direction: -1 | 1) => {
+    const next = moveId(order, id, direction);
+    setOrder(next);
+    void persist(next);
   };
 
   const onToggle = async (item: Testimonial) => {
@@ -55,9 +172,35 @@ export default function TestimonialsListPage() {
       return;
     }
     toast.show(saved.published ? "Depoimento publicado no site." : "Depoimento tirado do site.");
-    testimonials.reload();
+    onChanged();
   };
 
+  return (
+    <div className="-mx-4 overflow-x-auto px-4 pt-1 pb-4 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+      <Reorder.Group axis="x" values={order} onReorder={setOrder} className="flex w-max gap-3 sm:gap-4">
+        {order.map((id, index) => {
+          const item = byId.get(id);
+          if (!item) return null;
+          return (
+            <PrintItem
+              key={id}
+              item={item}
+              position={index + 1}
+              total={order.length}
+              busy={busy}
+              onDragEnd={() => void persist(order)}
+              onKeyboardMove={(direction) => onKeyboardMove(id, direction)}
+              onToggle={() => void onToggle(item)}
+            />
+          );
+        })}
+      </Reorder.Group>
+    </div>
+  );
+}
+
+export default function TestimonialsListPage() {
+  const testimonials = useAdminQuery(listAllTestimonials, "admin-testimonials");
   const published = testimonials.status === "success" ? testimonials.data.filter((item) => item.published).length : 0;
 
   return (
@@ -66,7 +209,7 @@ export default function TestimonialsListPage() {
         title="Depoimentos"
         description={
           testimonials.status === "success"
-            ? `${published} no site. A ordem daqui é a ordem da faixa de resultados na página inicial.`
+            ? `${published} no site. Arraste os cards para mudar a ordem da faixa de resultados da página inicial.`
             : "Prints de resultados e de contas entregues."
         }
         action={
@@ -86,49 +229,7 @@ export default function TestimonialsListPage() {
         />
       )}
       {testimonials.status === "success" && testimonials.data.length > 0 && (
-        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {testimonials.data.map((item, index, items) => (
-            <motion.li
-              key={item.id}
-              layout={!reduceMotion}
-              transition={{ type: "spring", stiffness: 420, damping: 36 }}
-              className={cn(
-                "flex gap-4 rounded-2xl border border-line bg-surface/60 p-3 transition-opacity",
-                !item.published && "opacity-60",
-              )}
-            >
-              <Link to={`/admin/depoimentos/${item.id}`} className="shrink-0 rounded-xl" aria-label={`Editar ${item.title}`}>
-                <img src={item.imageUrl} alt="" className="h-36 w-20 rounded-xl bg-white object-cover object-top" />
-              </Link>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <p className="text-[0.7rem] font-semibold tracking-wide text-electric uppercase">
-                  {index + 1}. {KIND_LABEL[item.kind]}
-                  {!item.published && <span className="ml-2 text-mist normal-case">fora do site</span>}
-                </p>
-                <p className="mt-1 truncate font-display font-semibold text-white">{item.title}</p>
-                <p className="truncate text-xs text-mist">{item.subtitle}</p>
-                <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-                  <IconButton label="Subir na ordem" onClick={() => void onMove(items, item.id, -1)} disabled={busy || index === 0}>
-                    <ArrowUp aria-hidden className="size-4" />
-                  </IconButton>
-                  <IconButton
-                    label="Descer na ordem"
-                    onClick={() => void onMove(items, item.id, 1)}
-                    disabled={busy || index === items.length - 1}
-                  >
-                    <ArrowDown aria-hidden className="size-4" />
-                  </IconButton>
-                  <IconButton label={item.published ? "Tirar do site" : "Publicar no site"} onClick={() => void onToggle(item)} disabled={busy}>
-                    {item.published ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
-                  </IconButton>
-                  <Link to={`/admin/depoimentos/${item.id}`} aria-label={`Editar ${item.title}`} title="Editar" className={iconButtonClass}>
-                    <Pencil aria-hidden className="size-4" />
-                  </Link>
-                </div>
-              </div>
-            </motion.li>
-          ))}
-        </ol>
+        <PrintsRow items={testimonials.data} onChanged={testimonials.reload} />
       )}
       <Fab to="/admin/depoimentos/novo" label="Novo depoimento" />
     </div>

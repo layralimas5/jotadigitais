@@ -21,7 +21,7 @@ interface DropZoneProps {
 }
 
 /** Área de envio: clique, teclado (é um botão) ou arrastar e soltar. */
-function DropZone({ folder, onUploaded, className, children, label, name }: DropZoneProps) {
+export function DropZone({ folder, onUploaded, className, children, label, name }: DropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useImageUpload(folder);
   const [dragging, setDragging] = useState(false);
@@ -174,6 +174,51 @@ export function GalleryField({ label, hint, error, folder, images, max, onChange
           </li>
         )}
       </ul>
+      {error ? (
+        <p className="mt-1.5 text-xs font-medium text-[#ff7a7a]">{error}</p>
+      ) : (
+        hint && <p className="mt-1.5 text-xs text-mist">{hint}</p>
+      )}
+    </div>
+  );
+}
+
+interface AvatarFieldProps {
+  label: string;
+  hint?: string;
+  error?: string;
+  value: string;
+  onChange: (url: string) => void;
+}
+
+/** Foto redonda de perfil: enviar, trocar ou tirar. */
+export function AvatarField({ label, hint, error, value, onChange }: AvatarFieldProps) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-fog">{label}</p>
+      <div className="mt-2 flex items-center gap-4">
+        <DropZone
+          folder="accounts"
+          name="avatarUrl"
+          label={value ? "Trocar foto de perfil" : "Enviar foto de perfil"}
+          onUploaded={(image) => onChange(image.url)}
+          className={cn("size-20 overflow-hidden rounded-full p-0", error && "border-alert/70")}
+        >
+          {value ? (
+            <img src={value} alt="" className="size-full object-cover" />
+          ) : (
+            <ImagePlus aria-hidden className="size-5 text-electric" />
+          )}
+        </DropZone>
+        <div className="min-w-0 text-sm">
+          <p className="text-mist">{value ? "Clique na foto para trocar." : "Clique ou arraste a foto."}</p>
+          {value && (
+            <button type="button" onClick={() => onChange("")} className="mt-1 inline-flex items-center gap-1 text-xs text-[#ff9a9a] hover:text-[#ffb3b3]">
+              <X aria-hidden className="size-3.5" /> Tirar foto
+            </button>
+          )}
+        </div>
+      </div>
       {error ? (
         <p className="mt-1.5 text-xs font-medium text-[#ff7a7a]">{error}</p>
       ) : (
