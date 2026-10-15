@@ -9,6 +9,8 @@ import type {
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
+  AdminPreferenceKey,
+  AdminPreferenceRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   NewOrder,
@@ -487,5 +489,20 @@ export class SupabaseMessageTemplateRepository implements AdminMessageTemplateRe
     const { error } = await this.client.from("message_templates").upsert(rows, { onConflict: "key" });
     if (error) fail(error);
     return templates;
+  }
+}
+
+export class SupabasePreferenceRepository implements AdminPreferenceRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async get(key: AdminPreferenceKey): Promise<unknown> {
+    const { data, error } = await this.client.from("admin_preferences").select("value").eq("key", key).maybeSingle<{ value: unknown }>();
+    if (error) fail(error);
+    return data?.value ?? null;
+  }
+
+  async set(key: AdminPreferenceKey, value: unknown): Promise<void> {
+    const { error } = await this.client.from("admin_preferences").upsert({ key, value }, { onConflict: "key" });
+    if (error) fail(error);
   }
 }

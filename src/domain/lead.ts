@@ -55,3 +55,10 @@ export function followUpStatusOf(lead: Pick<Lead, "stage" | "nextFollowUp">, tod
   if (lead.nextFollowUp < today) return "overdue";
   return lead.nextFollowUp === today ? "today" : "upcoming";
 }
+
+/** Ordem salva das colunas do quadro, tolerante a dado antigo: ignora etapa desconhecida e completa as que faltarem. */
+export function normalizeStageOrder(saved: readonly unknown[] | null): LeadStage[] {
+  const known = (saved ?? []).filter((stage): stage is LeadStage => (LEAD_STAGES as readonly unknown[]).includes(stage));
+  const unique = [...new Set(known)];
+  return [...unique, ...LEAD_STAGES.filter((stage) => !unique.includes(stage))];
+}

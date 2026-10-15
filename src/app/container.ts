@@ -8,6 +8,7 @@ import {
   DemoLeadRepository,
   DemoMessageTemplateRepository,
   DemoOrderRepository,
+  DemoPreferenceRepository,
   DemoStoreSettingsRepository,
   DemoTestimonialRepository,
 } from "@/infrastructure/demo/demo-repositories";
@@ -19,6 +20,7 @@ import {
   SupabaseLeadRepository,
   SupabaseMessageTemplateRepository,
   SupabaseOrderRepository,
+  SupabasePreferenceRepository,
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
 } from "@/infrastructure/supabase/supabase-repositories";
@@ -51,6 +53,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       leads: new SupabaseLeadRepository(client),
       customers: new SupabaseCustomerRepository(client),
       templates: new SupabaseMessageTemplateRepository(client),
+      preferences: new SupabasePreferenceRepository(client),
       images: new SupabaseImageStorage(client),
     },
   };
@@ -75,6 +78,7 @@ function demoContainer(): Container {
       leads: new DemoLeadRepository(db),
       customers: new DemoCustomerRepository(db),
       templates: new DemoMessageTemplateRepository(db),
+      preferences: new DemoPreferenceRepository(db),
       images: new DemoImageStorage(),
     },
   };

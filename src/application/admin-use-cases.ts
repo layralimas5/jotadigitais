@@ -1,7 +1,7 @@
 import type { Account } from "@/domain/account";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import { InvalidTransitionError } from "@/domain/errors";
-import type { Lead, LeadStage } from "@/domain/lead";
+import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -12,6 +12,7 @@ import type {
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
+  AdminPreferenceRepository,
   AdminSession,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -42,6 +43,7 @@ export interface AdminDeps {
   leads: AdminLeadRepository;
   customers: AdminCustomerRepository;
   templates: AdminMessageTemplateRepository;
+  preferences: AdminPreferenceRepository;
   images: ImageStorage;
 }
 
@@ -132,6 +134,17 @@ export function saveLead(deps: AdminDeps, id: string | null, raw: unknown): Prom
 
 export function moveLead(deps: AdminDeps, id: string, stage: LeadStage): Promise<void> {
   return deps.leads.moveToStage(id, stage);
+}
+
+export async function getCrmStageOrder(deps: AdminDeps): Promise<LeadStage[]> {
+  const saved = await deps.preferences.get("crm_stage_order");
+  return normalizeStageOrder(Array.isArray(saved) ? saved : null);
+}
+
+export async function saveCrmStageOrder(deps: AdminDeps, order: readonly LeadStage[]): Promise<LeadStage[]> {
+  const normalized = normalizeStageOrder(order);
+  await deps.preferences.set("crm_stage_order", normalized);
+  return normalized;
 }
 
 export function deleteLead(deps: AdminDeps, id: string): Promise<void> {

@@ -7,6 +7,8 @@ import type {
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
+  AdminPreferenceKey,
+  AdminPreferenceRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   NewOrder,
@@ -403,6 +405,20 @@ export class DemoMessageTemplateRepository implements AdminMessageTemplateReposi
     return this.db.write((state) => {
       state.messageTemplates = templates;
       return templates;
+    });
+  }
+}
+
+export class DemoPreferenceRepository implements AdminPreferenceRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async get(key: AdminPreferenceKey): Promise<unknown> {
+    return this.db.read().preferences?.[key] ?? null;
+  }
+
+  async set(key: AdminPreferenceKey, value: unknown): Promise<void> {
+    this.db.write((state) => {
+      state.preferences = { ...state.preferences, [key]: value };
     });
   }
 }

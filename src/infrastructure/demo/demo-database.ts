@@ -21,6 +21,7 @@ export interface DemoState {
   leads?: Lead[];
   customers?: CustomerRecord[];
   messageTemplates?: Partial<MessageTemplates>;
+  preferences?: Record<string, unknown>;
 }
 
 function seedState(): DemoState {

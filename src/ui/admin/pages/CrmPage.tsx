@@ -1,37 +1,18 @@
-import { ChevronDown, MessageCircle, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { listLeads, moveLead } from "@/application/admin-use-cases";
-import {
-  LEAD_SOURCE_LABEL,
-  LEAD_STAGES,
-  LEAD_STAGE_LABEL,
-  followUpStatusOf,
-  isOpenLead,
-  type Lead,
-  type LeadStage,
-} from "@/domain/lead";
-import type { MessageTemplates } from "@/domain/message-template";
+import { Reorder } from "framer-motion";
+import { Plus, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { getCrmStageOrder, listLeads, moveLead, saveCrmStageOrder } from "@/application/admin-use-cases";
+import { LEAD_STAGES, LEAD_STAGE_LABEL, followUpStatusOf, isOpenLead, type Lead, type LeadStage } from "@/domain/lead";
 import { formatBRL } from "@/domain/money";
-import { PLATFORM_LABEL } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { Fab, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
-import { FollowUpBadge } from "../components/FollowUpBadge";
+import { StageColumn, sumBudget } from "../crm/StageColumn";
 import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
-import { personMessage } from "../lib/messages";
-import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
+import { firstNameOf } from "../lib/whatsapp";
 import { useToast } from "../toast";
-
-const STAGE_ACCENT: Record<LeadStage, string> = {
-  new: "bg-electric",
-  talking: "bg-violet",
-  negotiating: "bg-pink",
-  won: "bg-emerald-400",
-  lost: "bg-mist/60",
-};
 
 function matches(lead: Lead, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -44,119 +25,15 @@ function matches(lead: Lead, query: string): boolean {
   );
 }
 
-const sumBudget = (leads: readonly Lead[]) => leads.reduce((sum, lead) => sum + (lead.budget ?? 0), 0);
+const sameOrder = (a: readonly string[], b: readonly string[]) => a.join(",") === b.join(",");
 
-function StageSelect({ lead, disabled, onMove }: { lead: Lead; disabled: boolean; onMove: (lead: Lead, stage: LeadStage) => void }) {
-  return (
-    <label className="relative z-10 inline-flex items-center">
-      <span className="sr-only">Mover {lead.name} para</span>
-      <select
-        value={lead.stage}
-        disabled={disabled}
-        onChange={(event) => onMove(lead, event.target.value as LeadStage)}
-        className="h-8 appearance-none rounded-full border border-line-strong bg-ink pr-7 pl-3 text-xs font-medium text-fog focus:border-electric focus:outline-none disabled:opacity-50"
-      >
-        {LEAD_STAGES.map((stage) => (
-          <option key={stage} value={stage}>
-            {LEAD_STAGE_LABEL[stage]}
-          </option>
-        ))}
-      </select>
-      <ChevronDown aria-hidden className="pointer-events-none absolute right-2 size-3.5 text-mist" />
-    </label>
-  );
-}
-
-interface LeadCardProps {
-  lead: Lead;
-  followUpMessage: string;
-  today: string;
-  busy: boolean;
-  onMove: (lead: Lead, stage: LeadStage) => void;
-}
-
-function LeadCard({ lead, followUpMessage, today, busy, onMove }: LeadCardProps) {
-  const details = [LEAD_SOURCE_LABEL[lead.source], lead.interest ? `quer ${PLATFORM_LABEL[lead.interest]}` : null].filter(Boolean);
-  return (
-    <li
-      className={cn(
-        "relative rounded-2xl border border-line bg-surface p-3.5 transition-colors hover:border-line-strong",
-        lead.stage === "lost" && "opacity-70",
-      )}
-    >
-      <Link
-        to={`/admin/crm/${lead.id}`}
-        className="block truncate font-semibold text-white after:absolute after:inset-0 after:rounded-2xl hover:text-electric-soft focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-electric"
-      >
-        {lead.name}
-      </Link>
-      <p className="mt-0.5 truncate text-xs text-mist">{details.join(" · ")}</p>
-      {(lead.budget !== null || followUpStatusOf(lead, today)) && (
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          {lead.budget !== null && <span className="text-sm font-semibold text-white tabular-nums">{formatBRL(lead.budget)}</span>}
-          <FollowUpBadge lead={lead} today={today} />
-        </div>
-      )}
-      <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
-        <StageSelect lead={lead} disabled={busy} onMove={onMove} />
-        {lead.whatsapp && (
-          <a
-            href={whatsappChatUrl(lead.whatsapp, followUpMessage)}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Chamar ${lead.name} no WhatsApp`}
-            className="relative z-10 grid size-8 place-items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
-          >
-            <MessageCircle aria-hidden className="size-4" />
-          </a>
-        )}
-      </div>
-    </li>
-  );
-}
-
-interface StageColumnProps {
-  stage: LeadStage;
-  templates: MessageTemplates;
-  leads: Lead[];
-  today: string;
-  busy: boolean;
-  onMove: (lead: Lead, stage: LeadStage) => void;
-}
-
-function StageColumn({ stage, templates, leads, today, busy, onMove }: StageColumnProps) {
-  const total = sumBudget(leads);
-  return (
-    <section
-      aria-labelledby={`stage-${stage}`}
-      className="flex w-[17rem] shrink-0 snap-start flex-col rounded-3xl border border-line bg-night/70 p-3 xl:w-auto"
-    >
-      <header className="px-1 pb-3">
-        <h2 id={`stage-${stage}`} className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap text-white">
-          <span aria-hidden className={cn("size-2 shrink-0 rounded-full", STAGE_ACCENT[stage])} />
-          {LEAD_STAGE_LABEL[stage]}
-          <span className="text-xs font-normal text-mist tabular-nums">{leads.length}</span>
-        </h2>
-        <p className="mt-0.5 min-h-4 pl-4 text-xs text-mist tabular-nums">{total > 0 && formatBRL(total)}</p>
-      </header>
-      {leads.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-line-strong px-3 py-6 text-center text-xs text-mist">Ninguém nesta etapa</p>
-      ) : (
-        <ul className="space-y-2.5">
-          {leads.map((lead) => (
-            <LeadCard
-              key={lead.id}
-              lead={lead}
-              followUpMessage={personMessage(templates, "crm_follow_up", lead.name)}
-              today={today}
-              busy={busy}
-              onMove={onMove}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
+function swapAt(order: readonly LeadStage[], stage: LeadStage, direction: -1 | 1): LeadStage[] {
+  const from = order.indexOf(stage);
+  const to = from + direction;
+  if (from === -1 || to < 0 || to >= order.length) return [...order];
+  const next = [...order];
+  [next[from], next[to]] = [next[to] as LeadStage, next[from] as LeadStage];
+  return next;
 }
 
 function Summary({ leads, today }: { leads: Lead[]; today: string }) {
@@ -188,25 +65,69 @@ function Summary({ leads, today }: { leads: Lead[]; today: string }) {
   );
 }
 
+/** Ordem das colunas: carrega a salva, muda na hora ao arrastar e grava ao soltar. */
+function useStageOrder() {
+  const toast = useToast();
+  const saved = useAdminQuery(getCrmStageOrder, "crm-stage-order");
+  const savedOrder = saved.status === "success" ? saved.data : LEAD_STAGES;
+  const savedKey = savedOrder.join(",");
+  const [order, setOrder] = useState<LeadStage[]>([...savedOrder]);
+  const save = useMutation(saveCrmStageOrder);
+
+  useEffect(() => setOrder(savedKey.split(",") as LeadStage[]), [savedKey]);
+
+  const persist = async (next: LeadStage[]) => {
+    if (sameOrder(next, savedOrder)) return;
+    const stored = await save.run(next);
+    if (!stored) {
+      toast.show("Não foi possível salvar a ordem das colunas.", "error");
+      setOrder([...savedOrder]);
+      return;
+    }
+    toast.show("Ordem das colunas salva.");
+    saved.reload();
+  };
+
+  return {
+    order,
+    setOrder,
+    persist: () => void persist(order),
+    moveWithKeyboard: (stage: LeadStage, direction: -1 | 1) => {
+      const next = swapAt(order, stage, direction);
+      setOrder(next);
+      void persist(next);
+    },
+  };
+}
+
 export default function CrmPage() {
   const leads = useAdminQuery(listLeads, "admin-leads");
   const templates = useMessageTemplates();
   const toast = useToast();
+  const columns = useStageOrder();
   const move = useMutation(async (deps, id: string, stage: LeadStage) => {
     await moveLead(deps, id, stage);
     return true;
   });
   const [query, setQuery] = useState("");
+  const [hoverStage, setHoverStage] = useState<LeadStage | null>(null);
+  const [pendingMoves, setPendingMoves] = useState<Record<string, LeadStage>>({});
   const today = localIsoDate();
+  const loaded = leads.status === "success" ? leads.data : null;
 
-  const visible = useMemo(
-    () => (leads.status === "success" ? leads.data.filter((lead) => matches(lead, query)) : []),
-    [leads, query],
+  useEffect(() => setPendingMoves({}), [loaded]);
+
+  const current = useMemo(
+    () => (loaded ?? []).map((lead) => (pendingMoves[lead.id] ? { ...lead, stage: pendingMoves[lead.id] as LeadStage } : lead)),
+    [loaded, pendingMoves],
   );
+  const visible = useMemo(() => current.filter((lead) => matches(lead, query)), [current, query]);
 
-  const onMove = async (lead: Lead, stage: LeadStage) => {
+  const onMoveLead = async (lead: Lead, stage: LeadStage) => {
+    setPendingMoves((moves) => ({ ...moves, [lead.id]: stage }));
     const moved = await move.run(lead.id, stage);
     if (!moved) {
+      setPendingMoves(({ [lead.id]: _undone, ...rest }) => rest);
       toast.show("Não foi possível mover o contato.", "error");
       return;
     }
@@ -218,7 +139,7 @@ export default function CrmPage() {
     <div className="space-y-6">
       <PageHeader
         title="CRM"
-        description="Quem chamou interessado em conta, do primeiro contato até fechar."
+        description="Segure um card e solte em outra coluna. Segure o topo de uma coluna para mudar ela de lugar."
         action={
           <ButtonLink to="/admin/crm/novo" className="max-md:hidden">
             <Plus aria-hidden className="size-4" /> Novo lead
@@ -242,7 +163,7 @@ export default function CrmPage() {
 
       {leads.status === "success" && leads.data.length > 0 && (
         <>
-          <Summary leads={leads.data} today={today} />
+          <Summary leads={current} today={today} />
           <label className="relative block lg:max-w-md">
             <span className="sr-only">Buscar lead</span>
             <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-mist" />
@@ -255,18 +176,32 @@ export default function CrmPage() {
             />
           </label>
           {move.error && <InlineError message={move.error.message} />}
-          <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8 xl:mx-0 xl:grid xl:snap-none xl:grid-cols-5 xl:overflow-visible xl:px-0">
-            {LEAD_STAGES.map((stage) => (
-              <StageColumn
-                key={stage}
-                stage={stage}
-                templates={templates}
-                leads={visible.filter((lead) => lead.stage === stage)}
-                today={today}
-                busy={move.pending}
-                onMove={(lead, next) => void onMove(lead, next)}
-              />
-            ))}
+          <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8 xl:mx-0 xl:overflow-visible xl:px-0">
+            <Reorder.Group
+              as="div"
+              axis="x"
+              values={columns.order}
+              onReorder={columns.setOrder}
+              className="flex w-max snap-x snap-mandatory gap-3 xl:grid xl:w-auto xl:snap-none xl:grid-cols-5"
+            >
+              {columns.order.map((stage, index) => (
+                <StageColumn
+                  key={stage}
+                  stage={stage}
+                  position={index + 1}
+                  total={columns.order.length}
+                  leads={visible.filter((lead) => lead.stage === stage)}
+                  templates={templates}
+                  today={today}
+                  busy={move.pending}
+                  isDropTarget={hoverStage === stage}
+                  onMoveLead={(lead, next) => void onMoveLead(lead, next)}
+                  onHoverStage={setHoverStage}
+                  onColumnDragEnd={columns.persist}
+                  onColumnKeyboardMove={(direction) => columns.moveWithKeyboard(stage, direction)}
+                />
+              ))}
+            </Reorder.Group>
           </div>
         </>
       )}

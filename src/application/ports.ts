@@ -115,6 +115,15 @@ export interface AdminMessageTemplateRepository {
   save(templates: MessageTemplates): Promise<MessageTemplates>;
 }
 
+export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order"] as const;
+export type AdminPreferenceKey = (typeof ADMIN_PREFERENCE_KEYS)[number];
+
+/** Preferências de tela do painel, guardadas no banco para valer em qualquer aparelho. */
+export interface AdminPreferenceRepository {
+  get(key: AdminPreferenceKey): Promise<unknown>;
+  set(key: AdminPreferenceKey, value: unknown): Promise<void>;
+}
+
 export interface AdminLeadRepository {
   listAll(): Promise<Lead[]>;
   findById(id: string): Promise<Lead | null>;
