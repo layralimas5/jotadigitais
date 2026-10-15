@@ -3,6 +3,7 @@ import type {
   AccountFilter,
   AccountRepository,
   AdminAccountRepository,
+  AdminLeadRepository,
   AdminOrderRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -15,6 +16,7 @@ import {
   AccountNotFoundError,
   AccountUnavailableError,
   InvalidTransitionError,
+  LeadNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
@@ -26,6 +28,7 @@ import {
   type Order,
   type OrderStatus,
 } from "@/domain/order";
+import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
@@ -279,6 +282,56 @@ export class DemoStoreSettingsRepository implements AdminStoreSettingsRepository
     return this.db.write((state) => {
       state.settings = settings;
       return settings;
+    });
+  }
+}
+
+const byFollowUpThenRecent = (a: Lead, b: Lead) =>
+  (a.nextFollowUp ?? "9999").localeCompare(b.nextFollowUp ?? "9999") || b.updatedAt.localeCompare(a.updatedAt);
+
+export class DemoLeadRepository implements AdminLeadRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listAll(): Promise<Lead[]> {
+    await simulateLatency();
+    return [...(this.db.read().leads ?? [])].sort(byFollowUpThenRecent);
+  }
+
+  async findById(id: string): Promise<Lead | null> {
+    return (this.db.read().leads ?? []).find((lead) => lead.id === id) ?? null;
+  }
+
+  async create(data: LeadData): Promise<Lead> {
+    await simulateLatency();
+    const now = new Date().toISOString();
+    const lead: Lead = { ...data, id: newId("lead"), createdAt: now, updatedAt: now };
+    return this.db.write((state) => {
+      state.leads = [lead, ...(state.leads ?? [])];
+      return lead;
+    });
+  }
+
+  async update(id: string, data: LeadData): Promise<Lead> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const current = (state.leads ?? []).find((lead) => lead.id === id);
+      if (!current) throw new LeadNotFoundError();
+      const updated: Lead = { ...current, ...data, updatedAt: new Date().toISOString() };
+      state.leads = (state.leads ?? []).map((lead) => (lead.id === id ? updated : lead));
+      return updated;
+    });
+  }
+
+  async moveToStage(id: string, stage: LeadStage): Promise<void> {
+    const current = await this.findById(id);
+    if (!current) throw new LeadNotFoundError();
+    await this.update(id, { ...current, stage });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.leads = (state.leads ?? []).filter((lead) => lead.id !== id);
     });
   }
 }

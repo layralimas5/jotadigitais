@@ -1,4 +1,5 @@
 import type { Account, AccountData } from "@/domain/account";
+import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { Platform } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -96,6 +97,15 @@ export interface AdminTestimonialRepository {
 export interface AdminOrderRepository {
   listAll(): Promise<Order[]>;
   updateStatus(code: string, status: OrderStatus): Promise<void>;
+}
+
+export interface AdminLeadRepository {
+  listAll(): Promise<Lead[]>;
+  findById(id: string): Promise<Lead | null>;
+  create(data: LeadData): Promise<Lead>;
+  update(id: string, data: LeadData): Promise<Lead>;
+  moveToStage(id: string, stage: LeadStage): Promise<void>;
+  remove(id: string): Promise<void>;
 }
 
 export type MediaFolder = "accounts" | "testimonials";

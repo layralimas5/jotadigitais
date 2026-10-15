@@ -1,10 +1,13 @@
 import type { Account } from "@/domain/account";
+import { groupCustomers, type CustomerSummary } from "@/domain/customer";
 import { InvalidTransitionError } from "@/domain/errors";
+import type { Lead, LeadStage } from "@/domain/lead";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
   AdminAccountRepository,
+  AdminLeadRepository,
   AdminOrderRepository,
   AdminSession,
   AdminStoreSettingsRepository,
@@ -18,6 +21,7 @@ import type {
 import {
   accountDataSchema,
   changePasswordSchema,
+  leadDataSchema,
   parseOrThrow,
   signInSchema,
   storeSettingsSchema,
@@ -30,6 +34,7 @@ export interface AdminDeps {
   testimonials: AdminTestimonialRepository;
   orders: AdminOrderRepository;
   settings: AdminStoreSettingsRepository;
+  leads: AdminLeadRepository;
   images: ImageStorage;
 }
 
@@ -94,6 +99,31 @@ export function listOrders(deps: AdminDeps): Promise<Order[]> {
 export async function changeOrderStatus(deps: AdminDeps, order: Order, status: OrderStatus): Promise<void> {
   if (!canTransition(order.status, status)) throw new InvalidTransitionError();
   await deps.orders.updateStatus(order.code, status);
+}
+
+export async function listCustomers(deps: AdminDeps): Promise<CustomerSummary[]> {
+  return groupCustomers(await deps.orders.listAll());
+}
+
+export function listLeads(deps: AdminDeps): Promise<Lead[]> {
+  return deps.leads.listAll();
+}
+
+export function findLead(deps: AdminDeps, id: string): Promise<Lead | null> {
+  return deps.leads.findById(id);
+}
+
+export function saveLead(deps: AdminDeps, id: string | null, raw: unknown): Promise<Lead> {
+  const data = parseOrThrow(leadDataSchema, raw);
+  return id ? deps.leads.update(id, data) : deps.leads.create(data);
+}
+
+export function moveLead(deps: AdminDeps, id: string, stage: LeadStage): Promise<void> {
+  return deps.leads.moveToStage(id, stage);
+}
+
+export function deleteLead(deps: AdminDeps, id: string): Promise<void> {
+  return deps.leads.remove(id);
 }
 
 export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {

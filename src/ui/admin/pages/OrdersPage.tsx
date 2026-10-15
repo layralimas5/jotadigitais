@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { changeOrderStatus, listOrders } from "@/application/admin-use-cases";
 import { formatBRL } from "@/domain/money";
-import { ORDER_TRANSITIONS, isReservationExpired, type Order, type OrderStatus } from "@/domain/order";
+import { ORDER_TRANSITIONS, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
@@ -12,7 +12,9 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { OrderStatusBadge } from "../components/OrderStatusBadge";
 import { useAdminQuery, useMutation } from "../hooks";
+import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
 type Tab = "open" | "delivered" | "canceled" | "all";
@@ -23,13 +25,6 @@ const TABS: { id: Tab; label: string; matches: (order: Order) => boolean }[] = [
   { id: "canceled", label: "Cancelados", matches: (order) => order.status === "canceled" },
   { id: "all", label: "Todos", matches: () => true },
 ];
-
-const STATUS_VIEW: Record<OrderStatus, { label: string; className: string }> = {
-  awaiting_payment: { label: "Aguardando pagamento", className: "border-pink/30 bg-pink/10 text-pink" },
-  paid: { label: "Pago, falta entregar", className: "border-electric/40 bg-electric/10 text-electric-soft" },
-  delivered: { label: "Entregue", className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" },
-  canceled: { label: "Cancelado", className: "border-white/15 bg-white/[0.05] text-mist" },
-};
 
 const ACTION_LABEL: Record<OrderStatus, string> = {
   awaiting_payment: "",
@@ -49,21 +44,12 @@ const DONE_MESSAGE: Record<OrderStatus, string> = {
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
-function StatusBadge({ order }: { order: Order }) {
-  const expired = isReservationExpired(order);
-  const view = STATUS_VIEW[order.status];
-  return (
-    <span className={cn("inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold", expired ? STATUS_VIEW.canceled.className : view.className)}>
-      {expired ? "Reserva vencida" : view.label}
-    </span>
-  );
-}
-
 function whatsappLink(order: Order): string | null {
   if (!order.customer.whatsapp) return null;
-  const digits = order.customer.whatsapp.startsWith("55") ? order.customer.whatsapp : `55${order.customer.whatsapp}`;
-  const text = `Olá, ${order.customer.name.split(" ")[0]}! Aqui é da Jota Digitais, sobre o pedido ${order.code}.`;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+  return whatsappChatUrl(
+    order.customer.whatsapp,
+    `Olá, ${firstNameOf(order.customer.name)}! Aqui é da Jota Digitais, sobre o pedido ${order.code}.`,
+  );
 }
 
 interface OrderCardProps {
@@ -90,7 +76,7 @@ function OrderCard({ order, busy, onAction }: OrderCardProps) {
           <p className="font-mono text-sm font-semibold text-white">{order.code}</p>
           <p className="text-xs text-mist">{dateTime.format(new Date(order.createdAt))}</p>
         </div>
-        <StatusBadge order={order} />
+        <OrderStatusBadge order={order} />
       </div>
 
       <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">

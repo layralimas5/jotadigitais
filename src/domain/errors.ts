@@ -40,6 +40,13 @@ export class InvalidTransitionError extends Error {
   }
 }
 
+export class LeadNotFoundError extends Error {
+  constructor() {
+    super("Este contato não existe mais. Ele pode ter sido apagado.");
+    this.name = "LeadNotFoundError";
+  }
+}
+
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("E-mail ou senha incorretos.");

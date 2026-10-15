@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { ACCOUNT_STATUSES } from "@/domain/account";
+import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
+import { PLATFORMS } from "@/domain/platform";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -120,6 +122,42 @@ export const testimonialDataSchema = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   published: z.boolean(),
+});
+
+// ---------------------------------------------------------------------------
+// CRM (mesmas regras da tabela leads)
+// ---------------------------------------------------------------------------
+
+export const leadDataSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome.").max(80, "Use no máximo 80 caracteres."),
+  whatsapp: z
+    .string()
+    .nullable()
+    .transform((value) => onlyDigits(value ?? ""))
+    .refine((digits) => digits === "" || (digits.length >= 10 && digits.length <= 13), {
+      message: "Número de WhatsApp inválido.",
+    })
+    .transform((digits) => digits || null),
+  instagram: z
+    .string()
+    .nullable()
+    .transform((value) => value?.trim() ?? "")
+    .transform((value) => (value && !value.startsWith("@") ? `@${value}` : value))
+    .refine((value) => value === "" || /^@[A-Za-z0-9._]{1,30}$/.test(value), {
+      message: "Use só letras, números, ponto e sublinhado.",
+    })
+    .transform((value) => value || null),
+  source: z.enum(LEAD_SOURCES),
+  interest: z.enum(PLATFORMS).nullable(),
+  stage: z.enum(LEAD_STAGES),
+  budget: z
+    .number({ message: "Valor inválido. Ex.: 400 ou 1.250,00." })
+    .int()
+    .min(0, "Não pode ser negativo.")
+    .max(100_000_000, "Valor alto demais.")
+    .nullable(),
+  nextFollowUp: z.iso.date("Data inválida.").nullable(),
+  notes: optionalText(2000),
 });
 
 // ---------------------------------------------------------------------------

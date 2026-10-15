@@ -4,6 +4,7 @@ import type { UseCaseDeps } from "@/application/use-cases";
 import { DemoDatabase } from "@/infrastructure/demo/demo-database";
 import {
   DemoAccountRepository,
+  DemoLeadRepository,
   DemoOrderRepository,
   DemoStoreSettingsRepository,
   DemoTestimonialRepository,
@@ -12,6 +13,7 @@ import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-se
 import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
 import {
   SupabaseAccountRepository,
+  SupabaseLeadRepository,
   SupabaseOrderRepository,
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
@@ -42,6 +44,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       testimonials,
       orders,
       settings,
+      leads: new SupabaseLeadRepository(client),
       images: new SupabaseImageStorage(client),
     },
   };
@@ -57,7 +60,15 @@ function demoContainer(): Container {
   return {
     mode: "demo",
     store: { accounts, testimonials, orders, settings, payments: new PendingPaymentGateway() },
-    admin: { auth: new DemoAuthService(), accounts, testimonials, orders, settings, images: new DemoImageStorage() },
+    admin: {
+      auth: new DemoAuthService(),
+      accounts,
+      testimonials,
+      orders,
+      settings,
+      leads: new DemoLeadRepository(db),
+      images: new DemoImageStorage(),
+    },
   };
 }
 

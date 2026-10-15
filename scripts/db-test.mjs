@@ -302,6 +302,39 @@ async function main() {
     "não dá para criar uma segunda linha",
   );
 
+  console.log("\ncrm");
+  const lead = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.leads (name, whatsapp, instagram, source, interest, budget_cents, next_follow_up)
+       values ('Paula Reis', '11912345678', '@paula.reis', 'instagram', 'tiktok', 40000, current_date) returning id, stage`,
+    ),
+  );
+  check(lead.rows[0]?.stage === "new", "admin cadastra lead, que entra como novo contato");
+
+  const anonLeads = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.leads`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.leads`)).rows.length;
+    }),
+  );
+  check(anonLeads === 0, "visitante não enxerga o CRM");
+
+  const strangerLeads = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.leads`));
+  check(strangerLeads.rows.length === 0, "usuário que não é admin não enxerga o CRM");
+
+  const moved = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.leads set stage = 'negotiating' where id = $1 returning stage`, [lead.rows[0].id]),
+  );
+  check(moved.rows[0]?.stage === "negotiating", "admin move o lead de etapa");
+
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.leads (name, whatsapp) values ('Sem Numero', '12')`)),
+      /check constraint/,
+    ),
+    "banco recusa WhatsApp curto demais",
+  );
+
   console.log("\nimagens");
   check(
     await rejects(

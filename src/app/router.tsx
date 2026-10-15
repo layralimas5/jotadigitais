@@ -21,6 +21,10 @@ const TestimonialEditorPage = lazy(() => import("@/ui/admin/pages/TestimonialEdi
 const OrdersPage = lazy(() => import("@/ui/admin/pages/OrdersPage"));
 const SettingsPage = lazy(() => import("@/ui/admin/pages/SettingsPage"));
 const MyAccountPage = lazy(() => import("@/ui/admin/pages/MyAccountPage"));
+const CustomersPage = lazy(() => import("@/ui/admin/pages/CustomersPage"));
+const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPage"));
+const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
+const LeadEditorPage = lazy(() => import("@/ui/admin/pages/LeadEditorPage"));
 
 export const router = createBrowserRouter([
   {
@@ -51,6 +55,11 @@ export const router = createBrowserRouter([
           { path: "depoimentos/novo", element: <TestimonialEditorPage /> },
           { path: "depoimentos/:id", element: <TestimonialEditorPage /> },
           { path: "pedidos", element: <OrdersPage /> },
+          { path: "clientes", element: <CustomersPage /> },
+          { path: "clientes/:key", element: <CustomerDetailPage /> },
+          { path: "crm", element: <CrmPage /> },
+          { path: "crm/novo", element: <LeadEditorPage /> },
+          { path: "crm/:id", element: <LeadEditorPage /> },
           { path: "configuracoes", element: <SettingsPage /> },
           { path: "minha-conta", element: <MyAccountPage /> },
         ],

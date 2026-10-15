@@ -1,9 +1,11 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 import { matchesFilter, sortAccounts } from "@/application/catalog";
 import type {
   AccountFilter,
   AccountRepository,
   AdminAccountRepository,
+  AdminLeadRepository,
   AdminOrderRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -16,10 +18,13 @@ import {
   AccountNotFoundError,
   AccountUnavailableError,
   InvalidTransitionError,
+  LeadNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
+import { LEAD_SOURCES, LEAD_STAGES, type Lead, type LeadData, type LeadStage } from "@/domain/lead";
+import { PLATFORMS } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import {
@@ -285,5 +290,102 @@ export class SupabaseStoreSettingsRepository implements AdminStoreSettingsReposi
       .single<StoreSettingsRow>();
     if (error) fail(error);
     return toStoreSettings(data);
+  }
+}
+
+const LEAD_COLUMNS =
+  "id, name, whatsapp, instagram, source, interest, stage, budget_cents, next_follow_up, notes, created_at, updated_at";
+
+const leadRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  whatsapp: z.string().nullable(),
+  instagram: z.string().nullable(),
+  source: z.enum(LEAD_SOURCES),
+  interest: z.enum(PLATFORMS).nullable(),
+  stage: z.enum(LEAD_STAGES),
+  budget_cents: z.number().nullable(),
+  next_follow_up: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+function toLead(raw: unknown): Lead {
+  const row = leadRowSchema.parse(raw);
+  return {
+    id: row.id,
+    name: row.name,
+    whatsapp: row.whatsapp,
+    instagram: row.instagram,
+    source: row.source,
+    interest: row.interest,
+    stage: row.stage,
+    budget: row.budget_cents,
+    nextFollowUp: row.next_follow_up,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const toLeadRow = (data: LeadData) => ({
+  name: data.name,
+  whatsapp: data.whatsapp,
+  instagram: data.instagram,
+  source: data.source,
+  interest: data.interest,
+  stage: data.stage,
+  budget_cents: data.budget,
+  next_follow_up: data.nextFollowUp,
+  notes: data.notes,
+});
+
+export class SupabaseLeadRepository implements AdminLeadRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<Lead[]> {
+    const { data, error } = await this.client
+      .from("leads")
+      .select(LEAD_COLUMNS)
+      .order("next_follow_up", { ascending: true, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toLead);
+  }
+
+  async findById(id: string): Promise<Lead | null> {
+    const { data, error } = await this.client.from("leads").select(LEAD_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toLead(data) : null;
+  }
+
+  async create(input: LeadData): Promise<Lead> {
+    const { data, error } = await this.client.from("leads").insert(toLeadRow(input)).select(LEAD_COLUMNS).single();
+    if (error) fail(error);
+    return toLead(data);
+  }
+
+  async update(id: string, input: LeadData): Promise<Lead> {
+    const { data, error } = await this.client
+      .from("leads")
+      .update(toLeadRow(input))
+      .eq("id", id)
+      .select(LEAD_COLUMNS)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new LeadNotFoundError();
+    return toLead(data);
+  }
+
+  async moveToStage(id: string, stage: LeadStage): Promise<void> {
+    const { data, error } = await this.client.from("leads").update({ stage }).eq("id", id).select("id");
+    if (error) fail(error);
+    if (data.length === 0) throw new LeadNotFoundError();
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("leads").delete().eq("id", id);
+    if (error) fail(error);
   }
 }
