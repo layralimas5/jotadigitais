@@ -6,6 +6,7 @@ import type {
   AccountRepository,
   AdminAccountRepository,
   AdminCustomerRepository,
+  AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
@@ -23,6 +24,7 @@ import {
   AccountUnavailableError,
   CustomerEmailTakenError,
   CustomerNotFoundError,
+  ExpenseNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
   SlugTakenError,
@@ -30,6 +32,7 @@ import {
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import { EXPENSE_CATEGORIES, type Expense, type ExpenseData } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES, type Lead, type LeadData, type LeadStage } from "@/domain/lead";
 import {
   DEFAULT_MESSAGE_TEMPLATES,
@@ -503,6 +506,79 @@ export class SupabasePreferenceRepository implements AdminPreferenceRepository {
 
   async set(key: AdminPreferenceKey, value: unknown): Promise<void> {
     const { error } = await this.client.from("admin_preferences").upsert({ key, value }, { onConflict: "key" });
+    if (error) fail(error);
+  }
+}
+
+const EXPENSE_COLUMNS = "id, description, category, amount_cents, spent_on, created_at";
+
+const expenseRowSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  category: z.enum(EXPENSE_CATEGORIES),
+  amount_cents: z.number(),
+  spent_on: z.string(),
+  created_at: z.string(),
+});
+
+function toExpense(raw: unknown): Expense {
+  const row = expenseRowSchema.parse(raw);
+  return {
+    id: row.id,
+    description: row.description,
+    category: row.category,
+    amount: row.amount_cents,
+    date: row.spent_on,
+    createdAt: row.created_at,
+  };
+}
+
+const toExpenseRow = (data: ExpenseData) => ({
+  description: data.description,
+  category: data.category,
+  amount_cents: data.amount,
+  spent_on: data.date,
+});
+
+export class SupabaseExpenseRepository implements AdminExpenseRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<Expense[]> {
+    const { data, error } = await this.client
+      .from("expenses")
+      .select(EXPENSE_COLUMNS)
+      .order("spent_on", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toExpense);
+  }
+
+  async findById(id: string): Promise<Expense | null> {
+    const { data, error } = await this.client.from("expenses").select(EXPENSE_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toExpense(data) : null;
+  }
+
+  async create(input: ExpenseData): Promise<Expense> {
+    const { data, error } = await this.client.from("expenses").insert(toExpenseRow(input)).select(EXPENSE_COLUMNS).single();
+    if (error) fail(error);
+    return toExpense(data);
+  }
+
+  async update(id: string, input: ExpenseData): Promise<Expense> {
+    const { data, error } = await this.client
+      .from("expenses")
+      .update(toExpenseRow(input))
+      .eq("id", id)
+      .select(EXPENSE_COLUMNS)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new ExpenseNotFoundError();
+    return toExpense(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("expenses").delete().eq("id", id);
     if (error) fail(error);
   }
 }

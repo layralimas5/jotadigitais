@@ -1,6 +1,7 @@
 import type { Account } from "@/domain/account";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import { InvalidTransitionError } from "@/domain/errors";
+import type { Expense } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
@@ -9,6 +10,7 @@ import type { Testimonial } from "@/domain/testimonial";
 import type {
   AdminAccountRepository,
   AdminCustomerRepository,
+  AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
@@ -26,6 +28,7 @@ import {
   accountDataSchema,
   changePasswordSchema,
   customerRecordSchema,
+  expenseDataSchema,
   leadDataSchema,
   messageTemplatesSchema,
   parseOrThrow,
@@ -44,6 +47,7 @@ export interface AdminDeps {
   customers: AdminCustomerRepository;
   templates: AdminMessageTemplateRepository;
   preferences: AdminPreferenceRepository;
+  expenses: AdminExpenseRepository;
   images: ImageStorage;
 }
 
@@ -157,6 +161,30 @@ export function getMessageTemplates(deps: AdminDeps): Promise<MessageTemplates> 
 
 export function saveMessageTemplates(deps: AdminDeps, raw: unknown): Promise<MessageTemplates> {
   return deps.templates.save(parseOrThrow(messageTemplatesSchema, raw));
+}
+
+export interface FinanceData {
+  orders: Order[];
+  expenses: Expense[];
+}
+
+/** Tudo que o Financeiro precisa; o recorte por período é feito na tela, sem buscar de novo. */
+export async function loadFinance(deps: AdminDeps): Promise<FinanceData> {
+  const [orders, expenses] = await Promise.all([deps.orders.listAll(), deps.expenses.listAll()]);
+  return { orders, expenses };
+}
+
+export function findExpense(deps: AdminDeps, id: string): Promise<Expense | null> {
+  return deps.expenses.findById(id);
+}
+
+export function saveExpense(deps: AdminDeps, id: string | null, raw: unknown): Promise<Expense> {
+  const data = parseOrThrow(expenseDataSchema, raw);
+  return id ? deps.expenses.update(id, data) : deps.expenses.create(data);
+}
+
+export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
+  return deps.expenses.remove(id);
 }
 
 export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {

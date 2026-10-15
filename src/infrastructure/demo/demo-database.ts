@@ -1,5 +1,6 @@
 import type { Account } from "@/domain/account";
 import type { CustomerRecord } from "@/domain/customer";
+import type { Expense } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { Order } from "@/domain/order";
@@ -22,6 +23,7 @@ export interface DemoState {
   customers?: CustomerRecord[];
   messageTemplates?: Partial<MessageTemplates>;
   preferences?: Record<string, unknown>;
+  expenses?: Expense[];
 }
 
 function seedState(): DemoState {

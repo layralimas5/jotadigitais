@@ -1,5 +1,6 @@
 import type { Account, AccountData } from "@/domain/account";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import type { Expense, ExpenseData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
@@ -122,6 +123,14 @@ export type AdminPreferenceKey = (typeof ADMIN_PREFERENCE_KEYS)[number];
 export interface AdminPreferenceRepository {
   get(key: AdminPreferenceKey): Promise<unknown>;
   set(key: AdminPreferenceKey, value: unknown): Promise<void>;
+}
+
+export interface AdminExpenseRepository {
+  listAll(): Promise<Expense[]>;
+  findById(id: string): Promise<Expense | null>;
+  create(data: ExpenseData): Promise<Expense>;
+  update(id: string, data: ExpenseData): Promise<Expense>;
+  remove(id: string): Promise<void>;
 }
 
 export interface AdminLeadRepository {

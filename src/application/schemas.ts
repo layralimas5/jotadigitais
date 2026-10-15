@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ACCOUNT_STATUSES } from "@/domain/account";
+import { EXPENSE_CATEGORIES } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { PLATFORMS } from "@/domain/platform";
@@ -211,6 +212,21 @@ export const messageTemplatesSchema = z.object({
   order_delivered: templateBody,
   crm_follow_up: templateBody,
   customer_hello: templateBody,
+});
+
+// ---------------------------------------------------------------------------
+// Financeiro (mesmas regras da tabela expenses)
+// ---------------------------------------------------------------------------
+
+export const expenseDataSchema = z.object({
+  description: z.string().trim().min(2, "Descreva a despesa.").max(120, "Use no máximo 120 caracteres."),
+  category: z.enum(EXPENSE_CATEGORIES),
+  amount: z
+    .number({ message: "Informe o valor. Ex.: 150 ou 1.250,00." })
+    .int()
+    .min(1, "O valor precisa ser maior que zero.")
+    .max(100_000_000, "Valor alto demais."),
+  date: z.iso.date("Data inválida."),
 });
 
 // ---------------------------------------------------------------------------

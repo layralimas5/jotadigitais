@@ -5,6 +5,7 @@ import { DemoDatabase } from "@/infrastructure/demo/demo-database";
 import {
   DemoAccountRepository,
   DemoCustomerRepository,
+  DemoExpenseRepository,
   DemoLeadRepository,
   DemoMessageTemplateRepository,
   DemoOrderRepository,
@@ -17,6 +18,7 @@ import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway"
 import {
   SupabaseAccountRepository,
   SupabaseCustomerRepository,
+  SupabaseExpenseRepository,
   SupabaseLeadRepository,
   SupabaseMessageTemplateRepository,
   SupabaseOrderRepository,
@@ -54,6 +56,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       customers: new SupabaseCustomerRepository(client),
       templates: new SupabaseMessageTemplateRepository(client),
       preferences: new SupabasePreferenceRepository(client),
+      expenses: new SupabaseExpenseRepository(client),
       images: new SupabaseImageStorage(client),
     },
   };
@@ -79,6 +82,7 @@ function demoContainer(): Container {
       customers: new DemoCustomerRepository(db),
       templates: new DemoMessageTemplateRepository(db),
       preferences: new DemoPreferenceRepository(db),
+      expenses: new DemoExpenseRepository(db),
       images: new DemoImageStorage(),
     },
   };

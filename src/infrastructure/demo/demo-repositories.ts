@@ -4,6 +4,7 @@ import type {
   AccountRepository,
   AdminAccountRepository,
   AdminCustomerRepository,
+  AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
@@ -21,6 +22,7 @@ import {
   AccountUnavailableError,
   CustomerEmailTakenError,
   CustomerNotFoundError,
+  ExpenseNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
   SlugTakenError,
@@ -35,6 +37,7 @@ import {
   type OrderStatus,
 } from "@/domain/order";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import type { Expense, ExpenseData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -419,6 +422,47 @@ export class DemoPreferenceRepository implements AdminPreferenceRepository {
   async set(key: AdminPreferenceKey, value: unknown): Promise<void> {
     this.db.write((state) => {
       state.preferences = { ...state.preferences, [key]: value };
+    });
+  }
+}
+
+const byDateDesc = (a: Expense, b: Expense) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt);
+
+export class DemoExpenseRepository implements AdminExpenseRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listAll(): Promise<Expense[]> {
+    return [...(this.db.read().expenses ?? [])].sort(byDateDesc);
+  }
+
+  async findById(id: string): Promise<Expense | null> {
+    return (this.db.read().expenses ?? []).find((expense) => expense.id === id) ?? null;
+  }
+
+  async create(data: ExpenseData): Promise<Expense> {
+    await simulateLatency();
+    const expense: Expense = { ...data, id: newId("exp"), createdAt: new Date().toISOString() };
+    return this.db.write((state) => {
+      state.expenses = [expense, ...(state.expenses ?? [])];
+      return expense;
+    });
+  }
+
+  async update(id: string, data: ExpenseData): Promise<Expense> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const current = (state.expenses ?? []).find((expense) => expense.id === id);
+      if (!current) throw new ExpenseNotFoundError();
+      const updated: Expense = { ...current, ...data };
+      state.expenses = (state.expenses ?? []).map((expense) => (expense.id === id ? updated : expense));
+      return updated;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.expenses = (state.expenses ?? []).filter((expense) => expense.id !== id);
     });
   }
 }

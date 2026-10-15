@@ -61,6 +61,13 @@ export class CustomerEmailTakenError extends Error {
   }
 }
 
+export class ExpenseNotFoundError extends Error {
+  constructor() {
+    super("Esta despesa não existe mais. Ela pode ter sido apagada.");
+    this.name = "ExpenseNotFoundError";
+  }
+}
+
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("E-mail ou senha incorretos.");

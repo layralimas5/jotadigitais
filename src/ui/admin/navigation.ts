@@ -6,6 +6,7 @@ import {
   Settings,
   SquareKanban,
   Users,
+  Wallet,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -31,6 +32,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/contas", label: "Contas", icon: Package, inBottomNav: true, description: "Estoque da vitrine" },
       { to: "/admin/depoimentos", label: "Depoimentos", icon: ImageIcon, inBottomNav: false, description: "Prints da faixa de resultados" },
       { to: "/admin/pedidos", label: "Pedidos", icon: Receipt, inBottomNav: true, description: "Pagamentos e entregas" },
+      { to: "/admin/financeiro", label: "Financeiro", icon: Wallet, inBottomNav: false, description: "Faturamento, despesas e lucro" },
     ],
   },
   {

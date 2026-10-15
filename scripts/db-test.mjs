@@ -387,6 +387,41 @@ async function main() {
   );
   check(withAvatar.rows[0]?.avatar_url === "https://exemplo.com/foto.webp", "admin coloca a foto de perfil da conta");
 
+  console.log("\npreferências do painel");
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.admin_preferences (key, value) values ('crm_stage_order', '["lost","new"]')
+              on conflict (key) do update set value = excluded.value`),
+  );
+  const preference = await as("authenticated", ADMIN_ID, () => db.query(`select value from public.admin_preferences`));
+  check(Array.isArray(preference.rows[0]?.value), "admin salva a ordem das colunas do CRM");
+  const strangerPreferences = await as("authenticated", STRANGER_ID, () => db.query(`select key from public.admin_preferences`));
+  check(strangerPreferences.rows.length === 0, "usuário que não é admin não lê as preferências");
+
+  console.log("\nfinanceiro");
+  const expense = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.expenses (description, category, amount_cents, spent_on)
+       values ('Compra da conta @extra0', 'account_purchase', 15000, current_date) returning id`,
+    ),
+  );
+  check(expense.rows.length === 1, "admin lança despesa");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.expenses (description, amount_cents) values ('Zerada', 0)`)),
+      /check constraint/,
+    ),
+    "despesa sem valor é recusada",
+  );
+  const anonExpenses = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.expenses`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.expenses`)).rows.length;
+    }),
+  );
+  check(anonExpenses === 0, "visitante não enxerga o financeiro");
+  const strangerExpenses = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.expenses`));
+  check(strangerExpenses.rows.length === 0, "usuário que não é admin não enxerga o financeiro");
+
   console.log("\nimagens");
   check(
     await rejects(

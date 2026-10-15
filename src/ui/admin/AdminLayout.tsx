@@ -17,6 +17,7 @@ const EDITOR_ROUTES = [
   "/admin/crm/:id",
   "/admin/clientes/novo",
   "/admin/clientes/cadastro/:id",
+  "/admin/financeiro/despesas/:id",
 ];
 
 /** Telas de leitura e preenchimento: centralizadas numa largura confortável em vez de esticadas até a borda. */

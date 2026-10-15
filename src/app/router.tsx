@@ -29,6 +29,8 @@ const CustomerEditorPage = lazy(() => import("@/ui/admin/pages/CustomerEditorPag
 const AutomationPage = lazy(() => import("@/ui/admin/pages/AutomationPage"));
 const ApisPage = lazy(() => import("@/ui/admin/pages/ApisPage"));
 const MorePage = lazy(() => import("@/ui/admin/pages/MorePage"));
+const FinancePage = lazy(() => import("@/ui/admin/pages/FinancePage"));
+const ExpenseEditorPage = lazy(() => import("@/ui/admin/pages/ExpenseEditorPage"));
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +61,9 @@ export const router = createBrowserRouter([
           { path: "depoimentos/novo", element: <TestimonialEditorPage /> },
           { path: "depoimentos/:id", element: <TestimonialEditorPage /> },
           { path: "pedidos", element: <OrdersPage /> },
+          { path: "financeiro", element: <FinancePage /> },
+          { path: "financeiro/despesas/nova", element: <ExpenseEditorPage /> },
+          { path: "financeiro/despesas/:id", element: <ExpenseEditorPage /> },
           { path: "clientes", element: <CustomersPage /> },
           { path: "clientes/novo", element: <CustomerEditorPage /> },
           { path: "clientes/cadastro/:id", element: <CustomerEditorPage /> },
