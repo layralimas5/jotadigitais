@@ -1,10 +1,18 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { z } from "zod";
 import { matchesFilter, sortAccounts } from "@/application/catalog";
 import type {
   AccountFilter,
   AccountRepository,
   AdminAccountRepository,
+  AdminCustomerRepository,
+  AdminExpenseRepository,
+  AdminLeadRepository,
+  AdminMessageTemplateRepository,
   AdminOrderRepository,
+  AdminPreferenceKey,
+  AdminPreferenceRepository,
+  AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   NewOrder,
   OrderRepository,
@@ -14,11 +22,26 @@ import type { Account, AccountData } from "@/domain/account";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
+  CustomerEmailTakenError,
+  CustomerNotFoundError,
+  ExpenseNotFoundError,
   InvalidTransitionError,
+  LeadNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
+import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import { EXPENSE_CATEGORIES, type Expense, type ExpenseData } from "@/domain/finance";
+import { LEAD_SOURCES, LEAD_STAGES, type Lead, type LeadData, type LeadStage } from "@/domain/lead";
+import {
+  DEFAULT_MESSAGE_TEMPLATES,
+  MESSAGE_TEMPLATE_KEYS,
+  type MessageTemplateKey,
+  type MessageTemplates,
+} from "@/domain/message-template";
+import { PLATFORMS } from "@/domain/platform";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import {
   ACCOUNT_COLUMNS,
@@ -237,5 +260,325 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
   async updateStatus(code: string, status: OrderStatus): Promise<void> {
     const { error } = await this.client.from("orders").update({ status }).eq("code", code);
     if (error) failFromRpc(error);
+  }
+}
+
+const SETTINGS_COLUMNS = "whatsapp_number, instagram_handle, guarantee_days";
+
+interface StoreSettingsRow {
+  whatsapp_number: string | null;
+  instagram_handle: string;
+  guarantee_days: number;
+}
+
+const toStoreSettings = (row: StoreSettingsRow): StoreSettings => ({
+  whatsappNumber: row.whatsapp_number,
+  instagramHandle: row.instagram_handle,
+  guaranteeDays: row.guarantee_days,
+});
+
+/** Linha única (`id = true`) criada pela migration; o painel só atualiza. */
+export class SupabaseStoreSettingsRepository implements AdminStoreSettingsRepository {
+  constructor(
+    private readonly client: SupabaseClient,
+    private readonly defaults: StoreSettings,
+  ) {}
+
+  async get(): Promise<StoreSettings> {
+    const { data, error } = await this.client
+      .from("store_settings")
+      .select(SETTINGS_COLUMNS)
+      .maybeSingle<StoreSettingsRow>();
+    if (error) fail(error);
+    return data ? toStoreSettings(data) : this.defaults;
+  }
+
+  async save(settings: StoreSettings): Promise<StoreSettings> {
+    const { data, error } = await this.client
+      .from("store_settings")
+      .update({
+        whatsapp_number: settings.whatsappNumber,
+        instagram_handle: settings.instagramHandle,
+        guarantee_days: settings.guaranteeDays,
+      })
+      .eq("id", true)
+      .select(SETTINGS_COLUMNS)
+      .single<StoreSettingsRow>();
+    if (error) fail(error);
+    return toStoreSettings(data);
+  }
+}
+
+const LEAD_COLUMNS =
+  "id, name, whatsapp, instagram, source, interest, stage, budget_cents, next_follow_up, notes, created_at, updated_at";
+
+const leadRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  whatsapp: z.string().nullable(),
+  instagram: z.string().nullable(),
+  source: z.enum(LEAD_SOURCES),
+  interest: z.enum(PLATFORMS).nullable(),
+  stage: z.enum(LEAD_STAGES),
+  budget_cents: z.number().nullable(),
+  next_follow_up: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+function toLead(raw: unknown): Lead {
+  const row = leadRowSchema.parse(raw);
+  return {
+    id: row.id,
+    name: row.name,
+    whatsapp: row.whatsapp,
+    instagram: row.instagram,
+    source: row.source,
+    interest: row.interest,
+    stage: row.stage,
+    budget: row.budget_cents,
+    nextFollowUp: row.next_follow_up,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+const toLeadRow = (data: LeadData) => ({
+  name: data.name,
+  whatsapp: data.whatsapp,
+  instagram: data.instagram,
+  source: data.source,
+  interest: data.interest,
+  stage: data.stage,
+  budget_cents: data.budget,
+  next_follow_up: data.nextFollowUp,
+  notes: data.notes,
+});
+
+export class SupabaseLeadRepository implements AdminLeadRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<Lead[]> {
+    const { data, error } = await this.client
+      .from("leads")
+      .select(LEAD_COLUMNS)
+      .order("next_follow_up", { ascending: true, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toLead);
+  }
+
+  async findById(id: string): Promise<Lead | null> {
+    const { data, error } = await this.client.from("leads").select(LEAD_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toLead(data) : null;
+  }
+
+  async create(input: LeadData): Promise<Lead> {
+    const { data, error } = await this.client.from("leads").insert(toLeadRow(input)).select(LEAD_COLUMNS).single();
+    if (error) fail(error);
+    return toLead(data);
+  }
+
+  async update(id: string, input: LeadData): Promise<Lead> {
+    const { data, error } = await this.client
+      .from("leads")
+      .update(toLeadRow(input))
+      .eq("id", id)
+      .select(LEAD_COLUMNS)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new LeadNotFoundError();
+    return toLead(data);
+  }
+
+  async moveToStage(id: string, stage: LeadStage): Promise<void> {
+    const { data, error } = await this.client.from("leads").update({ stage }).eq("id", id).select("id");
+    if (error) fail(error);
+    if (data.length === 0) throw new LeadNotFoundError();
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("leads").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+const CUSTOMER_COLUMNS = "id, name, email, whatsapp, instagram, notes, created_at";
+
+const customerRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().nullable(),
+  whatsapp: z.string().nullable(),
+  instagram: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+});
+
+function toCustomerRecord(raw: unknown): CustomerRecord {
+  const row = customerRowSchema.parse(raw);
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    whatsapp: row.whatsapp,
+    instagram: row.instagram,
+    notes: row.notes,
+    createdAt: row.created_at,
+  };
+}
+
+function failOnCustomerWrite(error: PostgrestError, email: string | null): never {
+  if (error.code === UNIQUE_VIOLATION && email) throw new CustomerEmailTakenError(email);
+  return fail(error);
+}
+
+export class SupabaseCustomerRepository implements AdminCustomerRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<CustomerRecord[]> {
+    const { data, error } = await this.client.from("customers").select(CUSTOMER_COLUMNS).order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toCustomerRecord);
+  }
+
+  async findById(id: string): Promise<CustomerRecord | null> {
+    const { data, error } = await this.client.from("customers").select(CUSTOMER_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toCustomerRecord(data) : null;
+  }
+
+  async create(input: CustomerRecordData): Promise<CustomerRecord> {
+    const { data, error } = await this.client.from("customers").insert(input).select(CUSTOMER_COLUMNS).single();
+    if (error) failOnCustomerWrite(error, input.email);
+    return toCustomerRecord(data);
+  }
+
+  async update(id: string, input: CustomerRecordData): Promise<CustomerRecord> {
+    const { data, error } = await this.client
+      .from("customers")
+      .update(input)
+      .eq("id", id)
+      .select(CUSTOMER_COLUMNS)
+      .maybeSingle();
+    if (error) failOnCustomerWrite(error, input.email);
+    if (!data) throw new CustomerNotFoundError();
+    return toCustomerRecord(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("customers").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+const templateRowSchema = z.object({ key: z.enum(MESSAGE_TEMPLATE_KEYS), body: z.string() });
+
+export class SupabaseMessageTemplateRepository implements AdminMessageTemplateRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async getAll(): Promise<MessageTemplates> {
+    const { data, error } = await this.client.from("message_templates").select("key, body");
+    if (error) fail(error);
+    const saved = data.map((row) => templateRowSchema.parse(row));
+    return saved.reduce<MessageTemplates>((all, row) => ({ ...all, [row.key]: row.body }), { ...DEFAULT_MESSAGE_TEMPLATES });
+  }
+
+  async save(templates: MessageTemplates): Promise<MessageTemplates> {
+    const rows = (Object.keys(templates) as MessageTemplateKey[]).map((key) => ({ key, body: templates[key] }));
+    const { error } = await this.client.from("message_templates").upsert(rows, { onConflict: "key" });
+    if (error) fail(error);
+    return templates;
+  }
+}
+
+export class SupabasePreferenceRepository implements AdminPreferenceRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async get(key: AdminPreferenceKey): Promise<unknown> {
+    const { data, error } = await this.client.from("admin_preferences").select("value").eq("key", key).maybeSingle<{ value: unknown }>();
+    if (error) fail(error);
+    return data?.value ?? null;
+  }
+
+  async set(key: AdminPreferenceKey, value: unknown): Promise<void> {
+    const { error } = await this.client.from("admin_preferences").upsert({ key, value }, { onConflict: "key" });
+    if (error) fail(error);
+  }
+}
+
+const EXPENSE_COLUMNS = "id, description, category, amount_cents, spent_on, created_at";
+
+const expenseRowSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  category: z.enum(EXPENSE_CATEGORIES),
+  amount_cents: z.number(),
+  spent_on: z.string(),
+  created_at: z.string(),
+});
+
+function toExpense(raw: unknown): Expense {
+  const row = expenseRowSchema.parse(raw);
+  return {
+    id: row.id,
+    description: row.description,
+    category: row.category,
+    amount: row.amount_cents,
+    date: row.spent_on,
+    createdAt: row.created_at,
+  };
+}
+
+const toExpenseRow = (data: ExpenseData) => ({
+  description: data.description,
+  category: data.category,
+  amount_cents: data.amount,
+  spent_on: data.date,
+});
+
+export class SupabaseExpenseRepository implements AdminExpenseRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<Expense[]> {
+    const { data, error } = await this.client
+      .from("expenses")
+      .select(EXPENSE_COLUMNS)
+      .order("spent_on", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toExpense);
+  }
+
+  async findById(id: string): Promise<Expense | null> {
+    const { data, error } = await this.client.from("expenses").select(EXPENSE_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toExpense(data) : null;
+  }
+
+  async create(input: ExpenseData): Promise<Expense> {
+    const { data, error } = await this.client.from("expenses").insert(toExpenseRow(input)).select(EXPENSE_COLUMNS).single();
+    if (error) fail(error);
+    return toExpense(data);
+  }
+
+  async update(id: string, input: ExpenseData): Promise<Expense> {
+    const { data, error } = await this.client
+      .from("expenses")
+      .update(toExpenseRow(input))
+      .eq("id", id)
+      .select(EXPENSE_COLUMNS)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new ExpenseNotFoundError();
+    return toExpense(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("expenses").delete().eq("id", id);
+    if (error) fail(error);
   }
 }

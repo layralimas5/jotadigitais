@@ -44,6 +44,16 @@ export class SupabaseAuthService implements AuthService {
     if (error) console.error(error);
   }
 
+  async changePassword(newPassword: string): Promise<void> {
+    const { error } = await this.client.auth.updateUser({ password: newPassword });
+    if (!error) return;
+    console.error(error);
+    if (error.code === "same_password") throw new Error("A nova senha precisa ser diferente da atual.");
+    if (error.code === "weak_password") throw new Error("Senha fraca. Misture letras, números e símbolos.");
+    if (error.code === "reauthentication_needed") throw new Error("Por segurança, saia e entre de novo antes de trocar a senha.");
+    throw new Error("Não foi possível trocar a senha agora. Tente de novo em instantes.");
+  }
+
   onChange(listener: (session: AdminSession | null) => void): () => void {
     const { data } = this.client.auth.onAuthStateChange((_event, session) => {
       // O callback do Supabase não pode aguardar outras chamadas do client: a checagem de admin vai para a próxima volta.

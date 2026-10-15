@@ -273,6 +273,155 @@ async function main() {
     "terceiro pedido aberto do mesmo e-mail é barrado",
   );
 
+  console.log("\nconfigurações da loja");
+  const settings = await as("anon", null, () => db.query(`select instagram_handle, guarantee_days from public.store_settings`));
+  check(settings.rows.length === 1 && settings.rows[0].guarantee_days === 7, "visitante lê a linha única de configurações");
+
+  const strangerSettings = await as("authenticated", STRANGER_ID, () =>
+    db.query(`update public.store_settings set guarantee_days = 30 returning id`),
+  );
+  check(strangerSettings.rows.length === 0, "usuário que não é admin não altera as configurações");
+
+  const adminSettings = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.store_settings set whatsapp_number = '5511912345678', guarantee_days = 15 returning guarantee_days`),
+  );
+  check(adminSettings.rows[0]?.guarantee_days === 15, "admin altera as configurações");
+
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.store_settings set whatsapp_number = '123'`)),
+      /check constraint/,
+    ),
+    "banco recusa WhatsApp sem DDI e DDD",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.store_settings (id) values (false)`)),
+      /permission denied|row-level security|check constraint/,
+    ),
+    "não dá para criar uma segunda linha",
+  );
+
+  console.log("\ncrm");
+  const lead = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.leads (name, whatsapp, instagram, source, interest, budget_cents, next_follow_up)
+       values ('Paula Reis', '11912345678', '@paula.reis', 'instagram', 'tiktok', 40000, current_date) returning id, stage`,
+    ),
+  );
+  check(lead.rows[0]?.stage === "new", "admin cadastra lead, que entra como novo contato");
+
+  const anonLeads = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.leads`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.leads`)).rows.length;
+    }),
+  );
+  check(anonLeads === 0, "visitante não enxerga o CRM");
+
+  const strangerLeads = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.leads`));
+  check(strangerLeads.rows.length === 0, "usuário que não é admin não enxerga o CRM");
+
+  const moved = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.leads set stage = 'negotiating' where id = $1 returning stage`, [lead.rows[0].id]),
+  );
+  check(moved.rows[0]?.stage === "negotiating", "admin move o lead de etapa");
+
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.leads (name, whatsapp) values ('Sem Numero', '12')`)),
+      /check constraint/,
+    ),
+    "banco recusa WhatsApp curto demais",
+  );
+
+  console.log("\nclientes");
+  const customer = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.customers (name, email, whatsapp) values ('Ana Lima', 'Ana@Exemplo.com', '11977776666') returning id`),
+  );
+  check(customer.rows.length === 1, "admin cadastra cliente");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.customers (name, email) values ('Outra Ana', 'ana@exemplo.com')`)),
+      /duplicate key|unique/,
+    ),
+    "e-mail repetido é recusado, sem diferenciar maiúscula",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.customers (name) values ('Sem Contato')`)),
+      /customers_has_contact/,
+    ),
+    "cliente precisa de pelo menos um contato",
+  );
+  const anonCustomers = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.customers`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.customers`)).rows.length;
+    }),
+  );
+  check(anonCustomers === 0, "visitante não enxerga clientes");
+  const strangerCustomers = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.customers`));
+  check(strangerCustomers.rows.length === 0, "usuário que não é admin não enxerga clientes");
+
+  console.log("\nmensagens da automação");
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.message_templates (key, body) values ('order_received', 'Olá, {nome}!')
+              on conflict (key) do update set body = excluded.body`),
+  );
+  const templates = await as("authenticated", ADMIN_ID, () => db.query(`select body from public.message_templates`));
+  check(templates.rows[0]?.body === "Olá, {nome}!", "admin salva modelo de mensagem");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.message_templates (key, body) values ('inventado', 'x')`)),
+      /check constraint/,
+    ),
+    "modelo com chave desconhecida é recusado",
+  );
+  const strangerTemplates = await as("authenticated", STRANGER_ID, () => db.query(`select key from public.message_templates`));
+  check(strangerTemplates.rows.length === 0, "usuário que não é admin não lê os modelos");
+
+  console.log("\nfoto da conta");
+  const withAvatar = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.accounts set avatar_url = 'https://exemplo.com/foto.webp' where id = $1 returning avatar_url`, [youtubeId]),
+  );
+  check(withAvatar.rows[0]?.avatar_url === "https://exemplo.com/foto.webp", "admin coloca a foto de perfil da conta");
+
+  console.log("\npreferências do painel");
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.admin_preferences (key, value) values ('crm_stage_order', '["lost","new"]')
+              on conflict (key) do update set value = excluded.value`),
+  );
+  const preference = await as("authenticated", ADMIN_ID, () => db.query(`select value from public.admin_preferences`));
+  check(Array.isArray(preference.rows[0]?.value), "admin salva a ordem das colunas do CRM");
+  const strangerPreferences = await as("authenticated", STRANGER_ID, () => db.query(`select key from public.admin_preferences`));
+  check(strangerPreferences.rows.length === 0, "usuário que não é admin não lê as preferências");
+
+  console.log("\nfinanceiro");
+  const expense = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.expenses (description, category, amount_cents, spent_on)
+       values ('Compra da conta @extra0', 'account_purchase', 15000, current_date) returning id`,
+    ),
+  );
+  check(expense.rows.length === 1, "admin lança despesa");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.expenses (description, amount_cents) values ('Zerada', 0)`)),
+      /check constraint/,
+    ),
+    "despesa sem valor é recusada",
+  );
+  const anonExpenses = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.expenses`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.expenses`)).rows.length;
+    }),
+  );
+  check(anonExpenses === 0, "visitante não enxerga o financeiro");
+  const strangerExpenses = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.expenses`));
+  check(strangerExpenses.rows.length === 0, "usuário que não é admin não enxerga o financeiro");
+
   console.log("\nimagens");
   check(
     await rejects(

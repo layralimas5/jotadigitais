@@ -2,6 +2,7 @@ import type { Account } from "@/domain/account";
 import { isPurchasable } from "@/domain/account";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
 import type { Order } from "@/domain/order";
+import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
   AccountFilter,
@@ -9,6 +10,7 @@ import type {
   OrderRepository,
   PaymentCharge,
   PaymentGateway,
+  StoreSettingsRepository,
   TestimonialRepository,
 } from "./ports";
 import type { CheckoutData } from "./schemas";
@@ -18,6 +20,11 @@ export interface UseCaseDeps {
   testimonials: TestimonialRepository;
   orders: OrderRepository;
   payments: PaymentGateway;
+  settings: StoreSettingsRepository;
+}
+
+export function getStoreSettings(deps: UseCaseDeps): Promise<StoreSettings> {
+  return deps.settings.get();
 }
 
 export function listAccounts(deps: UseCaseDeps, filter: AccountFilter): Promise<Account[]> {

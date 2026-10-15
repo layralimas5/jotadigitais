@@ -19,6 +19,18 @@ const AccountEditorPage = lazy(() => import("@/ui/admin/pages/AccountEditorPage"
 const TestimonialsListPage = lazy(() => import("@/ui/admin/pages/TestimonialsListPage"));
 const TestimonialEditorPage = lazy(() => import("@/ui/admin/pages/TestimonialEditorPage"));
 const OrdersPage = lazy(() => import("@/ui/admin/pages/OrdersPage"));
+const SettingsPage = lazy(() => import("@/ui/admin/pages/SettingsPage"));
+const MyAccountPage = lazy(() => import("@/ui/admin/pages/MyAccountPage"));
+const CustomersPage = lazy(() => import("@/ui/admin/pages/CustomersPage"));
+const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPage"));
+const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
+const LeadEditorPage = lazy(() => import("@/ui/admin/pages/LeadEditorPage"));
+const CustomerEditorPage = lazy(() => import("@/ui/admin/pages/CustomerEditorPage"));
+const AutomationPage = lazy(() => import("@/ui/admin/pages/AutomationPage"));
+const ApisPage = lazy(() => import("@/ui/admin/pages/ApisPage"));
+const MorePage = lazy(() => import("@/ui/admin/pages/MorePage"));
+const FinancePage = lazy(() => import("@/ui/admin/pages/FinancePage"));
+const ExpenseEditorPage = lazy(() => import("@/ui/admin/pages/ExpenseEditorPage"));
 
 export const router = createBrowserRouter([
   {
@@ -49,6 +61,21 @@ export const router = createBrowserRouter([
           { path: "depoimentos/novo", element: <TestimonialEditorPage /> },
           { path: "depoimentos/:id", element: <TestimonialEditorPage /> },
           { path: "pedidos", element: <OrdersPage /> },
+          { path: "financeiro", element: <FinancePage /> },
+          { path: "financeiro/despesas/nova", element: <ExpenseEditorPage /> },
+          { path: "financeiro/despesas/:id", element: <ExpenseEditorPage /> },
+          { path: "clientes", element: <CustomersPage /> },
+          { path: "clientes/novo", element: <CustomerEditorPage /> },
+          { path: "clientes/cadastro/:id", element: <CustomerEditorPage /> },
+          { path: "clientes/:key", element: <CustomerDetailPage /> },
+          { path: "crm", element: <CrmPage /> },
+          { path: "crm/novo", element: <LeadEditorPage /> },
+          { path: "crm/:id", element: <LeadEditorPage /> },
+          { path: "automacao", element: <AutomationPage /> },
+          { path: "apis", element: <ApisPage /> },
+          { path: "mais", element: <MorePage /> },
+          { path: "configuracoes", element: <SettingsPage /> },
+          { path: "minha-conta", element: <MyAccountPage /> },
         ],
       },
     ],

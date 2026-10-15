@@ -20,6 +20,7 @@ export interface AccountFormValues {
   status: AccountStatus;
   listedAt: string;
   description: string;
+  avatarUrl: string;
   images: string[];
   likes: string;
   following: string;
@@ -49,6 +50,7 @@ export function emptyAccountForm(): AccountFormValues {
     status: "available",
     listedAt: today(),
     description: "",
+    avatarUrl: "",
     images: [],
     likes: "",
     following: "0",
@@ -96,6 +98,7 @@ export function fromAccount(account: Account): AccountFormValues {
     status: account.status,
     listedAt: account.listedAt,
     description: account.description ?? "",
+    avatarUrl: account.avatarUrl ?? "",
     images: account.images,
   };
   switch (account.platform) {
@@ -157,6 +160,7 @@ export function toRawAccount(values: AccountFormValues) {
     price: parseMoneyToCents(values.price),
     status: values.status,
     description: values.description,
+    avatarUrl: values.avatarUrl || null,
     images: values.images,
     listedAt: values.listedAt,
   };

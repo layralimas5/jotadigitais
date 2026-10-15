@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { ACCOUNT_STATUSES } from "@/domain/account";
+import { EXPENSE_CATEGORIES } from "@/domain/finance";
+import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
+import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
+import { PLATFORMS } from "@/domain/platform";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -40,10 +44,17 @@ const count = z
   .max(2_000_000_000, "Número alto demais.");
 
 /** URL da imagem enviada. No modo demonstração ela é um data URL, que passa de longe do limite do banco. */
-const imageUrl = z
+const fitsImageLimit = (value: string) => value.startsWith("data:image/") || value.length <= 500;
+const IMAGE_TOO_LONG = "Endereço de imagem longo demais.";
+
+const imageUrl = z.string().min(1, "Envie o print.").refine(fitsImageLimit, IMAGE_TOO_LONG);
+
+const optionalImageUrl = z
   .string()
-  .min(1, "Envie o print.")
-  .refine((value) => value.startsWith("data:image/") || value.length <= 500, "Endereço de imagem longo demais.");
+  .nullable()
+  .default(null)
+  .transform((value) => value || null)
+  .refine((value) => value === null || fitsImageLimit(value), IMAGE_TOO_LONG);
 
 const optionalText = (max: number) =>
   z
@@ -97,6 +108,7 @@ export const accountBaseSchema = z.object({
     .max(100_000_000, "Preço alto demais."),
   status: z.enum(ACCOUNT_STATUSES),
   description: optionalText(2000),
+  avatarUrl: optionalImageUrl,
   images: z.array(imageUrl).max(8, "Use no máximo 8 imagens."),
   listedAt: z.iso.date("Data inválida."),
 });
@@ -123,6 +135,101 @@ export const testimonialDataSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// CRM (mesmas regras da tabela leads)
+// ---------------------------------------------------------------------------
+
+const personName = z.string().trim().min(2, "Informe o nome.").max(80, "Use no máximo 80 caracteres.");
+
+const optionalWhatsapp = z
+  .string()
+  .nullable()
+  .transform((value) => onlyDigits(value ?? ""))
+  .refine((digits) => digits === "" || (digits.length >= 10 && digits.length <= 13), {
+    message: "Número de WhatsApp inválido.",
+  })
+  .transform((digits) => digits || null);
+
+const optionalInstagram = z
+  .string()
+  .nullable()
+  .transform((value) => value?.trim() ?? "")
+  .transform((value) => (value && !value.startsWith("@") ? `@${value}` : value))
+  .refine((value) => value === "" || /^@[A-Za-z0-9._]{1,30}$/.test(value), {
+    message: "Use só letras, números, ponto e sublinhado.",
+  })
+  .transform((value) => value || null);
+
+const optionalEmail = z
+  .string()
+  .nullable()
+  .transform((value) => value?.trim().toLowerCase() ?? "")
+  .refine((value) => value === "" || z.email().safeParse(value).success, { message: "Informe um e-mail válido." })
+  .transform((value) => value || null);
+
+export const customerRecordSchema = z
+  .object({
+    name: personName,
+    email: optionalEmail,
+    whatsapp: optionalWhatsapp,
+    instagram: optionalInstagram,
+    notes: optionalText(2000),
+  })
+  .refine((data) => data.email || data.whatsapp || data.instagram, {
+    path: ["email"],
+    message: "Informe pelo menos um contato: e-mail, WhatsApp ou Instagram.",
+  });
+
+export const leadDataSchema = z.object({
+  name: personName,
+  whatsapp: optionalWhatsapp,
+  instagram: optionalInstagram,
+  source: z.enum(LEAD_SOURCES),
+  interest: z.enum(PLATFORMS).nullable(),
+  stage: z.enum(LEAD_STAGES),
+  budget: z
+    .number({ message: "Valor inválido. Ex.: 400 ou 1.250,00." })
+    .int()
+    .min(0, "Não pode ser negativo.")
+    .max(100_000_000, "Valor alto demais.")
+    .nullable(),
+  nextFollowUp: z.iso.date("Data inválida.").nullable(),
+  notes: optionalText(2000),
+});
+
+// ---------------------------------------------------------------------------
+// Automação: modelos de mensagem
+// ---------------------------------------------------------------------------
+
+const templateBody = z
+  .string()
+  .trim()
+  .min(1, "Escreva a mensagem.")
+  .max(MAX_TEMPLATE_LENGTH, `Use no máximo ${MAX_TEMPLATE_LENGTH} caracteres.`);
+
+export const messageTemplatesSchema = z.object({
+  order_received: templateBody,
+  payment_confirmed: templateBody,
+  order_delivered: templateBody,
+  crm_follow_up: templateBody,
+  customer_hello: templateBody,
+});
+
+// ---------------------------------------------------------------------------
+// Financeiro (mesmas regras da tabela expenses)
+// ---------------------------------------------------------------------------
+
+export const expenseDataSchema = z.object({
+  description: z.string().trim().min(2, "Descreva a despesa.").max(120, "Use no máximo 120 caracteres."),
+  category: z.enum(EXPENSE_CATEGORIES),
+  amount: z
+    .number({ message: "Informe o valor. Ex.: 150 ou 1.250,00." })
+    .int()
+    .min(1, "O valor precisa ser maior que zero.")
+    .max(100_000_000, "Valor alto demais."),
+  date: z.iso.date("Data inválida."),
+});
+
+// ---------------------------------------------------------------------------
 // Login do painel
 // ---------------------------------------------------------------------------
 
@@ -130,6 +237,45 @@ export const signInSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
   password: z.string().min(6, "A senha tem pelo menos 6 caracteres."),
 });
+
+export const changePasswordSchema = z
+  .object({
+    password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),
+    confirmation: z.string(),
+  })
+  .refine((data) => data.password === data.confirmation, {
+    path: ["confirmation"],
+    message: "As senhas não conferem.",
+  });
+
+export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
+
+// ---------------------------------------------------------------------------
+// Configurações da loja (mesmas regras da tabela store_settings)
+// ---------------------------------------------------------------------------
+
+export const storeSettingsSchema = z.object({
+  whatsappNumber: z
+    .string()
+    .transform(onlyDigits)
+    .refine((digits) => digits === "" || (digits.length >= 12 && digits.length <= 13), {
+      message: "Use DDI + DDD + número, ex.: 55 11 91234-5678.",
+    })
+    .transform((digits) => digits || null),
+  instagramHandle: z
+    .string()
+    .trim()
+    .min(1, "Informe o @ do Instagram.")
+    .transform((value) => (value.startsWith("@") ? value : `@${value}`))
+    .pipe(z.string().regex(/^@[A-Za-z0-9._]{1,30}$/, "Use só letras, números, ponto e sublinhado.")),
+  guaranteeDays: z
+    .number({ message: "Informe um número de dias." })
+    .int("Use um número inteiro.")
+    .min(1, "A garantia precisa ter pelo menos 1 dia.")
+    .max(90, "Use no máximo 90 dias."),
+});
+
+export type StoreSettingsInput = z.input<typeof storeSettingsSchema>;
 
 export class ValidationError extends Error {
   constructor(

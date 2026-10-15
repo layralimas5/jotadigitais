@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { siteConfig } from "@/app/config";
+import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { Logo } from "../Logo";
 
 function InstagramGlyph() {
@@ -21,6 +21,7 @@ const LINKS = [
 
 export function Footer() {
   const year = new Date().getFullYear();
+  const { instagramUrl, instagramHandle, whatsappUrl } = useStoreSettings();
   return (
     <footer className="relative border-t border-line bg-night">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-6 sm:py-14 md:grid-cols-[1.4fr_1fr_1fr] md:gap-10">
@@ -50,18 +51,18 @@ export function Footer() {
           <ul className="mt-4 space-y-3">
             <li>
               <a
-                href={siteConfig.instagramUrl}
+                href={instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 text-sm text-mist transition-colors hover:text-white"
               >
-                <InstagramGlyph /> {siteConfig.instagramHandle}
+                <InstagramGlyph /> {instagramHandle}
               </a>
             </li>
-            {siteConfig.whatsappUrl && (
+            {whatsappUrl && (
               <li>
                 <a
-                  href={siteConfig.whatsappUrl}
+                  href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="text-sm text-mist transition-colors hover:text-white"

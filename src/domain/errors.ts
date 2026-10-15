@@ -40,6 +40,34 @@ export class InvalidTransitionError extends Error {
   }
 }
 
+export class LeadNotFoundError extends Error {
+  constructor() {
+    super("Este contato não existe mais. Ele pode ter sido apagado.");
+    this.name = "LeadNotFoundError";
+  }
+}
+
+export class CustomerNotFoundError extends Error {
+  constructor() {
+    super("Este cadastro não existe mais. Ele pode ter sido apagado.");
+    this.name = "CustomerNotFoundError";
+  }
+}
+
+export class CustomerEmailTakenError extends Error {
+  constructor(email: string) {
+    super(`Já existe um cliente cadastrado com o e-mail ${email}.`);
+    this.name = "CustomerEmailTakenError";
+  }
+}
+
+export class ExpenseNotFoundError extends Error {
+  constructor() {
+    super("Esta despesa não existe mais. Ela pode ter sido apagada.");
+    this.name = "ExpenseNotFoundError";
+  }
+}
+
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("E-mail ou senha incorretos.");

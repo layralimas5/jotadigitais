@@ -46,7 +46,10 @@ As telas só falam com os casos de uso. Trocar o backend é trocar a implementa�
 - `/checkout/:slug` dados do comprador + forma de pagamento (reserva a conta por 2 horas)
 - `/pedido/:code` confirmação do pedido
 - `/termos` termos de compra e garantia
-- `/admin` painel: contas, depoimentos e pedidos (login obrigatório)
+- `/admin` painel (login obrigatório): contas com foto de perfil, depoimentos ordenados arrastando, pedidos,
+  financeiro (faturamento dos pedidos pagos, despesas lançadas, lucro e gráfico por período),
+  clientes (pedidos do site + cadastro manual), CRM de leads com cards e colunas arrastáveis, automação (modelos de mensagem do WhatsApp),
+  APIs (o que cada integração exige; nada ligado ainda), configurações da loja e minha conta
 
 ## O que ainda é provisório
 

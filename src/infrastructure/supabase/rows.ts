@@ -19,13 +19,14 @@ const accountRowSchema = z.object({
   status: z.enum(ACCOUNT_STATUSES),
   reserved_until: z.string().nullable(),
   description: z.string().nullable(),
+  avatar_url: z.string().nullable(),
   images: z.array(z.string()),
   stats: z.unknown(),
   listed_at: z.string(),
 });
 
 export const ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, images, stats, listed_at";
+  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at";
 
 export function toAccount(raw: unknown): Account {
   const row = accountRowSchema.parse(raw);
@@ -38,6 +39,7 @@ export function toAccount(raw: unknown): Account {
     price: row.price_cents,
     status: effectiveStatus(row.status, row.reserved_until),
     description: row.description,
+    avatarUrl: row.avatar_url,
     images: row.images,
     listedAt: row.listed_at,
   });
@@ -56,6 +58,7 @@ export function toAccountRow(data: AccountData) {
     price_cents: data.price,
     status: data.status,
     description: data.description,
+    avatar_url: data.avatarUrl,
     images: data.images,
     stats: data.stats,
     listed_at: data.listedAt,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { container } from "@/app/container";
-import type { AdminDeps } from "@/application/admin-use-cases";
+import { getMessageTemplates, type AdminDeps } from "@/application/admin-use-cases";
+import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
 import { useAsync } from "@/ui/hooks/useAsync";
 
 const { admin } = container;
@@ -9,6 +10,12 @@ const { admin } = container;
 export function useAdminQuery<T>(load: (deps: AdminDeps) => Promise<T>, key: string) {
   const state = useAsync(() => load(admin), key, { keepPrevious: true });
   return { ...state, reload: state.retry };
+}
+
+/** Modelos de mensagem da Automação. Enquanto carregam (ou se falharem), valem os textos padrão. */
+export function useMessageTemplates(): MessageTemplates {
+  const state = useAdminQuery(getMessageTemplates, "message-templates");
+  return state.status === "success" ? state.data : DEFAULT_MESSAGE_TEMPLATES;
 }
 
 type MutationState = { status: "idle" } | { status: "pending" } | { status: "error"; error: Error };

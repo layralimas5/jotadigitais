@@ -186,14 +186,14 @@ export default function AccountsListPage() {
         title="Contas"
         description={accounts.status === "success" ? `${total} cadastradas, ${available} disponíveis na vitrine.` : "Estoque da vitrine."}
         action={
-          <ButtonLink to="/admin/contas/nova" className="max-md:hidden">
+          <ButtonLink to="/admin/contas/nova" className="max-md:hidden lg:hidden">
             <Plus aria-hidden className="size-4" /> Nova conta
           </ButtonLink>
         }
       />
 
       <div className="flex flex-col gap-3 lg:flex-row">
-        <label className="relative flex-1">
+        <label className="relative min-w-0 flex-1">
           <span className="sr-only">Buscar conta</span>
           <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-mist" />
           <input
@@ -204,8 +204,8 @@ export default function AccountsListPage() {
             className="h-11 w-full rounded-full border border-line-strong bg-surface pr-4 pl-11 text-sm text-white placeholder:text-mist focus:border-electric focus:outline-none"
           />
         </label>
-        <div className="grid grid-cols-2 gap-3 lg:flex">
-          <label>
+        <div className="grid grid-cols-2 gap-3 lg:flex lg:shrink-0">
+          <label className="lg:w-40">
             <span className="sr-only">Rede</span>
             <select
               value={platform}
@@ -220,7 +220,7 @@ export default function AccountsListPage() {
               ))}
             </select>
           </label>
-          <label>
+          <label className="lg:w-40">
             <span className="sr-only">Status</span>
             <select
               value={status}
@@ -235,6 +235,9 @@ export default function AccountsListPage() {
               ))}
             </select>
           </label>
+          <ButtonLink to="/admin/contas/nova" className="h-11 w-40 shadow-none hover:shadow-none max-lg:hidden">
+            <Plus aria-hidden className="size-4" /> Nova conta
+          </ButtonLink>
         </div>
       </div>
 
