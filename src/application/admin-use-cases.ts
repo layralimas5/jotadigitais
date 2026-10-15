@@ -198,14 +198,15 @@ export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
 }
 
 export async function loadDashboard(deps: AdminDeps): Promise<Dashboard> {
-  const [orders, expenses, accounts, leads, partners] = await Promise.all([
+  const [orders, expenses, accounts, leads, partners, customers] = await Promise.all([
     deps.orders.listAll(),
     deps.expenses.listAll(),
     deps.accounts.listAll(),
     deps.leads.listAll(),
     deps.partners.listAll(),
+    deps.customers.listAll(),
   ]);
-  return buildDashboard({ orders, expenses, accounts, leads, partners });
+  return buildDashboard({ orders, expenses, accounts, leads, partners, customers });
 }
 
 export interface FinalizedSalesData {
