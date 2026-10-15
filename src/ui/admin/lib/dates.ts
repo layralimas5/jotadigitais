@@ -15,3 +15,17 @@ export function formatIsoDate(iso: string): string {
 }
 
 export const formatDate = (timestamp: string) => longDate.format(new Date(timestamp));
+
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+/** "agora", "há 5 min", "há 3 h", "ontem" ou a data, para avisos recentes. */
+export function formatRelative(timestamp: string, now: Date = new Date()): string {
+  const elapsed = now.getTime() - new Date(timestamp).getTime();
+  if (elapsed < MINUTE_MS) return "agora";
+  if (elapsed < HOUR_MS) return `há ${Math.floor(elapsed / MINUTE_MS)} min`;
+  if (elapsed < DAY_MS) return `há ${Math.floor(elapsed / HOUR_MS)} h`;
+  if (elapsed < 2 * DAY_MS) return "ontem";
+  return shortDate.format(new Date(timestamp));
+}

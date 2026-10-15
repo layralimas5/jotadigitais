@@ -1,5 +1,6 @@
-import { AtSign, ExternalLink, MessageCircle, ShieldCheck } from "lucide-react";
+import { AtSign, ChevronRight, ExternalLink, FileText, ImageIcon, MessageCircle, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { getStoreSettings, saveStoreSettings } from "@/application/admin-use-cases";
 import { fieldErrorsOf, storeSettingsSchema } from "@/application/schemas";
 import { instagramUrlOf, whatsappUrlOf, type StoreSettings } from "@/domain/store-settings";
@@ -51,6 +52,47 @@ function PreviewLink({ href, icon, label }: { href: string | null; icon: ReactNo
   );
 }
 
+const shortcutClass =
+  "flex items-center gap-3 rounded-xl border border-line-strong bg-ink px-4 py-3 text-sm text-fog transition-colors hover:border-white/25 hover:text-white";
+
+/** O que mais aparece no site e se cuida em outras telas. */
+function SiteContent() {
+  return (
+    <FormSection title="Conteúdo" description="Partes do site que você edita em outras telas.">
+      <ul className="grid gap-2 sm:grid-cols-2">
+        <li>
+          <Link to="/admin/depoimentos" className={shortcutClass}>
+            <ImageIcon aria-hidden className="size-4 text-electric" />
+            <span className="flex-1">Depoimentos da página inicial</span>
+            <ChevronRight aria-hidden className="size-4 text-mist" />
+          </Link>
+        </li>
+        <li>
+          <Link to="/admin/contas" className={shortcutClass}>
+            <ShieldCheck aria-hidden className="size-4 text-electric" />
+            <span className="flex-1">Contas da vitrine</span>
+            <ChevronRight aria-hidden className="size-4 text-mist" />
+          </Link>
+        </li>
+        <li>
+          <a href="/termos" target="_blank" rel="noreferrer" className={shortcutClass}>
+            <FileText aria-hidden className="size-4 text-electric" />
+            <span className="flex-1">Termos de compra</span>
+            <ExternalLink aria-hidden className="size-4 text-mist" />
+          </a>
+        </li>
+        <li>
+          <a href="/" target="_blank" rel="noreferrer" className={shortcutClass}>
+            <ExternalLink aria-hidden className="size-4 text-electric" />
+            <span className="flex-1">Abrir o site</span>
+            <ExternalLink aria-hidden className="size-4 text-mist" />
+          </a>
+        </li>
+      </ul>
+    </FormSection>
+  );
+}
+
 function SettingsEditor({ settings }: { settings: StoreSettings }) {
   const toast = useToast();
   const [form, setForm] = useState<SettingsForm>(() => toForm(settings));
@@ -82,7 +124,7 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
       return;
     }
     setForm(toForm(saved));
-    toast.show("Configurações salvas. O site já usa os novos dados.");
+    toast.show("Site atualizado. Ele já usa os novos dados.");
   };
 
   const preview = validate(form).data;
@@ -133,6 +175,8 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
             error={errors.guaranteeDays}
           />
         </FormSection>
+
+        <SiteContent />
       </div>
 
       <aside className="space-y-4 lg:sticky lg:top-24">
@@ -153,19 +197,19 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
         {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
         {save.error && <InlineError message={save.error.message} />}
         <Button type="submit" size="lg" className="w-full" disabled={save.pending}>
-          {save.pending ? "Salvando…" : "Salvar configurações"}
+          {save.pending ? "Salvando…" : "Salvar"}
         </Button>
       </aside>
     </form>
   );
 }
 
-export default function SettingsPage() {
+export default function SitePage() {
   const settings = useAdminQuery(getStoreSettings, "store-settings");
 
   return (
     <>
-      <PageHeader title="Configurações" description="Contato e garantia da loja. O que você salvar aqui muda o site inteiro." />
+      <PageHeader title="Site" description="Contato, garantia e conteúdo da loja. O que você salvar aqui muda o site inteiro." />
       {settings.status === "loading" && <LoadingBlock />}
       {settings.status === "error" && <ErrorState message={settings.error.message} onRetry={settings.reload} />}
       {settings.status === "success" && <SettingsEditor settings={settings.data} />}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
 import { slugify, type Account, type AccountData, type AccountStatus, type FacebookKind } from "@/domain/account";
 import type { Platform } from "@/domain/platform";
+import type { ProfileLookup } from "@/domain/profile-lookup";
 
 /**
  * Estado do formulário: números como texto (o que a pessoa digita) e os campos de todas as redes juntos,
@@ -31,6 +32,10 @@ export interface AccountFormValues {
   watchHours: string;
   monetized: boolean;
   facebookKind: FacebookKind;
+  /** Vazio quando a conta é da própria loja. */
+  partnerId: string;
+  profileUrl: string;
+  statsSyncedAt: string | null;
 }
 
 export type AccountFormErrors = Record<string, string>;
@@ -61,6 +66,9 @@ export function emptyAccountForm(): AccountFormValues {
     watchHours: "",
     monetized: false,
     facebookKind: "page",
+    partnerId: "",
+    profileUrl: "",
+    statsSyncedAt: null,
   };
 }
 
@@ -100,16 +108,25 @@ export function fromAccount(account: Account): AccountFormValues {
     description: account.description ?? "",
     avatarUrl: account.avatarUrl ?? "",
     images: account.images,
+    partnerId: account.partnerId ?? "",
+    profileUrl: account.profileUrl ?? "",
+    statsSyncedAt: account.statsSyncedAt ?? null,
   };
   switch (account.platform) {
     case "tiktok":
-      return { ...values, likes: integerFormat.format(account.stats.likes), following: integerFormat.format(account.stats.following) };
+      return {
+        ...values,
+        likes: integerFormat.format(account.stats.likes),
+        following: integerFormat.format(account.stats.following),
+        monetized: account.stats.monetized === true,
+      };
     case "instagram":
       return {
         ...values,
         posts: integerFormat.format(account.stats.posts),
         following: integerFormat.format(account.stats.following),
         professional: account.stats.professional,
+        monetized: account.stats.monetized === true,
       };
     case "youtube":
       return {
@@ -132,9 +149,14 @@ export function fromAccount(account: Account): AccountFormValues {
 function statsOf(values: AccountFormValues) {
   switch (values.platform) {
     case "tiktok":
-      return { likes: parseInteger(values.likes), following: parseInteger(values.following) };
+      return { likes: parseInteger(values.likes), following: parseInteger(values.following), monetized: values.monetized };
     case "instagram":
-      return { posts: parseInteger(values.posts), following: parseInteger(values.following), professional: values.professional };
+      return {
+        posts: parseInteger(values.posts),
+        following: parseInteger(values.following),
+        professional: values.professional,
+        monetized: values.monetized,
+      };
     case "youtube":
       return {
         views: parseInteger(values.views),
@@ -163,7 +185,36 @@ export function toRawAccount(values: AccountFormValues) {
     avatarUrl: values.avatarUrl || null,
     images: values.images,
     listedAt: values.listedAt,
+    partnerId: values.partnerId || null,
+    profileUrl: values.profileUrl || null,
+    statsSyncedAt: values.statsSyncedAt,
   };
+}
+
+const formatOptional = (value: number | null, current: string) => (value === null ? current : integerFormat.format(value));
+
+/**
+ * Preenche o formulário com o que veio da rede. Números e nomes são trocados; o que a rede não mostra
+ * (preço, status, horas de exibição, monetização) fica como estava para o Jota completar.
+ */
+export function applyProfileLookup(values: AccountFormValues, profile: ProfileLookup, avatarUrl: string | null): AccountFormValues {
+  const next: AccountFormValues = {
+    ...values,
+    platform: profile.platform,
+    handle: profile.handle,
+    displayName: profile.displayName,
+    followers: integerFormat.format(profile.followers),
+    likes: formatOptional(profile.likes, values.likes),
+    following: formatOptional(profile.following, values.following),
+    posts: formatOptional(profile.posts, values.posts),
+    videos: formatOptional(profile.videos, values.videos),
+    views: formatOptional(profile.views, values.views),
+    professional: profile.platform === "instagram" && profile.professional !== null ? profile.professional : values.professional,
+    avatarUrl: avatarUrl ?? values.avatarUrl,
+    profileUrl: profile.profileUrl,
+    statsSyncedAt: profile.fetchedAt,
+  };
+  return values.slugEdited ? next : { ...next, slug: slugify(profile.displayName) };
 }
 
 /** Erros de um item da galeria (`images.2`) aparecem no campo da galeria. */
@@ -184,6 +235,7 @@ export function validateAccountForm(
 
 /** Ordem dos campos na tela, para levar o foco ao primeiro erro. */
 export const ACCOUNT_FIELD_ORDER = [
+  "profileUrl",
   "displayName",
   "handle",
   "slug",
@@ -221,5 +273,11 @@ export function useAccountForm(initial: AccountFormValues) {
     return result;
   };
 
-  return { values, errors, set, validate, setErrors };
+  /** Troca vários campos de uma vez (ex.: dados puxados da rede) e revalida se o formulário já foi enviado. */
+  const replace = (next: AccountFormValues) => {
+    setValues(next);
+    if (submitted) setErrors(validateAccountForm(next).errors ?? {});
+  };
+
+  return { values, errors, set, replace, validate, setErrors };
 }

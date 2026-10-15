@@ -68,6 +68,31 @@ export class ExpenseNotFoundError extends Error {
   }
 }
 
+export class PartnerNotFoundError extends Error {
+  constructor() {
+    super("Este parceiro não existe mais. Ele pode ter sido apagado.");
+    this.name = "PartnerNotFoundError";
+  }
+}
+
+export class AdminUserEmailTakenError extends Error {
+  constructor(email: string) {
+    super(`Já existe um usuário com o e-mail ${email}.`);
+    this.name = "AdminUserEmailTakenError";
+  }
+}
+
+export class CannotRemoveAdminUserError extends Error {
+  constructor(reason: "self" | "last") {
+    super(
+      reason === "self"
+        ? "Você não pode tirar o seu próprio acesso. Peça para outro usuário fazer isso."
+        : "O sistema precisa de pelo menos um usuário com acesso.",
+    );
+    this.name = "CannotRemoveAdminUserError";
+  }
+}
+
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("E-mail ou senha incorretos.");

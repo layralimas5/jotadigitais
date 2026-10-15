@@ -68,6 +68,7 @@ export function accountBadge(account: Account): AccountBadge {
         ? { label: "TikTok Shop ativo", tone: "electric" }
         : { label: "Shop piloto", tone: "pink" };
     case "instagram":
+      if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
       return account.stats.professional
         ? { label: "Conta profissional", tone: "electric" }
         : { label: "Conta pessoal", tone: "mist" };
@@ -142,6 +143,7 @@ function platformSpecs(account: Account): Spec[] {
               : `Piloto (completo a partir de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores, faltam ${number.format(followersToFullShop(account))})`,
         },
         { label: "Central de Criadores", value: "Ativa" },
+        { label: "Monetização", value: account.stats.monetized ? "Ativa" : "Não ativa" },
         { label: "Origem dos seguidores", value: "Brasil" },
         { label: "Documentos vinculados", value: "Nenhum" },
       ];
@@ -151,6 +153,7 @@ function platformSpecs(account: Account): Spec[] {
         { label: "Publicações", value: number.format(account.stats.posts) },
         { label: "Seguindo", value: number.format(account.stats.following) },
         { label: "Tipo de conta", value: account.stats.professional ? "Profissional" : "Pessoal" },
+        { label: "Monetização", value: account.stats.monetized ? "Ativa" : "Não ativa" },
       ];
     case "youtube": {
       const gap = youtubeGap(account);
@@ -226,12 +229,18 @@ export function includedOf(account: Account): string[] {
     case "tiktok":
       return [
         "Central de Criadores do TikTok Shop ativa",
+        ...(account.stats.monetized ? ["Monetização ativa"] : []),
         "Seguidores reais e brasileiros",
         "Sem documentos vinculados",
         ...common,
       ];
     case "instagram":
-      return [...(account.stats.professional ? ["Conta profissional com estatísticas"] : []), ...common, "E-mail da conta trocado para o seu"];
+      return [
+        ...(account.stats.professional ? ["Conta profissional com estatísticas"] : []),
+        ...(account.stats.monetized ? ["Monetização ativa"] : []),
+        ...common,
+        "E-mail da conta trocado para o seu",
+      ];
     case "youtube":
       return [
         "Acesso de proprietário ao canal",

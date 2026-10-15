@@ -13,9 +13,9 @@ const MAX_BAR = 26;
 /** Espaço mínimo por rótulo do eixo X, para as datas não encostarem umas nas outras. */
 const MIN_LABEL_SPACE = 64;
 
-const compactBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
+export const compactBRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 });
 
-function niceCeil(value: number): number {
+export function niceCeil(value: number): number {
   if (value <= 0) return 10_000; // R$ 100,00: eixo com escala mesmo sem movimento
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const step = [1, 2, 2.5, 5, 10].find((candidate) => candidate * magnitude >= value) ?? 10;
@@ -37,7 +37,7 @@ function barPath(x: number, y: number, width: number, height: number): string {
   ].join(" ");
 }
 
-function useWidth<T extends HTMLElement>() {
+export function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -50,7 +50,7 @@ function useWidth<T extends HTMLElement>() {
   return { ref, width };
 }
 
-function Legend() {
+export function Legend() {
   return (
     <ul className="flex flex-wrap gap-4 text-xs text-fog">
       <li className="flex items-center gap-2">
@@ -63,7 +63,7 @@ function Legend() {
   );
 }
 
-function ChartTable({ series }: { series: SeriesPoint[] }) {
+export function ChartTable({ series }: { series: SeriesPoint[] }) {
   const rows = series.filter((point) => point.revenue > 0 || point.expenses > 0);
   if (rows.length === 0) return <p className="py-10 text-center text-sm text-mist">Nenhum movimento no período.</p>;
   return (

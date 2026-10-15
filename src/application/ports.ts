@@ -1,10 +1,15 @@
 import type { Account, AccountData } from "@/domain/account";
+import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
+import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Expense, ExpenseData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type { StoredNotification } from "@/domain/notification";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
+import type { Partner, PartnerData } from "@/domain/partner";
 import type { Platform } from "@/domain/platform";
+import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 
@@ -116,7 +121,7 @@ export interface AdminMessageTemplateRepository {
   save(templates: MessageTemplates): Promise<MessageTemplates>;
 }
 
-export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order"] as const;
+export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order", "google_calendar"] as const;
 export type AdminPreferenceKey = (typeof ADMIN_PREFERENCE_KEYS)[number];
 
 /** Preferências de tela do painel, guardadas no banco para valer em qualquer aparelho. */
@@ -140,6 +145,51 @@ export interface AdminLeadRepository {
   update(id: string, data: LeadData): Promise<Lead>;
   moveToStage(id: string, stage: LeadStage): Promise<void>;
   remove(id: string): Promise<void>;
+}
+
+export interface AdminPartnerRepository {
+  listAll(): Promise<Partner[]>;
+  findById(id: string): Promise<Partner | null>;
+  create(data: PartnerData): Promise<Partner>;
+  update(id: string, data: PartnerData): Promise<Partner>;
+  /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
+  remove(id: string): Promise<void>;
+}
+
+/** Quem entra no sistema. Criar e remover passam pelo servidor, que confere se quem pede é administrador. */
+export interface AdminUserRepository {
+  listAll(): Promise<AdminUser[]>;
+  create(input: NewAdminUser): Promise<AdminUser>;
+  remove(id: string): Promise<void>;
+}
+
+/** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */
+export interface ProfileLookupService {
+  lookup(url: string): Promise<ProfileLookup>;
+}
+
+/** Notificações do sininho guardadas no banco, e o que cada usuário já apagou. */
+export interface AdminNotificationRepository {
+  listRecent(): Promise<StoredNotification[]>;
+  listDismissed(): Promise<string[]>;
+  dismiss(keys: readonly string[]): Promise<void>;
+}
+
+/**
+ * Google Agenda. O acesso é dado pelo próprio Jota na janela do Google e fica só na memória do navegador;
+ * a cada visita ele abre a agenda com um clique. Falha com `CalendarError`.
+ */
+export interface CalendarService {
+  /** Falso enquanto o sistema não tiver o ID do app do Google configurado. */
+  readonly configured: boolean;
+  /** Já tem acesso liberado nesta visita. */
+  hasAccess(): boolean;
+  /** Carrega o login do Google antes do clique: a janela só abre se vier direto de um clique. */
+  prepare(): Promise<void>;
+  connect(): Promise<CalendarConnection>;
+  disconnect(): Promise<void>;
+  upcoming(days: number): Promise<CalendarEvent[]>;
+  upsertAllDayEvent(draft: CalendarEventDraft): Promise<UpsertResult>;
 }
 
 export type MediaFolder = "accounts" | "testimonials";

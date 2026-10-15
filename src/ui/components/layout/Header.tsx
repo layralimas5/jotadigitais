@@ -81,10 +81,10 @@ export function Header() {
               to="/admin"
               variant="secondary"
               aria-label="Abrir o sistema"
-              className="max-sm:size-9 max-sm:px-0"
+              title="Abrir o sistema"
+              className="size-9 px-0 sm:size-10"
             >
               <LayoutDashboard aria-hidden className="size-4" />
-              <span className="max-sm:hidden">Sistema</span>
             </ButtonLink>
           )}
           <button
@@ -127,13 +127,6 @@ export function Header() {
                   Ver contas disponíveis
                 </ButtonLink>
               </li>
-              {SHOW_SYSTEM_LINK && (
-                <li className="pt-2">
-                  <ButtonLink to="/admin" variant="secondary" size="lg" className="w-full">
-                    <LayoutDashboard aria-hidden className="size-4" /> Abrir o sistema
-                  </ButtonLink>
-                </li>
-              )}
             </ul>
           </motion.nav>
         )}

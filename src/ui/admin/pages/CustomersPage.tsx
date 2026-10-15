@@ -1,4 +1,4 @@
-import { MessageCircle, Plus, Search } from "lucide-react";
+import { MessageCircle, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listCustomers } from "@/application/admin-use-cases";
@@ -7,17 +7,14 @@ import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { PersonAvatar } from "../components/PersonAvatar";
+import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { personMessage } from "../lib/messages";
 import { whatsappChatUrl } from "../lib/whatsapp";
 
 const customerPath = (customer: Pick<CustomerSummary, "key">) => `/admin/clientes/${encodeURIComponent(customer.key)}`;
-
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return `${parts[0]?.[0] ?? ""}${parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : ""}`.toUpperCase();
-}
 
 function matches(customer: CustomerSummary, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -50,12 +47,7 @@ function WhatsAppButton({ customer }: { customer: CustomerSummary }) {
 function CustomerIdentity({ customer }: { customer: CustomerSummary }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span
-        aria-hidden
-        className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-violet to-pink font-display text-xs font-semibold text-white"
-      >
-        {initialsOf(customer.name)}
-      </span>
+      <PersonAvatar name={customer.name} />
       <div className="min-w-0">
         <Link
           to={customerPath(customer)}
@@ -150,17 +142,7 @@ export default function CustomersPage() {
         }
       />
 
-      <label className="relative block lg:max-w-md">
-        <span className="sr-only">Buscar cliente</span>
-        <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-mist" />
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar por nome, e-mail ou WhatsApp"
-          className="h-11 w-full rounded-full border border-line-strong bg-surface pr-4 pl-11 text-sm text-white placeholder:text-mist focus:border-electric focus:outline-none"
-        />
-      </label>
+      <SearchInput label="Buscar cliente" placeholder="Buscar por nome, e-mail ou WhatsApp" value={query} onChange={setQuery} />
 
       {customers.status === "loading" && <LoadingBlock />}
       {customers.status === "error" && <ErrorState message={customers.error.message} onRetry={customers.reload} />}

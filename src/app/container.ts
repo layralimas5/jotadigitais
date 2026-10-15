@@ -8,20 +8,28 @@ import {
   DemoExpenseRepository,
   DemoLeadRepository,
   DemoMessageTemplateRepository,
+  DemoNotificationRepository,
+  DemoAdminUserRepository,
   DemoOrderRepository,
+  DemoPartnerRepository,
   DemoPreferenceRepository,
   DemoStoreSettingsRepository,
   DemoTestimonialRepository,
 } from "@/infrastructure/demo/demo-repositories";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
+import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
+import { DevServerProfileLookupService, SupabaseProfileLookupService } from "@/infrastructure/profile-lookup";
 import {
   SupabaseAccountRepository,
   SupabaseCustomerRepository,
   SupabaseExpenseRepository,
   SupabaseLeadRepository,
   SupabaseMessageTemplateRepository,
+  SupabaseNotificationRepository,
+  SupabaseAdminUserRepository,
   SupabaseOrderRepository,
+  SupabasePartnerRepository,
   SupabasePreferenceRepository,
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
@@ -57,6 +65,11 @@ function supabaseContainer(url: string, anonKey: string): Container {
       templates: new SupabaseMessageTemplateRepository(client),
       preferences: new SupabasePreferenceRepository(client),
       expenses: new SupabaseExpenseRepository(client),
+      partners: new SupabasePartnerRepository(client),
+      users: new SupabaseAdminUserRepository(client),
+      profiles: new SupabaseProfileLookupService(client),
+      notifications: new SupabaseNotificationRepository(client),
+      calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new SupabaseImageStorage(client),
     },
   };
@@ -83,6 +96,11 @@ function demoContainer(): Container {
       templates: new DemoMessageTemplateRepository(db),
       preferences: new DemoPreferenceRepository(db),
       expenses: new DemoExpenseRepository(db),
+      partners: new DemoPartnerRepository(db),
+      users: new DemoAdminUserRepository(db),
+      profiles: new DevServerProfileLookupService(),
+      notifications: new DemoNotificationRepository(db),
+      calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new DemoImageStorage(),
     },
   };

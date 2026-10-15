@@ -19,11 +19,10 @@ import { orderMessage } from "../lib/messages";
 import { whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
-type Tab = "open" | "delivered" | "canceled" | "all";
+type Tab = "open" | "canceled" | "all";
 
 const TABS: { id: Tab; label: string; matches: (order: Order) => boolean }[] = [
   { id: "open", label: "Em aberto", matches: (order) => order.status === "awaiting_payment" || order.status === "paid" },
-  { id: "delivered", label: "Entregues", matches: (order) => order.status === "delivered" },
   { id: "canceled", label: "Cancelados", matches: (order) => order.status === "canceled" },
   { id: "all", label: "Todos", matches: () => true },
 ];
@@ -40,7 +39,7 @@ const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
 const DONE_MESSAGE: Record<OrderStatus, string> = {
   awaiting_payment: "",
   paid: "Pagamento confirmado. A conta segue reservada.",
-  delivered: "Pedido entregue. A conta saiu da vitrine.",
+  delivered: "Pedido entregue. Ele está agora em Finalizados.",
   canceled: "Pedido cancelado. A conta voltou para a vitrine.",
 };
 
@@ -174,7 +173,15 @@ export default function OrdersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Pedidos"
-        description="Pago reserva a conta sem prazo. Entregue marca como vendida. Cancelado devolve para a vitrine."
+        description={
+          <>
+            Pago reserva a conta sem prazo. Entregue marca como vendida e vai para{" "}
+            <Link to="/admin/finalizados" className="text-electric-soft underline-offset-4 hover:underline">
+              Finalizados
+            </Link>
+            . Cancelado devolve para a vitrine.
+          </>
+        }
       />
 
       <div role="group" aria-label="Filtrar pedidos" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">

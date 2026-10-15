@@ -14,7 +14,7 @@ const HERO_PREVIEW: ProfilePreview = {
   displayName: "Sua Loja Aqui",
   handle: "@sualoja.aqui",
   followers: 1259,
-  stats: { likes: 2123, following: 0 },
+  stats: { likes: 2123, following: 0, monetized: false },
 };
 
 const PROOF_POINTS = [

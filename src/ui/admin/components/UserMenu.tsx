@@ -1,8 +1,9 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { ChevronDown, LogOut, ShieldUser, UserRound } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
+import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
 import { useAdminSession } from "../session";
 
 const itemClass =
@@ -12,18 +13,7 @@ function initialOf(email: string): string {
   return email.trim().charAt(0).toUpperCase() || "J";
 }
 
-function useCloseOnOutsideClick(open: boolean, close: () => void, root: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) close();
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open, close, root]);
-}
-
-/** Ícone do usuário no canto superior direito: Minha conta, Configurações e Sair. */
+/** Ícone do usuário no canto superior direito: Minha conta, Usuários e Sair. */
 export function UserMenu() {
   const { state, signOut } = useAdminSession();
   const [open, setOpen] = useState(false);
@@ -32,11 +22,9 @@ export function UserMenu() {
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const reduceMotion = useReducedMotion();
-  const location = useLocation();
 
   const close = useCallback(() => setOpen(false), []);
   useCloseOnOutsideClick(open, close, rootRef);
-  useEffect(close, [close, location.pathname]);
 
   useEffect(() => {
     if (open) menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus();
@@ -115,11 +103,11 @@ export function UserMenu() {
               <span className="mt-0.5 block truncate text-sm font-medium text-white">{email}</span>
             </p>
             <div className="pt-1.5">
-              <Link role="menuitem" tabIndex={-1} to="/admin/minha-conta" className={itemClass}>
+              <Link role="menuitem" tabIndex={-1} to="/admin/minha-conta" onClick={close} className={itemClass}>
                 <UserRound aria-hidden className="size-4" /> Minha conta
               </Link>
-              <Link role="menuitem" tabIndex={-1} to="/admin/configuracoes" className={itemClass}>
-                <Settings aria-hidden className="size-4" /> Configurações
+              <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
+                <ShieldUser aria-hidden className="size-4" /> Usuários
               </Link>
               <button
                 role="menuitem"

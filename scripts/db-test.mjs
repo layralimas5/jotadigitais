@@ -16,7 +16,7 @@ const SUPABASE_STUBS = `
   create role anon nologin;
   create role authenticated nologin;
   create schema auth;
-  create table auth.users (id uuid primary key, email text);
+  create table auth.users (id uuid primary key, email text, last_sign_in_at timestamptz);
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
   $$;
@@ -421,6 +421,126 @@ async function main() {
   check(anonExpenses === 0, "visitante não enxerga o financeiro");
   const strangerExpenses = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.expenses`));
   check(strangerExpenses.rows.length === 0, "usuário que não é admin não enxerga o financeiro");
+
+  console.log("\nparceiros");
+  const partner = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.partners (name, whatsapp, pix_key, commission_percent)
+       values ('Fornecedor Teste', '11912345678', 'chave@pix.com', 30) returning id`,
+    ),
+  );
+  const partnerId = partner.rows[0]?.id;
+  check(Boolean(partnerId), "admin cadastra parceiro");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.partners (name, commission_percent) values ('Demais', 120)`)),
+      /check constraint/,
+    ),
+    "comissão acima de 100% é recusada",
+  );
+  const anonPartners = await as("anon", null, () =>
+    rejects(() => db.query(`select id from public.partners`), /permission denied|row-level/).then(async (denied) => {
+      if (denied) return 0;
+      return (await db.query(`select id from public.partners`)).rows.length;
+    }),
+  );
+  check(anonPartners === 0, "visitante não enxerga parceiros");
+  const strangerPartners = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.partners`));
+  check(strangerPartners.rows.length === 0, "usuário que não é admin não enxerga parceiros");
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set partner_id = $1 where id = $2`, [partnerId, youtubeId]));
+  await as("authenticated", ADMIN_ID, () => db.query(`delete from public.partners where id = $1`, [partnerId]));
+  const unlinked = await db.query(`select partner_id from public.accounts where id = $1`, [youtubeId]);
+  check(unlinked.rows[0]?.partner_id === null, "apagar o parceiro deixa a conta como da loja");
+
+  console.log("\nfinalizados");
+  const delivered = await db.query(`select delivered_at from public.orders where status = 'delivered'`);
+  check(
+    delivered.rows.length > 0 && delivered.rows.every((row) => row.delivered_at !== null),
+    "pedido entregue guarda a data da entrega",
+  );
+
+  console.log("\nusuários");
+  const users = await as("authenticated", ADMIN_ID, () => db.query(`select * from public.list_admin_users()`));
+  check(users.rows.length === 1 && users.rows[0]?.email === "jota@exemplo.com", "admin lista os usuários com e-mail");
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select * from public.list_admin_users()`)), /forbidden/),
+    "usuário que não é admin não lista os usuários",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.list_admin_users()`)), /permission denied/),
+    "visitante não lista os usuários",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.admin_users (user_id) values ($1)`, [STRANGER_ID])),
+      /row-level security|permission denied/,
+    ),
+    "ninguém vira admin pelo painel sem passar pela função do servidor",
+  );
+
+  console.log("\nlink do perfil e oferta");
+  const linked = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `update public.accounts set profile_url = 'https://www.tiktok.com/@achadinhos.dabia', stats_synced_at = now()
+       where id = $1 returning profile_url`,
+      [tiktokId],
+    ),
+  );
+  check(linked.rows[0]?.profile_url === "https://www.tiktok.com/@achadinhos.dabia", "admin salva o link do perfil");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set profile_url = 'javascript:alert(1)' where id = $1`, [tiktokId])),
+      /check constraint/,
+    ),
+    "link que não começa com https:// é recusado",
+  );
+  const offer = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.message_templates (key, body) values ('account_offer', 'Oi, {nome}! {conta}') returning key`),
+  );
+  check(offer.rows[0]?.key === "account_offer", "admin salva o modelo de oferta de conta");
+
+  console.log("\nnotificações");
+  const orderNotices = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select title, body, link from public.notifications where kind = 'order' order by created_at`),
+  );
+  check(
+    orderNotices.rows.length > 0 && orderNotices.rows[0].title.startsWith("Novo pedido JD-") && /R\$ \d+,\d{2}/.test(orderNotices.rows[0].body),
+    "pedido novo vira notificação com o valor",
+  );
+  const news = await as("authenticated", ADMIN_ID, () => db.query(`select id from public.notifications where kind = 'news'`));
+  check(news.rows.length === 3, "novidades do sistema entram pela migration");
+  const strangerNotices = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.notifications`));
+  check(strangerNotices.rows.length === 0, "usuário que não é admin não lê notificações");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.notifications (kind, title) values ('news', 'Falsa')`)),
+      /permission denied|row-level security/,
+    ),
+    "ninguém cria notificação pelo painel",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.notifications (kind, title, link) values ('news', 'x', 'https://golpe.com')`)),
+      /permission denied|row-level security|check constraint/,
+    ),
+    "notificação não leva para fora do painel",
+  );
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.notification_dismissals (key) values ('notification:abc'), ('reminder:followups:2026-10-15')`),
+  );
+  const mine = await as("authenticated", ADMIN_ID, () => db.query(`select key from public.notification_dismissals`));
+  check(mine.rows.length === 2, "admin apaga notificações para si");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.notification_dismissals (user_id, key) values ($1, 'x')`, [STRANGER_ID])),
+      /row-level security/,
+    ),
+    "ninguém apaga notificação no nome de outro usuário",
+  );
+  const calendarPref = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.admin_preferences (key, value) values ('google_calendar', '{"email":"jota@gmail.com"}') returning key`),
+  );
+  check(calendarPref.rows[0]?.key === "google_calendar", "admin guarda a conta Google ligada");
 
   console.log("\nimagens");
   check(

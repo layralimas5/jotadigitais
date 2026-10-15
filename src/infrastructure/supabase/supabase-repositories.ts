@@ -1,4 +1,4 @@
-import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
+import { FunctionsHttpError, type PostgrestError, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { matchesFilter, sortAccounts } from "@/application/catalog";
 import type {
@@ -9,24 +9,31 @@ import type {
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
+  AdminNotificationRepository,
   AdminOrderRepository,
+  AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
+  AdminUserRepository,
   NewOrder,
   OrderRepository,
   TestimonialRepository,
 } from "@/application/ports";
 import type { Account, AccountData } from "@/domain/account";
+import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
+  AdminUserEmailTakenError,
+  CannotRemoveAdminUserError,
   CustomerEmailTakenError,
   CustomerNotFoundError,
   ExpenseNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
+  PartnerNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
@@ -40,6 +47,8 @@ import {
   type MessageTemplateKey,
   type MessageTemplates,
 } from "@/domain/message-template";
+import type { StoredNotification } from "@/domain/notification";
+import type { Partner, PartnerData } from "@/domain/partner";
 import { PLATFORMS } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
@@ -579,6 +588,200 @@ export class SupabaseExpenseRepository implements AdminExpenseRepository {
 
   async remove(id: string): Promise<void> {
     const { error } = await this.client.from("expenses").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+const PARTNER_COLUMNS = "id, name, whatsapp, instagram, pix_key, commission_percent, notes, active, created_at";
+
+const partnerRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  whatsapp: z.string().nullable(),
+  instagram: z.string().nullable(),
+  pix_key: z.string().nullable(),
+  // numeric pode chegar como texto, conforme a versão do PostgREST.
+  commission_percent: z.coerce.number(),
+  notes: z.string().nullable(),
+  active: z.boolean(),
+  created_at: z.string(),
+});
+
+function toPartner(raw: unknown): Partner {
+  const row = partnerRowSchema.parse(raw);
+  return {
+    id: row.id,
+    name: row.name,
+    whatsapp: row.whatsapp,
+    instagram: row.instagram,
+    pixKey: row.pix_key,
+    commissionPercent: row.commission_percent,
+    notes: row.notes,
+    active: row.active,
+    createdAt: row.created_at,
+  };
+}
+
+const toPartnerRow = (data: PartnerData) => ({
+  name: data.name,
+  whatsapp: data.whatsapp,
+  instagram: data.instagram,
+  pix_key: data.pixKey,
+  commission_percent: data.commissionPercent,
+  notes: data.notes,
+  active: data.active,
+});
+
+export class SupabasePartnerRepository implements AdminPartnerRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<Partner[]> {
+    const { data, error } = await this.client.from("partners").select(PARTNER_COLUMNS).order("name");
+    if (error) fail(error);
+    return data.map(toPartner);
+  }
+
+  async findById(id: string): Promise<Partner | null> {
+    const { data, error } = await this.client.from("partners").select(PARTNER_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toPartner(data) : null;
+  }
+
+  async create(input: PartnerData): Promise<Partner> {
+    const { data, error } = await this.client.from("partners").insert(toPartnerRow(input)).select(PARTNER_COLUMNS).single();
+    if (error) fail(error);
+    return toPartner(data);
+  }
+
+  async update(id: string, input: PartnerData): Promise<Partner> {
+    const { data, error } = await this.client
+      .from("partners")
+      .update(toPartnerRow(input))
+      .eq("id", id)
+      .select(PARTNER_COLUMNS)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new PartnerNotFoundError();
+    return toPartner(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("partners").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+const adminUserRowSchema = z.object({
+  user_id: z.string(),
+  name: z.string().nullable(),
+  email: z.string(),
+  created_at: z.string(),
+  last_sign_in_at: z.string().nullable(),
+});
+
+function toAdminUser(raw: unknown): AdminUser {
+  const row = adminUserRowSchema.parse(raw);
+  return {
+    id: row.user_id,
+    name: row.name,
+    email: row.email,
+    createdAt: row.created_at,
+    lastSignInAt: row.last_sign_in_at,
+  };
+}
+
+const ADMIN_USERS_FUNCTION = "admin-users";
+
+const functionErrorSchema = z.object({ error: z.string() });
+
+/** Traduz o código de erro que a Edge Function admin-users devolve. */
+async function failFromFunction(error: unknown, email = ""): Promise<never> {
+  console.error(error);
+  if (error instanceof FunctionsHttpError) {
+    const body: unknown = await error.context.json().catch(() => null);
+    const parsed = functionErrorSchema.safeParse(body);
+    const code = parsed.success ? parsed.data.error : "";
+    if (code === "email_taken") throw new AdminUserEmailTakenError(email);
+    if (code === "self") throw new CannotRemoveAdminUserError("self");
+    if (code === "last") throw new CannotRemoveAdminUserError("last");
+    if (code === "forbidden") throw new Error("Só quem tem acesso ao sistema pode mexer nos usuários.");
+    if (code === "invalid") throw new Error("Dados inválidos. Confira nome, e-mail e senha.");
+  }
+  throw new Error("Não foi possível falar com o servidor. Tente de novo em instantes.");
+}
+
+/**
+ * A lista vem da função list_admin_users (só administradores). Criar e remover exigem a chave de serviço,
+ * então passam pela Edge Function admin-users, que confere de novo se quem pede é administrador.
+ */
+export class SupabaseAdminUserRepository implements AdminUserRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<AdminUser[]> {
+    const { data, error } = await this.client.rpc("list_admin_users");
+    if (error) fail(error);
+    return z.array(z.unknown()).parse(data).map(toAdminUser);
+  }
+
+  async create(input: NewAdminUser): Promise<AdminUser> {
+    const { data, error } = await this.client.functions.invoke(ADMIN_USERS_FUNCTION, { body: { action: "create", ...input } });
+    if (error) return failFromFunction(error, input.email);
+    return toAdminUser(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.functions.invoke(ADMIN_USERS_FUNCTION, { body: { action: "remove", userId: id } });
+    if (error) await failFromFunction(error);
+  }
+}
+
+const NOTIFICATION_COLUMNS = "id, kind, title, body, link, created_at";
+const NOTIFICATION_WINDOW_DAYS = 30;
+const MAX_NOTIFICATIONS = 50;
+
+const notificationRowSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["order", "news"]),
+  title: z.string(),
+  body: z.string().nullable(),
+  link: z.string().nullable(),
+  created_at: z.string(),
+});
+
+function toStoredNotification(raw: unknown): StoredNotification {
+  const row = notificationRowSchema.parse(raw);
+  return { id: row.id, kind: row.kind, title: row.title, body: row.body, link: row.link, createdAt: new Date(row.created_at).toISOString() };
+}
+
+/** Notificações dos últimos 30 dias; o que cada usuário apagou fica em `notification_dismissals` (RLS por usuário). */
+export class SupabaseNotificationRepository implements AdminNotificationRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listRecent(): Promise<StoredNotification[]> {
+    const since = new Date(Date.now() - NOTIFICATION_WINDOW_DAYS * 86_400_000).toISOString();
+    const { data, error } = await this.client
+      .from("notifications")
+      .select(NOTIFICATION_COLUMNS)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(MAX_NOTIFICATIONS);
+    if (error) fail(error);
+    return data.map(toStoredNotification);
+  }
+
+  async listDismissed(): Promise<string[]> {
+    const { data, error } = await this.client.from("notification_dismissals").select("key");
+    if (error) fail(error);
+    return data.map((row) => z.object({ key: z.string() }).parse(row).key);
+  }
+
+  async dismiss(keys: readonly string[]): Promise<void> {
+    const { error } = await this.client
+      .from("notification_dismissals")
+      .upsert(
+        keys.map((key) => ({ key })),
+        { onConflict: "user_id,key", ignoreDuplicates: true },
+      );
     if (error) fail(error);
   }
 }

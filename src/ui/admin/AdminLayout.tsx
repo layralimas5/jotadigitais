@@ -6,7 +6,11 @@ import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
 import { UserMenu } from "./components/UserMenu";
-import { BOTTOM_NAV_ITEMS, MORE_ITEMS, NAV_GROUPS } from "./navigation";
+import { GlobalSearch } from "./topbar/GlobalSearch";
+import { MobileSearch } from "./topbar/MobileSearch";
+import { NotificationBell } from "./topbar/NotificationBell";
+import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
+import { BOTTOM_NAV_ITEMS, HOME_PATH, MORE_ITEMS, NAV_GROUPS } from "./navigation";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
@@ -18,6 +22,8 @@ const EDITOR_ROUTES = [
   "/admin/clientes/novo",
   "/admin/clientes/cadastro/:id",
   "/admin/financeiro/despesas/:id",
+  "/admin/parceiros/:id",
+  "/admin/usuarios/novo",
 ];
 
 /** Telas de leitura e preenchimento: centralizadas numa largura confortável em vez de esticadas até a borda. */
@@ -26,11 +32,14 @@ const FORM_ROUTES = [
   "/admin/clientes/:key",
   "/admin/automacao",
   "/admin/apis",
-  "/admin/configuracoes",
+  "/admin/site",
   "/admin/minha-conta",
 ];
 
 const MORE_ROUTES = ["/admin/mais", "/admin/minha-conta", ...MORE_ITEMS.map((item) => `${item.to}/*`)];
+
+/** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */
+const DESKTOP_QUERY = "(min-width: 48rem)";
 
 const matchesAny = (patterns: readonly string[], pathname: string) =>
   patterns.some((pattern) => matchPath(pattern, pathname) !== null);
@@ -71,7 +80,7 @@ function SiteLink({ className }: { className?: string }) {
 function Brand({ stacked = false }: { stacked?: boolean }) {
   return (
     <Link
-      to="/admin/contas"
+      to={HOME_PATH}
       aria-label="Sistema Jota Digitais, início"
       className={cn("flex rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
     >
@@ -91,8 +100,10 @@ function Sidebar() {
       </div>
       <nav aria-label="Sistema" className="flex-1 space-y-5 overflow-y-auto p-3">
         {NAV_GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
+          <div key={group.label ?? "inicio"}>
+            {group.label && (
+              <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
+            )}
             <ul className="space-y-0.5">
               {group.items.map(({ to, label, icon: Icon }) => (
                 <li key={to}>
@@ -127,11 +138,12 @@ function Sidebar() {
 /** Topo enxuto no celular: a navegação fica na barra de baixo. */
 function MobileTopBar() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl md:hidden">
-      <div className="flex h-14 items-center justify-between gap-3 px-4">
+    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
+      <div className="flex h-14 items-center justify-between gap-2 px-4">
         <Brand />
-        <div className="flex items-center gap-1">
-          <SiteLink className="rounded-full" />
+        <div className="flex items-center">
+          <MobileSearch />
+          <NotificationBell />
           <UserMenu />
         </div>
       </div>
@@ -139,15 +151,24 @@ function MobileTopBar() {
   );
 }
 
-/** Barra do topo no tablet e no computador, com o menu do usuário à direita. */
+/** Barra do topo no tablet e no computador: busca à esquerda, sininho e menu do usuário à direita. */
 function DesktopTopBar() {
   return (
-    <header className="sticky top-0 z-30 hidden border-b border-line bg-ink/85 backdrop-blur-xl md:block">
-      <div className="flex h-16 items-center justify-end px-8">
-        <UserMenu />
+    <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-xl">
+      <div className="flex h-16 items-center justify-between gap-6 px-8">
+        <GlobalSearch withShortcut className="w-full max-w-xl" />
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <UserMenu />
+        </div>
       </div>
     </header>
   );
+}
+
+/** Só uma barra existe por vez: o sininho de cada uma consulta o servidor sozinho. */
+function TopBar() {
+  return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar /> : <MobileTopBar />;
 }
 
 interface BottomNavEntry {
@@ -212,8 +233,7 @@ export function AdminProtected() {
     <>
       <Sidebar />
       <div className="md:pl-60">
-        <MobileTopBar />
-        <DesktopTopBar />
+        <TopBar />
         <main
           id="conteudo"
           className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}

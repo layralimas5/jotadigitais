@@ -1,21 +1,24 @@
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteAccount, findAccount, saveAccount } from "@/application/admin-use-cases";
-import { ACCOUNT_STATUSES, type Account, type AccountData, type AccountStatus } from "@/domain/account";
+import { deleteAccount, findAccount, listPartners, saveAccount } from "@/application/admin-use-cases";
+import { ACCOUNT_STATUSES, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
-import { AUDIENCE_LABEL, PLATFORMS, PLATFORM_LABEL, type Platform } from "@/domain/platform";
+import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { AccountCard } from "@/ui/components/account/AccountCard";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { ProfileImport } from "../accounts/ProfileImport";
+import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, SelectField, TextAreaField, ToggleField } from "../components/FormControls";
 import { AvatarField, GalleryField } from "../components/ImageUpload";
 import {
   ACCOUNT_FIELD_ORDER,
+  applyProfileLookup,
   emptyAccountForm,
   fromAccount,
   useAccountForm,
@@ -24,14 +27,21 @@ import {
   type AccountFormValues,
 } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
+import { formatPercent } from "../lib/percent";
 import { useToast } from "../toast";
 
 const STATUS_OPTIONS = ACCOUNT_STATUSES.map((value) => ({ value, label: ACCOUNT_STATUS_LABEL[value] }));
-const PLATFORM_OPTIONS = PLATFORMS.map((value) => ({
+const platformOption = (value: Platform) => ({
   value,
   label: PLATFORM_LABEL[value],
   icon: <PlatformGlyph platform={value} className="size-4" />,
-}));
+});
+
+/** Contas novas só nas redes monetizáveis; uma conta antiga de Facebook continua editável. */
+const platformOptionsFor = (current: Platform) =>
+  (MONETIZED_PLATFORMS as readonly Platform[]).includes(current)
+    ? MONETIZED_PLATFORMS.map(platformOption)
+    : [...MONETIZED_PLATFORMS, current].map(platformOption);
 const MAX_IMAGES = 8;
 
 type SetField = <K extends keyof AccountFormValues>(field: K, value: AccountFormValues[K]) => void;
@@ -72,11 +82,19 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
   switch (values.platform) {
     case "tiktok":
       return (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {followers}
-          <NumberInput label="Curtidas" name="stats.likes" value={values.likes} error={errors["stats.likes"]} onChange={(value) => set("likes", value)} />
-          <NumberInput label="Seguindo" name="stats.following" value={values.following} error={errors["stats.following"]} onChange={(value) => set("following", value)} />
-        </div>
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {followers}
+            <NumberInput label="Curtidas" name="stats.likes" value={values.likes} error={errors["stats.likes"]} onChange={(value) => set("likes", value)} />
+            <NumberInput label="Seguindo" name="stats.following" value={values.following} error={errors["stats.following"]} onChange={(value) => set("following", value)} />
+          </div>
+          <ToggleField
+            label="Conta monetizada"
+            description="Recebe pelo Programa de Recompensas para Criadores ou outro recurso de monetização."
+            checked={values.monetized}
+            onChange={(checked) => set("monetized", checked)}
+          />
+        </>
       );
     case "instagram":
       return (
@@ -91,6 +109,12 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
             description="Criador ou comercial, com painel de estatísticas."
             checked={values.professional}
             onChange={(checked) => set("professional", checked)}
+          />
+          <ToggleField
+            label="Conta monetizada"
+            description="Recebe por bônus, assinaturas, presentes ou parcerias pagas."
+            checked={values.monetized}
+            onChange={(checked) => set("monetized", checked)}
           />
         </>
       );
@@ -163,6 +187,41 @@ function LivePreview({ values, accountId }: { values: AccountFormValues; account
   );
 }
 
+const OWN_STOCK_OPTION = { value: "", label: "Da loja (sem parceiro)" };
+
+/** Parceiros ativos, mais o atual mesmo que tenha sido desativado, para não sumir da conta sem querer. */
+function PartnerSelect({ value, onChange }: { value: string; onChange: (partnerId: string) => void }) {
+  const partners = useAdminQuery(listPartners, "account-partners");
+  if (partners.status !== "success") {
+    return (
+      <SelectField
+        label="Parceiro"
+        name="partnerId"
+        disabled
+        value=""
+        options={[{ value: "", label: partners.status === "error" ? "Não foi possível carregar" : "Carregando…" }]}
+        hint={partners.status === "error" ? partners.error.message : undefined}
+      />
+    );
+  }
+  const options = [
+    OWN_STOCK_OPTION,
+    ...partners.data
+      .filter((partner) => partner.active || partner.id === value)
+      .map((partner) => ({ value: partner.id, label: `${partner.name} (${formatPercent(partner.commissionPercent)})` })),
+  ];
+  return (
+    <SelectField
+      label="Parceiro"
+      name="partnerId"
+      value={value}
+      options={options}
+      onChange={(event) => onChange(event.target.value)}
+      hint="Quem forneceu a conta. A comissão dele sai das vendas finalizadas."
+    />
+  );
+}
+
 function focusFirstError(form: HTMLFormElement, errors: AccountFormErrors) {
   const first = ACCOUNT_FIELD_ORDER.find((field) => errors[field]);
   if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
@@ -173,6 +232,7 @@ function AccountEditor({ account }: { account: Account | null }) {
   const toast = useToast();
   const form = useAccountForm(account ? fromAccount(account) : emptyAccountForm());
   const { values, errors, set } = form;
+  const [sharing, setSharing] = useState(false);
   const save = useMutation((deps, data: AccountData) => saveAccount(deps, account?.id ?? null, data));
   const remove = useMutation(async (deps, id: string) => {
     await deleteAccount(deps, id);
@@ -220,14 +280,27 @@ function AccountEditor({ account }: { account: Account | null }) {
 
       <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
         <div className="space-y-5">
+          <FormSection title="Puxar dados da rede" description="Cole o link do perfil e o sistema preenche nome, @, foto e números.">
+            <ProfileImport
+              url={values.profileUrl}
+              syncedAt={values.statsSyncedAt}
+              error={errors.profileUrl}
+              onUrlChange={(url) => set("profileUrl", url)}
+              onImported={({ profile, avatarUrl }) => {
+                form.replace(applyProfileLookup(values, profile, avatarUrl));
+                toast.show(`Dados de ${profile.handle} puxados. Revise e salve.`);
+              }}
+            />
+          </FormSection>
+
           <FormSection title="Rede social">
             <SegmentedField<Platform>
               legend="Em qual rede é a conta?"
               name="platform"
               value={values.platform}
-              options={PLATFORM_OPTIONS}
+              options={platformOptionsFor(values.platform)}
               onChange={(value) => set("platform", value)}
-              columns={4}
+              columns={values.platform === "facebook" ? 4 : 3}
             />
             <AvatarField
               label="Foto de perfil"
@@ -287,6 +360,7 @@ function AccountEditor({ account }: { account: Account | null }) {
               hint="Se ficar vazio, o site monta um texto com os números da conta."
               maxLength={2000}
             />
+            <PartnerSelect value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
 
           <FormSection title="Prints da conta (opcional)" description="Aparecem na galeria da página da conta. Desfoque dados pessoais antes de enviar.">
@@ -311,6 +385,11 @@ function AccountEditor({ account }: { account: Account | null }) {
             {save.pending ? "Salvando…" : account ? "Salvar alterações" : "Cadastrar conta"}
           </Button>
           {account && (
+            <Button variant="secondary" size="lg" className="w-full" onClick={() => setSharing(true)}>
+              <MessageCircle aria-hidden className="size-4 text-[#25d366]" /> Enviar pelo WhatsApp
+            </Button>
+          )}
+          {account && (
             <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
               <Trash2 aria-hidden className="size-4" /> Apagar conta
             </Button>
@@ -328,6 +407,7 @@ function AccountEditor({ account }: { account: Account | null }) {
         </MobileActionBar>
       </form>
 
+      <ShareAccountDialog account={sharing ? account : null} onClose={() => setSharing(false)} />
       {account && (
         <ConfirmDialog
           open={confirmOpen}

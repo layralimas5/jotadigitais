@@ -1,10 +1,15 @@
 import type { Account } from "@/domain/account";
+import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
-import { InvalidTransitionError } from "@/domain/errors";
+import { buildDashboard, type Dashboard } from "@/domain/dashboard";
+import { CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
 import type { Expense } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
+import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
+import type { ProfileLookup } from "@/domain/profile-lookup";
+import { finalizedSales } from "@/domain/sale";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
@@ -14,11 +19,16 @@ import type {
   AdminLeadRepository,
   AdminMessageTemplateRepository,
   AdminOrderRepository,
+  AdminPartnerRepository,
   AdminPreferenceRepository,
   AdminSession,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
+  AdminNotificationRepository,
+  AdminUserRepository,
   AuthService,
+  CalendarService,
+  ProfileLookupService,
   ImageStorage,
   MediaFolder,
   PreparedImage,
@@ -31,7 +41,9 @@ import {
   expenseDataSchema,
   leadDataSchema,
   messageTemplatesSchema,
+  newAdminUserSchema,
   parseOrThrow,
+  partnerDataSchema,
   signInSchema,
   storeSettingsSchema,
   testimonialDataSchema,
@@ -48,6 +60,11 @@ export interface AdminDeps {
   templates: AdminMessageTemplateRepository;
   preferences: AdminPreferenceRepository;
   expenses: AdminExpenseRepository;
+  partners: AdminPartnerRepository;
+  users: AdminUserRepository;
+  profiles: ProfileLookupService;
+  notifications: AdminNotificationRepository;
+  calendar: CalendarService;
   images: ImageStorage;
 }
 
@@ -185,6 +202,75 @@ export function saveExpense(deps: AdminDeps, id: string | null, raw: unknown): P
 
 export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
   return deps.expenses.remove(id);
+}
+
+export async function loadDashboard(deps: AdminDeps): Promise<Dashboard> {
+  const [orders, expenses, accounts, leads, partners, customers] = await Promise.all([
+    deps.orders.listAll(),
+    deps.expenses.listAll(),
+    deps.accounts.listAll(),
+    deps.leads.listAll(),
+    deps.partners.listAll(),
+    deps.customers.listAll(),
+  ]);
+  return buildDashboard({ orders, expenses, accounts, leads, partners, customers });
+}
+
+export interface FinalizedSalesData {
+  sales: Order[];
+  guaranteeDays: number;
+}
+
+/** Pedidos entregues e o prazo de garantia atual, para mostrar quem ainda está coberto. */
+export async function loadFinalizedSales(deps: AdminDeps): Promise<FinalizedSalesData> {
+  const [orders, settings] = await Promise.all([deps.orders.listAll(), deps.settings.get()]);
+  return { sales: finalizedSales(orders), guaranteeDays: settings.guaranteeDays };
+}
+
+export function listPartners(deps: AdminDeps): Promise<Partner[]> {
+  return deps.partners.listAll();
+}
+
+export async function listPartnerSummaries(deps: AdminDeps): Promise<PartnerSummary[]> {
+  const [partners, accounts, orders] = await Promise.all([deps.partners.listAll(), deps.accounts.listAll(), deps.orders.listAll()]);
+  return summarizePartners(partners, accounts, orders);
+}
+
+/** Parceiro com as contas e vendas dele; nulo quando não existe. */
+export async function findPartnerSummary(deps: AdminDeps, id: string): Promise<PartnerSummary | null> {
+  const partner = await deps.partners.findById(id);
+  if (!partner) return null;
+  const [accounts, orders] = await Promise.all([deps.accounts.listAll(), deps.orders.listAll()]);
+  return summarizePartners([partner], accounts, orders)[0] ?? null;
+}
+
+export function savePartner(deps: AdminDeps, id: string | null, raw: unknown): Promise<Partner> {
+  const data = parseOrThrow(partnerDataSchema, raw);
+  return id ? deps.partners.update(id, data) : deps.partners.create(data);
+}
+
+export function deletePartner(deps: AdminDeps, id: string): Promise<void> {
+  return deps.partners.remove(id);
+}
+
+export function listAdminUsers(deps: AdminDeps): Promise<AdminUser[]> {
+  return deps.users.listAll();
+}
+
+export function createAdminUser(deps: AdminDeps, raw: unknown): Promise<AdminUser> {
+  return deps.users.create(parseOrThrow(newAdminUserSchema, raw));
+}
+
+/** Ninguém tira o próprio acesso e o sistema nunca fica sem usuário. O servidor confere de novo. */
+export async function removeAdminUser(deps: AdminDeps, user: AdminUser, currentEmail: string): Promise<void> {
+  if (sameEmail(user.email, currentEmail)) throw new CannotRemoveAdminUserError("self");
+  const users = await deps.users.listAll();
+  if (users.length <= 1) throw new CannotRemoveAdminUserError("last");
+  await deps.users.remove(user.id);
+}
+
+export function lookupAccountProfile(deps: AdminDeps, url: string): Promise<ProfileLookup> {
+  return deps.profiles.lookup(url.trim());
 }
 
 export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {

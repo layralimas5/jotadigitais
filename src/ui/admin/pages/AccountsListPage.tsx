@@ -1,17 +1,18 @@
-import { ChevronDown, ExternalLink, Plus, Search } from "lucide-react";
+import { BadgeDollarSign, ChevronDown, ExternalLink, MessageCircle, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { normalizeSearch } from "@/application/catalog";
 import { listAllAccounts, saveAccount } from "@/application/admin-use-cases";
-import { ACCOUNT_STATUSES, formatCount, type Account, type AccountStatus } from "@/domain/account";
+import { ACCOUNT_STATUSES, MONETIZED_PLATFORMS, formatCount, isMonetized, type Account, type AccountStatus } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
-import { PLATFORMS, PLATFORM_LABEL, type Platform } from "@/domain/platform";
+import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
 import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { ACCOUNT_STATUS_LABEL, audienceLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
+import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
@@ -23,6 +24,25 @@ const statusTone: Record<AccountStatus, string> = {
 };
 
 type StatusChange = (account: Account, status: AccountStatus) => void;
+
+type MonetizationFilter = "all" | "monetized" | "not_monetized";
+
+const MONETIZATION_OPTIONS: { value: MonetizationFilter; label: string }[] = [
+  { value: "all", label: "Monetização: todas" },
+  { value: "monetized", label: "Monetizadas" },
+  { value: "not_monetized", label: "Não monetizadas" },
+];
+
+const matchesMonetization = (account: Account, filter: MonetizationFilter) =>
+  filter === "all" || (filter === "monetized") === isMonetized(account);
+
+function MonetizedBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-px text-[0.65rem] font-semibold text-emerald-300">
+      <BadgeDollarSign aria-hidden className="size-3" /> Monetizada
+    </span>
+  );
+}
 
 /** Troca rápida de status sem abrir o cadastro. No celular abre o seletor nativo do sistema. */
 function StatusSelect({ account, onChange, disabled }: { account: Account; onChange: StatusChange; disabled: boolean }) {
@@ -59,10 +79,25 @@ function AccountIdentity({ account }: { account: Account }) {
         </Link>
         <p className="flex items-center gap-1.5 truncate text-xs text-mist">
           <PlatformGlyph platform={account.platform} className="size-3.5" />
-          {account.handle}
+          <span className="truncate">{account.handle}</span>
+          {isMonetized(account) && <MonetizedBadge />}
         </p>
       </div>
     </div>
+  );
+}
+
+function ShareButton({ account, onShare }: { account: Account; onShare: (account: Account) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onShare(account)}
+      aria-label={`Enviar ${account.handle} pelo WhatsApp`}
+      title="Enviar pelo WhatsApp"
+      className="relative z-10 grid size-9 place-items-center rounded-full text-[#25d366] hover:bg-[#25d366]/10"
+    >
+      <MessageCircle aria-hidden className="size-4" />
+    </button>
   );
 }
 
@@ -83,10 +118,11 @@ function SiteLink({ account }: { account: Account }) {
 interface ListProps {
   accounts: Account[];
   onStatusChange: StatusChange;
+  onShare: (account: Account) => void;
   busy: boolean;
 }
 
-function AccountsTable({ accounts, onStatusChange, busy }: ListProps) {
+function AccountsTable({ accounts, onStatusChange, onShare, busy }: ListProps) {
   return (
     <div className="hidden overflow-hidden rounded-3xl border border-line lg:block">
       <table className="w-full text-left text-sm">
@@ -110,7 +146,12 @@ function AccountsTable({ accounts, onStatusChange, busy }: ListProps) {
               </td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(account.price)}</td>
               <td className="px-4 py-3"><StatusSelect account={account} onChange={onStatusChange} disabled={busy} /></td>
-              <td className="px-4 py-3 text-right"><SiteLink account={account} /></td>
+              <td className="px-4 py-3">
+                <span className="flex justify-end">
+                  <ShareButton account={account} onShare={onShare} />
+                  <SiteLink account={account} />
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -119,7 +160,7 @@ function AccountsTable({ accounts, onStatusChange, busy }: ListProps) {
   );
 }
 
-function AccountsCards({ accounts, onStatusChange, busy }: ListProps) {
+function AccountsCards({ accounts, onStatusChange, onShare, busy }: ListProps) {
   return (
     <ul className="grid gap-2.5 lg:hidden">
       {accounts.map((account) => (
@@ -129,7 +170,10 @@ function AccountsCards({ accounts, onStatusChange, busy }: ListProps) {
         >
           <div className="flex items-start justify-between gap-3">
             <AccountIdentity account={account} />
-            <SiteLink account={account} />
+            <span className="flex shrink-0">
+              <ShareButton account={account} onShare={onShare} />
+              <SiteLink account={account} />
+            </span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
             <span className="text-fog tabular-nums">
@@ -165,6 +209,14 @@ export default function AccountsListPage() {
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState<Platform | "all">("all");
   const [status, setStatus] = useState<AccountStatus | "all">("all");
+  const [monetization, setMonetization] = useState<MonetizationFilter>("all");
+  const [sharing, setSharing] = useState<Account | null>(null);
+
+  /** Facebook só aparece no filtro se ainda houver conta antiga dessa rede. */
+  const platformOptions = useMemo<Platform[]>(() => {
+    const hasFacebook = accounts.status === "success" && accounts.data.some((account) => account.platform === "facebook");
+    return hasFacebook ? [...MONETIZED_PLATFORMS, "facebook"] : [...MONETIZED_PLATFORMS];
+  }, [accounts]);
 
   const visible = useMemo(() => {
     if (accounts.status !== "success") return [];
@@ -173,18 +225,24 @@ export default function AccountsListPage() {
       (account) =>
         (platform === "all" || account.platform === platform) &&
         (status === "all" || account.status === status) &&
+        matchesMonetization(account, monetization) &&
         (!needle || normalizeSearch(`${account.displayName} ${account.handle}`).includes(needle)),
     );
-  }, [accounts, query, platform, status]);
+  }, [accounts, query, platform, status, monetization]);
 
   const total = accounts.status === "success" ? accounts.data.length : 0;
   const available = accounts.status === "success" ? accounts.data.filter((item) => item.status === "available").length : 0;
+  const monetized = accounts.status === "success" ? accounts.data.filter(isMonetized).length : 0;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Contas"
-        description={accounts.status === "success" ? `${total} cadastradas, ${available} disponíveis na vitrine.` : "Estoque da vitrine."}
+        description={
+          accounts.status === "success"
+            ? `Contas de TikTok, Instagram e YouTube: ${total} cadastradas, ${available} disponíveis, ${monetized} monetizadas.`
+            : "Contas de TikTok, Instagram e YouTube."
+        }
         action={
           <ButtonLink to="/admin/contas/nova" className="max-md:hidden lg:hidden">
             <Plus aria-hidden className="size-4" /> Nova conta
@@ -204,7 +262,7 @@ export default function AccountsListPage() {
             className="h-11 w-full rounded-full border border-line-strong bg-surface pr-4 pl-11 text-sm text-white placeholder:text-mist focus:border-electric focus:outline-none"
           />
         </label>
-        <div className="grid grid-cols-2 gap-3 lg:flex lg:shrink-0">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:flex lg:shrink-0">
           <label className="lg:w-40">
             <span className="sr-only">Rede</span>
             <select
@@ -213,7 +271,7 @@ export default function AccountsListPage() {
               className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
             >
               <option value="all">Todas as redes</option>
-              {PLATFORMS.map((option) => (
+              {platformOptions.map((option) => (
                 <option key={option} value={option}>
                   {PLATFORM_LABEL[option]}
                 </option>
@@ -235,6 +293,20 @@ export default function AccountsListPage() {
               ))}
             </select>
           </label>
+          <label className="col-span-2 sm:col-span-1 lg:w-48">
+            <span className="sr-only">Monetização</span>
+            <select
+              value={monetization}
+              onChange={(event) => setMonetization(event.target.value as MonetizationFilter)}
+              className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
+            >
+              {MONETIZATION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <ButtonLink to="/admin/contas/nova" className="h-11 w-40 shadow-none hover:shadow-none max-lg:hidden">
             <Plus aria-hidden className="size-4" /> Nova conta
           </ButtonLink>
@@ -251,14 +323,15 @@ export default function AccountsListPage() {
         />
       )}
       {accounts.status === "success" && total > 0 && visible.length === 0 && (
-        <EmptyState title="Nenhuma conta com esses filtros" description="Mude a busca, a rede ou o status." />
+        <EmptyState title="Nenhuma conta com esses filtros" description="Mude a busca, a rede, o status ou a monetização." />
       )}
       {visible.length > 0 && (
         <>
-          <AccountsTable accounts={visible} onStatusChange={onStatusChange} busy={changeStatus.pending} />
-          <AccountsCards accounts={visible} onStatusChange={onStatusChange} busy={changeStatus.pending} />
+          <AccountsTable accounts={visible} onStatusChange={onStatusChange} onShare={setSharing} busy={changeStatus.pending} />
+          <AccountsCards accounts={visible} onStatusChange={onStatusChange} onShare={setSharing} busy={changeStatus.pending} />
         </>
       )}
+      <ShareAccountDialog account={sharing} onClose={() => setSharing(null)} />
       <Fab to="/admin/contas/nova" label="Nova conta" />
     </div>
   );

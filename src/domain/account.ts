@@ -17,6 +17,8 @@ export const YOUTUBE_PARTNER_MIN_WATCH_HOURS = 4000;
 export interface TikTokStats {
   likes: number;
   following: number;
+  /** Recebe pelo Programa de Recompensas para Criadores (ou outro recurso de monetização do TikTok). */
+  monetized: boolean;
 }
 
 export interface InstagramStats {
@@ -24,6 +26,8 @@ export interface InstagramStats {
   following: number;
   /** Conta profissional (criador ou comercial), com painel e estatísticas. */
   professional: boolean;
+  /** Recebe por bônus, assinaturas, presentes ou parcerias pagas. */
+  monetized: boolean;
 }
 
 export interface YouTubeStats {
@@ -66,6 +70,12 @@ export interface AccountBase {
   avatarUrl: string | null;
   images: string[];
   listedAt: string;
+  /** Parceiro que forneceu a conta. Nulo quando a conta é da própria loja. */
+  partnerId: string | null;
+  /** Link do perfil na rede, usado para puxar os números. */
+  profileUrl: string | null;
+  /** Quando os números foram puxados da rede pela última vez. */
+  statsSyncedAt: string | null;
 }
 
 /** Dados que o administrador preenche. */
@@ -78,6 +88,11 @@ export type Account = AccountData & {
 };
 
 export type AccountOf<P extends Platform> = Extract<Account, { platform: P }>;
+
+/** Redes com que a loja trabalha hoje. Facebook segue aceito só nas contas que já existiam. */
+export const MONETIZED_PLATFORMS = ["tiktok", "instagram", "youtube"] as const satisfies readonly Platform[];
+
+export const isMonetized = (account: Pick<Account, "stats">) => account.stats.monetized === true;
 
 /** Reserva vencida sem pagamento devolve a conta para a vitrine sem depender de rotina agendada. */
 export function effectiveStatus(

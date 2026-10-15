@@ -27,6 +27,9 @@ const SAMPLE_VALUES: TemplateValues = {
   conta: "@achadinhos.dabia",
   valor: "R$ 370,00",
   loja: siteConfig.name,
+  rede: "TikTok",
+  detalhes: ["• 1.259 seguidores", "• 2.123 curtidas", "• TikTok Shop: piloto", "• Monetização: não ativa"].join("\n"),
+  link: `${siteConfig.url}/contas/achadinhos-da-bia`,
 };
 
 interface TemplateCardProps {

@@ -28,6 +28,8 @@ export interface Order {
   /** Até quando a conta fica reservada esperando o pagamento. */
   expiresAt: string;
   createdAt: string;
+  /** Quando o pedido foi marcado como entregue; a garantia conta daqui. */
+  deliveredAt: string | null;
 }
 
 export const MAX_CARD_INSTALLMENTS = 12;
