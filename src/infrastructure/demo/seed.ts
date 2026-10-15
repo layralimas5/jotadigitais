@@ -1,4 +1,5 @@
 import type { Account } from "@/domain/account";
+import type { StoredNotification } from "@/domain/notification";
 import type { Testimonial } from "@/domain/testimonial";
 import type { DistributiveOmit } from "@/shared/types";
 
@@ -32,4 +33,32 @@ export const SEED_TESTIMONIALS: Testimonial[] = [
   { id: "tst_04", kind: "delivered", title: "Pagamentos do Shop liberados", subtitle: "1.129 seguidores", imageUrl: "/images/conta-entregue-2.webp", imageAlt: "Perfil de conta entregue com a opção Comece a receber pagamentos do TikTok Shop e 1.129 seguidores.", width: 540, height: 1063, position: 3, published: true },
   { id: "tst_05", kind: "delivered", title: "Vitrine e link de afiliado", subtitle: "1.517 seguidores", imageUrl: "/images/conta-entregue-3.webp", imageAlt: "Perfil de conta entregue com a vitrine ativa, link de afiliado e 1.517 seguidores.", width: 540, height: 1063, position: 4, published: true },
   { id: "tst_06", kind: "delivered", title: "Pronta para vender", subtitle: "1.061 seguidores", imageUrl: "/images/conta-entregue-4.webp", imageAlt: "Perfil de conta entregue com a opção Comece a receber pagamentos do TikTok Shop e 1.061 seguidores.", width: 540, height: 1063, position: 5, published: true },
+];
+
+/** Novidades do sistema no sininho. Com o Supabase, as mesmas entram pela migration de notificações. */
+export const SEED_NEWS: StoredNotification[] = [
+  {
+    id: "news_01",
+    kind: "news",
+    title: "Novo: conecte seu Google Agenda",
+    body: "Em Conexões, ligue sua agenda e mande os retornos do CRM para o celular.",
+    link: "/admin/apis",
+    createdAt: "2026-10-15T12:00:00.000Z",
+  },
+  {
+    id: "news_02",
+    kind: "news",
+    title: "Novo: puxe os dados da conta pelo link",
+    body: "Na ficha da conta, cole o link do perfil e o sistema preenche seguidores, curtidas e foto.",
+    link: "/admin/contas",
+    createdAt: "2026-10-15T11:00:00.000Z",
+  },
+  {
+    id: "news_03",
+    kind: "news",
+    title: "Novo: envie uma conta pelo WhatsApp",
+    body: "O botão verde em cada conta monta a mensagem com os números, o preço e o link de compra.",
+    link: "/admin/contas",
+    createdAt: "2026-10-15T10:00:00.000Z",
+  },
 ];

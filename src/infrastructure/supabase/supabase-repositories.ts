@@ -9,6 +9,7 @@ import type {
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
+  AdminNotificationRepository,
   AdminOrderRepository,
   AdminPartnerRepository,
   AdminPreferenceKey,
@@ -46,6 +47,7 @@ import {
   type MessageTemplateKey,
   type MessageTemplates,
 } from "@/domain/message-template";
+import type { StoredNotification } from "@/domain/notification";
 import type { Partner, PartnerData } from "@/domain/partner";
 import { PLATFORMS } from "@/domain/platform";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -730,5 +732,56 @@ export class SupabaseAdminUserRepository implements AdminUserRepository {
   async remove(id: string): Promise<void> {
     const { error } = await this.client.functions.invoke(ADMIN_USERS_FUNCTION, { body: { action: "remove", userId: id } });
     if (error) await failFromFunction(error);
+  }
+}
+
+const NOTIFICATION_COLUMNS = "id, kind, title, body, link, created_at";
+const NOTIFICATION_WINDOW_DAYS = 30;
+const MAX_NOTIFICATIONS = 50;
+
+const notificationRowSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["order", "news"]),
+  title: z.string(),
+  body: z.string().nullable(),
+  link: z.string().nullable(),
+  created_at: z.string(),
+});
+
+function toStoredNotification(raw: unknown): StoredNotification {
+  const row = notificationRowSchema.parse(raw);
+  return { id: row.id, kind: row.kind, title: row.title, body: row.body, link: row.link, createdAt: new Date(row.created_at).toISOString() };
+}
+
+/** Notificações dos últimos 30 dias; o que cada usuário apagou fica em `notification_dismissals` (RLS por usuário). */
+export class SupabaseNotificationRepository implements AdminNotificationRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listRecent(): Promise<StoredNotification[]> {
+    const since = new Date(Date.now() - NOTIFICATION_WINDOW_DAYS * 86_400_000).toISOString();
+    const { data, error } = await this.client
+      .from("notifications")
+      .select(NOTIFICATION_COLUMNS)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(MAX_NOTIFICATIONS);
+    if (error) fail(error);
+    return data.map(toStoredNotification);
+  }
+
+  async listDismissed(): Promise<string[]> {
+    const { data, error } = await this.client.from("notification_dismissals").select("key");
+    if (error) fail(error);
+    return data.map((row) => z.object({ key: z.string() }).parse(row).key);
+  }
+
+  async dismiss(keys: readonly string[]): Promise<void> {
+    const { error } = await this.client
+      .from("notification_dismissals")
+      .upsert(
+        keys.map((key) => ({ key })),
+        { onConflict: "user_id,key", ignoreDuplicates: true },
+      );
+    if (error) fail(error);
   }
 }

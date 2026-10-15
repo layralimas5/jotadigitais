@@ -8,6 +8,7 @@ import {
   DemoExpenseRepository,
   DemoLeadRepository,
   DemoMessageTemplateRepository,
+  DemoNotificationRepository,
   DemoAdminUserRepository,
   DemoOrderRepository,
   DemoPartnerRepository,
@@ -16,6 +17,7 @@ import {
   DemoTestimonialRepository,
 } from "@/infrastructure/demo/demo-repositories";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
+import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
 import { DevServerProfileLookupService, SupabaseProfileLookupService } from "@/infrastructure/profile-lookup";
 import {
@@ -24,6 +26,7 @@ import {
   SupabaseExpenseRepository,
   SupabaseLeadRepository,
   SupabaseMessageTemplateRepository,
+  SupabaseNotificationRepository,
   SupabaseAdminUserRepository,
   SupabaseOrderRepository,
   SupabasePartnerRepository,
@@ -65,6 +68,8 @@ function supabaseContainer(url: string, anonKey: string): Container {
       partners: new SupabasePartnerRepository(client),
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
+      notifications: new SupabaseNotificationRepository(client),
+      calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new SupabaseImageStorage(client),
     },
   };
@@ -94,6 +99,8 @@ function demoContainer(): Container {
       partners: new DemoPartnerRepository(db),
       users: new DemoAdminUserRepository(db),
       profiles: new DevServerProfileLookupService(),
+      notifications: new DemoNotificationRepository(db),
+      calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new DemoImageStorage(),
     },
   };

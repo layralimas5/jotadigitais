@@ -63,7 +63,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/site", label: "Site", icon: Globe, inBottomNav: false, description: "Contato, garantia e vitrine" },
       { to: "/admin/depoimentos", label: "Depoimentos", icon: ImageIcon, inBottomNav: false, description: "Prints da faixa de resultados" },
       { to: "/admin/usuarios", label: "Usuários", icon: ShieldUser, inBottomNav: false, description: "Quem acessa o sistema" },
-      { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "IA e conexão de contas" },
+      { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "Google Agenda e outras conexões" },
     ],
   },
 ];

@@ -23,6 +23,14 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
   - Confirmar pagamento: a conta fica reservada sem prazo.
   - Marcar como entregue: a conta vira vendida.
   - Cancelar: a conta volta para a vitrine.
+- **Topo do painel**: campo de busca (Ctrl+K) que acha telas, contas, pedidos, clientes, contatos do CRM e
+  parceiros; e o sininho de notificações. O sininho junta pedidos novos do site (gravados pelo gatilho
+  `notify_new_order`), novidades do sistema (tabela `notifications`, só por migration) e lembretes calculados na hora
+  (conta paga para entregar, reserva vencendo, retornos do CRM do dia). Cada aviso tem um X; o que cada usuário apaga
+  fica em `notification_dismissals` e não some para os outros.
+- **APIs e conexões**: cada integração com a situação e o próximo passo, em linguagem simples. O Google Agenda conecta
+  pelo login do próprio Google (a permissão fica só na memória do navegador, cerca de 1 hora; a cada visita, um clique em
+  "Abrir agenda"). Mostra os próximos 7 dias e manda os retornos do CRM como compromissos de dia inteiro, sem duplicar.
 - **Dashboard**: faturamento, lucro e vendas finalizadas do mês, o que está pendente (pagamento, entrega,
   retorno do CRM), estoque por rede, gráfico dos últimos 30 dias e os últimos pedidos.
 - **Finalizados**: pedidos entregues. A data de entrega (`orders.delivered_at`) é gravada pelo banco ao marcar
@@ -76,6 +84,18 @@ Com o Supabase ligado, o ícone some do site e o painel volta a exigir login.
 8. Entrar em `/admin` e cadastrar o estoque real. Os 6 depoimentos atuais já entram pela migration.
 9. Em **Site**, preencher WhatsApp do suporte, Instagram e dias de garantia. Com o banco ligado,
    o site usa o que estiver salvo ali (a tabela `store_settings` nasce com o WhatsApp vazio).
+
+## Ligar o Google Agenda (uma vez)
+
+1. Em console.cloud.google.com, com a conta Google do Jota, criar o projeto "Jota Digitais".
+2. Em **APIs e serviços > Biblioteca**, ativar a **Google Calendar API**.
+3. Em **Tela de permissão OAuth**: tipo "Externo", nome e e-mail; em **Usuários de teste**, adicionar o Gmail do Jota.
+   (Enquanto o app estiver em teste, o Google mostra um aviso de "app não verificado" no primeiro acesso.)
+4. Em **Credenciais > ID do cliente OAuth**: tipo "Aplicativo da Web"; em **Origens JavaScript autorizadas**, o endereço
+   do site no ar e `http://localhost:5210`.
+5. Colocar o ID em `VITE_GOOGLE_CLIENT_ID` no `.env` e na hospedagem, e publicar de novo.
+
+A própria aba APIs mostra esse passo a passo enquanto o ID não estiver configurado.
 
 ## Testes
 

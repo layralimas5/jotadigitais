@@ -7,6 +7,7 @@ import type {
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
+  AdminNotificationRepository,
   AdminOrderRepository,
   AdminPartnerRepository,
   AdminPreferenceKey,
@@ -46,10 +47,29 @@ import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Expense, ExpenseData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
+import { formatBRL } from "@/domain/money";
+import type { StoredNotification } from "@/domain/notification";
 import type { Partner, PartnerData } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
+import { SEED_NEWS } from "./seed";
+
+const notificationsOf = (state: DemoState) => state.notifications ?? SEED_NEWS;
+
+const MAX_NOTIFICATIONS = 50;
+
+/** Mesmo texto do gatilho `notify_new_order` do banco. */
+function newOrderNotification(order: Order): StoredNotification {
+  return {
+    id: newId("ntf"),
+    kind: "order",
+    title: `Novo pedido ${order.code}`,
+    body: `${order.customer.name} pediu ${order.accountHandle} por ${formatBRL(order.total)}. Aguardando pagamento.`,
+    link: "/admin/pedidos",
+    createdAt: order.createdAt,
+  };
+}
 
 const MAX_OPEN_ORDERS_PER_EMAIL = 2;
 const MINUTE_MS = 60_000;
@@ -235,6 +255,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         deliveredAt: null,
       };
       state.orders.push(created);
+      state.notifications = [newOrderNotification(created), ...notificationsOf(state)].slice(0, MAX_NOTIFICATIONS);
       account.status = "reserved";
       account.reservedUntil = created.expiresAt;
       return created;
@@ -562,6 +583,24 @@ export class DemoAdminUserRepository implements AdminUserRepository {
       const users = this.users(state);
       if (users.length <= 1) throw new CannotRemoveAdminUserError("last");
       state.adminUsers = users.filter((user) => user.id !== id);
+    });
+  }
+}
+
+export class DemoNotificationRepository implements AdminNotificationRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listRecent(): Promise<StoredNotification[]> {
+    return notificationsOf(this.db.read());
+  }
+
+  async listDismissed(): Promise<string[]> {
+    return this.db.read().dismissedNotifications ?? [];
+  }
+
+  async dismiss(keys: readonly string[]): Promise<void> {
+    this.db.write((state) => {
+      state.dismissedNotifications = [...new Set([...(state.dismissedNotifications ?? []), ...keys])];
     });
   }
 }

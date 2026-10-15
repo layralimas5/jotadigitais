@@ -24,8 +24,10 @@ import type {
   AdminSession,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
+  AdminNotificationRepository,
   AdminUserRepository,
   AuthService,
+  CalendarService,
   ProfileLookupService,
   ImageStorage,
   MediaFolder,
@@ -61,6 +63,8 @@ export interface AdminDeps {
   partners: AdminPartnerRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
+  notifications: AdminNotificationRepository;
+  calendar: CalendarService;
   images: ImageStorage;
 }
 

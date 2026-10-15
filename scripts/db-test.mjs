@@ -499,6 +499,49 @@ async function main() {
   );
   check(offer.rows[0]?.key === "account_offer", "admin salva o modelo de oferta de conta");
 
+  console.log("\nnotificações");
+  const orderNotices = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select title, body, link from public.notifications where kind = 'order' order by created_at`),
+  );
+  check(
+    orderNotices.rows.length > 0 && orderNotices.rows[0].title.startsWith("Novo pedido JD-") && /R\$ \d+,\d{2}/.test(orderNotices.rows[0].body),
+    "pedido novo vira notificação com o valor",
+  );
+  const news = await as("authenticated", ADMIN_ID, () => db.query(`select id from public.notifications where kind = 'news'`));
+  check(news.rows.length === 3, "novidades do sistema entram pela migration");
+  const strangerNotices = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.notifications`));
+  check(strangerNotices.rows.length === 0, "usuário que não é admin não lê notificações");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.notifications (kind, title) values ('news', 'Falsa')`)),
+      /permission denied|row-level security/,
+    ),
+    "ninguém cria notificação pelo painel",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.notifications (kind, title, link) values ('news', 'x', 'https://golpe.com')`)),
+      /permission denied|row-level security|check constraint/,
+    ),
+    "notificação não leva para fora do painel",
+  );
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.notification_dismissals (key) values ('notification:abc'), ('reminder:followups:2026-10-15')`),
+  );
+  const mine = await as("authenticated", ADMIN_ID, () => db.query(`select key from public.notification_dismissals`));
+  check(mine.rows.length === 2, "admin apaga notificações para si");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.notification_dismissals (user_id, key) values ($1, 'x')`, [STRANGER_ID])),
+      /row-level security/,
+    ),
+    "ninguém apaga notificação no nome de outro usuário",
+  );
+  const calendarPref = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.admin_preferences (key, value) values ('google_calendar', '{"email":"jota@gmail.com"}') returning key`),
+  );
+  check(calendarPref.rows[0]?.key === "google_calendar", "admin guarda a conta Google ligada");
+
   console.log("\nimagens");
   check(
     await rejects(

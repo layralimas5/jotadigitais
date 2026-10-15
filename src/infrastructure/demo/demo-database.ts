@@ -4,6 +4,7 @@ import type { CustomerRecord } from "@/domain/customer";
 import type { Expense } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type { StoredNotification } from "@/domain/notification";
 import type { Order } from "@/domain/order";
 import type { Partner } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -28,6 +29,8 @@ export interface DemoState {
   expenses?: Expense[];
   partners?: Partner[];
   adminUsers?: AdminUser[];
+  notifications?: StoredNotification[];
+  dismissedNotifications?: string[];
 }
 
 function seedState(): DemoState {

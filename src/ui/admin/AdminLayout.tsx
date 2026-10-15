@@ -6,6 +6,10 @@ import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
 import { UserMenu } from "./components/UserMenu";
+import { GlobalSearch } from "./topbar/GlobalSearch";
+import { MobileSearch } from "./topbar/MobileSearch";
+import { NotificationBell } from "./topbar/NotificationBell";
+import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import { BOTTOM_NAV_ITEMS, HOME_PATH, MORE_ITEMS, NAV_GROUPS } from "./navigation";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
@@ -33,6 +37,9 @@ const FORM_ROUTES = [
 ];
 
 const MORE_ROUTES = ["/admin/mais", "/admin/minha-conta", ...MORE_ITEMS.map((item) => `${item.to}/*`)];
+
+/** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */
+const DESKTOP_QUERY = "(min-width: 48rem)";
 
 const matchesAny = (patterns: readonly string[], pathname: string) =>
   patterns.some((pattern) => matchPath(pattern, pathname) !== null);
@@ -131,11 +138,12 @@ function Sidebar() {
 /** Topo enxuto no celular: a navegação fica na barra de baixo. */
 function MobileTopBar() {
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl md:hidden">
-      <div className="flex h-14 items-center justify-between gap-3 px-4">
+    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
+      <div className="flex h-14 items-center justify-between gap-2 px-4">
         <Brand />
-        <div className="flex items-center gap-1">
-          <SiteLink className="rounded-full" />
+        <div className="flex items-center">
+          <MobileSearch />
+          <NotificationBell />
           <UserMenu />
         </div>
       </div>
@@ -143,15 +151,24 @@ function MobileTopBar() {
   );
 }
 
-/** Barra do topo no tablet e no computador, com o menu do usuário à direita. */
+/** Barra do topo no tablet e no computador: busca à esquerda, sininho e menu do usuário à direita. */
 function DesktopTopBar() {
   return (
-    <header className="sticky top-0 z-30 hidden border-b border-line bg-ink/85 backdrop-blur-xl md:block">
-      <div className="flex h-16 items-center justify-end px-8">
-        <UserMenu />
+    <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-xl">
+      <div className="flex h-16 items-center justify-between gap-6 px-8">
+        <GlobalSearch withShortcut className="w-full max-w-xl" />
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <UserMenu />
+        </div>
       </div>
     </header>
   );
+}
+
+/** Só uma barra existe por vez: o sininho de cada uma consulta o servidor sozinho. */
+function TopBar() {
+  return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar /> : <MobileTopBar />;
 }
 
 interface BottomNavEntry {
@@ -216,8 +233,7 @@ export function AdminProtected() {
     <>
       <Sidebar />
       <div className="md:pl-60">
-        <MobileTopBar />
-        <DesktopTopBar />
+        <TopBar />
         <main
           id="conteudo"
           className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}

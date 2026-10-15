@@ -1,151 +1,134 @@
-import { Info, Sparkles } from "lucide-react";
+import { CreditCard, HelpCircle, Link2, MessageCircle, Sparkles, UserRoundCheck } from "lucide-react";
 import type { ReactNode } from "react";
-import type { Platform } from "@/domain/platform";
-import { PLATFORM_LABEL } from "@/domain/platform";
-import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
-import { cn } from "@/ui/lib/cn";
+import { ButtonLink } from "@/ui/components/Button";
 import { PageHeader } from "../components/AdminUi";
+import { GoogleCalendarCard } from "../integrations/GoogleCalendarCard";
+import { IntegrationShell, StatusChip, type ConnectionTone } from "../integrations/IntegrationUi";
 
-type Feasibility = "simple" | "approval";
-
-interface NetworkIntegration {
-  platform: Platform;
-  feasibility: Feasibility;
-  metrics: string;
-  requirement: string;
+interface StaticIntegration {
+  id: string;
+  icon: ReactNode;
+  title: string;
+  description: string;
+  tone: ConnectionTone;
+  status: string;
+  /** O que fazer agora, em uma frase. */
+  next: string;
+  action?: { to: string; label: string };
 }
 
-/** O que cada rede deixa puxar por API e o que precisa existir antes. Nada aqui está ligado ainda. */
-const NETWORKS: readonly NetworkIntegration[] = [
+/** Integrações que não pedem conexão (já funcionam) ou que ainda vão chegar. */
+const INTEGRATIONS: readonly StaticIntegration[] = [
   {
-    platform: "youtube",
-    feasibility: "simple",
-    metrics: "Inscritos, visualizações, número de vídeos e foto do canal.",
-    requirement: "Chave da YouTube Data API (Google Cloud). Não precisa do login do canal: os números são públicos.",
+    id: "profile-link",
+    icon: <Link2 className="size-6 text-electric-soft" />,
+    title: "Dados das redes pelo link",
+    description: "Seguidores, curtidas, publicações e foto de TikTok, Instagram e YouTube, direto do perfil público.",
+    tone: "working",
+    status: "Funcionando",
+    next: "Não precisa conectar nada. Na ficha da conta, cole o link do perfil e clique em Puxar dados.",
+    action: { to: "/admin/contas", label: "Ir para Contas" },
   },
   {
-    platform: "tiktok",
-    feasibility: "approval",
-    metrics: "Seguidores, curtidas, número de vídeos e foto do perfil.",
-    requirement: "App no TikTok for Developers aprovado e o login de cada conta (OAuth).",
+    id: "whatsapp",
+    icon: <MessageCircle className="size-6 text-[#25d366]" />,
+    title: "WhatsApp",
+    description: "Mensagens de pedido, entrega, CRM e oferta de conta já escritas, abrindo no seu WhatsApp.",
+    tone: "working",
+    status: "Funcionando",
+    next: "Os botões verdes do sistema abrem o WhatsApp do seu celular ou computador. O envio automático, sem abrir o app, chega depois.",
+    action: { to: "/admin/automacao", label: "Editar mensagens" },
   },
   {
-    platform: "instagram",
-    feasibility: "approval",
-    metrics: "Seguidores, publicações, alcance e foto do perfil.",
-    requirement: "Conta profissional ligada a uma Página do Facebook, app da Meta aprovado e o login de cada conta.",
+    id: "payments",
+    icon: <CreditCard className="size-6 text-amber-300" />,
+    title: "Pagamento (Pix e cartão)",
+    description: "Cobrança automática no checkout do site, com o pedido marcado como pago sozinho.",
+    tone: "soon",
+    status: "Em breve",
+    next: "Depende de escolher um gateway que aceite a venda de contas. Até lá, você confirma o pagamento em Pedidos.",
   },
   {
-    platform: "facebook",
-    feasibility: "approval",
-    metrics: "Curtidas e seguidores da página, alcance e foto.",
-    requirement: "App da Meta aprovado e acesso de administrador à página (OAuth).",
+    id: "ai",
+    icon: <Sparkles className="size-6 text-pink" />,
+    title: "Inteligência artificial",
+    description: "Escrever a descrição das contas, sugerir preço e responder leads.",
+    tone: "soon",
+    status: "Em breve",
+    next: "Os créditos e o consumo aparecem aqui quando o plano de IA for ligado.",
+  },
+  {
+    id: "network-login",
+    icon: <UserRoundCheck className="size-6 text-fog" />,
+    title: "Login das contas nas redes",
+    description: "Métricas privadas (alcance, faturamento do TikTok Shop) de cada conta do estoque.",
+    tone: "soon",
+    status: "Em breve",
+    next: "TikTok e Meta precisam aprovar o app antes. Os números públicos já chegam pelo link, sem isso.",
   },
 ];
 
-const FEASIBILITY_VIEW: Record<Feasibility, { label: string; className: string }> = {
-  simple: { label: "Dá para ligar logo", className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" },
-  approval: { label: "Depende de aprovação", className: "border-pink/30 bg-pink/10 text-pink" },
-};
-
-function StatusChip({ children, className }: { children: ReactNode; className: string }) {
-  return <span className={cn("inline-flex shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold", className)}>{children}</span>;
-}
-
-function SectionTitle({ id, title, description }: { id: string; title: string; description: string }) {
+function IntegrationCard({ integration }: { integration: StaticIntegration }) {
   return (
-    <div>
-      <h2 id={id} className="font-display text-lg font-semibold text-white">
-        {title}
-      </h2>
-      <p className="mt-1 text-sm text-mist">{description}</p>
-    </div>
-  );
-}
-
-function AiCredits() {
-  return (
-    <section aria-labelledby="ia-title" className="space-y-4">
-      <SectionTitle id="ia-title" title="Inteligência artificial" description="Créditos para a IA trabalhar dentro do sistema." />
-      <div className="flex flex-col gap-4 rounded-3xl border border-line bg-surface/60 p-5 sm:flex-row sm:items-center sm:p-6">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet to-pink text-white">
-          <Sparkles aria-hidden className="size-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-white">Créditos de IA</p>
-            <StatusChip className="border-white/15 bg-white/[0.05] text-mist">Em breve</StatusChip>
-          </div>
-          <p className="mt-1 text-sm leading-relaxed text-mist">
-            Para escrever a descrição das contas, sugerir preço e responder leads. Saldo e consumo aparecem aqui quando o
-            plano de IA for ligado.
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function NetworkCard({ network }: { network: NetworkIntegration }) {
-  const view = FEASIBILITY_VIEW[network.feasibility];
-  return (
-    <li className="flex flex-col rounded-3xl border border-line bg-surface/60 p-5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="flex items-center gap-2 font-semibold text-white">
-          <PlatformGlyph platform={network.platform} className="size-4" />
-          {PLATFORM_LABEL[network.platform]}
-        </p>
-        <StatusChip className={view.className}>{view.label}</StatusChip>
-      </div>
-      <dl className="mt-4 space-y-3 text-sm">
-        <div>
-          <dt className="text-xs text-mist">O que dá para puxar</dt>
-          <dd className="mt-0.5 text-fog">{network.metrics}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-mist">O que precisa</dt>
-          <dd className="mt-0.5 text-fog">{network.requirement}</dd>
-        </div>
-      </dl>
-      <button
-        type="button"
-        disabled
-        className="mt-5 h-10 rounded-full border border-line-strong text-sm font-semibold text-mist disabled:cursor-not-allowed"
+    <li>
+      <IntegrationShell
+        icon={integration.icon}
+        title={integration.title}
+        description={integration.description}
+        status={<StatusChip tone={integration.tone}>{integration.status}</StatusChip>}
       >
-        Conectar (em breve)
-      </button>
+        <p className="text-sm leading-relaxed text-fog">{integration.next}</p>
+        {integration.action && (
+          <ButtonLink to={integration.action.to} variant="secondary" className="mt-4">
+            {integration.action.label}
+          </ButtonLink>
+        )}
+      </IntegrationShell>
     </li>
   );
 }
 
-function AccountConnections() {
+function HowItWorks() {
   return (
-    <section aria-labelledby="contas-title" className="space-y-4">
-      <SectionTitle
-        id="contas-title"
-        title="Conectar contas"
-        description="Para conferir as métricas das contas do estoque direto da rede, sem copiar à mão."
-      />
-      <ul className="grid gap-3 md:grid-cols-2">
-        {NETWORKS.map((network) => (
-          <NetworkCard key={network.platform} network={network} />
-        ))}
-      </ul>
-      <p className="flex gap-2 rounded-2xl border border-line bg-white/[0.02] p-4 text-xs leading-relaxed text-mist">
-        <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
-        Conta conectada com login fica ligada ao sistema. Quando ela for vendida, a conexão precisa ser desfeita antes da
-        entrega, para o comprador receber a conta limpa.
-      </p>
-    </section>
+    <aside aria-labelledby="ajuda-title" className="flex gap-3 rounded-3xl border border-line bg-white/[0.02] p-5">
+      <HelpCircle aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
+      <div className="text-sm leading-relaxed text-mist">
+        <h2 id="ajuda-title" className="font-medium text-white">
+          O que é uma conexão?
+        </h2>
+        <p className="mt-1">
+          É dar ao sistema uma chave para usar outra ferramenta por você, como a sua agenda do Google. Quem pede a permissão é a própria
+          ferramenta, numa janela dela: o sistema nunca vê sua senha. E você desliga quando quiser, aqui mesmo.
+        </p>
+      </div>
+    </aside>
   );
 }
 
 export default function ApisPage() {
   return (
-    <div className="space-y-10">
-      <PageHeader title="APIs" description="Integrações do sistema. Nada está ligado ainda: aqui fica o que cada uma precisa." />
-      <AiCredits />
-      <AccountConnections />
+    <div className="space-y-8">
+      <PageHeader
+        title="APIs e conexões"
+        description="Ligue o sistema às ferramentas que você já usa. Cada card mostra a situação e o próximo passo."
+      />
+      <HowItWorks />
+      <section aria-labelledby="conectar-title" className="space-y-4">
+        <h2 id="conectar-title" className="text-[0.7rem] font-semibold tracking-[0.16em] text-mist uppercase">
+          Para conectar
+        </h2>
+        <GoogleCalendarCard />
+      </section>
+      <section aria-labelledby="outras-title" className="space-y-4">
+        <h2 id="outras-title" className="text-[0.7rem] font-semibold tracking-[0.16em] text-mist uppercase">
+          Funcionando e a caminho
+        </h2>
+        <ul className="grid gap-4 md:grid-cols-2">
+          {INTEGRATIONS.map((integration) => (
+            <IntegrationCard key={integration.id} integration={integration} />
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }
