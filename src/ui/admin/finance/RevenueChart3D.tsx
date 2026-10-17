@@ -1,16 +1,25 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { useState } from "react";
-import type { SeriesPoint } from "@/domain/finance";
+import { useMemo, useState } from "react";
+import { MAX_DAILY_BARS, type ChartView } from "@/domain/chart-range";
+import { regroupSeries, type SeriesGrouping, type SeriesPoint } from "@/domain/finance";
 import { formatBRL } from "@/domain/money";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 import { ChartTable, Legend, SERIES_COLOR, compactBRL, niceCeil, useWidth } from "./RevenueChart";
 
-export interface ChartView {
-  id: string;
-  label: string;
-  series: SeriesPoint[];
-}
+type SeriesFilter = "both" | "revenue" | "expenses";
+
+const SERIES_FILTERS: readonly { value: SeriesFilter; label: string }[] = [
+  { value: "both", label: "Tudo" },
+  { value: "revenue", label: "Faturamento" },
+  { value: "expenses", label: "Despesas" },
+];
+
+const GROUPINGS: readonly { value: SeriesGrouping; label: string }[] = [
+  { value: "day", label: "Dia" },
+  { value: "week", label: "Semana" },
+  { value: "month", label: "Mês" },
+];
 
 const HEIGHT = 300;
 const MARGIN = { top: 22, right: 18, bottom: 28, left: 64 };
@@ -87,16 +96,21 @@ function Tooltip({ point, left }: { point: SeriesPoint; left: number }) {
   );
 }
 
-function Plot3D({ series }: { series: SeriesPoint[] }) {
+function Plot3D({ series, show }: { series: SeriesPoint[]; show: SeriesFilter }) {
   const { ref, width } = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
+  const showRevenue = show !== "expenses";
+  const showExpenses = show !== "revenue";
+  const barsPerPoint = showRevenue && showExpenses ? 2 : 1;
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right);
   const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
+  const visibleMax = (point: SeriesPoint) => Math.max(showRevenue ? point.revenue : 0, showExpenses ? point.expenses : 0);
   // Quatro faixas de valor redondo (R$ 1 mil, 2 mil...), em vez de quartos de um teto redondo.
-  const step = niceCeil(Math.max(...series.map((point) => Math.max(point.revenue, point.expenses)), 0) / TICK_STEPS);
+  const step = niceCeil(Math.max(...series.map(visibleMax), 0) / TICK_STEPS);
   const max = step * TICK_STEPS;
   const band = series.length ? innerWidth / series.length : 0;
-  const barWidth = Math.max(2, Math.min(MAX_BAR, (band * 0.62 - PAIR_GAP) / 2));
+  const gaps = PAIR_GAP * (barsPerPoint - 1);
+  const barWidth = Math.max(2, Math.min(MAX_BAR, (band * 0.62 - gaps) / barsPerPoint));
   const depthSize = Math.min(14, Math.max(3, barWidth * 0.55));
   const depth: Depth = { dx: depthSize, dy: -depthSize * 0.75 };
   const scaleY = (value: number) => innerHeight - (value / max) * innerHeight;
@@ -137,20 +151,24 @@ function Plot3D({ series }: { series: SeriesPoint[] }) {
             <line x1={0} y1={innerHeight} x2={innerWidth} y2={innerHeight} stroke="currentColor" className="text-line-strong" />
 
             {series.map((point, index) => {
-              const x = index * band + (band - (barWidth * 2 + PAIR_GAP + depth.dx)) / 2;
+              const x = index * band + (band - (barWidth * barsPerPoint + gaps + depth.dx)) / 2;
               return (
                 <g key={point.key}>
                   {active === index && <rect x={index * band} y={depth.dy} width={band} height={innerHeight - depth.dy} className="fill-white/[0.05]" />}
-                  <Bar3D x={x} y={scaleY(point.revenue)} width={barWidth} base={innerHeight} depth={depth} faces={FACES.revenue} delay={index * stagger} />
-                  <Bar3D
-                    x={x + barWidth + PAIR_GAP}
-                    y={scaleY(point.expenses)}
-                    width={barWidth}
-                    base={innerHeight}
-                    depth={depth}
-                    faces={FACES.expenses}
-                    delay={index * stagger + 0.05}
-                  />
+                  {showRevenue && (
+                    <Bar3D x={x} y={scaleY(point.revenue)} width={barWidth} base={innerHeight} depth={depth} faces={FACES.revenue} delay={index * stagger} />
+                  )}
+                  {showExpenses && (
+                    <Bar3D
+                      x={showRevenue ? x + barWidth + PAIR_GAP : x}
+                      y={scaleY(point.expenses)}
+                      width={barWidth}
+                      base={innerHeight}
+                      depth={depth}
+                      faces={FACES.expenses}
+                      delay={index * stagger + 0.05}
+                    />
+                  )}
                   {index % labelEvery === 0 && (
                     <text x={index * band + band / 2} y={innerHeight + 18} textAnchor="middle" className="fill-mist text-[11px]">
                       {point.label}
@@ -202,23 +220,84 @@ function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () 
   );
 }
 
-/** Faturamento e despesas em barras com profundidade, com troca de período e versão em tabela. */
+interface SegmentOption<T extends string> {
+  value: T;
+  label: string;
+  disabled?: boolean;
+}
+
+/** Grupo de botões colados, um ativo por vez. Rola de lado no celular em vez de quebrar linha. */
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  label: string;
+  options: readonly SegmentOption<T>[];
+  value: T;
+  onChange: (value: T) => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex min-w-0 items-center gap-2", className)}>
+      <span className="shrink-0 text-xs text-mist">{label}</span>
+      <div
+        role="group"
+        aria-label={label}
+        className="flex min-w-0 gap-0.5 overflow-x-auto rounded-full border border-line-strong bg-ink/60 p-0.5 [scrollbar-width:none]"
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={option.value === value}
+            disabled={option.disabled}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-electric disabled:cursor-not-allowed disabled:opacity-35",
+              option.value === value ? "bg-electric/20 text-white" : "text-mist hover:text-white",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const sumOf = (series: readonly SeriesPoint[]) =>
+  series.reduce((sum, point) => ({ revenue: sum.revenue + point.revenue, expenses: sum.expenses + point.expenses }), { revenue: 0, expenses: 0 });
+
+/** Faturamento e despesas em barras com profundidade: período, agrupamento, o que mostrar e versão em tabela. */
 export function RevenueChart3D({ views }: { views: readonly ChartView[] }) {
   const [viewId, setViewId] = useState(views[0]?.id ?? "");
-  const [asTable, setAsTable] = useState(false);
   const view = views.find((item) => item.id === viewId) ?? views[0];
+  const [grouping, setGrouping] = useState<SeriesGrouping>(view?.defaultGrouping ?? "month");
+  const [show, setShow] = useState<SeriesFilter>("both");
+  const [asTable, setAsTable] = useState(false);
+  const series = useMemo(() => (view ? regroupSeries(view.series, view.granularity === "day" ? grouping : "month") : []), [view, grouping]);
   if (!view) return null;
-  const empty = view.series.every((point) => point.revenue === 0 && point.expenses === 0);
-  const totals = view.series.reduce((sum, point) => ({ revenue: sum.revenue + point.revenue, expenses: sum.expenses + point.expenses }), {
-    revenue: 0,
-    expenses: 0,
-  });
+
+  const chooseView = (id: string) => {
+    const next = views.find((item) => item.id === id);
+    setViewId(id);
+    if (next) setGrouping(next.defaultGrouping);
+  };
+  const groupingOptions = GROUPINGS.map((option) => ({
+    ...option,
+    disabled: option.value === "day" && view.series.length > MAX_DAILY_BARS,
+  }));
+  const empty = series.every((point) => point.revenue === 0 && point.expenses === 0);
+  const totals = sumOf(series);
 
   return (
     <section aria-labelledby="chart3d-title" className="relative overflow-hidden rounded-3xl border border-line bg-gradient-to-b from-surface-2 to-surface/60 p-5 sm:p-6">
       <div aria-hidden className="pointer-events-none absolute -top-24 left-1/3 size-64 rounded-full bg-electric/10 blur-3xl" />
       <div className="relative flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <h2 id="chart3d-title" className="font-display text-base font-semibold text-white">
             Faturamento e despesas
           </h2>
@@ -230,26 +309,35 @@ export function RevenueChart3D({ views }: { views: readonly ChartView[] }) {
             <Legend />
           </div>
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Período do gráfico">
-          {views.map((item) => (
-            <Toggle key={item.id} pressed={item.id === view.id} onClick={() => setViewId(item.id)}>
-              {item.label}
-            </Toggle>
-          ))}
-          <Toggle pressed={asTable} onClick={() => setAsTable((value) => !value)}>
-            Ver como tabela
-          </Toggle>
+        <Toggle pressed={asTable} onClick={() => setAsTable((value) => !value)}>
+          Ver como tabela
+        </Toggle>
+      </div>
+
+      <div className="relative mt-5 flex flex-col gap-3 border-t border-line pt-4">
+        <Segmented
+          label="Período"
+          options={views.map((item) => ({ value: item.id, label: item.label }))}
+          value={view.id}
+          onChange={chooseView}
+        />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          {view.granularity === "day" && (
+            <Segmented label="Agrupar por" options={groupingOptions} value={grouping} onChange={setGrouping} />
+          )}
+          <Segmented label="Mostrar" options={SERIES_FILTERS} value={show} onChange={setShow} />
         </div>
       </div>
+
       <div className="relative mt-5">
         {asTable ? (
-          <ChartTable series={view.series} />
+          <ChartTable series={series} />
         ) : empty ? (
           <p className="grid h-[300px] place-items-center rounded-2xl border border-dashed border-line-strong text-sm text-mist">
             Nenhum movimento no período.
           </p>
         ) : (
-          <Plot3D key={view.id} series={view.series} />
+          <Plot3D key={`${view.id}-${grouping}-${show}`} series={series} show={show} />
         )}
       </div>
     </section>
