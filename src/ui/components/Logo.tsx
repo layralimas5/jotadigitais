@@ -1,15 +1,17 @@
 import { cn } from "@/ui/lib/cn";
 import { VerifiedBadge } from "./VerifiedBadge";
 
-type LogoSize = "sm" | "lg";
+type LogoSize = "sm" | "md" | "lg";
 
 const wordSize: Record<LogoSize, string> = {
   sm: "text-[1.2rem] leading-[0.95]",
+  md: "text-[1.75rem] leading-[0.95]",
   lg: "text-[clamp(3rem,9vw,6.5rem)] leading-[0.9]",
 };
 
 const badgeSize: Record<LogoSize, string> = {
   sm: "size-6 ml-0.5 translate-y-1",
+  md: "size-8 ml-1 translate-y-1.5",
   lg: "size-[0.58em] -ml-[0.06em] translate-y-[0.3em]",
 };
 

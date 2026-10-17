@@ -37,6 +37,7 @@ import type {
 import {
   accountDataSchema,
   changePasswordSchema,
+  passwordResetSchema,
   customerRecordSchema,
   expenseDataSchema,
   leadDataSchema,
@@ -276,6 +277,12 @@ export function lookupAccountProfile(deps: AdminDeps, url: string): Promise<Prof
 export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {
   const { password } = parseOrThrow(changePasswordSchema, raw);
   return deps.auth.changePassword(password);
+}
+
+/** O link do e-mail entra logado na "Minha conta", onde a senha nova é definida. */
+export function requestPasswordReset(deps: AdminDeps, raw: unknown, redirectTo: string): Promise<void> {
+  const { email } = parseOrThrow(passwordResetSchema, raw);
+  return deps.auth.requestPasswordReset(email, redirectTo);
 }
 
 export function getStoreSettings(deps: AdminDeps): Promise<StoreSettings> {
