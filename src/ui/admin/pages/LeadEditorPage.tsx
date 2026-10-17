@@ -1,17 +1,18 @@
-import { ArrowLeft, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteLead, findLead, saveLead } from "@/application/admin-use-cases";
 import { fieldErrorsOf, leadDataSchema } from "@/application/schemas";
 import { LEAD_SOURCES, LEAD_SOURCE_LABEL, LEAD_STAGES, LEAD_STAGE_LABEL, type Lead, type LeadSource, type LeadStage } from "@/domain/lead";
 import { PLATFORMS, PLATFORM_LABEL, type Platform } from "@/domain/platform";
-import { Button, buttonClasses } from "@/ui/components/Button";
+import { buttonClasses } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FollowUpBadge } from "../components/FollowUpBadge";
 import { SelectField, TextAreaField } from "../components/FormControls";
+import { FormFooter } from "../components/FormFooter";
 import { emptyLeadForm, fromLead, toRawLead, type LeadFormValues } from "../forms/lead-form";
 import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
@@ -246,27 +247,18 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
               </a>
             )}
           </div>
-          {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-          {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
-            {save.pending ? "Salvando…" : lead ? "Salvar alterações" : "Cadastrar lead"}
-          </Button>
-          {lead && (
-            <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
-              <Trash2 aria-hidden className="size-4" /> Apagar lead
-            </Button>
-          )}
-          {remove.error && <InlineError message={remove.error.message} />}
         </aside>
 
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/crm")}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
-            {save.pending ? "Salvando…" : lead ? "Salvar" : "Cadastrar lead"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          className="lg:col-span-2"
+          submitLabel={lead ? "Salvar alterações" : "Cadastrar lead"}
+          mobileSubmitLabel={lead ? "Salvar" : "Cadastrar lead"}
+          pending={save.pending}
+          onCancel={() => navigate("/admin/crm")}
+          onDelete={lead ? () => setConfirmOpen(true) : undefined}
+          deleteLabel="Apagar lead"
+          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+        />
       </form>
 
       {lead && (

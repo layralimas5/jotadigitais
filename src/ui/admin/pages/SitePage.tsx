@@ -4,10 +4,10 @@ import { Link } from "react-router-dom";
 import { getStoreSettings, saveStoreSettings } from "@/application/admin-use-cases";
 import { fieldErrorsOf, storeSettingsSchema } from "@/application/schemas";
 import { instagramUrlOf, whatsappUrlOf, type StoreSettings } from "@/domain/store-settings";
-import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
 
@@ -194,12 +194,14 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
             <p className="mt-3 text-sm text-mist">Corrija os campos para ver a prévia.</p>
           )}
         </div>
-        {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-        {save.error && <InlineError message={save.error.message} />}
-        <Button type="submit" size="lg" className="w-full" disabled={save.pending}>
-          {save.pending ? "Salvando…" : "Salvar"}
-        </Button>
       </aside>
+
+      <FormFooter
+        className="lg:col-span-2"
+        submitLabel="Salvar"
+        pending={save.pending}
+        errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message]}
+      />
     </form>
   );
 }

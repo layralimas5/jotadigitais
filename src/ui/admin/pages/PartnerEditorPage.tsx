@@ -1,17 +1,18 @@
-import { ArrowLeft, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deletePartner, findPartnerSummary, savePartner } from "@/application/admin-use-cases";
 import { fieldErrorsOf, partnerDataSchema } from "@/application/schemas";
 import { formatBRL } from "@/domain/money";
 import type { Partner, PartnerSummary } from "@/domain/partner";
-import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { cn } from "@/ui/lib/cn";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { TextAreaField, ToggleField } from "../components/FormControls";
+import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
 import { formatPercent, parsePercent } from "../lib/percent";
 import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
@@ -179,7 +180,7 @@ function PartnerEditor({ summary }: { summary: PartnerSummary | null }) {
         />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className={cn("mt-6 grid gap-6", summary ? "lg:grid-cols-[1fr_18rem] lg:items-start" : "max-w-3xl")}>
         <div className="space-y-5">
           <FormSection title="Dados">
             <TextField
@@ -261,29 +262,22 @@ function PartnerEditor({ summary }: { summary: PartnerSummary | null }) {
           {summary && <PartnerAccounts summary={summary} />}
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24">
-          {summary && <SummaryCard summary={summary} />}
-          {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-          {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
-            {save.pending ? "Salvando…" : partner ? "Salvar alterações" : "Cadastrar parceiro"}
-          </Button>
-          {partner && (
-            <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
-              <Trash2 aria-hidden className="size-4" /> Apagar parceiro
-            </Button>
-          )}
-          {remove.error && <InlineError message={remove.error.message} />}
-        </aside>
+        {summary && (
+          <aside className="space-y-4 lg:sticky lg:top-24">
+            <SummaryCard summary={summary} />
+          </aside>
+        )}
 
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/parceiros")}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
-            {save.pending ? "Salvando…" : partner ? "Salvar" : "Cadastrar parceiro"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          className={summary ? "lg:col-span-2" : undefined}
+          submitLabel={partner ? "Salvar alterações" : "Cadastrar parceiro"}
+          mobileSubmitLabel={partner ? "Salvar" : "Cadastrar parceiro"}
+          pending={save.pending}
+          onCancel={() => navigate("/admin/parceiros")}
+          onDelete={partner ? () => setConfirmOpen(true) : undefined}
+          deleteLabel="Apagar parceiro"
+          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+        />
       </form>
 
       {partner && (

@@ -1,4 +1,4 @@
-import { ArrowLeft, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAccount, findAccount, listPartners, saveAccount } from "@/application/admin-use-cases";
@@ -10,11 +10,12 @@ import { AccountCard } from "@/ui/components/account/AccountCard";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ProfileImport } from "../accounts/ProfileImport";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, SelectField, TextAreaField, ToggleField } from "../components/FormControls";
+import { FormFooter } from "../components/FormFooter";
 import { AvatarField, GalleryField } from "../components/ImageUpload";
 import {
   ACCOUNT_FIELD_ORDER,
@@ -379,32 +380,25 @@ function AccountEditor({ account }: { account: Account | null }) {
         <aside className="space-y-4 lg:sticky lg:top-24">
           <p className="text-sm font-medium text-fog">Prévia na vitrine</p>
           <LivePreview values={values} accountId={account?.id ?? "preview"} />
-          {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-          {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
-            {save.pending ? "Salvando…" : account ? "Salvar alterações" : "Cadastrar conta"}
-          </Button>
-          {account && (
-            <Button variant="secondary" size="lg" className="w-full" onClick={() => setSharing(true)}>
-              <MessageCircle aria-hidden className="size-4 text-[#25d366]" /> Enviar pelo WhatsApp
-            </Button>
-          )}
-          {account && (
-            <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
-              <Trash2 aria-hidden className="size-4" /> Apagar conta
-            </Button>
-          )}
-          {remove.error && <InlineError message={remove.error.message} />}
         </aside>
 
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/contas")}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
-            {save.pending ? "Salvando…" : account ? "Salvar" : "Cadastrar conta"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          className="lg:col-span-2"
+          submitLabel={account ? "Salvar alterações" : "Cadastrar conta"}
+          mobileSubmitLabel={account ? "Salvar" : "Cadastrar conta"}
+          pending={save.pending}
+          onCancel={() => navigate("/admin/contas")}
+          onDelete={account ? () => setConfirmOpen(true) : undefined}
+          deleteLabel="Apagar conta"
+          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+          extraActions={
+            account && (
+              <Button variant="secondary" onClick={() => setSharing(true)}>
+                <MessageCircle aria-hidden className="size-4 text-[#25d366]" /> Enviar pelo WhatsApp
+              </Button>
+            )
+          }
+        />
       </form>
 
       <ShareAccountDialog account={sharing ? account : null} onClose={() => setSharing(false)} />
