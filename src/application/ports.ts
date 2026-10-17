@@ -77,6 +77,7 @@ export interface AuthService {
   signIn(email: string, password: string): Promise<AdminSession>;
   signOut(): Promise<void>;
   changePassword(newPassword: string): Promise<void>;
+  requestPasswordReset(email: string, redirectTo: string): Promise<void>;
   onChange(listener: (session: AdminSession | null) => void): () => void;
 }
 

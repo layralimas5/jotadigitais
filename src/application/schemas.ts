@@ -283,6 +283,10 @@ export const signInSchema = z.object({
   password: z.string().min(6, "A senha tem pelo menos 6 caracteres."),
 });
 
+export const passwordResetSchema = signInSchema.pick({ email: true });
+
+export type PasswordResetInput = z.input<typeof passwordResetSchema>;
+
 export const changePasswordSchema = z
   .object({
     password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),

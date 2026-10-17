@@ -30,6 +30,9 @@ export class DemoAuthService implements AuthService {
   /** Não há senha guardada no modo local: a troca só vale com o Supabase. */
   async changePassword(): Promise<void> {}
 
+  /** Sem Supabase não há e-mail para enviar: o login local já aceita qualquer acesso. */
+  async requestPasswordReset(): Promise<void> {}
+
   onChange(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

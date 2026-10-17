@@ -54,6 +54,14 @@ export class SupabaseAuthService implements AuthService {
     throw new Error("Não foi possível trocar a senha agora. Tente de novo em instantes.");
   }
 
+  async requestPasswordReset(email: string, redirectTo: string): Promise<void> {
+    const { error } = await this.client.auth.resetPasswordForEmail(email, { redirectTo });
+    if (!error) return;
+    console.error(error);
+    if (error.status === 429) throw new Error("Muitas tentativas seguidas. Espere alguns minutos e tente de novo.");
+    throw new Error("Não foi possível enviar o link agora. Tente de novo em instantes.");
+  }
+
   onChange(listener: (session: AdminSession | null) => void): () => void {
     const { data } = this.client.auth.onAuthStateChange((_event, session) => {
       // O callback do Supabase não pode aguardar outras chamadas do client: a checagem de admin vai para a próxima volta.
