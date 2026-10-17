@@ -38,8 +38,8 @@ import {
   TooManyOpenOrdersError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
-import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
-import { EXPENSE_CATEGORIES, type Expense, type ExpenseData } from "@/domain/finance";
+import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData } from "@/domain/customer";
+import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, type Expense, type ExpenseData } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES, type Lead, type LeadData, type LeadStage } from "@/domain/lead";
 import {
   DEFAULT_MESSAGE_TEMPLATES,
@@ -415,14 +415,19 @@ export class SupabaseLeadRepository implements AdminLeadRepository {
   }
 }
 
-const CUSTOMER_COLUMNS = "id, name, email, whatsapp, instagram, notes, created_at";
+const CUSTOMER_COLUMNS = "id, name, document, email, whatsapp, instagram, city, state, source, interest, notes, created_at";
 
 const customerRowSchema = z.object({
   id: z.string(),
   name: z.string(),
+  document: z.string().nullable(),
   email: z.string().nullable(),
   whatsapp: z.string().nullable(),
   instagram: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.enum(BRAZIL_STATES).nullable(),
+  source: z.enum(LEAD_SOURCES).nullable(),
+  interest: z.enum(PLATFORMS).nullable(),
   notes: z.string().nullable(),
   created_at: z.string(),
 });
@@ -432,9 +437,14 @@ function toCustomerRecord(raw: unknown): CustomerRecord {
   return {
     id: row.id,
     name: row.name,
+    document: row.document,
     email: row.email,
     whatsapp: row.whatsapp,
     instagram: row.instagram,
+    city: row.city,
+    state: row.state,
+    source: row.source,
+    interest: row.interest,
     notes: row.notes,
     createdAt: row.created_at,
   };
@@ -519,7 +529,7 @@ export class SupabasePreferenceRepository implements AdminPreferenceRepository {
   }
 }
 
-const EXPENSE_COLUMNS = "id, description, category, amount_cents, spent_on, created_at";
+const EXPENSE_COLUMNS = "id, description, category, amount_cents, spent_on, supplier, payment_method, account_id, notes, created_at";
 
 const expenseRowSchema = z.object({
   id: z.string(),
@@ -527,6 +537,10 @@ const expenseRowSchema = z.object({
   category: z.enum(EXPENSE_CATEGORIES),
   amount_cents: z.number(),
   spent_on: z.string(),
+  supplier: z.string().nullable(),
+  payment_method: z.enum(EXPENSE_PAYMENT_METHODS).nullable(),
+  account_id: z.string().nullable(),
+  notes: z.string().nullable(),
   created_at: z.string(),
 });
 
@@ -538,6 +552,10 @@ function toExpense(raw: unknown): Expense {
     category: row.category,
     amount: row.amount_cents,
     date: row.spent_on,
+    supplier: row.supplier,
+    paymentMethod: row.payment_method,
+    accountId: row.account_id,
+    notes: row.notes,
     createdAt: row.created_at,
   };
 }
@@ -547,6 +565,10 @@ const toExpenseRow = (data: ExpenseData) => ({
   category: data.category,
   amount_cents: data.amount,
   spent_on: data.date,
+  supplier: data.supplier,
+  payment_method: data.paymentMethod,
+  account_id: data.accountId,
+  notes: data.notes,
 });
 
 export class SupabaseExpenseRepository implements AdminExpenseRepository {

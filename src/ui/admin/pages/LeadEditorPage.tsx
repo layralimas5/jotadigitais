@@ -10,7 +10,6 @@ import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { FollowUpBadge } from "../components/FollowUpBadge";
 import { SelectField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { emptyLeadForm, fromLead, toRawLead, type LeadFormValues } from "../forms/lead-form";
@@ -66,7 +65,6 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
     await deleteLead(deps, id);
     return true;
   });
-  const today = localIsoDate();
   const templates = useMessageTemplates();
 
   const update = (patch: Partial<LeadFormValues>) => {
@@ -113,7 +111,7 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
         <PageHeader title={lead ? lead.name : "Novo lead"} description="Quem chamou interessado em comprar uma conta." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
         <div className="space-y-5">
           <FormSection title="Contato">
             <TextField
@@ -232,31 +230,26 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
           </FormSection>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24">
-          <div className="space-y-3 rounded-3xl border border-line bg-surface/60 p-5 text-sm">
-            <p className="font-medium text-fog">{LEAD_STAGE_LABEL[values.stage]}</p>
-            <FollowUpBadge lead={{ stage: values.stage, nextFollowUp: values.nextFollowUp || null }} today={today} />
-            {whatsappDigits.length >= 10 && (
-              <a
-                href={whatsappChatUrl(whatsappDigits, personMessage(templates, "crm_follow_up", values.name))}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonClasses({ variant: "secondary", className: "w-full" })}
-              >
-                <MessageCircle aria-hidden className="size-4 text-emerald-300" /> Chamar no WhatsApp
-              </a>
-            )}
-          </div>
-        </aside>
 
         <FormFooter
-          className="lg:col-span-2"
           submitLabel={lead ? "Salvar alterações" : "Cadastrar lead"}
           mobileSubmitLabel={lead ? "Salvar" : "Cadastrar lead"}
           pending={save.pending}
           onCancel={() => navigate("/admin/crm")}
           onDelete={lead ? () => setConfirmOpen(true) : undefined}
           deleteLabel="Apagar lead"
+          extraActions={
+            whatsappDigits.length >= 10 && (
+              <a
+                href={whatsappChatUrl(whatsappDigits, personMessage(templates, "crm_follow_up", values.name))}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonClasses({ variant: "secondary" })}
+              >
+                <MessageCircle aria-hidden className="size-4 text-emerald-300" /> Chamar no WhatsApp
+              </a>
+            )
+          }
           errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
         />
       </form>

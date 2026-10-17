@@ -1,14 +1,37 @@
+import type { LeadSource } from "./lead";
 import type { Cents } from "./money";
 import type { Order } from "./order";
+import type { Platform } from "./platform";
+
+export const BRAZIL_STATES = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+] as const;
+export type BrazilState = (typeof BRAZIL_STATES)[number];
 
 /** Cliente cadastrado à mão pelo Jota (comprou por fora do site, veio do CRM, etc.). */
 export interface CustomerRecordData {
   name: string;
+  /** CPF (11 dígitos) ou CNPJ (14), só números. */
+  document: string | null;
   email: string | null;
   /** Só dígitos, com DDD (o DDI 55 é opcional). */
   whatsapp: string | null;
   instagram: string | null;
+  city: string | null;
+  state: BrazilState | null;
+  /** Por onde o cliente chegou até a loja. */
+  source: LeadSource | null;
+  /** Rede em que ele tem interesse em comprar conta. */
+  interest: Platform | null;
   notes: string | null;
+}
+
+/** "12345678909" vira "123.456.789-09"; CNPJ vira "12.345.678/0001-90". */
+export function formatDocument(digits: string): string {
+  if (digits.length === 11) return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (digits.length === 14) return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return digits;
 }
 
 export interface CustomerRecord extends CustomerRecordData {

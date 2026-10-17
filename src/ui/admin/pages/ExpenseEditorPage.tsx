@@ -1,14 +1,22 @@
 import { ArrowLeft } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteExpense, findExpense, saveExpense } from "@/application/admin-use-cases";
+import { deleteExpense, findExpense, listAllAccounts, saveExpense } from "@/application/admin-use-cases";
 import { expenseDataSchema, fieldErrorsOf } from "@/application/schemas";
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL, type Expense, type ExpenseCategory } from "@/domain/finance";
+import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_CATEGORY_LABEL,
+  EXPENSE_PAYMENT_METHODS,
+  EXPENSE_PAYMENT_METHOD_LABEL,
+  type Expense,
+  type ExpenseCategory,
+} from "@/domain/finance";
+import { PLATFORM_LABEL } from "@/domain/platform";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { SegmentedField } from "../components/FormControls";
+import { SegmentedField, SelectField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { formatCentsInput, parseMoneyToCents } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
@@ -20,19 +28,75 @@ interface ExpenseFormValues {
   category: ExpenseCategory;
   amount: string;
   date: string;
+  supplier: string;
+  paymentMethod: string;
+  accountId: string;
+  notes: string;
 }
 
-const FIELD_ORDER = ["description", "amount", "date"] as const;
+const FIELD_ORDER = ["description", "amount", "date", "supplier", "notes"] as const;
 const CATEGORY_OPTIONS = EXPENSE_CATEGORIES.map((category) => ({ value: category, label: EXPENSE_CATEGORY_LABEL[category] }));
+const PAYMENT_OPTIONS = [
+  { value: "", label: "Não informado" },
+  ...EXPENSE_PAYMENT_METHODS.map((method) => ({ value: method, label: EXPENSE_PAYMENT_METHOD_LABEL[method] })),
+];
 
-const emptyForm = (): ExpenseFormValues => ({ description: "", category: "account_purchase", amount: "", date: localIsoDate() });
+const emptyForm = (): ExpenseFormValues => ({
+  description: "",
+  category: "account_purchase",
+  amount: "",
+  date: localIsoDate(),
+  supplier: "",
+  paymentMethod: "",
+  accountId: "",
+  notes: "",
+});
 
+// Despesas antigas (antes de fornecedor, pagamento e conta ligada) chegam sem esses campos.
 const fromExpense = (expense: Expense): ExpenseFormValues => ({
   description: expense.description,
   category: expense.category,
   amount: formatCentsInput(expense.amount),
   date: expense.date,
+  supplier: expense.supplier ?? "",
+  paymentMethod: expense.paymentMethod ?? "",
+  accountId: expense.accountId ?? "",
+  notes: expense.notes ?? "",
 });
+
+const NO_ACCOUNT_OPTION = { value: "", label: "Nenhuma conta" };
+
+/** Liga a despesa a uma conta do estoque. Na compra de conta, é o que mostra quanto ela custou. */
+function AccountSelect({ value, onChange, highlight }: { value: string; onChange: (accountId: string) => void; highlight: boolean }) {
+  const accounts = useAdminQuery(listAllAccounts, "expense-accounts");
+  const hint = highlight ? "Escolha a conta que foi comprada." : "Opcional. Use quando o gasto for de uma conta específica.";
+  if (accounts.status !== "success") {
+    return (
+      <SelectField
+        label="Conta relacionada"
+        name="accountId"
+        disabled
+        value=""
+        options={[{ value: "", label: accounts.status === "error" ? "Não foi possível carregar" : "Carregando…" }]}
+        hint={accounts.status === "error" ? accounts.error.message : hint}
+      />
+    );
+  }
+  const options = [
+    NO_ACCOUNT_OPTION,
+    ...accounts.data.map((account) => ({ value: account.id, label: `${account.handle} · ${PLATFORM_LABEL[account.platform]}` })),
+  ];
+  return (
+    <SelectField
+      label="Conta relacionada"
+      name="accountId"
+      hint={hint}
+      options={options}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  );
+}
 
 const toRaw = (values: ExpenseFormValues) => ({ ...values, amount: parseMoneyToCents(values.amount) });
 
@@ -141,6 +205,46 @@ function ExpenseEditor({ expense }: { expense: Expense | null }) {
               error={errors.date}
             />
           </div>
+        </FormSection>
+
+        <FormSection title="Pagamento">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              label="Forma de pagamento"
+              name="paymentMethod"
+              options={PAYMENT_OPTIONS}
+              value={values.paymentMethod}
+              onChange={(event) => update({ paymentMethod: event.target.value })}
+              error={errors.paymentMethod}
+            />
+            <TextField
+              label="Pago a (opcional)"
+              name="supplier"
+              autoComplete="off"
+              maxLength={80}
+              placeholder="Ex.: vendedor, Meta Ads, Canva"
+              value={values.supplier}
+              onChange={(event) => update({ supplier: event.target.value })}
+              error={errors.supplier}
+            />
+          </div>
+        </FormSection>
+
+        <FormSection title="Detalhes">
+          <AccountSelect
+            value={values.accountId}
+            highlight={values.category === "account_purchase"}
+            onChange={(accountId) => update({ accountId })}
+          />
+          <TextAreaField
+            label="Observações (opcional)"
+            name="notes"
+            maxLength={1000}
+            placeholder="Número do pedido, combinado com o vendedor, parcelas…"
+            value={values.notes}
+            onChange={(event) => update({ notes: event.target.value })}
+            error={errors.notes}
+          />
         </FormSection>
 
         <FormFooter

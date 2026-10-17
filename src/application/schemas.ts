@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ACCOUNT_STATUSES } from "@/domain/account";
-import { EXPENSE_CATEGORIES } from "@/domain/finance";
+import { BRAZIL_STATES } from "@/domain/customer";
+import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { PLATFORMS } from "@/domain/platform";
@@ -182,12 +183,33 @@ const optionalEmail = z
   .refine((value) => value === "" || z.email().safeParse(value).success, { message: "Informe um e-mail válido." })
   .transform((value) => value || null);
 
+/** Campo de escolha opcional: "" (nada selecionado) vira nulo. */
+const optionalChoice = <const T extends readonly [string, ...string[]]>(values: T) =>
+  z
+    .union([z.enum(values), z.literal(""), z.null()])
+    .transform((value): T[number] | null => (value ? value : null));
+
+/** CPF com 11 dígitos ou CNPJ com 14; pontuação é ignorada. */
+const optionalDocument = z
+  .string()
+  .nullable()
+  .transform((value) => onlyDigits(value ?? ""))
+  .refine((digits) => digits === "" || digits.length === 11 || digits.length === 14, {
+    message: "Informe um CPF (11 números) ou CNPJ (14 números).",
+  })
+  .transform((digits) => digits || null);
+
 export const customerRecordSchema = z
   .object({
     name: personName,
+    document: optionalDocument,
     email: optionalEmail,
     whatsapp: optionalWhatsapp,
     instagram: optionalInstagram,
+    city: optionalText(60),
+    state: optionalChoice(BRAZIL_STATES),
+    source: optionalChoice(LEAD_SOURCES),
+    interest: optionalChoice(PLATFORMS),
     notes: optionalText(2000),
   })
   .refine((data) => data.email || data.whatsapp || data.instagram, {
@@ -272,6 +294,13 @@ export const expenseDataSchema = z.object({
     .min(1, "O valor precisa ser maior que zero.")
     .max(100_000_000, "Valor alto demais."),
   date: z.iso.date("Data inválida."),
+  supplier: optionalText(80),
+  paymentMethod: optionalChoice(EXPENSE_PAYMENT_METHODS),
+  accountId: z
+    .string()
+    .nullable()
+    .transform((value) => value || null),
+  notes: optionalText(1000),
 });
 
 // ---------------------------------------------------------------------------
