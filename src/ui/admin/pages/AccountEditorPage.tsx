@@ -22,8 +22,8 @@ import {
   applyProfileLookup,
   emptyAccountForm,
   fromAccount,
+  previewAccountOf,
   useAccountForm,
-  validateAccountForm,
   type AccountFormErrors,
   type AccountFormValues,
 } from "../forms/account-form";
@@ -172,18 +172,20 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
 }
 
 function LivePreview({ values, accountId }: { values: AccountFormValues; accountId: string }) {
-  const result = validateAccountForm(values);
-  if (!result.data) {
+  const preview = previewAccountOf(values, accountId);
+  if (!preview) {
     return (
       <p className="rounded-3xl border border-dashed border-line-strong p-6 text-center text-sm text-mist">
-        Preencha os campos obrigatórios para ver como a conta aparece na vitrine.
+        Preencha os campos para ver como a conta aparece na vitrine.
       </p>
     );
   }
-  const preview: Account = { ...result.data, id: accountId, reservedUntil: null };
   return (
-    <div className="pointer-events-none" aria-label="Prévia do card na vitrine">
-      <AccountCard account={preview} />
+    <div>
+      <div className="pointer-events-none" aria-label="Prévia do card na vitrine">
+        <AccountCard account={preview} />
+      </div>
+      <p className="mt-2 text-xs text-mist">Atualiza enquanto você preenche. Campos vazios aparecem com um exemplo.</p>
     </div>
   );
 }

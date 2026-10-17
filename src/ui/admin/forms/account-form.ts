@@ -233,6 +233,50 @@ export function validateAccountForm(
     : { data: null, errors: groupImageErrors(fieldErrorsOf(result.error)) };
 }
 
+/** O que entra no lugar de cada campo ainda vazio ou inválido, só para desenhar a prévia. */
+const PREVIEW_FALLBACK: Record<string, Partial<AccountFormValues>> = {
+  displayName: { displayName: "Nome do perfil" },
+  handle: { handle: "@suaconta" },
+  slug: { slug: "previa" },
+  niche: { niche: "" },
+  followers: { followers: "0" },
+  price: { price: "1" },
+  description: { description: "" },
+  avatarUrl: { avatarUrl: "" },
+  images: { images: [] },
+  listedAt: { listedAt: today() },
+  profileUrl: { profileUrl: "" },
+  "stats.likes": { likes: "0" },
+  "stats.following": { following: "0" },
+  "stats.posts": { posts: "0" },
+  "stats.views": { views: "0" },
+  "stats.videos": { videos: "0" },
+  "stats.watchHours": { watchHours: "0" },
+};
+
+const MAX_PREVIEW_PASSES = 3;
+
+/**
+ * Conta de mentira para a prévia da vitrine: usa o que já foi digitado e completa o resto com exemplos,
+ * para o card aparecer desde o primeiro campo. Nulo só se algum campo não tiver substituto.
+ */
+export function previewAccountOf(values: AccountFormValues, id: string): Account | null {
+  let draft = values;
+  for (let pass = 0; pass < MAX_PREVIEW_PASSES; pass += 1) {
+    const result = validateAccountForm(draft);
+    if (result.data) {
+      const price = parseMoneyToCents(values.price);
+      return { ...result.data, id, reservedUntil: null, price: Number.isNaN(price) ? 0 : price };
+    }
+    for (const key of Object.keys(result.errors)) {
+      const fallback = PREVIEW_FALLBACK[key.startsWith("images.") ? "images" : key];
+      if (!fallback) return null;
+      draft = { ...draft, ...fallback };
+    }
+  }
+  return null;
+}
+
 /** Ordem dos campos na tela, para levar o foco ao primeiro erro. */
 export const ACCOUNT_FIELD_ORDER = [
   "profileUrl",

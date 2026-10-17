@@ -3,12 +3,14 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { deleteCustomerRecord, findCustomerRecord, saveCustomerRecord } from "@/application/admin-use-cases";
 import { customerRecordSchema, fieldErrorsOf } from "@/application/schemas";
-import { recordKeyOf, type CustomerRecord } from "@/domain/customer";
+import { BRAZIL_STATES, recordKeyOf, type CustomerRecord } from "@/domain/customer";
+import { LEAD_SOURCES, LEAD_SOURCE_LABEL } from "@/domain/lead";
+import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { TextAreaField } from "../components/FormControls";
+import { SelectField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
 import { firstNameOf } from "../lib/whatsapp";
@@ -16,19 +18,47 @@ import { useToast } from "../toast";
 
 interface CustomerFormValues {
   name: string;
+  document: string;
   email: string;
   whatsapp: string;
   instagram: string;
+  city: string;
+  state: string;
+  source: string;
+  interest: string;
   notes: string;
 }
 
-const FIELD_ORDER = ["name", "email", "whatsapp", "instagram", "notes"] as const;
+const FIELD_ORDER = ["name", "document", "email", "whatsapp", "instagram", "city", "notes"] as const;
 
+const STATE_OPTIONS = [{ value: "", label: "UF" }, ...BRAZIL_STATES.map((state) => ({ value: state, label: state }))];
+const SOURCE_OPTIONS = [{ value: "", label: "Não informado" }, ...LEAD_SOURCES.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] }))];
+const INTEREST_OPTIONS = [{ value: "", label: "Ainda não definiu" }, ...PLATFORMS.map((platform) => ({ value: platform, label: PLATFORM_LABEL[platform] }))];
+
+const emptyForm = (): CustomerFormValues => ({
+  name: "",
+  document: "",
+  email: "",
+  whatsapp: "",
+  instagram: "",
+  city: "",
+  state: "",
+  source: "",
+  interest: "",
+  notes: "",
+});
+
+// Cadastros antigos (antes dos campos de documento, cidade e origem) chegam sem eles.
 const fromRecord = (record: CustomerRecord): CustomerFormValues => ({
   name: record.name,
+  document: record.document ?? "",
   email: record.email ?? "",
   whatsapp: record.whatsapp ?? "",
   instagram: record.instagram ?? "",
+  city: record.city ?? "",
+  state: record.state ?? "",
+  source: record.source ?? "",
+  interest: record.interest ?? "",
   notes: record.notes ?? "",
 });
 
@@ -102,16 +132,32 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
 
       <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
         <div className="space-y-5">
-          <FormSection title="Dados" description="Informe pelo menos um contato.">
-            <TextField
-              label="Nome"
-              name="name"
-              autoComplete="off"
-              maxLength={80}
-              value={values.name}
-              onChange={(event) => update({ name: event.target.value })}
-              error={errors.name}
-            />
+          <FormSection title="Identificação">
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+              <TextField
+                label="Nome"
+                name="name"
+                autoComplete="off"
+                maxLength={80}
+                value={values.name}
+                onChange={(event) => update({ name: event.target.value })}
+                error={errors.name}
+              />
+              <TextField
+                label="CPF ou CNPJ (opcional)"
+                name="document"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="000.000.000-00"
+                maxLength={18}
+                value={values.document}
+                onChange={(event) => update({ document: event.target.value })}
+                error={errors.document}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="Contato" description="Informe pelo menos um: e-mail, WhatsApp ou Instagram.">
             <TextField
               label="E-mail"
               name="email"
@@ -146,6 +192,51 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
                 value={values.instagram}
                 onChange={(event) => update({ instagram: event.target.value })}
                 error={errors.instagram}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="Localização">
+            <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-4">
+              <TextField
+                label="Cidade"
+                name="city"
+                autoComplete="off"
+                maxLength={60}
+                placeholder="Ex.: Natal"
+                value={values.city}
+                onChange={(event) => update({ city: event.target.value })}
+                error={errors.city}
+              />
+              <SelectField
+                label="Estado"
+                name="state"
+                options={STATE_OPTIONS}
+                value={values.state}
+                onChange={(event) => update({ state: event.target.value })}
+                error={errors.state}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection title="Relacionamento" description="Ajuda a entender de onde vêm e o que procuram seus clientes.">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="Como chegou"
+                name="source"
+                options={SOURCE_OPTIONS}
+                value={values.source}
+                onChange={(event) => update({ source: event.target.value })}
+                error={errors.source}
+              />
+              <SelectField
+                label="Interesse"
+                name="interest"
+                hint="Rede em que procura conta."
+                options={INTEREST_OPTIONS}
+                value={values.interest}
+                onChange={(event) => update({ interest: event.target.value })}
+                error={errors.interest}
               />
             </div>
             <TextAreaField
@@ -191,11 +282,10 @@ export default function CustomerEditorPage() {
   const [params] = useSearchParams();
   const record = useAdminQuery((deps) => (id ? findCustomerRecord(deps, id) : Promise.resolve(null)), id ?? "new");
   const prefill: CustomerFormValues = {
+    ...emptyForm(),
     name: params.get("nome") ?? "",
     email: params.get("email") ?? "",
     whatsapp: params.get("whatsapp") ?? "",
-    instagram: "",
-    notes: "",
   };
 
   if (record.status === "loading") return <LoadingBlock />;

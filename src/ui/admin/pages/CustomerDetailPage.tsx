@@ -1,7 +1,8 @@
-import { ArrowLeft, AtSign, Mail, MessageCircle, Pencil, UserPlus } from "lucide-react";
+import { ArrowLeft, AtSign, Compass, IdCard, Mail, MapPin, MessageCircle, Pencil, Target, UserPlus, type LucideIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { listCustomers } from "@/application/admin-use-cases";
-import type { CustomerSummary } from "@/domain/customer";
+import { formatDocument, type CustomerSummary } from "@/domain/customer";
+import { LEAD_SOURCE_LABEL } from "@/domain/lead";
 import { formatBRL } from "@/domain/money";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ButtonLink, buttonClasses } from "@/ui/components/Button";
@@ -65,7 +66,28 @@ function ContactActions({ customer }: { customer: CustomerSummary }) {
   );
 }
 
+interface ProfileDetail {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}
+
+/** Dados extras do cadastro manual. Cadastros antigos podem não ter esses campos. */
+function recordDetailsOf(customer: CustomerSummary): ProfileDetail[] {
+  const record = customer.record;
+  if (!record) return [];
+  const location = [record.city, record.state].filter(Boolean).join(" / ");
+  const details: (ProfileDetail | null)[] = [
+    record.document ? { icon: IdCard, label: "Documento", value: formatDocument(record.document) } : null,
+    location ? { icon: MapPin, label: "Localização", value: location } : null,
+    record.source ? { icon: Compass, label: "Chegou por", value: LEAD_SOURCE_LABEL[record.source] } : null,
+    record.interest ? { icon: Target, label: "Interesse", value: PLATFORM_LABEL[record.interest] } : null,
+  ];
+  return details.filter((detail): detail is ProfileDetail => detail !== null);
+}
+
 function CustomerProfile({ customer }: { customer: CustomerSummary }) {
+  const details = recordDetailsOf(customer);
   return (
     <>
       <BackLink />
@@ -84,7 +106,7 @@ function CustomerProfile({ customer }: { customer: CustomerSummary }) {
         <Stat label="Último pedido" value={customer.lastOrderAt ? formatDate(customer.lastOrderAt) : "Nenhum"} />
       </dl>
 
-      {(customer.email || customer.instagram || customer.notes) && (
+      {(customer.email || customer.instagram || customer.notes || details.length > 0) && (
         <section aria-label="Cadastro" className="mt-6 rounded-3xl border border-line bg-surface/60 p-5 text-sm">
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-fog">
             {customer.email && (
@@ -98,6 +120,19 @@ function CustomerProfile({ customer }: { customer: CustomerSummary }) {
               </li>
             )}
           </ul>
+          {details.length > 0 && (
+            <dl className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-2 lg:grid-cols-4">
+              {details.map((detail) => (
+                <div key={detail.label} className="flex items-start gap-2">
+                  <detail.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-mist" />
+                  <div>
+                    <dt className="text-xs text-mist">{detail.label}</dt>
+                    <dd className="text-fog">{detail.value}</dd>
+                  </div>
+                </div>
+              ))}
+            </dl>
+          )}
           {customer.notes && <p className="mt-3 border-t border-line pt-3 whitespace-pre-line text-mist">{customer.notes}</p>}
         </section>
       )}

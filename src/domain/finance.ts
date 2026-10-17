@@ -12,6 +12,17 @@ export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   other: "Outros",
 };
 
+export const EXPENSE_PAYMENT_METHODS = ["pix", "card", "cash", "transfer", "boleto"] as const;
+export type ExpensePaymentMethod = (typeof EXPENSE_PAYMENT_METHODS)[number];
+
+export const EXPENSE_PAYMENT_METHOD_LABEL: Record<ExpensePaymentMethod, string> = {
+  pix: "Pix",
+  card: "Cartão",
+  cash: "Dinheiro",
+  transfer: "Transferência",
+  boleto: "Boleto",
+};
+
 /** Saída de dinheiro lançada pelo Jota. A entrada vem sozinha dos pedidos pagos. */
 export interface ExpenseData {
   description: string;
@@ -19,6 +30,12 @@ export interface ExpenseData {
   amount: Cents;
   /** AAAA-MM-DD */
   date: string;
+  /** Para quem o dinheiro foi (vendedor da conta, plataforma de anúncio, ferramenta). */
+  supplier: string | null;
+  paymentMethod: ExpensePaymentMethod | null;
+  /** Conta do estoque ligada à despesa, como na compra de uma conta. */
+  accountId: string | null;
+  notes: string | null;
 }
 
 export interface Expense extends ExpenseData {
