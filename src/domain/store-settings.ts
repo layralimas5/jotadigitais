@@ -11,6 +11,11 @@ export function whatsappUrlOf(settings: StoreSettings): string | null {
   return settings.whatsappNumber ? `https://wa.me/${settings.whatsappNumber}` : null;
 }
 
+/** Abre a conversa com o Jota já com a mensagem escrita, pronta para o visitante enviar. */
+export function whatsappMessageUrl(whatsappUrl: string, message: string): string {
+  return `${whatsappUrl}?text=${encodeURIComponent(message.trim())}`;
+}
+
 export function instagramUrlOf(settings: StoreSettings): string {
   return `https://www.instagram.com/${settings.instagramHandle.replace(/^@/, "")}`;
 }

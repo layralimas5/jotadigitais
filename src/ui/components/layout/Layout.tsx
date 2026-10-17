@@ -1,7 +1,7 @@
-import { MessageCircle } from "lucide-react";
 import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import { StoreSettingsProvider, useStoreSettings } from "@/ui/hooks/useStoreSettings";
+import { WhatsAppWidget } from "@/ui/components/whatsapp/WhatsAppWidget";
+import { StoreSettingsProvider } from "@/ui/hooks/useStoreSettings";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 
@@ -15,22 +15,6 @@ function ScrollManager() {
     window.scrollTo(0, 0);
   }, [pathname, hash]);
   return null;
-}
-
-function WhatsAppButton() {
-  const { whatsappUrl } = useStoreSettings();
-  if (!whatsappUrl) return null;
-  return (
-    <a
-      href={whatsappUrl}
-      target="_blank"
-      rel="noreferrer"
-      aria-label="Falar com o suporte no WhatsApp"
-      className="fixed right-4 bottom-4 z-40 grid size-12 place-items-center rounded-full bg-[#25d366] text-ink shadow-lg shadow-black/40 transition-transform hover:scale-105 sm:right-6 sm:bottom-6 sm:size-14"
-    >
-      <MessageCircle className="size-6" />
-    </a>
-  );
 }
 
 function PageFallback() {
@@ -58,7 +42,7 @@ export function Layout() {
         </Suspense>
       </main>
       <Footer />
-      <WhatsAppButton />
+      <WhatsAppWidget />
     </StoreSettingsProvider>
   );
 }
