@@ -1,28 +1,22 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { CalendarDays } from "lucide-react";
-import type { ReactNode } from "react";
-import { loadDashboard } from "@/application/admin-use-cases";
-import type { Dashboard } from "@/domain/dashboard";
+import { useMemo, type ReactNode } from "react";
+import { loadDashboardSource } from "@/application/admin-use-cases";
+import { buildDashboard, type Dashboard } from "@/domain/dashboard";
+import { comparisonLabelOf, periodLabelOf, scopeOf, type DashboardPeriod } from "@/domain/dashboard-period";
 import { ErrorState } from "@/ui/components/StateViews";
 import { fadeUp, staggerContainer } from "@/ui/lib/motion";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { AccountsOverview } from "../dashboard/AccountsOverview";
 import { CustomersOverview } from "../dashboard/CustomersOverview";
+import { DashboardPeriodPicker } from "../dashboard/DashboardPeriodPicker";
 import { FinanceOverview } from "../dashboard/FinanceOverview";
 import { PendingStrip } from "../dashboard/PendingStrip";
 import { RecentOrders } from "../dashboard/RecentOrders";
 import { BlockHeading } from "../dashboard/StatCard";
 import { TikTokOverview } from "../dashboard/TikTokOverview";
-import { RevenueChart3D } from "../finance/RevenueChart3D";
+import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
+import { RevenueChart3D, type ChartView } from "../finance/RevenueChart3D";
 import { useAdminQuery } from "../hooks";
-
-const monthFormat = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
-
-/** "outubro de 2026" vira "Outubro de 2026". */
-const currentMonthLabel = () => {
-  const label = monthFormat.format(new Date());
-  return label.charAt(0).toUpperCase() + label.slice(1);
-};
 
 function Block({ id, title, link, children, className }: { id: string; title: string; link?: { to: string; label: string }; children: ReactNode; className?: string }) {
   return (
@@ -33,25 +27,31 @@ function Block({ id, title, link, children, className }: { id: string; title: st
   );
 }
 
-function DashboardContent({ dashboard }: { dashboard: Dashboard }) {
+/** O gráfico abre no período escolhido; com um ou dois dias só, uma barra não diz nada e ele fica de fora. */
+function chartViewsOf(dashboard: Dashboard, period: DashboardPeriod): ChartView[] {
+  const fixed: ChartView[] = [
+    { id: "months", label: "Últimos 6 meses", series: dashboard.last6Months.series },
+    { id: "days", label: "Últimos 30 dias", series: dashboard.last30Days.series },
+  ];
+  if (dashboard.period.series.length < 3) return fixed;
+  return [{ id: "period", label: periodLabelOf(period), series: dashboard.period.series }, ...fixed];
+}
+
+function DashboardContent({ dashboard, period }: { dashboard: Dashboard; period: DashboardPeriod }) {
   const reduceMotion = useReducedMotion();
+  const scope = scopeOf(period);
   return (
     <motion.div variants={reduceMotion ? undefined : staggerContainer} initial="hidden" animate="show" className="space-y-8">
       <motion.div variants={fadeUp}>
-        <PendingStrip dashboard={dashboard} />
+        <PendingStrip dashboard={dashboard} scope={scope} />
       </motion.div>
 
-      <Block id="bloco-financeiro" title="Financeiro do mês" link={{ to: "/admin/financeiro", label: "Abrir Financeiro" }}>
-        <FinanceOverview dashboard={dashboard} />
+      <Block id="bloco-financeiro" title={`Financeiro ${scope.of}`} link={{ to: "/admin/financeiro", label: "Abrir Financeiro" }}>
+        <FinanceOverview dashboard={dashboard} scope={scope} comparisonLabel={comparisonLabelOf(period)} />
       </Block>
 
       <motion.div variants={fadeUp}>
-        <RevenueChart3D
-          views={[
-            { id: "months", label: "Últimos 6 meses", series: dashboard.last6Months.series },
-            { id: "days", label: "Últimos 30 dias", series: dashboard.last30Days.series },
-          ]}
-        />
+        <RevenueChart3D key={periodLabelOf(period)} views={chartViewsOf(dashboard, period)} />
       </motion.div>
 
       <div className="grid gap-8 lg:grid-cols-5 lg:gap-4">
@@ -59,12 +59,12 @@ function DashboardContent({ dashboard }: { dashboard: Dashboard }) {
           <AccountsOverview dashboard={dashboard} />
         </Block>
         <Block id="bloco-clientes" title="Clientes" link={{ to: "/admin/clientes", label: "Ver clientes" }} className="lg:col-span-2">
-          <CustomersOverview dashboard={dashboard} />
+          <CustomersOverview dashboard={dashboard} scope={scope} />
         </Block>
       </div>
 
       <Block id="bloco-tiktok" title="Métricas do TikTok" link={{ to: "/admin/contas", label: "Ver contas" }}>
-        <TikTokOverview dashboard={dashboard} />
+        <TikTokOverview dashboard={dashboard} scope={scope} />
       </Block>
 
       <Block id="bloco-pedidos" title="Últimos pedidos" link={{ to: "/admin/pedidos", label: "Ver todos" }}>
@@ -75,23 +75,21 @@ function DashboardContent({ dashboard }: { dashboard: Dashboard }) {
 }
 
 export default function DashboardPage() {
-  const dashboard = useAdminQuery(loadDashboard, "admin-dashboard");
+  const source = useAdminQuery(loadDashboardSource, "admin-dashboard");
+  const [period, setPeriod] = useDashboardPeriod();
+  const sourceData = source.status === "success" ? source.data : null;
+  const dashboard = useMemo(() => (sourceData ? buildDashboard(sourceData, period) : null), [sourceData, period]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Como a loja está neste mês e o que está esperando por você."
-        action={
-          <p className="inline-flex items-center gap-2 self-start rounded-full border border-line-strong bg-surface px-3.5 py-1.5 text-xs text-fog sm:self-auto">
-            <CalendarDays aria-hidden className="size-3.5 text-electric-soft" />
-            {currentMonthLabel()}
-          </p>
-        }
+        description="Como a loja está no período escolhido e o que está esperando por você."
+        action={<DashboardPeriodPicker value={period} onChange={setPeriod} />}
       />
-      {dashboard.status === "loading" && <LoadingBlock />}
-      {dashboard.status === "error" && <ErrorState message={dashboard.error.message} onRetry={dashboard.reload} />}
-      {dashboard.status === "success" && <DashboardContent dashboard={dashboard.data} />}
+      {source.status === "loading" && <LoadingBlock />}
+      {source.status === "error" && <ErrorState message={source.error.message} onRetry={source.reload} />}
+      {dashboard && <DashboardContent dashboard={dashboard} period={period} />}
     </div>
   );
 }

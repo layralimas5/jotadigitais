@@ -1,7 +1,7 @@
 import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
-import { buildDashboard, type Dashboard } from "@/domain/dashboard";
+import type { DashboardSource } from "@/domain/dashboard";
 import { CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
 import type { Expense } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
@@ -205,7 +205,8 @@ export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
   return deps.expenses.remove(id);
 }
 
-export async function loadDashboard(deps: AdminDeps): Promise<Dashboard> {
+/** Tudo o que o dashboard precisa, carregado uma vez: o filtro de período recalcula sem buscar de novo. */
+export async function loadDashboardSource(deps: AdminDeps): Promise<DashboardSource> {
   const [orders, expenses, accounts, leads, partners, customers] = await Promise.all([
     deps.orders.listAll(),
     deps.expenses.listAll(),
@@ -214,7 +215,7 @@ export async function loadDashboard(deps: AdminDeps): Promise<Dashboard> {
     deps.partners.listAll(),
     deps.customers.listAll(),
   ]);
-  return buildDashboard({ orders, expenses, accounts, leads, partners, customers });
+  return { orders, expenses, accounts, leads, partners, customers };
 }
 
 export interface FinalizedSalesData {
