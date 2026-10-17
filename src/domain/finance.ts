@@ -108,8 +108,15 @@ export interface FinanceSummary {
   byMethod: Record<PaymentMethod, Cents>;
   byCategory: { category: ExpenseCategory; amount: Cents }[];
   series: SeriesPoint[];
-  granularity: "day" | "month";
+  granularity: Granularity;
 }
+
+/** Como as barras do gráfico nascem: uma por dia ou uma por mês. */
+export type Granularity = "day" | "month";
+
+/** Como o gráfico mostra as barras: dá para juntar dias em semanas ou meses depois de calculados. */
+export const SERIES_GROUPINGS = ["day", "week", "month"] as const;
+export type SeriesGrouping = (typeof SERIES_GROUPINGS)[number];
 
 const MONTH_LABEL = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
@@ -126,10 +133,11 @@ function daysBetween(from: string, to: string): number {
   return Math.round((toTime(to) - toTime(from)) / 86_400_000);
 }
 
-/** Até dois meses, uma barra por dia; acima disso, uma por mês. */
-function buildBuckets(range: DateRange, firstDate: string | null): { granularity: "day" | "month"; keys: string[] } {
+/** Até dois meses, uma barra por dia; acima disso, uma por mês. `forced` escolhe na mão. */
+function buildBuckets(range: DateRange, firstDate: string | null, forced?: Granularity): { granularity: Granularity; keys: string[] } {
   const from = range.from ?? firstDate ?? range.to;
-  if (daysBetween(from, range.to) <= 62) {
+  const daily = forced ? forced === "day" : daysBetween(from, range.to) <= 62;
+  if (daily) {
     const keys: string[] = [];
     for (let day = from; day <= range.to; day = addDays(day, 1)) keys.push(day);
     return { granularity: "day", keys };
@@ -148,14 +156,20 @@ function buildBuckets(range: DateRange, firstDate: string | null): { granularity
   return { granularity: "month", keys };
 }
 
-function bucketLabel(key: string, granularity: "day" | "month"): string {
+function bucketLabel(key: string, granularity: Granularity): string {
   const [year, month, day] = key.split("-");
   const monthName = MONTH_LABEL[Number(month) - 1] ?? month;
   return granularity === "day" ? `${Number(day)} ${monthName}` : `${monthName} ${year?.slice(2)}`;
 }
 
 /** Receita = pedidos pagos ou entregues, pela data do pedido. Despesas pela data lançada. */
-export function summarizeFinance(orders: readonly Order[], expenses: readonly Expense[], range: DateRange, now: Date = new Date()): FinanceSummary {
+export function summarizeFinance(
+  orders: readonly Order[],
+  expenses: readonly Expense[],
+  range: DateRange,
+  now: Date = new Date(),
+  granularity?: Granularity,
+): FinanceSummary {
   const paid = orders.filter((order) => isPaid(order) && inRange(orderDateOf(order), range));
   const spent = expenses.filter((expense) => inRange(expense.date, range));
   const pending = orders.filter((order) => order.status === "awaiting_payment" && !isReservationExpired(order, now));
@@ -170,9 +184,9 @@ export function summarizeFinance(orders: readonly Order[], expenses: readonly Ex
   for (const expense of spent) categoryTotals.set(expense.category, (categoryTotals.get(expense.category) ?? 0) + expense.amount);
 
   const allDates = [...orders.filter(isPaid).map(orderDateOf), ...expenses.map((expense) => expense.date)].sort();
-  const { granularity, keys } = buildBuckets(range, allDates[0] ?? null);
-  const bucketOf = (date: string) => (granularity === "day" ? date : date.slice(0, 7));
-  const points = new Map(keys.map((key) => [key, { key, label: bucketLabel(key, granularity), revenue: 0, expenses: 0 }]));
+  const { granularity: bucketGranularity, keys } = buildBuckets(range, allDates[0] ?? null, granularity);
+  const bucketOf = (date: string) => (bucketGranularity === "day" ? date : date.slice(0, 7));
+  const points = new Map(keys.map((key) => [key, { key, label: bucketLabel(key, bucketGranularity), revenue: 0, expenses: 0 }]));
   for (const order of paid) {
     const point = points.get(bucketOf(orderDateOf(order)));
     if (point) point.revenue += order.total;
@@ -195,8 +209,36 @@ export function summarizeFinance(orders: readonly Order[], expenses: readonly Ex
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount),
     series: [...points.values()],
-    granularity,
+    granularity: bucketGranularity,
   };
+}
+
+/** Segunda-feira da semana do dia (AAAA-MM-DD). */
+function weekStartOf(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const value = new Date(year ?? 0, (month ?? 1) - 1, date ?? 1);
+  value.setDate(value.getDate() - ((value.getDay() + 6) % 7));
+  return toLocalIsoDate(value);
+}
+
+const groupKeyOf = (day: string, grouping: SeriesGrouping) => (grouping === "week" ? weekStartOf(day) : day.slice(0, 7));
+
+const groupLabelOf = (key: string, grouping: SeriesGrouping) =>
+  grouping === "week" ? `sem. ${bucketLabel(key, "day")}` : bucketLabel(key, "month");
+
+/** Junta barras diárias em semanas (começando na segunda) ou meses. Série mensal volta como está. */
+export function regroupSeries(series: readonly SeriesPoint[], grouping: SeriesGrouping): SeriesPoint[] {
+  const daily = series.every((point) => point.key.length === 10);
+  if (grouping === "day" || !daily) return [...series];
+  const groups = new Map<string, SeriesPoint>();
+  for (const point of series) {
+    const key = groupKeyOf(point.key, grouping);
+    const group = groups.get(key) ?? { key, label: groupLabelOf(key, grouping), revenue: 0, expenses: 0 };
+    group.revenue += point.revenue;
+    group.expenses += point.expenses;
+    groups.set(key, group);
+  }
+  return [...groups.values()];
 }
 
 export type Entry =

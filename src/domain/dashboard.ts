@@ -65,7 +65,6 @@ export interface Dashboard {
   /** Nulo quando não há com o que comparar (filtro "Tudo"). */
   previousPeriod: FinanceSummary | null;
   last30Days: FinanceSummary;
-  last6Months: FinanceSummary;
   finalizedInPeriod: number;
   /** Pedidos com reserva valendo, esperando o Pix ou o cartão. */
   awaitingPayment: number;
@@ -84,7 +83,6 @@ export interface Dashboard {
 }
 
 const RECENT_ORDERS = 5;
-const CHART_MONTHS = 6;
 
 const isPaid = (order: Order) => order.status === "paid" || order.status === "delivered";
 
@@ -133,11 +131,6 @@ function customerMetrics(orders: readonly Order[], records: readonly CustomerRec
   };
 }
 
-/** Do primeiro dia de cinco meses atrás até hoje: seis barras mensais no gráfico. */
-function lastMonthsRange(now: Date): DateRange {
-  return { from: toLocalIsoDate(new Date(now.getFullYear(), now.getMonth() - (CHART_MONTHS - 1), 1)), to: toLocalIsoDate(now) };
-}
-
 export function buildDashboard(source: DashboardSource, period: DashboardPeriod, now: Date = new Date()): Dashboard {
   const { orders, expenses, accounts, leads, partners, customers } = source;
   const range = dashboardRangeOf(period, now);
@@ -150,7 +143,6 @@ export function buildDashboard(source: DashboardSource, period: DashboardPeriod,
     period: summarizeFinance(orders, expenses, range, now),
     previousPeriod: previousRange ? summarizeFinance(orders, expenses, previousRange, now) : null,
     last30Days: summarizeFinance(orders, expenses, rangeOf("last_30_days", now), now),
-    last6Months: summarizeFinance(orders, expenses, lastMonthsRange(now), now),
     finalizedInPeriod: finalizedInPeriod.length,
     awaitingPayment: orders.filter((order) => order.status === "awaiting_payment" && !isReservationExpired(order, now)).length,
     awaitingDelivery: orders.filter((order) => order.status === "paid").length,

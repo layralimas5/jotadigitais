@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, type ReactNode } from "react";
 import { loadDashboardSource } from "@/application/admin-use-cases";
+import { buildChartViews, type ChartView } from "@/domain/chart-range";
 import { buildDashboard, type Dashboard } from "@/domain/dashboard";
 import { comparisonLabelOf, periodLabelOf, scopeOf, type DashboardPeriod } from "@/domain/dashboard-period";
 import { ErrorState } from "@/ui/components/StateViews";
@@ -15,7 +16,7 @@ import { RecentOrders } from "../dashboard/RecentOrders";
 import { BlockHeading } from "../dashboard/StatCard";
 import { TikTokOverview } from "../dashboard/TikTokOverview";
 import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
-import { RevenueChart3D, type ChartView } from "../finance/RevenueChart3D";
+import { RevenueChart3D } from "../finance/RevenueChart3D";
 import { useAdminQuery } from "../hooks";
 
 function Block({ id, title, link, children, className }: { id: string; title: string; link?: { to: string; label: string }; children: ReactNode; className?: string }) {
@@ -27,17 +28,7 @@ function Block({ id, title, link, children, className }: { id: string; title: st
   );
 }
 
-/** O gráfico abre no período escolhido; com um ou dois dias só, uma barra não diz nada e ele fica de fora. */
-function chartViewsOf(dashboard: Dashboard, period: DashboardPeriod): ChartView[] {
-  const fixed: ChartView[] = [
-    { id: "months", label: "Últimos 6 meses", series: dashboard.last6Months.series },
-    { id: "days", label: "Últimos 30 dias", series: dashboard.last30Days.series },
-  ];
-  if (dashboard.period.series.length < 3) return fixed;
-  return [{ id: "period", label: periodLabelOf(period), series: dashboard.period.series }, ...fixed];
-}
-
-function DashboardContent({ dashboard, period }: { dashboard: Dashboard; period: DashboardPeriod }) {
+function DashboardContent({ dashboard, period, chartViews }: { dashboard: Dashboard; period: DashboardPeriod; chartViews: ChartView[] }) {
   const reduceMotion = useReducedMotion();
   const scope = scopeOf(period);
   return (
@@ -51,7 +42,7 @@ function DashboardContent({ dashboard, period }: { dashboard: Dashboard; period:
       </Block>
 
       <motion.div variants={fadeUp}>
-        <RevenueChart3D key={periodLabelOf(period)} views={chartViewsOf(dashboard, period)} />
+        <RevenueChart3D key={periodLabelOf(period)} views={chartViews} />
       </motion.div>
 
       <div className="grid gap-8 lg:grid-cols-5 lg:gap-4">
@@ -79,6 +70,7 @@ export default function DashboardPage() {
   const [period, setPeriod] = useDashboardPeriod();
   const sourceData = source.status === "success" ? source.data : null;
   const dashboard = useMemo(() => (sourceData ? buildDashboard(sourceData, period) : null), [sourceData, period]);
+  const chartViews = useMemo(() => (sourceData ? buildChartViews(sourceData, period) : []), [sourceData, period]);
 
   return (
     <div className="space-y-6">
@@ -89,7 +81,7 @@ export default function DashboardPage() {
       />
       {source.status === "loading" && <LoadingBlock />}
       {source.status === "error" && <ErrorState message={source.error.message} onRetry={source.reload} />}
-      {dashboard && <DashboardContent dashboard={dashboard} period={period} />}
+      {dashboard && <DashboardContent dashboard={dashboard} period={period} chartViews={chartViews} />}
     </div>
   );
 }

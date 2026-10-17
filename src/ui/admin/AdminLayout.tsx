@@ -9,6 +9,7 @@ import { UserMenu } from "./components/UserMenu";
 import { GlobalSearch } from "./topbar/GlobalSearch";
 import { MobileSearch } from "./topbar/MobileSearch";
 import { NotificationBell } from "./topbar/NotificationBell";
+import { PageCrumb } from "./topbar/PageCrumb";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import { BOTTOM_NAV_ITEMS, HOME_PATH, MORE_ITEMS, NAV_GROUPS } from "./navigation";
 import { AdminSessionProvider, useAdminSession } from "./session";
@@ -151,13 +152,14 @@ function MobileTopBar() {
   );
 }
 
-/** Barra do topo no tablet e no computador: busca à esquerda, sininho e menu do usuário à direita. */
+/** Barra do topo no tablet e no computador: onde você está à esquerda, busca no centro, sininho e menu à direita. */
 function DesktopTopBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between gap-6 px-8">
-        <GlobalSearch withShortcut className="w-full max-w-xl" />
-        <div className="flex items-center gap-1">
+      <div className="grid h-16 grid-cols-[minmax(0,1fr)_minmax(16rem,36rem)_minmax(auto,1fr)] items-center gap-6 px-8">
+        <PageCrumb />
+        <GlobalSearch withShortcut className="col-start-2 w-full" />
+        <div className="flex items-center justify-self-end gap-1">
           <NotificationBell />
           <UserMenu />
         </div>
