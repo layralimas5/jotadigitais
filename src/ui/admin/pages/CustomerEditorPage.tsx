@@ -1,15 +1,15 @@
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { deleteCustomerRecord, findCustomerRecord, saveCustomerRecord } from "@/application/admin-use-cases";
 import { customerRecordSchema, fieldErrorsOf } from "@/application/schemas";
 import { recordKeyOf, type CustomerRecord } from "@/domain/customer";
-import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { TextAreaField } from "../components/FormControls";
+import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
 import { firstNameOf } from "../lib/whatsapp";
 import { useToast } from "../toast";
@@ -100,7 +100,7 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
         />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
         <div className="space-y-5">
           <FormSection title="Dados" description="Informe pelo menos um contato.">
             <TextField
@@ -160,28 +160,15 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
           </FormSection>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-24">
-          {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-          {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
-            {save.pending ? "Salvando…" : record ? "Salvar alterações" : "Cadastrar cliente"}
-          </Button>
-          {record && (
-            <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
-              <Trash2 aria-hidden className="size-4" /> Apagar cadastro
-            </Button>
-          )}
-          {remove.error && <InlineError message={remove.error.message} />}
-        </aside>
-
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate(backTo)}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
-            {save.pending ? "Salvando…" : record ? "Salvar" : "Cadastrar cliente"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          submitLabel={record ? "Salvar alterações" : "Cadastrar cliente"}
+          mobileSubmitLabel={record ? "Salvar" : "Cadastrar cliente"}
+          pending={save.pending}
+          onCancel={() => navigate(backTo)}
+          onDelete={record ? () => setConfirmOpen(true) : undefined}
+          deleteLabel="Apagar cadastro"
+          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+        />
       </form>
 
       {record && (

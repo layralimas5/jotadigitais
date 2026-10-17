@@ -1,16 +1,16 @@
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteTestimonial, findTestimonial, saveTestimonial } from "@/application/admin-use-cases";
 import { fieldErrorsOf, testimonialDataSchema } from "@/application/schemas";
 import type { Testimonial, TestimonialData, TestimonialKind } from "@/domain/testimonial";
-import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { PrintCard } from "@/ui/sections/home/Results";
-import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, TextAreaField, ToggleField } from "../components/FormControls";
+import { FormFooter } from "../components/FormFooter";
 import { SingleImageField } from "../components/ImageUpload";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
@@ -168,27 +168,18 @@ function TestimonialEditor({ testimonial }: { testimonial: Testimonial | null })
               Envie o print para ver a prévia.
             </p>
           )}
-          {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-          {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
-            {save.pending ? "Salvando…" : testimonial ? "Salvar alterações" : "Publicar depoimento"}
-          </Button>
-          {testimonial && (
-            <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
-              <Trash2 aria-hidden className="size-4" /> Apagar depoimento
-            </Button>
-          )}
-          {remove.error && <InlineError message={remove.error.message} />}
         </aside>
 
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/depoimentos")}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
-            {save.pending ? "Salvando…" : testimonial ? "Salvar" : "Publicar depoimento"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          className="lg:col-span-2"
+          submitLabel={testimonial ? "Salvar alterações" : "Publicar depoimento"}
+          mobileSubmitLabel={testimonial ? "Salvar" : "Publicar depoimento"}
+          pending={save.pending}
+          onCancel={() => navigate("/admin/depoimentos")}
+          onDelete={testimonial ? () => setConfirmOpen(true) : undefined}
+          deleteLabel="Apagar depoimento"
+          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+        />
       </form>
 
       {testimonial && (

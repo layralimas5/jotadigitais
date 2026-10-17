@@ -1,15 +1,15 @@
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteExpense, findExpense, saveExpense } from "@/application/admin-use-cases";
 import { expenseDataSchema, fieldErrorsOf } from "@/application/schemas";
 import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL, type Expense, type ExpenseCategory } from "@/domain/finance";
-import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField } from "../components/FormControls";
+import { FormFooter } from "../components/FormFooter";
 import { formatCentsInput, parseMoneyToCents } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
@@ -104,7 +104,7 @@ function ExpenseEditor({ expense }: { expense: Expense | null }) {
         <PageHeader title={expense ? "Editar despesa" : "Nova despesa"} description="Entra no financeiro na data escolhida." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
         <FormSection title="Despesa">
           <SegmentedField<ExpenseCategory>
             legend="Categoria"
@@ -143,28 +143,15 @@ function ExpenseEditor({ expense }: { expense: Expense | null }) {
           </div>
         </FormSection>
 
-        <aside className="space-y-4 lg:sticky lg:top-24">
-          {Object.keys(errors).length > 0 && <InlineError message="Revise os campos marcados em vermelho." />}
-          {save.error && <InlineError message={save.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={save.pending}>
-            {save.pending ? "Salvando…" : expense ? "Salvar alterações" : "Lançar despesa"}
-          </Button>
-          {expense && (
-            <Button variant="ghost" className="w-full text-[#ff7a7a] hover:text-[#ff9a9a]" onClick={() => setConfirmOpen(true)}>
-              <Trash2 aria-hidden className="size-4" /> Apagar despesa
-            </Button>
-          )}
-          {remove.error && <InlineError message={remove.error.message} />}
-        </aside>
-
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/financeiro")}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={save.pending}>
-            {save.pending ? "Salvando…" : expense ? "Salvar" : "Lançar despesa"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          submitLabel={expense ? "Salvar alterações" : "Lançar despesa"}
+          mobileSubmitLabel={expense ? "Salvar" : "Lançar despesa"}
+          pending={save.pending}
+          onCancel={() => navigate("/admin/financeiro")}
+          onDelete={expense ? () => setConfirmOpen(true) : undefined}
+          deleteLabel="Apagar despesa"
+          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+        />
       </form>
 
       {expense && (

@@ -4,9 +4,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { createAdminUser } from "@/application/admin-use-cases";
 import { fieldErrorsOf, newAdminUserSchema } from "@/application/schemas";
 import type { NewAdminUser } from "@/domain/admin-user";
-import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
-import { FormSection, InlineError, MobileActionBar, PageHeader } from "../components/AdminUi";
+import { FormSection, PageHeader } from "../components/AdminUi";
+import { FormFooter } from "../components/FormFooter";
 import { useMutation } from "../hooks";
 import { firstNameOf } from "../lib/whatsapp";
 import { useToast } from "../toast";
@@ -60,7 +60,7 @@ export default function UserEditorPage() {
         <PageHeader title="Novo usuário" description="A pessoa entra em /admin com este e-mail e a senha provisória." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={create.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={create.pending} className="mt-6 grid max-w-3xl gap-6">
         <FormSection title="Acesso" description="Passe a senha por um canal seguro. Depois do primeiro acesso, a pessoa troca em Minha conta.">
           <TextField
             label="Nome"
@@ -96,22 +96,14 @@ export default function UserEditorPage() {
           />
         </FormSection>
 
-        <aside className="space-y-4 lg:sticky lg:top-24">
-          {create.error && <InlineError message={create.error.message} />}
-          <Button type="submit" size="lg" className="w-full max-md:hidden" disabled={create.pending}>
-            <UserPlus aria-hidden className="size-4" />
-            {create.pending ? "Criando…" : "Criar acesso"}
-          </Button>
-        </aside>
-
-        <MobileActionBar>
-          <Button variant="secondary" size="lg" className="shrink-0" onClick={() => navigate("/admin/usuarios")}>
-            Voltar
-          </Button>
-          <Button type="submit" size="lg" className="flex-1" disabled={create.pending}>
-            {create.pending ? "Criando…" : "Criar acesso"}
-          </Button>
-        </MobileActionBar>
+        <FormFooter
+          submitLabel="Criar acesso"
+          pendingLabel="Criando…"
+          submitIcon={<UserPlus aria-hidden className="size-4" />}
+          pending={create.pending}
+          onCancel={() => navigate("/admin/usuarios")}
+          errors={[create.error?.message]}
+        />
       </form>
     </>
   );
