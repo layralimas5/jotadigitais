@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useId, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/ui/lib/cn";
 
@@ -44,19 +45,22 @@ export function SelectField({ label, hint, error, options, className, ...props }
       <label htmlFor={id} className="text-sm font-medium text-fog">
         {label}
       </label>
-      <select
-        id={id}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(id, hint, error)}
-        className={cn(controlClass(error), "h-12")}
-        {...props}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      <div className="relative mt-2">
+        <select
+          id={id}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(id, hint, error)}
+          className={cn(controlClass(error), "mt-0 h-12 cursor-pointer appearance-none pr-11 [color-scheme:dark] disabled:cursor-not-allowed disabled:opacity-60")}
+          {...props}
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value} className="bg-surface-2 text-white">
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown aria-hidden className="pointer-events-none absolute top-1/2 right-4 size-4 -translate-y-1/2 text-mist" />
+      </div>
       <FieldMessages id={id} hint={hint} error={error} />
     </div>
   );

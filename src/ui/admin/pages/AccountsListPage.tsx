@@ -14,6 +14,7 @@ import { ACCOUNT_STATUS_LABEL, audienceLabel } from "@/ui/lib/account-presenter"
 import { cn } from "@/ui/lib/cn";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FilterSelect } from "../components/FilterSelect";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
 
@@ -263,50 +264,27 @@ export default function AccountsListPage() {
           />
         </label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:flex lg:shrink-0">
-          <label className="lg:w-40">
-            <span className="sr-only">Rede</span>
-            <select
-              value={platform}
-              onChange={(event) => setPlatform(event.target.value as Platform | "all")}
-              className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
-            >
-              <option value="all">Todas as redes</option>
-              {platformOptions.map((option) => (
-                <option key={option} value={option}>
-                  {PLATFORM_LABEL[option]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="lg:w-40">
-            <span className="sr-only">Status</span>
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value as AccountStatus | "all")}
-              className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
-            >
-              <option value="all">Todos os status</option>
-              {ACCOUNT_STATUSES.map((option) => (
-                <option key={option} value={option}>
-                  {ACCOUNT_STATUS_LABEL[option]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="col-span-2 sm:col-span-1 lg:w-48">
-            <span className="sr-only">Monetização</span>
-            <select
-              value={monetization}
-              onChange={(event) => setMonetization(event.target.value as MonetizationFilter)}
-              className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
-            >
-              {MONETIZATION_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FilterSelect
+            label="Rede"
+            className="lg:w-44"
+            value={platform}
+            options={[{ value: "all", label: "Todas as redes" }, ...platformOptions.map((option) => ({ value: option, label: PLATFORM_LABEL[option] }))]}
+            onChange={setPlatform}
+          />
+          <FilterSelect
+            label="Status"
+            className="lg:w-44"
+            value={status}
+            options={[{ value: "all", label: "Todos os status" }, ...ACCOUNT_STATUSES.map((option) => ({ value: option, label: ACCOUNT_STATUS_LABEL[option] }))]}
+            onChange={setStatus}
+          />
+          <FilterSelect
+            label="Monetização"
+            className="col-span-2 sm:col-span-1 lg:w-52"
+            value={monetization}
+            options={MONETIZATION_OPTIONS}
+            onChange={setMonetization}
+          />
           <ButtonLink to="/admin/contas/nova" className="h-11 w-40 shadow-none hover:shadow-none max-lg:hidden">
             <Plus aria-hidden className="size-4" /> Nova conta
           </ButtonLink>
