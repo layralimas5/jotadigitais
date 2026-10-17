@@ -1,14 +1,15 @@
 import { Repeat, ShoppingBag, UserPlus, Users } from "lucide-react";
 import type { Dashboard } from "@/domain/dashboard";
+import type { PeriodScope } from "@/domain/dashboard-period";
 import { SegmentBar, ToneIcon } from "./StatCard";
 
-const ROWS = [
-  { key: "newThisMonth", label: "Novos no mês", icon: UserPlus, tone: "electric" },
+const rowsOf = (scope: PeriodScope) => [
+  { key: "newInPeriod", label: `Novos ${scope.in}`, icon: UserPlus, tone: "electric" },
   { key: "returning", label: "Compraram 2 vezes ou mais", icon: Repeat, tone: "emerald" },
   { key: "withOpenOrders", label: "Com pedido em aberto", icon: ShoppingBag, tone: "amber" },
 ] as const;
 
-export function CustomersOverview({ dashboard }: { dashboard: Dashboard }) {
+export function CustomersOverview({ dashboard, scope }: { dashboard: Dashboard; scope: PeriodScope }) {
   const { customers } = dashboard;
   return (
     <div className="h-full rounded-3xl border border-line bg-surface/60 p-5 sm:p-6">
@@ -38,7 +39,7 @@ export function CustomersOverview({ dashboard }: { dashboard: Dashboard }) {
           </dd>
         </div>
         <div className="mt-5 divide-y divide-line">
-          {ROWS.map((row) => (
+          {rowsOf(scope).map((row) => (
             <div key={row.key} className="flex items-center gap-3 py-2.5">
               <ToneIcon icon={row.icon} tone={row.tone} className="size-8 rounded-lg" />
               <dt className="flex-1 text-sm text-fog">{row.label}</dt>

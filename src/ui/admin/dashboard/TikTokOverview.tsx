@@ -1,11 +1,12 @@
 import { BadgeCheck, Hourglass, Heart, PackageOpen, Tag, TrendingUp, UserRound, Users } from "lucide-react";
 import { FULL_SHOP_MIN_FOLLOWERS, formatCount } from "@/domain/account";
 import type { Dashboard } from "@/domain/dashboard";
+import type { PeriodScope } from "@/domain/dashboard-period";
 import { formatBRL } from "@/domain/money";
 import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
 import { SegmentBar, StatCard, TONE } from "./StatCard";
 
-export function TikTokOverview({ dashboard }: { dashboard: Dashboard }) {
+export function TikTokOverview({ dashboard, scope }: { dashboard: Dashboard; scope: PeriodScope }) {
   const { tiktok } = dashboard;
   const inStock = tiktok.fullShop + tiktok.pilotShop;
   return (
@@ -21,8 +22,8 @@ export function TikTokOverview({ dashboard }: { dashboard: Dashboard }) {
           <div>
             <p className="font-display text-base font-semibold text-white">Contas do TikTok</p>
             <p className="text-xs text-mist">
-              {tiktok.status.total} cadastradas · {tiktok.salesThisMonth} {tiktok.salesThisMonth === 1 ? "venda" : "vendas"} no mês,{" "}
-              {formatBRL(tiktok.revenueThisMonth)}
+              {tiktok.status.total} cadastradas · {tiktok.salesInPeriod} {tiktok.salesInPeriod === 1 ? "venda" : "vendas"} {scope.in},{" "}
+              {formatBRL(tiktok.revenueInPeriod)}
             </p>
           </div>
         </div>
@@ -59,11 +60,11 @@ export function TikTokOverview({ dashboard }: { dashboard: Dashboard }) {
         <StatCard label="Média de seguidores" value={formatCount(tiktok.averageFollowers)} icon={UserRound} tone="pink" hint="Por conta no estoque" />
         <StatCard label="Curtidas no estoque" value={formatCount(tiktok.likesInStock)} icon={Heart} tone="pink" hint="Somando as não vendidas" />
         <StatCard
-          label="Faturado no mês"
-          value={formatBRL(tiktok.revenueThisMonth)}
+          label={`Faturado ${scope.in}`}
+          value={formatBRL(tiktok.revenueInPeriod)}
           icon={TrendingUp}
           tone="emerald"
-          hint={`${tiktok.salesThisMonth} ${tiktok.salesThisMonth === 1 ? "pedido pago" : "pedidos pagos"}`}
+          hint={`${tiktok.salesInPeriod} ${tiktok.salesInPeriod === 1 ? "pedido pago" : "pedidos pagos"}`}
         />
       </dl>
     </div>

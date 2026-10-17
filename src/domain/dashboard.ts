@@ -1,5 +1,6 @@
 import { shopTierOf, type Account, type AccountOf } from "./account";
 import { groupCustomers, type CustomerRecord } from "./customer";
+import { dashboardRangeOf, previousRangeOf, type DashboardPeriod } from "./dashboard-period";
 import { rangeOf, summarizeFinance, toLocalIsoDate, type DateRange, type Expense, type FinanceSummary } from "./finance";
 import { followUpStatusOf, type Lead } from "./lead";
 import type { Cents } from "./money";
@@ -41,34 +42,39 @@ export interface TikTokMetrics {
   fullShop: number;
   pilotShop: number;
   averagePrice: Cents;
-  salesThisMonth: number;
-  revenueThisMonth: Cents;
+  salesInPeriod: number;
+  revenueInPeriod: Cents;
 }
 
 export interface CustomerMetrics {
   total: number;
   /** Clientes com pelo menos um pedido pago ou entregue. */
   buyers: number;
-  newThisMonth: number;
+  newInPeriod: number;
   /** Compraram duas vezes ou mais. */
   returning: number;
   withOpenOrders: number;
 }
 
+/**
+ * Faturamento, vendas, clientes novos e comissão seguem o período escolhido no filtro.
+ * Estoque, pendências e últimos pedidos são sempre a foto de agora.
+ */
 export interface Dashboard {
-  month: FinanceSummary;
-  previousMonth: FinanceSummary;
+  period: FinanceSummary;
+  /** Nulo quando não há com o que comparar (filtro "Tudo"). */
+  previousPeriod: FinanceSummary | null;
   last30Days: FinanceSummary;
   last6Months: FinanceSummary;
-  finalizedThisMonth: number;
+  finalizedInPeriod: number;
   /** Pedidos com reserva valendo, esperando o Pix ou o cartão. */
   awaitingPayment: number;
   /** Pagos que ainda não foram entregues. */
   awaitingDelivery: number;
   /** Leads com retorno vencido ou marcado para hoje. */
   followUpsDue: number;
-  /** Parte dos parceiros nas vendas finalizadas este mês. */
-  commissionThisMonth: Cents;
+  /** Parte dos parceiros nas vendas finalizadas no período. */
+  commissionInPeriod: Cents;
   accounts: AccountStatusCount;
   stock: StockByPlatform[];
   stockValue: Cents;
@@ -97,11 +103,11 @@ const average = (values: readonly number[]) => (values.length ? Math.round(value
 
 const isTikTok = (account: Account): account is AccountOf<"tiktok"> => account.platform === "tiktok";
 
-function tiktokMetrics(accounts: readonly Account[], orders: readonly Order[], month: DateRange): TikTokMetrics {
+function tiktokMetrics(accounts: readonly Account[], orders: readonly Order[], range: DateRange): TikTokMetrics {
   const tiktok = accounts.filter(isTikTok);
   const inStock = tiktok.filter((account) => account.status !== "sold");
   const sales = orders.filter(
-    (order) => order.accountPlatform === "tiktok" && isPaid(order) && inRange(toLocalIsoDate(new Date(order.createdAt)), month),
+    (order) => order.accountPlatform === "tiktok" && isPaid(order) && inRange(toLocalIsoDate(new Date(order.createdAt)), range),
   );
   return {
     status: countByStatus(tiktok),
@@ -111,17 +117,17 @@ function tiktokMetrics(accounts: readonly Account[], orders: readonly Order[], m
     fullShop: inStock.filter((account) => shopTierOf(account) === "full").length,
     pilotShop: inStock.filter((account) => shopTierOf(account) === "pilot").length,
     averagePrice: average(tiktok.filter((account) => account.status === "available").map((account) => account.price)),
-    salesThisMonth: sales.length,
-    revenueThisMonth: sales.reduce((sum, order) => sum + order.total, 0),
+    salesInPeriod: sales.length,
+    revenueInPeriod: sales.reduce((sum, order) => sum + order.total, 0),
   };
 }
 
-function customerMetrics(orders: readonly Order[], records: readonly CustomerRecord[], month: DateRange): CustomerMetrics {
+function customerMetrics(orders: readonly Order[], records: readonly CustomerRecord[], range: DateRange): CustomerMetrics {
   const customers = groupCustomers(orders, records);
   return {
     total: customers.length,
     buyers: customers.filter((customer) => customer.purchases > 0).length,
-    newThisMonth: customers.filter((customer) => customer.since && inRange(toLocalIsoDate(new Date(customer.since)), month)).length,
+    newInPeriod: customers.filter((customer) => customer.since && inRange(toLocalIsoDate(new Date(customer.since)), range)).length,
     returning: customers.filter((customer) => customer.purchases >= 2).length,
     withOpenOrders: customers.filter((customer) => customer.openOrders > 0).length,
   };
@@ -132,26 +138,27 @@ function lastMonthsRange(now: Date): DateRange {
   return { from: toLocalIsoDate(new Date(now.getFullYear(), now.getMonth() - (CHART_MONTHS - 1), 1)), to: toLocalIsoDate(now) };
 }
 
-export function buildDashboard(source: DashboardSource, now: Date = new Date()): Dashboard {
+export function buildDashboard(source: DashboardSource, period: DashboardPeriod, now: Date = new Date()): Dashboard {
   const { orders, expenses, accounts, leads, partners, customers } = source;
-  const month = rangeOf("this_month", now);
+  const range = dashboardRangeOf(period, now);
+  const previousRange = previousRangeOf(period, now);
   const today = toLocalIsoDate(now);
   const available = accounts.filter((account) => account.status === "available");
-  const finalizedThisMonth = finalizedSales(orders).filter((order) => inRange(toLocalIsoDate(new Date(deliveredAtOf(order))), month));
+  const finalizedInPeriod = finalizedSales(orders).filter((order) => inRange(toLocalIsoDate(new Date(deliveredAtOf(order))), range));
 
   return {
-    month: summarizeFinance(orders, expenses, month, now),
-    previousMonth: summarizeFinance(orders, expenses, rangeOf("last_month", now), now),
+    period: summarizeFinance(orders, expenses, range, now),
+    previousPeriod: previousRange ? summarizeFinance(orders, expenses, previousRange, now) : null,
     last30Days: summarizeFinance(orders, expenses, rangeOf("last_30_days", now), now),
     last6Months: summarizeFinance(orders, expenses, lastMonthsRange(now), now),
-    finalizedThisMonth: finalizedThisMonth.length,
+    finalizedInPeriod: finalizedInPeriod.length,
     awaitingPayment: orders.filter((order) => order.status === "awaiting_payment" && !isReservationExpired(order, now)).length,
     awaitingDelivery: orders.filter((order) => order.status === "paid").length,
     followUpsDue: leads.filter((lead) => {
       const status = followUpStatusOf(lead, today);
       return status === "overdue" || status === "today";
     }).length,
-    commissionThisMonth: summarizePartners(partners, accounts, finalizedThisMonth).reduce((sum, summary) => sum + summary.commission, 0),
+    commissionInPeriod: summarizePartners(partners, accounts, finalizedInPeriod).reduce((sum, summary) => sum + summary.commission, 0),
     accounts: countByStatus(accounts),
     stock: PLATFORMS.map((platform) => ({
       platform,
@@ -159,8 +166,8 @@ export function buildDashboard(source: DashboardSource, now: Date = new Date()):
       reserved: accounts.filter((account) => account.platform === platform && account.status === "reserved").length,
     })),
     stockValue: available.reduce((sum, account) => sum + account.price, 0),
-    tiktok: tiktokMetrics(accounts, orders, month),
-    customers: customerMetrics(orders, customers, month),
+    tiktok: tiktokMetrics(accounts, orders, range),
+    customers: customerMetrics(orders, customers, range),
     recentOrders: [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, RECENT_ORDERS),
   };
 }
