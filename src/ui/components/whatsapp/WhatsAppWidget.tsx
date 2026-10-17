@@ -76,11 +76,9 @@ export function WhatsAppWidget() {
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         aria-label={open ? "Fechar conversa com o Jota" : "Falar com o Jota no WhatsApp"}
-        className="relative grid size-14 place-items-center rounded-full bg-gradient-to-b from-[#6cc0ff] via-electric to-[#1478e0] text-ink shadow-[inset_0_1px_1px_rgb(255_255_255/0.6),inset_0_-2px_6px_rgb(0_40_120/0.35),0_0_0_1px_rgb(39_153_255/0.6),0_0_28px_rgb(39_153_255/0.65),0_12px_40px_-10px_rgb(39_153_255/0.9)] transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric active:scale-95"
+        className="relative grid size-14 place-items-center rounded-full bg-electric text-ink shadow-[0_0_0_1px_rgb(39_153_255/0.5),0_12px_40px_-10px_rgb(39_153_255/0.9)] transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric active:scale-95"
       >
-        {!open && !reduceMotion && <PulseRings />}
-        <span aria-hidden className="pointer-events-none absolute inset-x-2.5 top-1 h-1/3 rounded-full bg-gradient-to-b from-white/55 to-transparent" />
-        <AnimatePresence mode="wait" initial={false}>
+        {!open && !reduceMotion && <PulseRings />}        <AnimatePresence mode="wait" initial={false}>
           <motion.span
             key={open ? "close" : "chat"}
             initial={reduceMotion ? false : { rotate: -45, opacity: 0 }}
