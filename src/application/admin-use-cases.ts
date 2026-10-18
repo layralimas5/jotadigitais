@@ -224,6 +224,17 @@ export interface FinalizedSalesData {
 }
 
 /** Pedidos entregues e o prazo de garantia atual, para mostrar quem ainda está coberto. */
+export interface OrdersBoardData {
+  orders: Order[];
+  /** Separa entregue (garantia valendo) de finalizado (garantia encerrada). */
+  guaranteeDays: number;
+}
+
+export async function loadOrdersBoard(deps: AdminDeps): Promise<OrdersBoardData> {
+  const [orders, settings] = await Promise.all([listOrders(deps), deps.settings.get()]);
+  return { orders, guaranteeDays: settings.guaranteeDays };
+}
+
 export async function loadFinalizedSales(deps: AdminDeps): Promise<FinalizedSalesData> {
   const [orders, settings] = await Promise.all([deps.orders.listAll(), deps.settings.get()]);
   return { sales: finalizedSales(orders), guaranteeDays: settings.guaranteeDays };

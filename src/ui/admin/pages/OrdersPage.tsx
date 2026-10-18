@@ -1,12 +1,13 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Mail, MessageCircle } from "lucide-react";
+import { ArrowRight, Mail, MessageCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { changeOrderStatus, listOrders } from "@/application/admin-use-cases";
+import { changeOrderStatus, loadOrdersBoard } from "@/application/admin-use-cases";
 import { formatBRL } from "@/domain/money";
 import type { MessageTemplates } from "@/domain/message-template";
 import { ORDER_TRANSITIONS, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
+import { ORDER_STAGES, ORDER_STAGE_LABEL, deliveredAtOf, matchesOrderQuery, orderStageOf, type OrderStage } from "@/domain/sale";
 import { Button } from "@/ui/components/Button";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -14,18 +15,25 @@ import { cn } from "@/ui/lib/cn";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { OrderStatusBadge } from "../components/OrderStatusBadge";
+import { SearchInput } from "../components/SearchInput";
+import { WarrantyBadge } from "../components/WarrantyBadge";
 import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
+import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
 import { whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
-type Tab = "open" | "canceled" | "all";
+type Tab = OrderStage | "all";
 
-const TABS: { id: Tab; label: string; matches: (order: Order) => boolean }[] = [
-  { id: "open", label: "Em aberto", matches: (order) => order.status === "awaiting_payment" || order.status === "paid" },
-  { id: "canceled", label: "Cancelados", matches: (order) => order.status === "canceled" },
-  { id: "all", label: "Todos", matches: () => true },
-];
+const TABS: readonly { id: Tab; label: string }[] = [...ORDER_STAGES.map((stage) => ({ id: stage, label: ORDER_STAGE_LABEL[stage] })), { id: "all", label: "Todos" }];
+
+const EMPTY_TITLE: Record<Tab, string> = {
+  pending: "Nenhum pedido pendente",
+  delivered: "Nenhuma conta entregue em garantia",
+  finalized: "Nenhuma venda finalizada",
+  canceled: "Nenhum pedido cancelado",
+  all: "Nenhum pedido ainda",
+};
 
 const ACTION_LABEL: Record<OrderStatus, string> = {
   awaiting_payment: "",
@@ -52,12 +60,13 @@ function whatsappLink(order: Order, templates: MessageTemplates): string | null 
 
 interface OrderCardProps {
   order: Order;
+  guaranteeDays: number;
   templates: MessageTemplates;
   busy: boolean;
   onAction: (order: Order, status: OrderStatus) => void;
 }
 
-function OrderCard({ order, templates, busy, onAction }: OrderCardProps) {
+function OrderCard({ order, guaranteeDays, templates, busy, onAction }: OrderCardProps) {
   const whatsapp = whatsappLink(order, templates);
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
@@ -73,9 +82,15 @@ function OrderCard({ order, templates, busy, onAction }: OrderCardProps) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-sm font-semibold text-white">{order.code}</p>
-          <p className="text-xs text-mist">{dateTime.format(new Date(order.createdAt))}</p>
+          <p className="text-xs text-mist">
+            Pedido em {dateTime.format(new Date(order.createdAt))}
+            {order.status === "delivered" && ` · entregue em ${formatDate(deliveredAtOf(order))}`}
+          </p>
         </div>
-        <OrderStatusBadge order={order} />
+        <div className="flex flex-wrap gap-2">
+          <OrderStatusBadge order={order} />
+          {order.status === "delivered" && <WarrantyBadge order={order} guaranteeDays={guaranteeDays} />}
+        </div>
       </div>
 
       <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
@@ -116,6 +131,17 @@ function OrderCard({ order, templates, busy, onAction }: OrderCardProps) {
         </div>
       </dl>
 
+      {order.status === "delivered" && (
+        <div className="mt-4 flex justify-end border-t border-line pt-4">
+          <Link
+            to={`/admin/finalizados?busca=${encodeURIComponent(order.code)}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-electric-soft hover:underline"
+          >
+            Ver em Finalizados <ArrowRight aria-hidden className="size-4" />
+          </Link>
+        </div>
+      )}
+
       {actions.length > 0 && (
         <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
           {actions.map((status) => (
@@ -137,21 +163,25 @@ function OrderCard({ order, templates, busy, onAction }: OrderCardProps) {
 }
 
 export default function OrdersPage() {
-  const orders = useAdminQuery(listOrders, "admin-orders");
+  const board = useAdminQuery(loadOrdersBoard, "admin-orders");
   const templates = useMessageTemplates();
   const toast = useToast();
   const change = useMutation(async (deps, order: Order, status: OrderStatus) => {
     await changeOrderStatus(deps, order, status);
     return true;
   });
-  const [tab, setTab] = useState<Tab>("open");
+  const [tab, setTab] = useState<Tab>("pending");
+  const [query, setQuery] = useState("");
   const [toCancel, setToCancel] = useState<Order | null>(null);
 
-  const visible = useMemo(() => {
-    if (orders.status !== "success") return [];
-    const matcher = TABS.find((item) => item.id === tab)?.matches ?? (() => true);
-    return orders.data.filter(matcher);
-  }, [orders, tab]);
+  const data = board.status === "success" ? board.data : null;
+  const staged = useMemo(
+    () => (data ? data.orders.map((order) => ({ order, stage: orderStageOf(order, data.guaranteeDays) })) : []),
+    [data],
+  );
+  const searched = useMemo(() => staged.filter(({ order }) => matchesOrderQuery(order, query)), [staged, query]);
+  const visible = useMemo(() => searched.filter(({ stage }) => tab === "all" || stage === tab).map(({ order }) => order), [searched, tab]);
+  const countOf = (id: Tab) => (data ? searched.filter(({ stage }) => id === "all" || stage === id).length : null);
 
   const apply = async (order: Order, status: OrderStatus) => {
     const result = await change.run(order, status);
@@ -161,7 +191,7 @@ export default function OrdersPage() {
       return;
     }
     toast.show(DONE_MESSAGE[status]);
-    orders.reload();
+    board.reload();
   };
 
   const onAction = (order: Order, status: OrderStatus) => {
@@ -175,18 +205,21 @@ export default function OrdersPage() {
         title="Pedidos"
         description={
           <>
-            Pago reserva a conta sem prazo. Entregue marca como vendida e vai para{" "}
+            Todos os clientes e suas contas: pendentes, entregues (garantia valendo) e finalizadas (garantia encerrada). Entregues e
+            finalizadas também ficam em{" "}
             <Link to="/admin/finalizados" className="text-electric-soft underline-offset-4 hover:underline">
               Finalizados
             </Link>
-            . Cancelado devolve para a vitrine.
+            .
           </>
         }
       />
 
+      <SearchInput label="Buscar pedido" placeholder="Buscar por cliente, e-mail, pedido ou conta" value={query} onChange={setQuery} />
+
       <div role="group" aria-label="Filtrar pedidos" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
         {TABS.map((item) => {
-          const count = orders.status === "success" ? orders.data.filter(item.matches).length : null;
+          const count = countOf(item.id);
           return (
             <button
               key={item.id}
@@ -206,19 +239,30 @@ export default function OrdersPage() {
       </div>
 
       {change.error && <InlineError message={change.error.message} />}
-      {orders.status === "loading" && <LoadingBlock />}
-      {orders.status === "error" && <ErrorState message={orders.error.message} onRetry={orders.reload} />}
-      {orders.status === "success" && visible.length === 0 && (
+      {board.status === "loading" && <LoadingBlock />}
+      {board.status === "error" && <ErrorState message={board.error.message} onRetry={board.reload} />}
+      {data && visible.length === 0 && (
         <EmptyState
-          title={tab === "open" ? "Nenhum pedido em aberto" : "Nada por aqui"}
-          description="Quando alguém finaliza a compra no site, o pedido aparece aqui com os dados do cliente."
+          title={query.trim() ? "Nada encontrado" : EMPTY_TITLE[tab]}
+          description={
+            query.trim()
+              ? "Confira o que foi digitado ou troque de aba."
+              : "Quando alguém finaliza a compra no site, o pedido aparece aqui com os dados do cliente."
+          }
         />
       )}
       {visible.length > 0 && (
         <ul className="space-y-3">
           <AnimatePresence initial={false}>
             {visible.map((order) => (
-              <OrderCard key={order.code} order={order} templates={templates} busy={change.pending} onAction={onAction} />
+              <OrderCard
+                key={order.code}
+                order={order}
+                guaranteeDays={data?.guaranteeDays ?? 0}
+                templates={templates}
+                busy={change.pending}
+                onAction={onAction}
+              />
             ))}
           </AnimatePresence>
         </ul>
