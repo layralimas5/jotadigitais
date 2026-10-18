@@ -1,4 +1,4 @@
-import type { Order } from "./order";
+import { isReservationExpired, type Order } from "./order";
 
 const DAY_MS = 86_400_000;
 
@@ -25,4 +25,33 @@ export function warrantyOf(order: Pick<Order, "deliveredAt" | "createdAt">, guar
 /** Vendas finalizadas, da entrega mais recente para a mais antiga. */
 export function finalizedSales(orders: readonly Order[]): Order[] {
   return orders.filter(isFinalized).sort((a, b) => deliveredAtOf(b).localeCompare(deliveredAtOf(a)));
+}
+
+/**
+ * Onde o pedido está na jornada do cliente. Entregue e finalizado são a mesma venda:
+ * "entregue" enquanto a garantia vale, "finalizado" quando ela acaba.
+ */
+export const ORDER_STAGES = ["pending", "delivered", "finalized", "canceled"] as const;
+export type OrderStage = (typeof ORDER_STAGES)[number];
+
+export const ORDER_STAGE_LABEL: Record<OrderStage, string> = {
+  pending: "Pendentes",
+  delivered: "Entregues",
+  finalized: "Finalizados",
+  canceled: "Cancelados",
+};
+
+export function orderStageOf(order: Order, guaranteeDays: number, now: Date = new Date()): OrderStage {
+  if (order.status === "canceled" || isReservationExpired(order, now)) return "canceled";
+  if (order.status !== "delivered") return "pending";
+  return warrantyOf(order, guaranteeDays, now).active ? "delivered" : "finalized";
+}
+
+/** Busca por código do pedido, cliente (nome ou e-mail) ou conta. */
+export function matchesOrderQuery(order: Order, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return [order.code, order.customer.name, order.customer.email, order.accountHandle, order.accountName].some((field) =>
+    field.toLowerCase().includes(needle),
+  );
 }

@@ -1,6 +1,6 @@
-import { MessageCircle, ShieldCheck, ShieldOff } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { loadFinalizedSales } from "@/application/admin-use-cases";
 import { customerKeyOf } from "@/domain/customer";
 import { rangeOf, toLocalIsoDate, type DateRange, type PeriodPreset } from "@/domain/finance";
@@ -8,7 +8,7 @@ import type { MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
 import type { Order } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
-import { deliveredAtOf, warrantyOf } from "@/domain/sale";
+import { deliveredAtOf, matchesOrderQuery, orderStageOf, warrantyOf } from "@/domain/sale";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
@@ -16,6 +16,7 @@ import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { Kpi } from "../components/Kpi";
 import { PeriodFilter } from "../components/PeriodFilter";
 import { SearchInput } from "../components/SearchInput";
+import { WarrantyBadge } from "../components/WarrantyBadge";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
@@ -30,30 +31,13 @@ const inRange = (order: Order, range: DateRange) => {
   return (range.from === null || day >= range.from) && day <= range.to;
 };
 
-function matches(order: Order, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return [order.code, order.customer.name, order.customer.email, order.accountHandle, order.accountName].some((field) =>
-    field.toLowerCase().includes(needle),
-  );
-}
+type Situation = "all" | "delivered" | "finalized";
 
-function WarrantyBadge({ order, guaranteeDays }: { order: Order; guaranteeDays: number }) {
-  const warranty = warrantyOf(order, guaranteeDays);
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-        warranty.active ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/15 bg-white/[0.05] text-mist",
-      )}
-    >
-      {warranty.active ? <ShieldCheck aria-hidden className="size-3.5" /> : <ShieldOff aria-hidden className="size-3.5" />}
-      {warranty.active
-        ? `Em garantia, ${warranty.daysLeft === 1 ? "falta 1 dia" : `faltam ${warranty.daysLeft} dias`}`
-        : `Garantia encerrada em ${formatDate(warranty.endsAt.toISOString())}`}
-    </span>
-  );
-}
+const SITUATIONS: readonly { id: Situation; label: string }[] = [
+  { id: "all", label: "Todas" },
+  { id: "delivered", label: "Entregues (em garantia)" },
+  { id: "finalized", label: "Finalizadas (garantia encerrada)" },
+];
 
 function SaleCard({ order, guaranteeDays, templates }: { order: Order; guaranteeDays: number; templates: MessageTemplates }) {
   const customerPath = `/admin/clientes/${encodeURIComponent(customerKeyOf(order.customer.email))}`;
@@ -118,19 +102,27 @@ export default function FinalizedPage() {
   const sales = useAdminQuery(loadFinalizedSales, "admin-finalized");
   const templates = useMessageTemplates();
   const [period, setPeriod] = useState<PeriodPreset>("all");
-  const [query, setQuery] = useState("");
+  const [params] = useSearchParams();
+  const [query, setQuery] = useState(() => params.get("busca") ?? "");
+  const [situation, setSituation] = useState<Situation>("all");
   const range = useMemo(() => rangeOf(period), [period]);
 
   const data = sales.status === "success" ? sales.data : null;
   const inPeriod = useMemo(() => (data ? data.sales.filter((order) => inRange(order, range)) : []), [data, range]);
-  const visible = useMemo(() => inPeriod.filter((order) => matches(order, query)), [inPeriod, query]);
+  const visible = useMemo(
+    () =>
+      inPeriod.filter(
+        (order) => matchesOrderQuery(order, query) && (situation === "all" || (data && orderStageOf(order, data.guaranteeDays) === situation)),
+      ),
+    [inPeriod, query, situation, data],
+  );
   const underWarranty = data ? inPeriod.filter((order) => warrantyOf(order, data.guaranteeDays).active).length : 0;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Finalizados"
-        description="Pedidos entregues. A garantia conta a partir da entrega, com o prazo definido em Site."
+        description="Contas entregues aos clientes. Enquanto a garantia vale, a venda está entregue; quando acaba, fica finalizada. O prazo é definido em Site."
       />
       <PeriodFilter value={period} onChange={setPeriod} />
 
@@ -146,6 +138,23 @@ export default function FinalizedPage() {
 
           <SearchInput label="Buscar venda" placeholder="Buscar por pedido, cliente ou conta" value={query} onChange={setQuery} />
 
+          <div role="group" aria-label="Situação da venda" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
+            {SITUATIONS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={situation === item.id}
+                onClick={() => setSituation(item.id)}
+                className={cn(
+                  "shrink-0 rounded-full border px-4 py-2 text-sm transition-colors",
+                  situation === item.id ? "border-electric bg-electric/15 text-white" : "border-line-strong text-mist hover:text-white",
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
           {data.sales.length === 0 && (
             <EmptyState
               title="Nenhuma venda finalizada ainda"
@@ -153,7 +162,7 @@ export default function FinalizedPage() {
             />
           )}
           {data.sales.length > 0 && visible.length === 0 && (
-            <EmptyState title="Nada encontrado" description="Mude o período ou confira o que foi digitado na busca." />
+            <EmptyState title="Nada encontrado" description="Mude o período, a situação ou confira o que foi digitado na busca." />
           )}
           {visible.length > 0 && (
             <ul className="space-y-3">
