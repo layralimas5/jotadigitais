@@ -1,10 +1,38 @@
-import type { AdminSession, AuthService, ImageStorage, PreparedImage, UploadedImage } from "@/application/ports";
+import type {
+  AdminSession,
+  AuthService,
+  ImageStorage,
+  PreparedImage,
+  ProfileUpdate,
+  ProfileUpdateResult,
+  UploadedImage,
+} from "@/application/ports";
 
 const AUTH_KEY = "jota:demo-auth";
+const NAME_KEY = "jota:demo-name";
 const SIGNED_OUT = "signed-out";
-const DEFAULT_SESSION: AdminSession = { email: "Administrador" };
+/** Mesmo dono que a aba Usuários mostra no modo demonstração. */
+const DEFAULT_EMAIL = "jota@jotadigitais.com.br";
+const DEFAULT_NAME = "Jota";
 
 type Listener = (session: AdminSession | null) => void;
+
+function readKey(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (error) {
+    console.error("Falha ao ler a sessão local", error);
+    return null;
+  }
+}
+
+function writeKey(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (error) {
+    console.error("Falha ao gravar a sessão local", error);
+  }
+}
 
 /**
  * Sem banco conectado os dados só existem neste navegador, então não há senha a conferir:
@@ -19,19 +47,27 @@ export class DemoAuthService implements AuthService {
   }
 
   async signIn(email: string): Promise<AdminSession> {
-    this.store(email);
-    return { email };
+    this.storeEmail(email);
+    return { email, name: readKey(NAME_KEY), recoveringPassword: false };
   }
 
   async signOut(): Promise<void> {
-    this.store(SIGNED_OUT);
+    this.storeEmail(SIGNED_OUT);
   }
 
-  /** Não há senha guardada no modo local: a troca só vale com o Supabase. */
+  /** Não há senha guardada no modo local: conferir e trocar só valem com o Supabase. */
+  async verifyPassword(): Promise<void> {}
+
   async changePassword(): Promise<void> {}
 
   /** Sem Supabase não há e-mail para enviar: o login local já aceita qualquer acesso. */
   async requestPasswordReset(): Promise<void> {}
+
+  async updateProfile({ name, email }: ProfileUpdate): Promise<ProfileUpdateResult> {
+    writeKey(NAME_KEY, name);
+    this.storeEmail(email);
+    return { emailConfirmationPending: false };
+  }
 
   onChange(listener: Listener): () => void {
     this.listeners.add(listener);
@@ -39,22 +75,13 @@ export class DemoAuthService implements AuthService {
   }
 
   private readSession(): AdminSession | null {
-    try {
-      const stored = window.localStorage.getItem(AUTH_KEY);
-      if (stored === SIGNED_OUT) return null;
-      return stored ? { email: stored } : DEFAULT_SESSION;
-    } catch (error) {
-      console.error("Falha ao ler a sessão local", error);
-      return DEFAULT_SESSION;
-    }
+    const email = readKey(AUTH_KEY);
+    if (email === SIGNED_OUT) return null;
+    return { email: email ?? DEFAULT_EMAIL, name: readKey(NAME_KEY) ?? DEFAULT_NAME, recoveringPassword: false };
   }
 
-  private store(value: string) {
-    try {
-      window.localStorage.setItem(AUTH_KEY, value);
-    } catch (error) {
-      console.error("Falha ao gravar a sessão local", error);
-    }
+  private storeEmail(value: string) {
+    writeKey(AUTH_KEY, value);
     const session = this.readSession();
     this.listeners.forEach((listener) => listener(session));
   }

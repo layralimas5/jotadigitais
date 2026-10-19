@@ -1,9 +1,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, LogOut, ShieldUser, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, Settings, ShieldUser } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
 import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
+import { SETTINGS_PATH } from "../navigation";
 import { useAdminSession } from "../session";
 
 const itemClass =
@@ -13,7 +14,7 @@ function initialOf(email: string): string {
   return email.trim().charAt(0).toUpperCase() || "J";
 }
 
-/** Ícone do usuário no canto superior direito: Minha conta, Usuários e Sair. */
+/** Ícone do usuário no canto superior direito: Configurações, Usuários e Sair. */
 export function UserMenu() {
   const { state, signOut } = useAdminSession();
   const [open, setOpen] = useState(false);
@@ -31,7 +32,7 @@ export function UserMenu() {
   }, [open]);
 
   if (state.status !== "signed-in") return null;
-  const { email } = state.session;
+  const { email, name } = state.session;
 
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']") ?? []);
@@ -79,7 +80,7 @@ export function UserMenu() {
           aria-hidden
           className="grid size-8 place-items-center rounded-full border border-electric/40 bg-electric/15 font-display text-sm font-semibold text-electric-soft"
         >
-          {initialOf(email)}
+          {initialOf(name ?? email)}
         </span>
         <ChevronDown aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
       </button>
@@ -100,11 +101,12 @@ export function UserMenu() {
           >
             <p className="truncate border-b border-line px-3 pt-2 pb-3 text-xs text-mist" title={email}>
               Conectado como
-              <span className="mt-0.5 block truncate text-sm font-medium text-white">{email}</span>
+              <span className="mt-0.5 block truncate text-sm font-medium text-white">{name ?? email}</span>
+              {name && <span className="block truncate">{email}</span>}
             </p>
             <div className="pt-1.5">
-              <Link role="menuitem" tabIndex={-1} to="/admin/minha-conta" onClick={close} className={itemClass}>
-                <UserRound aria-hidden className="size-4" /> Minha conta
+              <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>
+                <Settings aria-hidden className="size-4" /> Configurações
               </Link>
               <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
                 <ShieldUser aria-hidden className="size-4" /> Usuários

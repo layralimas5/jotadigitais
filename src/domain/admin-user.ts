@@ -10,7 +10,7 @@ export interface AdminUser {
 export interface NewAdminUser {
   name: string;
   email: string;
-  /** Senha provisória: a pessoa troca em "Minha conta" depois do primeiro acesso. */
+  /** Senha provisória: a pessoa troca em Configurações depois do primeiro acesso. */
   password: string;
 }
 

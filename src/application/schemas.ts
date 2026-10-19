@@ -318,15 +318,28 @@ export type PasswordResetInput = z.input<typeof passwordResetSchema>;
 
 export const changePasswordSchema = z
   .object({
+    /** Vazia só quando a pessoa entrou pelo link de redefinição. */
+    currentPassword: z.string().default(""),
     password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),
     confirmation: z.string(),
   })
   .refine((data) => data.password === data.confirmation, {
     path: ["confirmation"],
     message: "As senhas não conferem.",
+  })
+  .refine((data) => data.password !== data.currentPassword, {
+    path: ["password"],
+    message: "A nova senha precisa ser diferente da atual.",
   });
 
 export type ChangePasswordInput = z.input<typeof changePasswordSchema>;
+
+export const profileSchema = z.object({
+  name: personName,
+  email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
+});
+
+export type ProfileInput = z.input<typeof profileSchema>;
 
 // ---------------------------------------------------------------------------
 // Configurações da loja (mesmas regras da tabela store_settings)

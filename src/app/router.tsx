@@ -26,7 +26,7 @@ const PartnersPage = lazy(() => import("@/ui/admin/pages/PartnersPage"));
 const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
 const UsersPage = lazy(() => import("@/ui/admin/pages/UsersPage"));
 const UserEditorPage = lazy(() => import("@/ui/admin/pages/UserEditorPage"));
-const MyAccountPage = lazy(() => import("@/ui/admin/pages/MyAccountPage"));
+const SettingsPage = lazy(() => import("@/ui/admin/pages/SettingsPage"));
 const CustomersPage = lazy(() => import("@/ui/admin/pages/CustomersPage"));
 const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPage"));
 const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
@@ -86,10 +86,11 @@ export const router = createBrowserRouter([
           { path: "apis", element: <ApisPage /> },
           { path: "mais", element: <MorePage /> },
           { path: "site", element: <SitePage /> },
-          { path: "configuracoes", element: <Navigate to="/admin/site" replace /> },
+          { path: "configuracoes", element: <SettingsPage /> },
           { path: "usuarios", element: <UsersPage /> },
           { path: "usuarios/novo", element: <UserEditorPage /> },
-          { path: "minha-conta", element: <MyAccountPage /> },
+          // Links antigos de "Minha conta" (e-mails de redefinição já enviados) caem nas Configurações.
+          { path: "minha-conta", element: <Navigate to="/admin/configuracoes" replace /> },
         ],
       },
     ],

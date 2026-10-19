@@ -32,6 +32,7 @@ import type {
   ImageStorage,
   MediaFolder,
   PreparedImage,
+  ProfileUpdateResult,
   UploadedImage,
 } from "./ports";
 import {
@@ -45,9 +46,11 @@ import {
   newAdminUserSchema,
   parseOrThrow,
   partnerDataSchema,
+  profileSchema,
   signInSchema,
   storeSettingsSchema,
   testimonialDataSchema,
+  ValidationError,
 } from "./schemas";
 
 export interface AdminDeps {
@@ -286,12 +289,23 @@ export function lookupAccountProfile(deps: AdminDeps, url: string): Promise<Prof
   return deps.profiles.lookup(url.trim());
 }
 
-export function changePassword(deps: AdminDeps, raw: unknown): Promise<void> {
-  const { password } = parseOrThrow(changePasswordSchema, raw);
-  return deps.auth.changePassword(password);
+/** Fora do link de redefinição, a troca pede a senha atual: um aparelho esquecido logado não basta. */
+export async function changePassword(deps: AdminDeps, raw: unknown, session: AdminSession): Promise<void> {
+  const { currentPassword, password } = parseOrThrow(changePasswordSchema, raw);
+  if (!session.recoveringPassword) {
+    if (!currentPassword) {
+      throw new ValidationError("Informe a senha atual.", { currentPassword: "Informe a senha atual." });
+    }
+    await deps.auth.verifyPassword(session.email, currentPassword);
+  }
+  await deps.auth.changePassword(password);
 }
 
-/** O link do e-mail entra logado na "Minha conta", onde a senha nova é definida. */
+export function updateProfile(deps: AdminDeps, raw: unknown, emailRedirectTo: string): Promise<ProfileUpdateResult> {
+  return deps.auth.updateProfile(parseOrThrow(profileSchema, raw), emailRedirectTo);
+}
+
+/** O link do e-mail entra logado em Configurações, onde a senha nova é definida. */
 export function requestPasswordReset(deps: AdminDeps, raw: unknown, redirectTo: string): Promise<void> {
   const { email } = parseOrThrow(passwordResetSchema, raw);
   return deps.auth.requestPasswordReset(email, redirectTo);
