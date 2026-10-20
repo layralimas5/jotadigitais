@@ -61,6 +61,13 @@ export class CustomerEmailTakenError extends Error {
   }
 }
 
+export class RevenueNotFoundError extends Error {
+  constructor() {
+    super("Esta receita não existe mais. Ela pode ter sido apagada.");
+    this.name = "RevenueNotFoundError";
+  }
+}
+
 export class ExpenseNotFoundError extends Error {
   constructor() {
     super("Esta despesa não existe mais. Ela pode ter sido apagada.");

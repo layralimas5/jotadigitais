@@ -9,6 +9,7 @@ const SHORTCUTS: readonly Omit<SearchItem, "group">[] = [
   { id: "page:nova-conta", title: "Nova conta", subtitle: "Cadastrar conta no estoque", to: "/admin/contas/nova" },
   { id: "page:novo-pedido-crm", title: "Novo contato no CRM", subtitle: "Cadastrar lead", to: "/admin/crm/novo" },
   { id: "page:novo-cliente", title: "Novo cliente", subtitle: "Cadastrar cliente", to: "/admin/clientes/novo" },
+  { id: "page:nova-receita", title: "Nova receita", subtitle: "Lançar venda por fora no financeiro", to: "/admin/financeiro/receitas/nova" },
   { id: "page:nova-despesa", title: "Nova despesa", subtitle: "Lançar no financeiro", to: "/admin/financeiro/despesas/nova" },
   { id: "page:novo-parceiro", title: "Novo parceiro", subtitle: "Cadastrar fornecedor", to: "/admin/parceiros/novo" },
   { id: "page:novo-depoimento", title: "Novo depoimento", subtitle: "Enviar print de resultado", to: "/admin/depoimentos/novo" },

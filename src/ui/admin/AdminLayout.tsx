@@ -23,6 +23,7 @@ const EDITOR_ROUTES = [
   "/admin/clientes/novo",
   "/admin/clientes/cadastro/:id",
   "/admin/financeiro/despesas/:id",
+  "/admin/financeiro/receitas/:id",
   "/admin/parceiros/:id",
   "/admin/usuarios/novo",
 ];

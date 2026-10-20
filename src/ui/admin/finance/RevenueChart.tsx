@@ -54,7 +54,7 @@ export function Legend() {
   return (
     <ul className="flex flex-wrap gap-4 text-xs text-fog">
       <li className="flex items-center gap-2">
-        <span aria-hidden className="size-2.5 rounded-sm" style={{ background: SERIES_COLOR.revenue }} /> Faturamento
+        <span aria-hidden className="size-2.5 rounded-sm" style={{ background: SERIES_COLOR.revenue }} /> Receitas
       </li>
       <li className="flex items-center gap-2">
         <span aria-hidden className="size-2.5 rounded-sm" style={{ background: SERIES_COLOR.expenses }} /> Despesas
@@ -72,7 +72,7 @@ export function ChartTable({ series }: { series: SeriesPoint[] }) {
         <thead className="sticky top-0 bg-surface text-xs text-mist">
           <tr>
             <th scope="col" className="px-4 py-2 font-medium">Período</th>
-            <th scope="col" className="px-4 py-2 text-right font-medium">Faturamento</th>
+            <th scope="col" className="px-4 py-2 text-right font-medium">Receitas</th>
             <th scope="col" className="px-4 py-2 text-right font-medium">Despesas</th>
             <th scope="col" className="px-4 py-2 text-right font-medium">Resultado</th>
           </tr>
@@ -109,7 +109,7 @@ function BarsPlot({ series }: { series: SeriesPoint[] }) {
   return (
     <div ref={ref} className="relative" onMouseLeave={() => setActive(null)}>
       {width > 0 && (
-        <svg width={width} height={HEIGHT} role="img" aria-label="Faturamento e despesas por período">
+        <svg width={width} height={HEIGHT} role="img" aria-label="Receitas e despesas por período">
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
             {ticks.map((tick) => (
               <g key={tick} transform={`translate(0,${scaleY(tick)})`}>
@@ -163,7 +163,7 @@ function BarsPlot({ series }: { series: SeriesPoint[] }) {
           <p className="font-semibold text-white">{activePoint.label}</p>
           <p className="mt-1 flex items-center justify-between gap-3 text-fog">
             <span className="flex items-center gap-1.5">
-              <span aria-hidden className="size-2 rounded-sm" style={{ background: SERIES_COLOR.revenue }} /> Faturamento
+              <span aria-hidden className="size-2 rounded-sm" style={{ background: SERIES_COLOR.revenue }} /> Receitas
             </span>
             <span className="text-white tabular-nums">{formatBRL(activePoint.revenue)}</span>
           </p>
@@ -187,7 +187,7 @@ export function RevenueChart({ series }: { series: SeriesPoint[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 id="chart-title" className="font-display text-base font-semibold text-white">
-            Faturamento e despesas
+            Receitas e despesas
           </h2>
           <div className="mt-2">
             <Legend />

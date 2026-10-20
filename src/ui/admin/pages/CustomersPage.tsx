@@ -1,12 +1,13 @@
 import { MessageCircle, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { listCustomers } from "@/application/admin-use-cases";
-import type { CustomerSummary } from "@/domain/customer";
+import { countByOrigin, type CustomerOrigin, type CustomerSummary } from "@/domain/customer";
 import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FilterChips } from "../components/FilterChips";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
@@ -44,17 +45,42 @@ function WhatsAppButton({ customer }: { customer: CustomerSummary }) {
   );
 }
 
+type OriginFilter = "all" | CustomerOrigin;
+
+const ORIGIN_PARAM = "origem";
+
+function parseOrigin(value: string | null): OriginFilter {
+  return value === "site" || value === "manual" ? value : "all";
+}
+
+const ORIGIN_BADGE: Record<CustomerOrigin, { label: string; className: string }> = {
+  site: { label: "Site", className: "border-electric/40 bg-electric/10 text-electric-soft" },
+  manual: { label: "Manual", className: "border-pink/40 bg-pink/10 text-pink" },
+};
+
+function OriginBadge({ origin }: { origin: CustomerOrigin }) {
+  const badge = ORIGIN_BADGE[origin];
+  return (
+    <span className={`inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[0.68rem] font-semibold ${badge.className}`}>
+      {badge.label}
+    </span>
+  );
+}
+
 function CustomerIdentity({ customer }: { customer: CustomerSummary }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <PersonAvatar name={customer.name} />
       <div className="min-w-0">
-        <Link
-          to={customerPath(customer)}
-          className="block truncate font-semibold text-white after:absolute after:inset-0 hover:text-electric-soft focus-visible:outline-none"
-        >
-          {customer.name}
-        </Link>
+        <div className="flex min-w-0 items-center gap-2">
+          <Link
+            to={customerPath(customer)}
+            className="truncate font-semibold text-white after:absolute after:inset-0 hover:text-electric-soft focus-visible:outline-none"
+          >
+            {customer.name}
+          </Link>
+          <OriginBadge origin={customer.origin} />
+        </div>
         <p className="truncate text-xs text-mist">{customer.email ?? customer.instagram ?? "Sem e-mail"}</p>
       </div>
     </div>
@@ -74,7 +100,7 @@ function CustomersTable({ customers }: { customers: CustomerSummary[] }) {
             <th scope="col" className="px-4 py-3 font-medium">Contato</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Compras</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Total gasto</th>
-            <th scope="col" className="px-4 py-3 text-right font-medium">Último pedido</th>
+            <th scope="col" className="px-4 py-3 text-right font-medium">Última compra</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -87,7 +113,7 @@ function CustomersTable({ customers }: { customers: CustomerSummary[] }) {
                 {customer.openOrders > 0 && <span className="ml-1.5 text-xs text-pink">+{customer.openOrders} em aberto</span>}
               </td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(customer.totalSpent)}</td>
-              <td className="px-4 py-3 text-right text-fog">{customer.lastOrderAt ? formatDate(customer.lastOrderAt) : <span className="text-mist">Sem pedidos</span>}</td>
+              <td className="px-4 py-3 text-right text-fog">{customer.lastPurchaseAt ? formatDate(customer.lastPurchaseAt) : <span className="text-mist">Sem compras</span>}</td>
             </tr>
           ))}
         </tbody>
@@ -114,19 +140,35 @@ function CustomersCards({ customers }: { customers: CustomerSummary[] }) {
   );
 }
 
+const EMPTY_FILTER_MESSAGE: Record<CustomerOrigin, { title: string; description: string }> = {
+  site: { title: "Nenhum cliente do site ainda", description: "Quem compra pelo checkout aparece aqui sozinho, com a ficha preenchida." },
+  manual: { title: "Nenhum cliente cadastrado à mão", description: "Quem comprou por fora do site você cadastra em Novo cliente, com a ficha completa." },
+};
+
 export default function CustomersPage() {
   const customers = useAdminQuery(listCustomers, "admin-customers");
   const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const origin = parseOrigin(params.get(ORIGIN_PARAM));
+  const all = customers.status === "success" ? customers.data : [];
+  const counts = countByOrigin(all);
 
   const visible = useMemo(
-    () => (customers.status === "success" ? customers.data.filter((customer) => matches(customer, query)) : []),
-    [customers, query],
+    () => all.filter((customer) => (origin === "all" || customer.origin === origin) && matches(customer, query)),
+    [all, origin, query],
   );
+
+  const setOrigin = (next: OriginFilter) => {
+    const nextParams = new URLSearchParams(params);
+    if (next === "all") nextParams.delete(ORIGIN_PARAM);
+    else nextParams.set(ORIGIN_PARAM, next);
+    setParams(nextParams, { replace: true });
+  };
 
   const summary =
     customers.status === "success"
-      ? `${customers.data.length} ${customers.data.length === 1 ? "cliente" : "clientes"}, ${formatBRL(
-          customers.data.reduce((sum, customer) => sum + customer.totalSpent, 0),
+      ? `${all.length} ${all.length === 1 ? "cliente" : "clientes"}, ${formatBRL(
+          all.reduce((sum, customer) => sum + customer.totalSpent, 0),
         )} em compras pagas.`
       : "Quem compra na loja.";
 
@@ -142,11 +184,23 @@ export default function CustomersPage() {
         }
       />
 
-      <SearchInput label="Buscar cliente" placeholder="Buscar por nome, e-mail ou WhatsApp" value={query} onChange={setQuery} />
+      <div className="space-y-3">
+        <FilterChips<OriginFilter>
+          label="Origem do cliente"
+          value={origin}
+          onChange={setOrigin}
+          options={[
+            { value: "all", label: "Todos", count: counts.all },
+            { value: "site", label: "Do site", count: counts.site },
+            { value: "manual", label: "Cadastro manual", count: counts.manual },
+          ]}
+        />
+        <SearchInput label="Buscar cliente" placeholder="Buscar por nome, e-mail ou WhatsApp" value={query} onChange={setQuery} />
+      </div>
 
       {customers.status === "loading" && <LoadingBlock />}
       {customers.status === "error" && <ErrorState message={customers.error.message} onRetry={customers.reload} />}
-      {customers.status === "success" && customers.data.length === 0 && (
+      {customers.status === "success" && all.length === 0 && (
         <EmptyState
           title="Nenhum cliente ainda"
           description="Quem compra pelo site aparece aqui sozinho. Quem comprou por fora, você cadastra."
@@ -157,8 +211,12 @@ export default function CustomersPage() {
           }
         />
       )}
-      {customers.status === "success" && customers.data.length > 0 && visible.length === 0 && (
-        <EmptyState title="Ninguém encontrado" description="Confira o nome, o e-mail ou o número digitado." />
+      {customers.status === "success" && all.length > 0 && visible.length === 0 && (
+        query.trim() || origin === "all" ? (
+          <EmptyState title="Ninguém encontrado" description="Confira o nome, o e-mail ou o número digitado." />
+        ) : (
+          <EmptyState {...EMPTY_FILTER_MESSAGE[origin]} />
+        )
       )}
       {visible.length > 0 && (
         <>

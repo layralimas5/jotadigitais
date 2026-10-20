@@ -1,3 +1,4 @@
+import type { BrazilState } from "./brazil";
 import type { Cents } from "./money";
 import type { Platform } from "./platform";
 
@@ -9,10 +10,21 @@ export const ORDER_STATUSES = ["awaiting_payment", "paid", "delivered", "cancele
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/**
+ * Ficha preenchida no checkout. Pedidos de antes da ficha completa (e a página pública do pedido,
+ * que nunca devolve dado pessoal) chegam com esses campos vazios.
+ */
 export interface Customer {
   name: string;
   email: string;
   whatsapp: string | null;
+  /** CPF ou CNPJ, só números. */
+  document: string | null;
+  /** AAAA-MM-DD */
+  birthDate: string | null;
+  instagram: string | null;
+  city: string | null;
+  state: BrazilState | null;
 }
 
 export interface Order {

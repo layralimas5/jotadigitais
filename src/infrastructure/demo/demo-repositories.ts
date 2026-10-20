@@ -12,6 +12,7 @@ import type {
   AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
+  AdminRevenueRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminUserRepository,
@@ -32,6 +33,7 @@ import {
   InvalidTransitionError,
   LeadNotFoundError,
   PartnerNotFoundError,
+  RevenueNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
 } from "@/domain/errors";
@@ -44,7 +46,7 @@ import {
   type OrderStatus,
 } from "@/domain/order";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
-import type { Expense, ExpenseData } from "@/domain/finance";
+import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
@@ -304,7 +306,12 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
   }
 
   private toPublic(order: Order): Order {
-    return { ...order, customer: { ...order.customer, email: maskEmail(order.customer.email), whatsapp: null } };
+    const { name, email } = order.customer;
+    // Como `get_order` no banco: a página pública do pedido não mostra a ficha.
+    return {
+      ...order,
+      customer: { name, email: maskEmail(email), whatsapp: null, document: null, birthDate: null, instagram: null, city: null, state: null },
+    };
   }
 }
 
@@ -493,6 +500,47 @@ export class DemoExpenseRepository implements AdminExpenseRepository {
     await simulateLatency();
     this.db.write((state) => {
       state.expenses = (state.expenses ?? []).filter((expense) => expense.id !== id);
+    });
+  }
+}
+
+const revenuesByDateDesc = (a: Revenue, b: Revenue) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt);
+
+export class DemoRevenueRepository implements AdminRevenueRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listAll(): Promise<Revenue[]> {
+    return [...(this.db.read().revenues ?? [])].sort(revenuesByDateDesc);
+  }
+
+  async findById(id: string): Promise<Revenue | null> {
+    return (this.db.read().revenues ?? []).find((revenue) => revenue.id === id) ?? null;
+  }
+
+  async create(data: RevenueData): Promise<Revenue> {
+    await simulateLatency();
+    const revenue: Revenue = { ...data, id: newId("rev"), createdAt: new Date().toISOString() };
+    return this.db.write((state) => {
+      state.revenues = [revenue, ...(state.revenues ?? [])];
+      return revenue;
+    });
+  }
+
+  async update(id: string, data: RevenueData): Promise<Revenue> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const current = (state.revenues ?? []).find((revenue) => revenue.id === id);
+      if (!current) throw new RevenueNotFoundError();
+      const updated: Revenue = { ...current, ...data };
+      state.revenues = (state.revenues ?? []).map((revenue) => (revenue.id === id ? updated : revenue));
+      return updated;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.revenues = (state.revenues ?? []).filter((revenue) => revenue.id !== id);
     });
   }
 }

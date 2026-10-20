@@ -11,7 +11,7 @@ type SeriesFilter = "both" | "revenue" | "expenses";
 
 const SERIES_FILTERS: readonly { value: SeriesFilter; label: string }[] = [
   { value: "both", label: "Tudo" },
-  { value: "revenue", label: "Faturamento" },
+  { value: "revenue", label: "Receitas" },
   { value: "expenses", label: "Despesas" },
 ];
 
@@ -83,7 +83,7 @@ function Tooltip({ point, left }: { point: SeriesPoint; left: number }) {
         <p key={key} className="mt-1 flex items-center justify-between gap-3 text-fog">
           <span className="flex items-center gap-1.5">
             <span aria-hidden className="size-2 rounded-sm" style={{ background: SERIES_COLOR[key] }} />
-            {key === "revenue" ? "Faturamento" : "Despesas"}
+            {key === "revenue" ? "Receitas" : "Despesas"}
           </span>
           <span className="text-white tabular-nums">{formatBRL(point[key])}</span>
         </p>
@@ -122,7 +122,7 @@ function Plot3D({ series, show }: { series: SeriesPoint[]; show: SeriesFilter })
   return (
     <div ref={ref} className="relative" onMouseLeave={() => setActive(null)}>
       {width > 0 && (
-        <svg width={width} height={HEIGHT} role="img" aria-label="Faturamento e despesas por período, em barras com profundidade">
+        <svg width={width} height={HEIGHT} role="img" aria-label="Receitas e despesas por período, em barras com profundidade">
           <defs>
             <linearGradient id="chart3d-wall" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#2799ff" stopOpacity="0.06" />
@@ -271,7 +271,7 @@ function Segmented<T extends string>({
 const sumOf = (series: readonly SeriesPoint[]) =>
   series.reduce((sum, point) => ({ revenue: sum.revenue + point.revenue, expenses: sum.expenses + point.expenses }), { revenue: 0, expenses: 0 });
 
-/** Faturamento e despesas em barras com profundidade: período, agrupamento, o que mostrar e versão em tabela. */
+/** Receitas e despesas em barras com profundidade: período, agrupamento, o que mostrar e versão em tabela. */
 export function RevenueChart3D({ views }: { views: readonly ChartView[] }) {
   const [viewId, setViewId] = useState(views[0]?.id ?? "");
   const view = views.find((item) => item.id === viewId) ?? views[0];
@@ -299,7 +299,7 @@ export function RevenueChart3D({ views }: { views: readonly ChartView[] }) {
       <div className="relative flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 id="chart3d-title" className="font-display text-base font-semibold text-white">
-            Faturamento e despesas
+            Receitas e despesas
           </h2>
           <p className="mt-1 text-xs text-mist">
             {view.label}: <span className="text-fog tabular-nums">{formatBRL(totals.revenue)}</span> de entrada,{" "}

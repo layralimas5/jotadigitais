@@ -26,7 +26,7 @@ export function BackupSection() {
   return (
     <FormSection
       title="Backup do sistema"
-      description="Baixa um arquivo com contas, pedidos, clientes, leads, parceiros, despesas, depoimentos, mensagens da automação e dados do site. As fotos entram como link."
+      description="Baixa um arquivo com contas, pedidos, clientes, leads, parceiros, receitas, despesas, depoimentos, mensagens da automação e dados do site. As fotos entram como link."
     >
       <p className="flex gap-3 rounded-2xl border border-line-strong bg-ink px-4 py-3 text-sm text-fog">
         <ShieldAlert aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />

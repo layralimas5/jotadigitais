@@ -13,6 +13,7 @@ import {
   DemoOrderRepository,
   DemoPartnerRepository,
   DemoPreferenceRepository,
+  DemoRevenueRepository,
   DemoStoreSettingsRepository,
   DemoTestimonialRepository,
 } from "@/infrastructure/demo/demo-repositories";
@@ -31,6 +32,7 @@ import {
   SupabaseOrderRepository,
   SupabasePartnerRepository,
   SupabasePreferenceRepository,
+  SupabaseRevenueRepository,
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
 } from "@/infrastructure/supabase/supabase-repositories";
@@ -65,6 +67,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       templates: new SupabaseMessageTemplateRepository(client),
       preferences: new SupabasePreferenceRepository(client),
       expenses: new SupabaseExpenseRepository(client),
+      revenues: new SupabaseRevenueRepository(client),
       partners: new SupabasePartnerRepository(client),
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
@@ -96,6 +99,7 @@ function demoContainer(): Container {
       templates: new DemoMessageTemplateRepository(db),
       preferences: new DemoPreferenceRepository(db),
       expenses: new DemoExpenseRepository(db),
+      revenues: new DemoRevenueRepository(db),
       partners: new DemoPartnerRepository(db),
       users: new DemoAdminUserRepository(db),
       profiles: new DevServerProfileLookupService(),

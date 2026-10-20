@@ -3,13 +3,14 @@ import type { AdminDeps } from "./admin-use-cases";
 
 /** Lê tudo de uma vez: se uma parte falhar, nenhum arquivo pela metade é gerado. */
 export async function createBackup(deps: AdminDeps, now: Date = new Date()): Promise<Backup> {
-  const [accounts, orders, customers, leads, partners, expenses, testimonials, storeSettings, messageTemplates, adminUsers] =
+  const [accounts, orders, customers, leads, partners, revenues, expenses, testimonials, storeSettings, messageTemplates, adminUsers] =
     await Promise.all([
       deps.accounts.listAll(),
       deps.orders.listAll(),
       deps.customers.listAll(),
       deps.leads.listAll(),
       deps.partners.listAll(),
+      deps.revenues.listAll(),
       deps.expenses.listAll(),
       deps.testimonials.listAll(),
       deps.settings.get(),
@@ -20,6 +21,6 @@ export async function createBackup(deps: AdminDeps, now: Date = new Date()): Pro
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     createdAt: now.toISOString(),
-    data: { accounts, orders, customers, leads, partners, expenses, testimonials, storeSettings, messageTemplates, adminUsers },
+    data: { accounts, orders, customers, leads, partners, revenues, expenses, testimonials, storeSettings, messageTemplates, adminUsers },
   };
 }
