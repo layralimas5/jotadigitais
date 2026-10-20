@@ -542,6 +542,23 @@ async function main() {
   );
   check(calendarPref.rows[0]?.key === "google_calendar", "admin guarda a conta Google ligada");
 
+  console.log("\nperfil");
+  await as("authenticated", ADMIN_ID, () => db.query(`select public.update_my_profile('  Jota Digitais  ')`));
+  const profile = await db.query(`select name from public.admin_users where user_id = '${ADMIN_ID}'`);
+  check(profile.rows[0]?.name === "Jota Digitais", "admin muda o próprio nome, sem espaços nas pontas");
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.update_my_profile('Intruso')`)), /forbidden/),
+    "usuário que não é admin não usa a função de perfil",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.update_my_profile('Visitante')`)), /permission denied/),
+    "visitante não chama a função de perfil",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.update_my_profile('J')`)), /check constraint/),
+    "nome com menos de 2 letras é barrado pelo banco",
+  );
+
   console.log("\nimagens");
   check(
     await rejects(

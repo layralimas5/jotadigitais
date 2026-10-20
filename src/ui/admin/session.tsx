@@ -10,6 +10,8 @@ type SessionState =
 interface SessionContextValue {
   state: SessionState;
   signOut: () => Promise<void>;
+  /** Relê a sessão depois de mudanças que não disparam evento de login (ex.: nome do perfil). */
+  refresh: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -37,7 +39,14 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [auth]);
 
-  const value = useMemo<SessionContextValue>(() => ({ state, signOut: () => auth.signOut() }), [state, auth]);
+  const value = useMemo<SessionContextValue>(
+    () => ({
+      state,
+      signOut: () => auth.signOut(),
+      refresh: async () => setState(toState(await auth.getSession())),
+    }),
+    [state, auth],
+  );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 

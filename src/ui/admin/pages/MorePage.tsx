@@ -1,4 +1,4 @@
-import { ChevronRight, ExternalLink, UserRound } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/AdminUi";
@@ -40,16 +40,6 @@ export default function MorePage() {
         ))}
       </ul>
       <ul className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/60">
-        <li>
-          <Link to="/admin/minha-conta" className={rowClass}>
-            <Row
-              icon={<UserRound aria-hidden className="size-5" />}
-              title="Minha conta"
-              description="Acesso e senha"
-              trailing={<ChevronRight aria-hidden className="size-4 text-mist" />}
-            />
-          </Link>
-        </li>
         <li>
           <a href="/" target="_blank" rel="noreferrer" className={rowClass}>
             <Row

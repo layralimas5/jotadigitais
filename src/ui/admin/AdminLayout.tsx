@@ -34,10 +34,10 @@ const FORM_ROUTES = [
   "/admin/automacao",
   "/admin/apis",
   "/admin/site",
-  "/admin/minha-conta",
+  "/admin/configuracoes",
 ];
 
-const MORE_ROUTES = ["/admin/mais", "/admin/minha-conta", ...MORE_ITEMS.map((item) => `${item.to}/*`)];
+const MORE_ROUTES = ["/admin/mais", ...MORE_ITEMS.map((item) => `${item.to}/*`)];
 
 /** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */
 const DESKTOP_QUERY = "(min-width: 48rem)";

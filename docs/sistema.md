@@ -38,7 +38,13 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
 - **Parceiros**: quem fornece contas. Cada conta pode ter um parceiro (`accounts.partner_id`); a comissão é a
   porcentagem do parceiro sobre as vendas finalizadas das contas dele. Apagar o parceiro deixa as contas como da loja.
   Ainda não há registro de repasse pago: o total mostrado é sobre todas as vendas finalizadas.
-- **Site**: contato, garantia e atalhos do conteúdo do site (antiga Configurações; `/admin/configuracoes` redireciona).
+- **Site**: contato, garantia e atalhos do conteúdo do site.
+- **Configurações** (`/admin/configuracoes`, também no menu do usuário): perfil (nome pela função `update_my_profile`,
+  e-mail pelo Supabase Auth, que só troca depois do clique no link enviado ao e-mail novo), troca de senha pedindo a
+  senha atual, link de redefinição por e-mail para você ou outra pessoa da equipe, e backup. Quem chega pelo link de
+  "esqueci a senha" cai aqui e cria a senha nova sem informar a antiga. O backup baixa um JSON com contas, pedidos,
+  clientes, leads, parceiros, despesas, depoimentos, modelos de mensagem, dados do site e a lista de usuários (sem
+  senhas; fotos como link). Ainda não há restauração pelo painel. `/admin/minha-conta` redireciona para cá.
 - **Usuários**: quem entra no sistema, todos com acesso completo. A lista vem da função `list_admin_users`.
   Criar e tirar acesso passa pela Edge Function `admin-users`, que usa a chave de serviço do Supabase (nunca vai
   para o navegador) e confere se quem pede é administrador. Ninguém tira o próprio acesso e o sistema nunca fica
@@ -63,7 +69,10 @@ Com o Supabase ligado, o ícone some do site e o painel volta a exigir login.
    npx supabase link --project-ref <ref-do-projeto>
    npx supabase db push
    ```
-3. Em **Authentication > Providers > Email**, desligar "Allow new users to sign up".
+3. Em **Authentication > Providers > Email**, desligar "Allow new users to sign up". Em **Authentication > URL
+   Configuration**, pôr o endereço do site em "Site URL" e `https://<dominio>/admin/configuracoes` (e
+   `http://localhost:5210/admin/configuracoes` para testar) em "Redirect URLs": é para onde voltam os links de
+   redefinir senha e confirmar e-mail novo.
 4. Em **Authentication > Users**, criar o usuário do Jota (e-mail e senha).
 5. No **SQL Editor**, dar acesso de admin:
    ```sql

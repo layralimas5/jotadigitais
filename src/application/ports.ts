@@ -70,14 +70,30 @@ export interface StoreSettingsRepository {
 
 export interface AdminSession {
   email: string;
+  name: string | null;
+  /** Entrou pelo link de "esqueci a senha": cria a senha nova sem informar a atual. */
+  recoveringPassword: boolean;
+}
+
+export interface ProfileUpdate {
+  name: string;
+  email: string;
+}
+
+export interface ProfileUpdateResult {
+  /** O e-mail novo só vale depois que a pessoa clica no link de confirmação. */
+  emailConfirmationPending: boolean;
 }
 
 export interface AuthService {
   getSession(): Promise<AdminSession | null>;
   signIn(email: string, password: string): Promise<AdminSession>;
   signOut(): Promise<void>;
+  /** Confere a senha atual. Falha com `WrongCurrentPasswordError`. */
+  verifyPassword(email: string, password: string): Promise<void>;
   changePassword(newPassword: string): Promise<void>;
   requestPasswordReset(email: string, redirectTo: string): Promise<void>;
+  updateProfile(update: ProfileUpdate, emailRedirectTo: string): Promise<ProfileUpdateResult>;
   onChange(listener: (session: AdminSession | null) => void): () => void;
 }
 

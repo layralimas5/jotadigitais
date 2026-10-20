@@ -61,7 +61,7 @@ export default function UserEditorPage() {
       </div>
 
       <form noValidate onSubmit={onSubmit} aria-busy={create.pending} className="mt-6 grid max-w-3xl gap-6">
-        <FormSection title="Acesso" description="Passe a senha por um canal seguro. Depois do primeiro acesso, a pessoa troca em Minha conta.">
+        <FormSection title="Acesso" description="Passe a senha por um canal seguro. Depois do primeiro acesso, a pessoa troca em Configurações.">
           <TextField
             label="Nome"
             name="name"

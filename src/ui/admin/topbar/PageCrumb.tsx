@@ -9,7 +9,6 @@ interface Crumb {
 
 /** Telas fora do menu lateral que também merecem nome no topo. */
 const EXTRA_PAGES: readonly { to: string; crumb: Crumb }[] = [
-  { to: "/admin/minha-conta", crumb: { section: "Conta", page: "Minha conta" } },
   { to: "/admin/mais", crumb: { section: "Painel", page: "Mais" } },
 ];
 

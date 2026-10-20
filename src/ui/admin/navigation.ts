@@ -7,6 +7,7 @@ import {
   Package,
   PlugZap,
   Receipt,
+  Settings,
   ShieldUser,
   SquareKanban,
   Users,
@@ -31,6 +32,7 @@ export interface NavGroup {
 }
 
 export const HOME_PATH = "/admin/dashboard";
+export const SETTINGS_PATH = "/admin/configuracoes";
 
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
@@ -64,6 +66,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/depoimentos", label: "Depoimentos", icon: ImageIcon, inBottomNav: false, description: "Prints da faixa de resultados" },
       { to: "/admin/usuarios", label: "Usuários", icon: ShieldUser, inBottomNav: false, description: "Quem acessa o sistema" },
       { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "Google Agenda e outras conexões" },
+      { to: SETTINGS_PATH, label: "Configurações", icon: Settings, inBottomNav: false, description: "Perfil, senha e backup" },
     ],
   },
 ];

@@ -106,3 +106,10 @@ export class NotAdminError extends Error {
     this.name = "NotAdminError";
   }
 }
+
+export class WrongCurrentPasswordError extends Error {
+  constructor() {
+    super("A senha atual não confere.");
+    this.name = "WrongCurrentPasswordError";
+  }
+}

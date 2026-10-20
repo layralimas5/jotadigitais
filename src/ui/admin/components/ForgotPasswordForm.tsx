@@ -5,9 +5,8 @@ import { ValidationError, type PasswordResetInput } from "@/application/schemas"
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { useMutation } from "../hooks";
+import { settingsUrl } from "../settings/settings-links";
 import { InlineError } from "./AdminUi";
-
-const RESET_REDIRECT_PATH = "/admin/minha-conta";
 
 interface ForgotPasswordFormProps {
   initialEmail: string;
@@ -18,7 +17,7 @@ export function ForgotPasswordForm({ initialEmail, onBack }: ForgotPasswordFormP
   const [email, setEmail] = useState(initialEmail);
   const [sent, setSent] = useState(false);
   const reset = useMutation(async (deps, input: PasswordResetInput) => {
-    await requestPasswordReset(deps, input, `${window.location.origin}${RESET_REDIRECT_PATH}`);
+    await requestPasswordReset(deps, input, settingsUrl());
     return true;
   });
   const fieldErrors = reset.error instanceof ValidationError ? reset.error.fieldErrors : {};

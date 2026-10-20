@@ -13,7 +13,8 @@ const SHORTCUTS: readonly Omit<SearchItem, "group">[] = [
   { id: "page:novo-parceiro", title: "Novo parceiro", subtitle: "Cadastrar fornecedor", to: "/admin/parceiros/novo" },
   { id: "page:novo-depoimento", title: "Novo depoimento", subtitle: "Enviar print de resultado", to: "/admin/depoimentos/novo" },
   { id: "page:novo-usuario", title: "Novo usuário", subtitle: "Dar acesso ao sistema", to: "/admin/usuarios/novo" },
-  { id: "page:minha-conta", title: "Minha conta", subtitle: "Trocar senha", to: "/admin/minha-conta", keywords: "senha perfil sair" },
+  { id: "page:trocar-senha", title: "Trocar senha", subtitle: "Configurações", to: "/admin/configuracoes", keywords: "senha redefinir esqueci perfil sair" },
+  { id: "page:backup", title: "Fazer backup", subtitle: "Configurações", to: "/admin/configuracoes", keywords: "backup exportar baixar copia seguranca" },
 ];
 
 export const PAGE_ITEMS: readonly SearchItem[] = [
