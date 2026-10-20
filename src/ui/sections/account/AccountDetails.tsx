@@ -2,7 +2,7 @@ import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { descriptionOf, includedOf, specsOf } from "@/ui/lib/account-presenter";
-import { STEPS } from "@/ui/sections/home/HowItWorks";
+import { useSteps } from "@/ui/sections/home/HowItWorks";
 
 function DetailBlock({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
@@ -65,12 +65,13 @@ export function AccountIncluded({ account }: { account: Account }) {
 }
 
 export function AccountDelivery() {
+  const steps = useSteps();
   return (
     <DetailBlock id="entrega-title" title="Como você recebe">
       <ol className="space-y-5">
-        {STEPS.map(({ icon: Icon, title, text }, index) => (
-          <li key={title} className="relative flex gap-4">
-            {index < STEPS.length - 1 && (
+        {steps.map(({ icon: Icon, title, text }, index) => (
+          <li key={index} className="relative flex gap-4">
+            {index < steps.length - 1 && (
               <span aria-hidden className="absolute top-11 bottom-[-1.25rem] left-[1.15rem] w-px bg-line" />
             )}
             <span className="relative grid size-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-ink text-electric">

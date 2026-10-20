@@ -28,13 +28,15 @@ const EDITOR_ROUTES = [
   "/admin/usuarios/novo",
 ];
 
+/** Editores largos (prévia ao lado): também têm barra própria no celular, mas usam a largura toda. */
+const WIDE_EDITOR_ROUTES = ["/admin/site"];
+
 /** Telas de leitura e preenchimento: centralizadas numa largura confortável em vez de esticadas até a borda. */
 const FORM_ROUTES = [
   ...EDITOR_ROUTES,
   "/admin/clientes/:key",
   "/admin/automacao",
   "/admin/apis",
-  "/admin/site",
   "/admin/configuracoes",
 ];
 
@@ -226,7 +228,7 @@ function BottomNav() {
 export function AdminProtected() {
   const { state } = useAdminSession();
   const location = useLocation();
-  const editing = matchesAny(EDITOR_ROUTES, location.pathname);
+  const editing = matchesAny([...EDITOR_ROUTES, ...WIDE_EDITOR_ROUTES], location.pathname);
   const formPage = matchesAny(FORM_ROUTES, location.pathname);
 
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;

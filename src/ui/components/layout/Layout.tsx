@@ -1,6 +1,7 @@
 import { Suspense, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { WhatsAppWidget } from "@/ui/components/whatsapp/WhatsAppWidget";
+import { SiteContentProvider } from "@/ui/hooks/useSiteContent";
 import { StoreSettingsProvider } from "@/ui/hooks/useStoreSettings";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
@@ -28,6 +29,7 @@ function PageFallback() {
 export function Layout() {
   return (
     <StoreSettingsProvider>
+      <SiteContentProvider>
       <a
         href="#conteudo"
         className="sr-only z-[60] rounded-full bg-electric px-4 py-2 font-semibold text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -43,6 +45,7 @@ export function Layout() {
       </main>
       <Footer />
       <WhatsAppWidget />
+      </SiteContentProvider>
     </StoreSettingsProvider>
   );
 }

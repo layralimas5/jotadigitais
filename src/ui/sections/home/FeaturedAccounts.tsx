@@ -5,6 +5,7 @@ import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
 import { ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useAccounts } from "@/ui/hooks/useStore";
 
 const FEATURED_COUNT = 6;
@@ -35,6 +36,7 @@ function StockStrip({ count }: { count: number }) {
 
 export function FeaturedAccounts() {
   const accounts = useAccounts({ onlyAvailable: true, sort: "recent" });
+  const { featured } = useSiteContent();
 
   return (
     <section aria-labelledby="destaques-title" className="relative border-y border-line bg-night py-14 sm:py-20 md:py-32">
@@ -42,12 +44,12 @@ export function FeaturedAccounts() {
         <div className="flex flex-col gap-5 sm:gap-8 md:flex-row md:items-end md:justify-between">
           <SectionHeading
             id="destaques-title"
-            eyebrow="Disponíveis agora"
-            title="Contas prontas para vender"
-            description="Cada conta é única. Quando alguém compra, ela sai da vitrine."
+            eyebrow={featured.eyebrow}
+            title={featured.title}
+            description={featured.description}
           />
           <ButtonLink to="/contas" variant="secondary" className="hidden self-start sm:inline-flex md:self-auto">
-            Ver todas <ArrowRight className="size-4" />
+            {featured.allButton} <ArrowRight className="size-4" />
           </ButtonLink>
         </div>
 

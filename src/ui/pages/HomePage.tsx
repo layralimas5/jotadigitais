@@ -1,4 +1,5 @@
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { Faq } from "@/ui/sections/home/Faq";
 import { FeaturedAccounts } from "@/ui/sections/home/FeaturedAccounts";
 import { FinalCta } from "@/ui/sections/home/FinalCta";
@@ -9,7 +10,8 @@ import { ProblemSection } from "@/ui/sections/home/ProblemSection";
 import { Results } from "@/ui/sections/home/Results";
 
 export default function HomePage() {
-  useDocumentMeta("");
+  const { seo } = useSiteContent();
+  useDocumentMeta("", seo.description, seo.title);
   return (
     <>
       <Hero />

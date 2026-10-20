@@ -610,6 +610,28 @@ async function main() {
     "receita de valor zero é barrada",
   );
 
+  console.log("\ntextos do site");
+  await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.site_content (id, content) values (true, '{"hero":{"title":"Novo título"}}')`),
+  );
+  const publicCopy = await as("anon", null, () => db.query(`select content->'hero'->>'title' as title from public.site_content`));
+  check(publicCopy.rows[0]?.title === "Novo título", "visitante lê os textos do site");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`update public.site_content set content = '{}'`)), /permission denied/),
+    "visitante não altera os textos",
+  );
+  const strangerCopy = await as("authenticated", STRANGER_ID, () =>
+    db.query(`update public.site_content set content = '{"hacked":true}' returning id`),
+  );
+  check(strangerCopy.rows.length === 0, "usuário que não é admin não altera os textos");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.site_content (id, content) values (false, '{}')`)),
+      /check constraint/,
+    ),
+    "só existe uma linha de textos",
+  );
+
   console.log("\nimagens");
   check(
     await rejects(

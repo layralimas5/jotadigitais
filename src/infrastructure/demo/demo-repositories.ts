@@ -12,6 +12,7 @@ import type {
   AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
+  AdminSiteContentRepository,
   AdminRevenueRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -52,6 +53,7 @@ import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/messa
 import { formatBRL } from "@/domain/money";
 import type { StoredNotification } from "@/domain/notification";
 import type { Partner, PartnerData } from "@/domain/partner";
+import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
@@ -312,6 +314,21 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       ...order,
       customer: { name, email: maskEmail(email), whatsapp: null, document: null, birthDate: null, instagram: null, city: null, state: null },
     };
+  }
+}
+
+export class DemoSiteContentRepository implements AdminSiteContentRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async load(): Promise<unknown> {
+    return this.db.read().siteContent ?? null;
+  }
+
+  async save(content: SiteContent): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.siteContent = content;
+    });
   }
 }
 

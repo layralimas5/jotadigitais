@@ -25,7 +25,7 @@ import {
 import { AccountGallery } from "@/ui/sections/account/AccountGallery";
 import { MobileBuyBar } from "@/ui/sections/account/MobileBuyBar";
 import { RelatedAccounts } from "@/ui/sections/account/RelatedAccounts";
-import { FAQ_ITEMS, FaqItem } from "@/ui/sections/home/Faq";
+import { FaqItem, useFaqItems } from "@/ui/sections/home/Faq";
 
 function Breadcrumb({ account }: { account?: Account }) {
   const crumbs = [
@@ -103,15 +103,15 @@ function AccountHeader({ account }: { account: Account }) {
 }
 
 function AccountFaq({ account }: { account: Account }) {
-  const items = FAQ_ITEMS.filter((item) => !("tiktokOnly" in item) || account.platform === "tiktok");
+  const items = useFaqItems().filter((item) => !item.tiktokOnly || account.platform === "tiktok");
   return (
     <section aria-labelledby="faq-conta-title">
       <h2 id="faq-conta-title" className="font-display text-xl font-semibold text-white md:text-2xl">
         Dúvidas sobre a compra
       </h2>
       <div className="mt-2 border-t border-line">
-        {items.map((item) => (
-          <FaqItem key={item.question} question={item.question} answer={item.answer} />
+        {items.map((item, index) => (
+          <FaqItem key={index} question={item.question} answer={item.answer} />
         ))}
       </div>
     </section>

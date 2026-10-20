@@ -14,6 +14,7 @@ import {
   DemoPartnerRepository,
   DemoPreferenceRepository,
   DemoRevenueRepository,
+  DemoSiteContentRepository,
   DemoStoreSettingsRepository,
   DemoTestimonialRepository,
 } from "@/infrastructure/demo/demo-repositories";
@@ -33,6 +34,7 @@ import {
   SupabasePartnerRepository,
   SupabasePreferenceRepository,
   SupabaseRevenueRepository,
+  SupabaseSiteContentRepository,
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
 } from "@/infrastructure/supabase/supabase-repositories";
@@ -53,15 +55,17 @@ function supabaseContainer(url: string, anonKey: string): Container {
   const testimonials = new SupabaseTestimonialRepository(client);
   const orders = new SupabaseOrderRepository(client);
   const settings = new SupabaseStoreSettingsRepository(client, defaultStoreSettings);
+  const siteContent = new SupabaseSiteContentRepository(client);
   return {
     mode: "supabase",
-    store: { accounts, testimonials, orders, settings, payments: new PendingPaymentGateway() },
+    store: { accounts, testimonials, orders, settings, siteContent, payments: new PendingPaymentGateway() },
     admin: {
       auth: new SupabaseAuthService(client),
       accounts,
       testimonials,
       orders,
       settings,
+      siteContent,
       leads: new SupabaseLeadRepository(client),
       customers: new SupabaseCustomerRepository(client),
       templates: new SupabaseMessageTemplateRepository(client),
@@ -85,15 +89,17 @@ function demoContainer(): Container {
   const testimonials = new DemoTestimonialRepository(db);
   const orders = new DemoOrderRepository(db);
   const settings = new DemoStoreSettingsRepository(db, defaultStoreSettings);
+  const siteContent = new DemoSiteContentRepository(db);
   return {
     mode: "demo",
-    store: { accounts, testimonials, orders, settings, payments: new PendingPaymentGateway() },
+    store: { accounts, testimonials, orders, settings, siteContent, payments: new PendingPaymentGateway() },
     admin: {
       auth: new DemoAuthService(),
       accounts,
       testimonials,
       orders,
       settings,
+      siteContent,
       leads: new DemoLeadRepository(db),
       customers: new DemoCustomerRepository(db),
       templates: new DemoMessageTemplateRepository(db),

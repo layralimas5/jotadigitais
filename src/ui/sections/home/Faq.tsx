@@ -1,41 +1,17 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Plus } from "lucide-react";
 import { useId, useState } from "react";
-import { FULL_SHOP_MIN_FOLLOWERS } from "@/domain/account";
 import { Reveal } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
+import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
 import { cn } from "@/ui/lib/cn";
 
-export const FAQ_ITEMS = [
-  {
-    question: "Posso mudar o nome, o @ e a foto da conta?",
-    answer:
-      "Pode. Depois da compra a conta é sua: você altera nome de usuário, foto e bio como quiser e se cadastra no TikTok Shop com os seus dados.",
-  },
-  {
-    question: "O que é o Shop piloto?",
-    tiktokOnly: true,
-    answer: `Contas com menos de ${FULL_SHOP_MIN_FOLLOWERS.toLocaleString("pt-BR")} seguidores estão no modo piloto (fase beta) do TikTok Shop. Tudo funciona normalmente, só alguns produtos ainda não ficam disponíveis para afiliação até a conta crescer.`,
-  },
-  {
-    question: "O nicho da conta importa?",
-    answer:
-      "Não. Você pode mudar o tipo de conteúdo e falar com qualquer público. Os seguidores também não precisam ser de um gênero específico.",
-  },
-  {
-    question: "Vou perder seguidores quando trocar os dados?",
-    answer: "Não. Os seguidores são reais e brasileiros e continuam na conta depois da troca de nome e foto.",
-  },
-  {
-    question: "Como recebo a conta?",
-    answer:
-      "Assim que o pagamento é confirmado, enviamos login, senha e o passo a passo para o e-mail informado na compra.",
-  },
-  {
-    question: "Quais as formas de pagamento?",
-    answer: "Pix à vista ou cartão de crédito em até 12x (com juros da operadora).",
-  },
-] as const;
+/** Perguntas do painel, com os marcadores trocados. `tiktokOnly` aparece só onde a rede é TikTok (ou na home). */
+export function useFaqItems() {
+  const { faq } = useSiteContent();
+  const fill = useFillTokens();
+  return faq.items.map((item) => ({ ...item, question: fill(item.question), answer: fill(item.answer) }));
+}
 
 export function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [open, setOpen] = useState(false);
@@ -86,18 +62,21 @@ export function FaqItem({ question, answer }: { question: string; answer: string
 }
 
 export function Faq() {
+  const { faq } = useSiteContent();
+  const fill = useFillTokens();
+  const items = useFaqItems();
   return (
     <section id="duvidas" aria-labelledby="duvidas-title" className="relative border-t border-line bg-night py-14 sm:py-20 md:py-32">
       <div className="mx-auto grid max-w-6xl gap-6 px-4 sm:gap-12 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
         <SectionHeading
           id="duvidas-title"
-          eyebrow="Dúvidas"
-          title="Perguntas frequentes"
-          description="Não achou o que procurava? Fale com a gente no Instagram."
+          eyebrow={fill(faq.eyebrow)}
+          title={fill(faq.title)}
+          description={fill(faq.description)}
         />
         <Reveal className="border-t border-line">
-          {FAQ_ITEMS.map((item) => (
-            <FaqItem key={item.question} question={item.question} answer={item.answer} />
+          {items.map((item, index) => (
+            <FaqItem key={index} question={item.question} answer={item.answer} />
           ))}
         </Reveal>
       </div>

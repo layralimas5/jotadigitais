@@ -49,7 +49,14 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
 - **Parceiros**: quem fornece contas. Cada conta pode ter um parceiro (`accounts.partner_id`); a comissão é a
   porcentagem do parceiro sobre as vendas finalizadas das contas dele. Apagar o parceiro deixa as contas como da loja.
   Ainda não há registro de repasse pago: o total mostrado é sobre todas as vendas finalizadas.
-- **Site**: contato, garantia e atalhos do conteúdo do site.
+- **Site**: duas abas. "Textos e imagens" edita todo o texto do site (topo, problema com os dois prints, destaques,
+  como funciona, resultados, garantia, dúvidas, chamada final, rodapé, convite do WhatsApp, termos e SEO da home)
+  com a prévia do site real ao lado, em tamanho de computador ou celular. A prévia é o próprio site aberto num
+  iframe com `?preview=1`, recebendo o rascunho por `postMessage` (só da mesma origem). Nada vai para o ar antes de
+  "Salvar e publicar"; sair da tela com alteração pendente pede confirmação. O conteúdo fica numa linha só da tabela
+  `site_content` (JSON, leitura pública, escrita só de admin) e é validado por `siteContentSchema`; campo que faltar
+  ou vier inválido cai no texto original (`DEFAULT_SITE_CONTENT` em `src/domain/site-content.ts`). Marcadores:
+  `{dias}`, `{instagram}` e `{seguidores_shop}`. "Contato e garantia" é a tela antiga (WhatsApp, Instagram, prazo).
 - **Configurações** (`/admin/configuracoes`, também no menu do usuário): perfil (nome pela função `update_my_profile`,
   e-mail pelo Supabase Auth, que só troca depois do clique no link enviado ao e-mail novo), troca de senha pedindo a
   senha atual, link de redefinição por e-mail para você ou outra pessoa da equipe, e backup. Quem chega pelo link de
