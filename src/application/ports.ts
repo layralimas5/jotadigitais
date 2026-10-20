@@ -2,7 +2,7 @@ import type { Account, AccountData } from "@/domain/account";
 import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
-import type { Expense, ExpenseData } from "@/domain/finance";
+import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
@@ -152,6 +152,14 @@ export interface AdminExpenseRepository {
   findById(id: string): Promise<Expense | null>;
   create(data: ExpenseData): Promise<Expense>;
   update(id: string, data: ExpenseData): Promise<Expense>;
+  remove(id: string): Promise<void>;
+}
+
+export interface AdminRevenueRepository {
+  listAll(): Promise<Revenue[]>;
+  findById(id: string): Promise<Revenue | null>;
+  create(data: RevenueData): Promise<Revenue>;
+  update(id: string, data: RevenueData): Promise<Revenue>;
   remove(id: string): Promise<void>;
 }
 

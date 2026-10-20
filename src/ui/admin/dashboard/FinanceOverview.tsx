@@ -38,15 +38,15 @@ function RevenueHighlight({ dashboard, scope, comparisonLabel }: FinanceOverview
   const useOwnSeries = period.series.length >= MIN_SPARKLINE_POINTS;
   const sparkline = useOwnSeries ? period.series : last30Days.series;
   const sparklineCaption = useOwnSeries
-    ? `Faturamento por ${period.granularity === "day" ? "dia" : "mês"} no período`
-    : "Faturamento por dia, últimos 30 dias";
+    ? `Receitas por ${period.granularity === "day" ? "dia" : "mês"} no período`
+    : "Receitas por dia, últimos 30 dias";
   return (
     <div className="col-span-2 rounded-3xl bg-gradient-to-br from-electric/60 via-violet/50 to-pink/50 p-px lg:row-span-2">
       <div className="relative flex h-full flex-col overflow-hidden rounded-[calc(1.5rem-1px)] bg-surface p-5 sm:p-6">
         <div aria-hidden className="pointer-events-none absolute -top-20 -right-16 size-56 rounded-full bg-electric/15 blur-3xl" />
         <div className="relative flex items-center gap-2">
           <TrendingUp aria-hidden className="size-4 text-electric-soft" />
-          <dt className="text-sm font-medium text-fog">Faturamento {scope.of}</dt>
+          <dt className="text-sm font-medium text-fog">Receitas {scope.of}</dt>
         </div>
         <dd className="relative mt-3 font-display text-4xl font-semibold tracking-tight text-white tabular-nums sm:text-5xl">
           {formatBRL(period.revenue)}
@@ -76,7 +76,7 @@ export function FinanceOverview({ dashboard, scope, comparisonLabel }: FinanceOv
         value={formatBRL(Math.abs(period.profit))}
         icon={loss ? ArrowDownRight : ArrowUpRight}
         tone={loss ? "pink" : "emerald"}
-        hint="Faturamento menos despesas"
+        hint="Receitas menos despesas"
       />
       <StatCard label="Ticket médio" value={formatBRL(period.averageTicket)} icon={Receipt} tone="electric" hint="Por pedido pago" />
       <StatCard

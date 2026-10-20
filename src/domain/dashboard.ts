@@ -1,7 +1,7 @@
 import { shopTierOf, type Account, type AccountOf } from "./account";
 import { groupCustomers, type CustomerRecord } from "./customer";
 import { dashboardRangeOf, previousRangeOf, type DashboardPeriod } from "./dashboard-period";
-import { rangeOf, summarizeFinance, toLocalIsoDate, type DateRange, type Expense, type FinanceSummary } from "./finance";
+import { rangeOf, summarizeFinance, toLocalIsoDate, type DateRange, type Expense, type FinanceSummary, type Revenue } from "./finance";
 import { followUpStatusOf, type Lead } from "./lead";
 import type { Cents } from "./money";
 import { isReservationExpired, type Order } from "./order";
@@ -12,6 +12,7 @@ import { deliveredAtOf, finalizedSales } from "./sale";
 export interface DashboardSource {
   orders: Order[];
   expenses: Expense[];
+  revenues: Revenue[];
   accounts: Account[];
   leads: Lead[];
   partners: Partner[];
@@ -120,8 +121,8 @@ function tiktokMetrics(accounts: readonly Account[], orders: readonly Order[], r
   };
 }
 
-function customerMetrics(orders: readonly Order[], records: readonly CustomerRecord[], range: DateRange): CustomerMetrics {
-  const customers = groupCustomers(orders, records);
+function customerMetrics(source: DashboardSource, range: DateRange): CustomerMetrics {
+  const customers = groupCustomers(source.orders, source.customers, source.revenues);
   return {
     total: customers.length,
     buyers: customers.filter((customer) => customer.purchases > 0).length,
@@ -132,7 +133,7 @@ function customerMetrics(orders: readonly Order[], records: readonly CustomerRec
 }
 
 export function buildDashboard(source: DashboardSource, period: DashboardPeriod, now: Date = new Date()): Dashboard {
-  const { orders, expenses, accounts, leads, partners, customers } = source;
+  const { orders, accounts, leads, partners } = source;
   const range = dashboardRangeOf(period, now);
   const previousRange = previousRangeOf(period, now);
   const today = toLocalIsoDate(now);
@@ -140,9 +141,9 @@ export function buildDashboard(source: DashboardSource, period: DashboardPeriod,
   const finalizedInPeriod = finalizedSales(orders).filter((order) => inRange(toLocalIsoDate(new Date(deliveredAtOf(order))), range));
 
   return {
-    period: summarizeFinance(orders, expenses, range, now),
-    previousPeriod: previousRange ? summarizeFinance(orders, expenses, previousRange, now) : null,
-    last30Days: summarizeFinance(orders, expenses, rangeOf("last_30_days", now), now),
+    period: summarizeFinance(source, range, now),
+    previousPeriod: previousRange ? summarizeFinance(source, previousRange, now) : null,
+    last30Days: summarizeFinance(source, rangeOf("last_30_days", now), now),
     finalizedInPeriod: finalizedInPeriod.length,
     awaitingPayment: orders.filter((order) => order.status === "awaiting_payment" && !isReservationExpired(order, now)).length,
     awaitingDelivery: orders.filter((order) => order.status === "paid").length,
@@ -159,7 +160,7 @@ export function buildDashboard(source: DashboardSource, period: DashboardPeriod,
     })),
     stockValue: available.reduce((sum, account) => sum + account.price, 0),
     tiktok: tiktokMetrics(accounts, orders, range),
-    customers: customerMetrics(orders, customers, range),
+    customers: customerMetrics(source, range),
     recentOrders: [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, RECENT_ORDERS),
   };
 }

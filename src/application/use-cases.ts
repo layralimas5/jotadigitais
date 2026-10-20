@@ -53,7 +53,16 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
 
   const order = await deps.orders.place({
     accountId: account.id,
-    customer: { name: data.name, email: data.email, whatsapp: data.whatsapp || null },
+    customer: {
+      name: data.name,
+      email: data.email,
+      whatsapp: data.whatsapp,
+      document: data.document,
+      birthDate: data.birthDate,
+      instagram: data.instagram,
+      city: data.city,
+      state: data.state,
+    },
     paymentMethod: data.paymentMethod,
   });
   const charge = await deps.payments.createCharge(order);

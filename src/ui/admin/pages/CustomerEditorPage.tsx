@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { deleteCustomerRecord, findCustomerRecord, saveCustomerRecord } from "@/application/admin-use-cases";
 import { customerRecordSchema, fieldErrorsOf } from "@/application/schemas";
+import { maskDocumentInput } from "@/domain/brazil";
 import { BRAZIL_STATES, recordKeyOf, type CustomerRecord } from "@/domain/customer";
 import { LEAD_SOURCES, LEAD_SOURCE_LABEL } from "@/domain/lead";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
@@ -19,6 +20,7 @@ import { useToast } from "../toast";
 interface CustomerFormValues {
   name: string;
   document: string;
+  birthDate: string;
   email: string;
   whatsapp: string;
   instagram: string;
@@ -29,15 +31,16 @@ interface CustomerFormValues {
   notes: string;
 }
 
-const FIELD_ORDER = ["name", "document", "email", "whatsapp", "instagram", "city", "notes"] as const;
+const FIELD_ORDER = ["name", "document", "birthDate", "email", "whatsapp", "instagram", "city", "state", "source", "notes"] as const;
 
 const STATE_OPTIONS = [{ value: "", label: "UF" }, ...BRAZIL_STATES.map((state) => ({ value: state, label: state }))];
-const SOURCE_OPTIONS = [{ value: "", label: "Não informado" }, ...LEAD_SOURCES.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] }))];
+const SOURCE_OPTIONS = [{ value: "", label: "Escolha" }, ...LEAD_SOURCES.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] }))];
 const INTEREST_OPTIONS = [{ value: "", label: "Ainda não definiu" }, ...PLATFORMS.map((platform) => ({ value: platform, label: PLATFORM_LABEL[platform] }))];
 
 const emptyForm = (): CustomerFormValues => ({
   name: "",
   document: "",
+  birthDate: "",
   email: "",
   whatsapp: "",
   instagram: "",
@@ -48,10 +51,11 @@ const emptyForm = (): CustomerFormValues => ({
   notes: "",
 });
 
-// Cadastros antigos (antes dos campos de documento, cidade e origem) chegam sem eles.
+// Cadastros antigos (antes da ficha completa) chegam sem alguns campos: ao salvar, a ficha precisa ser completada.
 const fromRecord = (record: CustomerRecord): CustomerFormValues => ({
   name: record.name,
-  document: record.document ?? "",
+  document: record.document ? maskDocumentInput(record.document) : "",
+  birthDate: record.birthDate ?? "",
   email: record.email ?? "",
   whatsapp: record.whatsapp ?? "",
   instagram: record.instagram ?? "",
@@ -125,39 +129,48 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
       </Link>
       <div className="mt-4">
         <PageHeader
-          title={record ? "Editar cliente" : "Novo cliente"}
-          description="Pedidos feitos no site com este e-mail entram no histórico do cliente."
+          title={record ? "Editar ficha do cliente" : "Novo cliente"}
+          description="Cliente que comprou por fora do site. A ficha é completa: só Instagram, interesse e anotações são opcionais."
         />
       </div>
 
       <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
         <div className="space-y-5">
           <FormSection title="Identificação">
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+            <TextField
+              label="Nome completo"
+              name="name"
+              autoComplete="off"
+              maxLength={80}
+              value={values.name}
+              onChange={(event) => update({ name: event.target.value })}
+              error={errors.name}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
               <TextField
-                label="Nome"
-                name="name"
-                autoComplete="off"
-                maxLength={80}
-                value={values.name}
-                onChange={(event) => update({ name: event.target.value })}
-                error={errors.name}
-              />
-              <TextField
-                label="CPF ou CNPJ (opcional)"
+                label="CPF ou CNPJ"
                 name="document"
                 inputMode="numeric"
                 autoComplete="off"
                 placeholder="000.000.000-00"
                 maxLength={18}
                 value={values.document}
-                onChange={(event) => update({ document: event.target.value })}
+                onChange={(event) => update({ document: maskDocumentInput(event.target.value) })}
                 error={errors.document}
+              />
+              <TextField
+                label="Data de nascimento"
+                name="birthDate"
+                type="date"
+                value={values.birthDate}
+                onChange={(event) => update({ birthDate: event.target.value })}
+                error={errors.birthDate}
+                className="[&_input]:[color-scheme:dark]"
               />
             </div>
           </FormSection>
 
-          <FormSection title="Contato" description="Informe pelo menos um: e-mail, WhatsApp ou Instagram.">
+          <FormSection title="Contato" description="Pedidos feitos no site com este e-mail entram no histórico do cliente.">
             <TextField
               label="E-mail"
               name="email"
@@ -182,7 +195,7 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
                 error={errors.whatsapp}
               />
               <TextField
-                label="Instagram"
+                label="Instagram (opcional)"
                 name="instagram"
                 autoCapitalize="none"
                 autoCorrect="off"
@@ -230,7 +243,7 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
                 error={errors.source}
               />
               <SelectField
-                label="Interesse"
+                label="Interesse (opcional)"
                 name="interest"
                 hint="Rede em que procura conta."
                 options={INTEREST_OPTIONS}
@@ -240,7 +253,7 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
               />
             </div>
             <TextAreaField
-              label="Anotações"
+              label="Anotações (opcional)"
               name="notes"
               maxLength={2000}
               placeholder="Como comprou, preferências, combinados…"

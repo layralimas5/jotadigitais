@@ -1,7 +1,7 @@
 import type { Account } from "./account";
 import type { AdminUser } from "./admin-user";
 import type { CustomerRecord } from "./customer";
-import type { Expense } from "./finance";
+import type { Expense, Revenue } from "./finance";
 import type { Lead } from "./lead";
 import type { MessageTemplates } from "./message-template";
 import type { Order } from "./order";
@@ -18,6 +18,7 @@ export interface BackupData {
   customers: CustomerRecord[];
   leads: Lead[];
   partners: Partner[];
+  revenues: Revenue[];
   expenses: Expense[];
   testimonials: Testimonial[];
   storeSettings: StoreSettings;
@@ -52,6 +53,7 @@ export function backupCounts(data: BackupData): BackupCount[] {
     counted(data.customers.length, "cliente", "clientes"),
     counted(data.leads.length, "lead", "leads"),
     counted(data.partners.length, "parceiro", "parceiros"),
+    counted(data.revenues.length, "receita lançada", "receitas lançadas"),
     counted(data.expenses.length, "despesa", "despesas"),
     counted(data.testimonials.length, "depoimento", "depoimentos"),
     counted(data.adminUsers.length, "usuário", "usuários"),

@@ -1,4 +1,5 @@
-import { ArrowLeft, CreditCard, Lock, Mail, QrCode } from "lucide-react";
+import { ArrowLeft, ArrowRight, CreditCard, Lock, Mail, QrCode } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
 import { formatCount, isPurchasable, type Account } from "@/domain/account";
@@ -7,12 +8,15 @@ import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
 import { AccountBadgePill, PlatformTag } from "@/ui/components/account/AccountBadges";
-import { ChoiceCard, TextField } from "@/ui/components/form/Fields";
+import { ChoiceCard } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { useCheckoutForm, formatWhatsapp } from "@/ui/hooks/useCheckoutForm";
+import { useCheckoutForm, type CheckoutField, type CheckoutValues } from "@/ui/hooks/useCheckoutForm";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccount, usePlaceOrder } from "@/ui/hooks/useStore";
 import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
+import { CheckoutProfileFields } from "@/ui/sections/checkout/CheckoutProfileFields";
+import { CheckoutProfileReview } from "@/ui/sections/checkout/CheckoutProfileReview";
+import { CheckoutSteps } from "@/ui/sections/checkout/CheckoutSteps";
 
 function OrderSummary({ account }: { account: Account }) {
   return (
@@ -61,71 +65,84 @@ function CheckoutForm({ account }: { account: Account }) {
   const navigate = useNavigate();
   const placeOrder = usePlaceOrder();
   const submitting = placeOrder.state.status === "submitting";
+  const headingRef = useRef<HTMLDivElement>(null);
 
   const onValid = async (data: CheckoutData) => {
     const placed = await placeOrder.submit(account.id, data);
     if (placed) navigate(`/pedido/${placed.order.code}`, { replace: true });
   };
-  const { values, errors, setField, handleSubmit } = useCheckoutForm(onValid);
+  const { values, errors, step, setField, handleSubmit, editProfile } = useCheckoutForm(onValid);
+
+  const firstRender = useRef(true);
+
+  // A cada troca de passo (não ao abrir a página), leva o foco e a tela para o começo do formulário.
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    headingRef.current?.focus({ preventScroll: true });
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    headingRef.current?.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
+  }, [step]);
 
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10" aria-busy={submitting}>
-      <fieldset className="space-y-4 sm:space-y-5">
-        <legend className="font-display text-lg font-semibold text-white">1. Seus dados</legend>
-        <TextField
-          label="Nome completo"
-          name="name"
-          autoComplete="name"
-          autoCapitalize="words"
-          value={values.name}
-          onChange={(event) => setField("name", event.target.value)}
-          error={errors.name}
-        />
-        <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-          <TextField
-            label="E-mail"
-            name="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            value={values.email}
-            onChange={(event) => setField("email", event.target.value)}
-            error={errors.email}
-            hint="É aqui que você recebe o acesso."
-          />
-          <TextField
-            label="Confirme o e-mail"
-            name="emailConfirmation"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            value={values.emailConfirmation}
-            onChange={(event) => setField("emailConfirmation", event.target.value)}
-            error={errors.emailConfirmation}
-          />
-        </div>
-        <TextField
-          label="WhatsApp (opcional)"
-          name="whatsapp"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="(11) 91234-5678"
-          value={values.whatsapp}
-          onChange={(event) => setField("whatsapp", formatWhatsapp(event.target.value))}
-          error={errors.whatsapp}
-          hint="Só para suporte, se precisar."
-        />
-      </fieldset>
+      <div ref={headingRef} tabIndex={-1} className="scroll-mt-28 focus:outline-none">
+        <CheckoutSteps current={step} />
+      </div>
 
+      {step === "profile" ? (
+        <>
+          <CheckoutProfileFields values={values} errors={errors} setField={setField} />
+          <Button type="submit" size="lg" className="w-full">
+            Continuar para o pagamento <ArrowRight aria-hidden className="size-4" />
+          </Button>
+        </>
+      ) : (
+        <>
+          <CheckoutProfileReview values={values} onEdit={editProfile} />
+          <PaymentStep account={account} values={values} errors={errors} setField={setField} />
+
+          {placeOrder.state.status === "error" && (
+            <p role="alert" className="rounded-2xl border border-alert/30 bg-alert/[0.07] p-4 text-sm text-white">
+              {placeOrder.state.message}
+            </p>
+          )}
+
+          <div>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+                  Registrando pedido…
+                </>
+              ) : (
+                <>
+                  <Lock aria-hidden className="size-4" /> Finalizar compra · {formatBRL(account.price)}
+                </>
+              )}
+            </Button>
+            <p className="mt-3 text-center text-xs text-mist">Seus dados são usados só para entregar a conta e dar suporte.</p>
+          </div>
+        </>
+      )}
+    </form>
+  );
+}
+
+interface PaymentStepProps {
+  account: Account;
+  values: CheckoutValues;
+  errors: Partial<Record<CheckoutField, string>>;
+  setField: <K extends CheckoutField>(field: K, value: CheckoutValues[K]) => void;
+}
+
+function PaymentStep({ account, values, errors, setField }: PaymentStepProps) {
+  return (
+    <>
       <fieldset>
-        <legend className="font-display text-lg font-semibold text-white">2. Pagamento</legend>
+        <legend className="font-display text-lg font-semibold text-white">Pagamento</legend>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <ChoiceCard
             name="paymentMethod"
@@ -173,29 +190,7 @@ function CheckoutForm({ account }: { account: Account }) {
           </p>
         )}
       </div>
-
-      {placeOrder.state.status === "error" && (
-        <p role="alert" className="rounded-2xl border border-alert/30 bg-alert/[0.07] p-4 text-sm text-white">
-          {placeOrder.state.message}
-        </p>
-      )}
-
-      <div>
-        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? (
-            <>
-              <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
-              Registrando pedido…
-            </>
-          ) : (
-            <>
-              <Lock aria-hidden className="size-4" /> Finalizar compra · {formatBRL(account.price)}
-            </>
-          )}
-        </Button>
-        <p className="mt-3 text-center text-xs text-mist">Seus dados são usados só para entregar a conta.</p>
-      </div>
-    </form>
+    </>
   );
 }
 

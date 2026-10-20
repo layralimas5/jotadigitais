@@ -67,7 +67,7 @@ export function defaultGroupingFor(days: number): SeriesGrouping {
 function viewOf(source: DashboardSource, id: string, label: string, range: DateRange, now: Date): ChartView {
   const days = range.from ? dayDiff(range.from, range.to) : Number.POSITIVE_INFINITY;
   const granularity: Granularity = days <= MAX_DAILY_SERIES_DAYS ? "day" : "month";
-  const summary = summarizeFinance(source.orders, source.expenses, range, now, granularity);
+  const summary = summarizeFinance(source, range, now, granularity);
   return { id, label, series: summary.series, granularity, defaultGrouping: granularity === "day" ? defaultGroupingFor(days) : "month" };
 }
 

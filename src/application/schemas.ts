@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ACCOUNT_STATUSES } from "@/domain/account";
-import { BRAZIL_STATES } from "@/domain/customer";
-import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS } from "@/domain/finance";
+import { BRAZIL_STATES, MIN_BUYER_AGE, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/domain/brazil";
+import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { PLATFORMS } from "@/domain/platform";
@@ -9,24 +9,96 @@ import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
 
+// ---------------------------------------------------------------------------
+// Ficha do cliente (checkout e cadastro manual usam as mesmas regras)
+// ---------------------------------------------------------------------------
+
+const personName = z.string().trim().min(2, "Informe o nome.").max(80, "Use no máximo 80 caracteres.");
+
+const optionalWhatsapp = z
+  .string()
+  .nullable()
+  .transform((value) => onlyDigits(value ?? ""))
+  .refine((digits) => digits === "" || (digits.length >= 10 && digits.length <= 13), {
+    message: "Número de WhatsApp inválido.",
+  })
+  .transform((digits) => digits || null);
+
+const optionalInstagram = z
+  .string()
+  .nullable()
+  .transform((value) => value?.trim() ?? "")
+  .transform((value) => (value && !value.startsWith("@") ? `@${value}` : value))
+  .refine((value) => value === "" || /^@[A-Za-z0-9._]{1,30}$/.test(value), {
+    message: "Use só letras, números, ponto e sublinhado.",
+  })
+  .transform((value) => value || null);
+
+/** Campo de escolha opcional: "" (nada selecionado) vira nulo. */
+const optionalChoice = <const T extends readonly [string, ...string[]]>(values: T) =>
+  z
+    .union([z.enum(values), z.literal(""), z.null()])
+    .transform((value): T[number] | null => (value ? value : null));
+
+
+const requiredEmail = z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido."));
+
+const requiredWhatsapp = z
+  .string()
+  .transform(onlyDigits)
+  .refine((digits) => digits.length >= 10 && digits.length <= 13, { message: "Informe o WhatsApp com DDD." });
+
+/** CPF ou CNPJ com dígito verificador conferido; pontuação é ignorada. */
+const requiredDocument = z
+  .string()
+  .transform(onlyDigits)
+  .superRefine((digits, ctx) => {
+    if (!digits) ctx.addIssue({ code: "custom", message: "Informe o CPF ou CNPJ." });
+    else if (!isValidDocument(digits)) ctx.addIssue({ code: "custom", message: "CPF ou CNPJ inválido. Confira os números." });
+  });
+
+/** Data de nascimento real (de 1900 até hoje); com `minAge`, também confere a idade mínima. */
+const birthDateField = (minAge = 0) =>
+  z.string().superRefine((value, ctx) => {
+    const today = toLocalIsoDate(new Date());
+    if (!value) ctx.addIssue({ code: "custom", message: "Informe a data de nascimento." });
+    else if (!z.iso.date().safeParse(value).success || value < OLDEST_BIRTH_DATE || value > today) {
+      ctx.addIssue({ code: "custom", message: "Data de nascimento inválida." });
+    } else if (ageOn(value, today) < minAge) {
+      ctx.addIssue({ code: "custom", message: `A compra é só para maiores de ${minAge} anos.` });
+    }
+  });
+
+const cityField = z.string().trim().min(2, "Informe a cidade.").max(60, "Use no máximo 60 caracteres.");
+
+const stateField = z.enum(BRAZIL_STATES, { message: "Escolha o estado." });
+
+
+const checkoutProfileShape = {
+  name: z.string().trim().min(3, "Informe seu nome completo.").max(120, "Nome muito longo."),
+  document: requiredDocument,
+  birthDate: birthDateField(MIN_BUYER_AGE),
+  email: requiredEmail,
+  emailConfirmation: z.string().trim().toLowerCase(),
+  whatsapp: requiredWhatsapp,
+  instagram: optionalInstagram,
+  city: cityField,
+  state: stateField,
+};
+
+const emailsMatch = (data: { email: string; emailConfirmation: string }) => data.email === data.emailConfirmation;
+const EMAILS_MISMATCH = { path: ["emailConfirmation"], message: "Os e-mails não conferem." };
+
+/** Primeiro passo do checkout: a ficha completa, conferida antes de mostrar o pagamento. */
+export const checkoutProfileSchema = z.object(checkoutProfileShape).refine(emailsMatch, EMAILS_MISMATCH);
+
 export const checkoutSchema = z
   .object({
-    name: z.string().trim().min(3, "Informe seu nome completo.").max(120, "Nome muito longo."),
-    email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
-    emailConfirmation: z.string().trim().toLowerCase(),
-    whatsapp: z
-      .string()
-      .transform(onlyDigits)
-      .refine((digits) => digits === "" || (digits.length >= 10 && digits.length <= 13), {
-        message: "Número de WhatsApp inválido.",
-      }),
+    ...checkoutProfileShape,
     paymentMethod: z.enum(["pix", "card"], { message: "Escolha a forma de pagamento." }),
     acceptedTerms: z.literal(true, { message: "Você precisa aceitar os termos para continuar." }),
   })
-  .refine((data) => data.email === data.emailConfirmation, {
-    path: ["emailConfirmation"],
-    message: "Os e-mails não conferem.",
-  });
+  .refine(emailsMatch, EMAILS_MISMATCH);
 
 export type CheckoutInput = z.input<typeof checkoutSchema>;
 export type CheckoutData = z.output<typeof checkoutSchema>;
@@ -155,67 +227,21 @@ export const testimonialDataSchema = z.object({
 // CRM (mesmas regras da tabela leads)
 // ---------------------------------------------------------------------------
 
-const personName = z.string().trim().min(2, "Informe o nome.").max(80, "Use no máximo 80 caracteres.");
 
-const optionalWhatsapp = z
-  .string()
-  .nullable()
-  .transform((value) => onlyDigits(value ?? ""))
-  .refine((digits) => digits === "" || (digits.length >= 10 && digits.length <= 13), {
-    message: "Número de WhatsApp inválido.",
-  })
-  .transform((digits) => digits || null);
-
-const optionalInstagram = z
-  .string()
-  .nullable()
-  .transform((value) => value?.trim() ?? "")
-  .transform((value) => (value && !value.startsWith("@") ? `@${value}` : value))
-  .refine((value) => value === "" || /^@[A-Za-z0-9._]{1,30}$/.test(value), {
-    message: "Use só letras, números, ponto e sublinhado.",
-  })
-  .transform((value) => value || null);
-
-const optionalEmail = z
-  .string()
-  .nullable()
-  .transform((value) => value?.trim().toLowerCase() ?? "")
-  .refine((value) => value === "" || z.email().safeParse(value).success, { message: "Informe um e-mail válido." })
-  .transform((value) => value || null);
-
-/** Campo de escolha opcional: "" (nada selecionado) vira nulo. */
-const optionalChoice = <const T extends readonly [string, ...string[]]>(values: T) =>
-  z
-    .union([z.enum(values), z.literal(""), z.null()])
-    .transform((value): T[number] | null => (value ? value : null));
-
-/** CPF com 11 dígitos ou CNPJ com 14; pontuação é ignorada. */
-const optionalDocument = z
-  .string()
-  .nullable()
-  .transform((value) => onlyDigits(value ?? ""))
-  .refine((digits) => digits === "" || digits.length === 11 || digits.length === 14, {
-    message: "Informe um CPF (11 números) ou CNPJ (14 números).",
-  })
-  .transform((digits) => digits || null);
-
-export const customerRecordSchema = z
-  .object({
-    name: personName,
-    document: optionalDocument,
-    email: optionalEmail,
-    whatsapp: optionalWhatsapp,
-    instagram: optionalInstagram,
-    city: optionalText(60),
-    state: optionalChoice(BRAZIL_STATES),
-    source: optionalChoice(LEAD_SOURCES),
-    interest: optionalChoice(PLATFORMS),
-    notes: optionalText(2000),
-  })
-  .refine((data) => data.email || data.whatsapp || data.instagram, {
-    path: ["email"],
-    message: "Informe pelo menos um contato: e-mail, WhatsApp ou Instagram.",
-  });
+/** Cliente cadastrado à mão: mesma ficha completa do checkout, mais origem e anotações. */
+export const customerRecordSchema = z.object({
+  name: personName,
+  document: requiredDocument,
+  birthDate: birthDateField(),
+  email: requiredEmail,
+  whatsapp: requiredWhatsapp,
+  instagram: optionalInstagram,
+  city: cityField,
+  state: stateField,
+  source: z.enum(LEAD_SOURCES, { message: "Escolha como o cliente chegou." }),
+  interest: optionalChoice(PLATFORMS),
+  notes: optionalText(2000),
+});
 
 export const leadDataSchema = z.object({
   name: personName,
@@ -285,21 +311,38 @@ export const messageTemplatesSchema = z.object({
 // Financeiro (mesmas regras da tabela expenses)
 // ---------------------------------------------------------------------------
 
+const moneyAmount = z
+  .number({ message: "Informe o valor. Ex.: 150 ou 1.250,00." })
+  .int()
+  .min(1, "O valor precisa ser maior que zero.")
+  .max(100_000_000, "Valor alto demais.");
+
+/** Seleção opcional de um cadastro (conta, cliente): "" vira nulo. */
+const optionalId = z
+  .string()
+  .nullable()
+  .transform((value) => value || null);
+
 export const expenseDataSchema = z.object({
   description: z.string().trim().min(2, "Descreva a despesa.").max(120, "Use no máximo 120 caracteres."),
   category: z.enum(EXPENSE_CATEGORIES),
-  amount: z
-    .number({ message: "Informe o valor. Ex.: 150 ou 1.250,00." })
-    .int()
-    .min(1, "O valor precisa ser maior que zero.")
-    .max(100_000_000, "Valor alto demais."),
+  amount: moneyAmount,
   date: z.iso.date("Data inválida."),
   supplier: optionalText(80),
   paymentMethod: optionalChoice(EXPENSE_PAYMENT_METHODS),
-  accountId: z
-    .string()
-    .nullable()
-    .transform((value) => value || null),
+  accountId: optionalId,
+  notes: optionalText(1000),
+});
+
+/** Mesmas regras da tabela revenues. */
+export const revenueDataSchema = z.object({
+  description: z.string().trim().min(2, "Descreva a receita.").max(120, "Use no máximo 120 caracteres."),
+  category: z.enum(REVENUE_CATEGORIES),
+  amount: moneyAmount,
+  date: z.iso.date("Data inválida."),
+  paymentMethod: optionalChoice(EXPENSE_PAYMENT_METHODS),
+  customerId: optionalId,
+  accountId: optionalId,
   notes: optionalText(1000),
 });
 

@@ -4,7 +4,10 @@ import { Link } from "react-router-dom";
 import { loadFinance } from "@/application/admin-use-cases";
 import {
   EXPENSE_CATEGORY_LABEL,
+  REVENUE_CATEGORY_LABEL,
+  REVENUE_ORIGIN_LABEL,
   entriesOf,
+  isInflow,
   rangeOf,
   summarizeFinance,
   type Entry,
@@ -15,7 +18,8 @@ import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
-import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FilterChips } from "../components/FilterChips";
 import { Kpi } from "../components/Kpi";
 import { PeriodFilter } from "../components/PeriodFilter";
 import { RevenueChart, SERIES_COLOR } from "../finance/RevenueChart";
@@ -25,19 +29,23 @@ import { formatIsoDate } from "../lib/dates";
 const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
 const MAX_ENTRIES = 30;
 
+const countLabel = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
 function Kpis({ summary }: { summary: FinanceSummary }) {
   const profitTone = summary.profit > 0 ? "positive" : summary.profit < 0 ? "negative" : undefined;
+  const revenueHint = [
+    countLabel(summary.paidOrders, "pedido do site", "pedidos do site"),
+    summary.manualRevenues > 0 ? countLabel(summary.manualRevenues, "lançada", "lançadas") : null,
+  ]
+    .filter(Boolean)
+    .join(" + ");
   return (
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5 [&>div:last-child]:col-span-2 lg:[&>div:last-child]:col-span-1">
-      <Kpi label="Faturamento" value={formatBRL(summary.revenue)} hint={`${summary.paidOrders} ${summary.paidOrders === 1 ? "pedido pago" : "pedidos pagos"}`} />
+      <Kpi label="Receitas" value={formatBRL(summary.revenue)} hint={revenueHint} />
       <Kpi label="Despesas" value={formatBRL(summary.expenses)} />
-      <Kpi label={summary.profit < 0 ? "Prejuízo" : "Lucro"} value={formatBRL(Math.abs(summary.profit))} hint="Faturamento menos despesas" tone={profitTone} />
-      <Kpi label="Ticket médio" value={formatBRL(summary.averageTicket)} />
-      <Kpi
-        label="A receber"
-        value={formatBRL(summary.receivable)}
-        hint={`${summary.receivableOrders} aguardando pagamento`}
-      />
+      <Kpi label={summary.profit < 0 ? "Prejuízo" : "Lucro"} value={formatBRL(Math.abs(summary.profit))} hint="Receitas menos despesas" tone={profitTone} />
+      <Kpi label="Ticket médio do site" value={formatBRL(summary.averageTicket)} />
+      <Kpi label="A receber" value={formatBRL(summary.receivable)} hint={`${summary.receivableOrders} aguardando pagamento`} />
     </dl>
   );
 }
@@ -74,20 +82,44 @@ function Breakdown({ title, rows, color, empty }: { title: string; rows: { label
   );
 }
 
+interface EntryView {
+  title: string;
+  detail: string;
+  /** Pedido do site não abre editor: o status muda na aba Pedidos. */
+  editPath: string | null;
+}
+
+function viewOf(entry: Entry): EntryView {
+  switch (entry.kind) {
+    case "order":
+      return {
+        title: `Pedido ${entry.order.code}`,
+        detail: `Site · ${entry.order.customer.name} · ${PAYMENT_LABEL[entry.order.paymentMethod]}`,
+        editPath: null,
+      };
+    case "revenue":
+      return {
+        title: entry.revenue.description,
+        detail: REVENUE_CATEGORY_LABEL[entry.revenue.category],
+        editPath: `/admin/financeiro/receitas/${entry.revenue.id}`,
+      };
+    case "expense":
+      return {
+        title: entry.expense.description,
+        detail: EXPENSE_CATEGORY_LABEL[entry.expense.category],
+        editPath: `/admin/financeiro/despesas/${entry.expense.id}`,
+      };
+  }
+}
+
 function EntryRow({ entry }: { entry: Entry }) {
-  const isRevenue = entry.kind === "revenue";
-  const title = isRevenue ? `Pedido ${entry.order.code}` : entry.expense.description;
-  const detail = isRevenue
-    ? `${entry.order.customer.name} · ${entry.order.accountHandle} · ${PAYMENT_LABEL[entry.order.paymentMethod]}`
-    : EXPENSE_CATEGORY_LABEL[entry.expense.category];
+  const inflow = isInflow(entry);
+  const { title, detail, editPath } = viewOf(entry);
+  const color = inflow ? SERIES_COLOR.revenue : SERIES_COLOR.expenses;
   const body = (
     <>
-      <span
-        aria-hidden
-        className="grid size-9 shrink-0 place-items-center rounded-xl"
-        style={{ background: `${isRevenue ? SERIES_COLOR.revenue : SERIES_COLOR.expenses}26`, color: isRevenue ? SERIES_COLOR.revenue : SERIES_COLOR.expenses }}
-      >
-        {isRevenue ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
+      <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-xl" style={{ background: `${color}26`, color }}>
+        {inflow ? <ArrowDownLeft className="size-4" /> : <ArrowUpRight className="size-4" />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium text-white">{title}</span>
@@ -97,48 +129,77 @@ function EntryRow({ entry }: { entry: Entry }) {
       </span>
       <span className="shrink-0 text-right">
         <span className="block font-semibold text-white tabular-nums">
-          {isRevenue ? "+" : "−"} {formatBRL(entry.amount)}
+          {inflow ? "+" : "−"} {formatBRL(entry.amount)}
         </span>
-        <span className="block text-xs text-mist">{isRevenue ? "Entrada" : "Saída"}</span>
+        <span className="block text-xs text-mist">{inflow ? "Receita" : "Despesa"}</span>
       </span>
     </>
   );
   const rowClass = "flex items-center gap-3 px-4 py-3 sm:px-5";
   return (
     <li>
-      {isRevenue ? (
-        <div className={rowClass}>{body}</div>
-      ) : (
-        <Link to={`/admin/financeiro/despesas/${entry.expense.id}`} className={cn(rowClass, "transition-colors hover:bg-white/[0.03]")}>
+      {editPath ? (
+        <Link to={editPath} className={cn(rowClass, "transition-colors hover:bg-white/[0.03]")}>
           {body}
         </Link>
+      ) : (
+        <div className={rowClass}>{body}</div>
       )}
     </li>
   );
 }
 
+type EntryFilter = "all" | "inflow" | "outflow";
+
+const EMPTY_MESSAGE: Record<EntryFilter, string> = {
+  all: "Nenhuma receita ou despesa no período. Pedidos pagos entram sozinhos; o resto você lança nos botões do topo.",
+  inflow: "Nenhuma receita no período. Pedidos pagos do site entram sozinhos; vendas por fora você lança em Nova receita.",
+  outflow: "Nenhuma despesa no período. Lance em Nova despesa.",
+};
+
+const matchesFilter = (entry: Entry, filter: EntryFilter) =>
+  filter === "all" || (filter === "inflow" ? isInflow(entry) : !isInflow(entry));
+
+const sumOf = (entries: readonly Entry[]) => entries.reduce((sum, entry) => sum + entry.amount, 0);
+
 function Entries({ entries }: { entries: Entry[] }) {
+  const [filter, setFilter] = useState<EntryFilter>("all");
   const [showAll, setShowAll] = useState(false);
-  const shown = showAll ? entries : entries.slice(0, MAX_ENTRIES);
+  const inflows = entries.filter(isInflow);
+  const outflows = entries.filter((entry) => !isInflow(entry));
+  const filtered = entries.filter((entry) => matchesFilter(entry, filter));
+  const shown = showAll ? filtered : filtered.slice(0, MAX_ENTRIES);
+
   return (
-    <section aria-labelledby="lancamentos-title">
+    <section aria-labelledby="lancamentos-title" className="space-y-3">
       <h2 id="lancamentos-title" className="font-display text-lg font-semibold text-white">
         Lançamentos
       </h2>
-      {entries.length === 0 ? (
-        <p className="mt-3 rounded-3xl border border-dashed border-line-strong p-6 text-center text-sm text-mist">
-          Nenhuma entrada ou saída no período. Pedidos pagos entram sozinhos; despesas você lança em “Nova despesa”.
-        </p>
+      <FilterChips<EntryFilter>
+        label="Mostrar lançamentos"
+        value={filter}
+        onChange={(next) => {
+          setFilter(next);
+          setShowAll(false);
+        }}
+        options={[
+          { value: "all", label: "Tudo", count: entries.length },
+          { value: "inflow", label: `Receitas · ${formatBRL(sumOf(inflows))}`, count: inflows.length },
+          { value: "outflow", label: `Despesas · ${formatBRL(sumOf(outflows))}`, count: outflows.length },
+        ]}
+      />
+      {filtered.length === 0 ? (
+        <p className="rounded-3xl border border-dashed border-line-strong p-6 text-center text-sm text-mist">{EMPTY_MESSAGE[filter]}</p>
       ) : (
         <>
-          <ul className="mt-3 divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/40">
+          <ul className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/40">
             {shown.map((entry) => (
               <EntryRow key={`${entry.kind}-${entry.id}`} entry={entry} />
             ))}
           </ul>
-          {entries.length > shown.length && (
-            <button type="button" onClick={() => setShowAll(true)} className="mt-3 text-sm text-electric-soft underline-offset-4 hover:underline">
-              Ver todos os {entries.length} lançamentos
+          {filtered.length > shown.length && (
+            <button type="button" onClick={() => setShowAll(true)} className="text-sm text-electric-soft underline-offset-4 hover:underline">
+              Ver todos os {filtered.length} lançamentos
             </button>
           )}
         </>
@@ -147,24 +208,33 @@ function Entries({ entries }: { entries: Entry[] }) {
   );
 }
 
+function HeaderActions() {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <ButtonLink to="/admin/financeiro/receitas/nova" className="max-sm:flex-1">
+        <Plus aria-hidden className="size-4" /> Nova receita
+      </ButtonLink>
+      <ButtonLink to="/admin/financeiro/despesas/nova" variant="secondary" className="max-sm:flex-1">
+        <Plus aria-hidden className="size-4" /> Nova despesa
+      </ButtonLink>
+    </div>
+  );
+}
+
 export default function FinancePage() {
   const finance = useAdminQuery(loadFinance, "admin-finance");
   const [period, setPeriod] = useState<PeriodPreset>("this_month");
   const range = useMemo(() => rangeOf(period), [period]);
   const data = finance.status === "success" ? finance.data : null;
-  const summary = useMemo(() => (data ? summarizeFinance(data.orders, data.expenses, range) : null), [data, range]);
-  const entries = useMemo(() => (data ? entriesOf(data.orders, data.expenses, range) : []), [data, range]);
+  const summary = useMemo(() => (data ? summarizeFinance(data, range) : null), [data, range]);
+  const entries = useMemo(() => (data ? entriesOf(data, range) : []), [data, range]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Financeiro"
-        description="Entradas pelos pedidos pagos, na data do pedido. Saídas pelas despesas que você lança."
-        action={
-          <ButtonLink to="/admin/financeiro/despesas/nova" className="max-md:hidden">
-            <Plus aria-hidden className="size-4" /> Nova despesa
-          </ButtonLink>
-        }
+        description="Receitas: pedidos pagos do site e o que você lança por fora. Despesas: o que você lança."
+        action={<HeaderActions />}
       />
       <PeriodFilter value={period} onChange={setPeriod} />
 
@@ -176,13 +246,10 @@ export default function FinancePage() {
           <RevenueChart series={summary.series} />
           <div className="grid gap-4 lg:grid-cols-2">
             <Breakdown
-              title="Por forma de pagamento"
+              title="Receitas por origem"
               color={SERIES_COLOR.revenue}
-              empty="Nenhum pedido pago no período."
-              rows={[
-                { label: "Pix", amount: summary.byMethod.pix },
-                { label: "Cartão", amount: summary.byMethod.card },
-              ]}
+              empty="Nenhuma receita no período."
+              rows={summary.byOrigin.map((row) => ({ label: REVENUE_ORIGIN_LABEL[row.origin], amount: row.amount }))}
             />
             <Breakdown
               title="Despesas por categoria"
@@ -194,7 +261,6 @@ export default function FinancePage() {
           <Entries entries={entries} />
         </>
       )}
-      <Fab to="/admin/financeiro/despesas/nova" label="Nova despesa" />
     </div>
   );
 }

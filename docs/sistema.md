@@ -23,6 +23,17 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
   - Confirmar pagamento: a conta fica reservada sem prazo.
   - Marcar como entregue: a conta vira vendida.
   - Cancelar: a conta volta para a vitrine.
+  - O checkout tem dois passos: primeiro a **ficha completa** (nome, CPF/CNPJ com dígito verificador, nascimento com
+    18 anos ou mais, e-mail, WhatsApp, Instagram opcional, cidade e UF), depois o pagamento. `place_order` valida a
+    ficha de novo no banco e a grava no próprio pedido (`orders.customer_*`). Só administradores leem; a página
+    pública do pedido (`get_order`) continua sem ela.
+- **Clientes**: filtro Todos / Do site / Cadastro manual (fica na URL, `?origem=site`). Cliente do site é quem tem
+  pedido: a ficha dele é a do último checkout e só pode ser vista, não editada. Cliente manual (comprou por fora)
+  exige a mesma ficha completa mais "como chegou"; na ficha dele, "Lançar venda" abre uma receita já ligada a ele,
+  que entra no total gasto e em "Vendas por fora". Pedidos antigos, de antes da ficha, aparecem com o aviso.
+- **Financeiro**: receitas = pedidos pagos do site + receitas lançadas à mão (tabela `revenues`: venda de conta,
+  serviço, comissão, outros). Despesas continuam em `expenses`. Os lançamentos têm filtro Tudo / Receitas / Despesas
+  com o total de cada um, e "Receitas por origem" mostra quanto veio do site e de cada categoria.
 - **Topo do painel**: campo de busca (Ctrl+K) que acha telas, contas, pedidos, clientes, contatos do CRM e
   parceiros; e o sininho de notificações. O sininho junta pedidos novos do site (gravados pelo gatilho
   `notify_new_order`), novidades do sistema (tabela `notifications`, só por migration) e lembretes calculados na hora

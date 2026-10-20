@@ -1,7 +1,24 @@
-import { ArrowLeft, AtSign, Compass, IdCard, Mail, MapPin, MessageCircle, Pencil, Target, UserPlus, type LucideIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  AtSign,
+  Cake,
+  Compass,
+  IdCard,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Pencil,
+  Phone,
+  Plus,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { listCustomers } from "@/application/admin-use-cases";
+import { ageOn } from "@/domain/brazil";
 import { formatDocument, type CustomerSummary } from "@/domain/customer";
+import { REVENUE_CATEGORY_LABEL, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCE_LABEL } from "@/domain/lead";
 import { formatBRL } from "@/domain/money";
 import { PLATFORM_LABEL } from "@/domain/platform";
@@ -11,9 +28,9 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { OrderStatusBadge } from "../components/OrderStatusBadge";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
-import { formatDate } from "../lib/dates";
+import { formatDate, formatIsoDate } from "../lib/dates";
 import { personMessage } from "../lib/messages";
-import { whatsappChatUrl } from "../lib/whatsapp";
+import { formatPhone, whatsappChatUrl } from "../lib/whatsapp";
 
 function BackLink() {
   return (
@@ -32,15 +49,9 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Cliente que só existe pelos pedidos abre o cadastro já preenchido com o que o pedido trouxe. */
-function recordLink(customer: CustomerSummary): string {
-  if (customer.record) return `/admin/clientes/cadastro/${customer.record.id}`;
-  const params = new URLSearchParams({ nome: customer.name, email: customer.email ?? "", whatsapp: customer.whatsapp ?? "" });
-  return `/admin/clientes/novo?${params.toString()}`;
-}
-
 function ContactActions({ customer }: { customer: CustomerSummary }) {
   const templates = useMessageTemplates();
+  const { record } = customer;
   return (
     <div className="flex flex-wrap gap-2">
       {customer.whatsapp && (
@@ -58,36 +69,163 @@ function ContactActions({ customer }: { customer: CustomerSummary }) {
           <Mail aria-hidden className="size-4" /> E-mail
         </a>
       )}
-      <ButtonLink to={recordLink(customer)} variant="secondary">
-        {customer.record ? <Pencil aria-hidden className="size-4" /> : <UserPlus aria-hidden className="size-4" />}
-        {customer.record ? "Editar cadastro" : "Completar cadastro"}
-      </ButtonLink>
+      {/* Cliente do site só é visto: a ficha é a que ele preencheu no checkout. */}
+      {record && (
+        <>
+          <ButtonLink to={`/admin/clientes/cadastro/${record.id}`} variant="secondary">
+            <Pencil aria-hidden className="size-4" /> Editar ficha
+          </ButtonLink>
+          <ButtonLink to={`/admin/financeiro/receitas/nova?cliente=${encodeURIComponent(record.id)}`} variant="secondary">
+            <Plus aria-hidden className="size-4" /> Lançar venda
+          </ButtonLink>
+        </>
+      )}
     </div>
   );
 }
 
-interface ProfileDetail {
+interface SheetRow {
   icon: LucideIcon;
   label: string;
-  value: string;
+  value: string | null;
 }
 
-/** Dados extras do cadastro manual. Cadastros antigos podem não ter esses campos. */
-function recordDetailsOf(customer: CustomerSummary): ProfileDetail[] {
-  const record = customer.record;
-  if (!record) return [];
-  const location = [record.city, record.state].filter(Boolean).join(" / ");
-  const details: (ProfileDetail | null)[] = [
-    record.document ? { icon: IdCard, label: "Documento", value: formatDocument(record.document) } : null,
-    location ? { icon: MapPin, label: "Localização", value: location } : null,
-    record.source ? { icon: Compass, label: "Chegou por", value: LEAD_SOURCE_LABEL[record.source] } : null,
-    record.interest ? { icon: Target, label: "Interesse", value: PLATFORM_LABEL[record.interest] } : null,
+/** "1992-03-15" vira "15/03/1992 (34 anos)". */
+function birthLabel(birthDate: string): string {
+  const [year, month, day] = birthDate.split("-");
+  return `${day}/${month}/${year} (${ageOn(birthDate, toLocalIsoDate(new Date()))} anos)`;
+}
+
+function sheetRowsOf(customer: CustomerSummary): SheetRow[] {
+  const { sheet, record } = customer;
+  const location = [sheet.city, sheet.state].filter(Boolean).join(" / ");
+  const rows: SheetRow[] = [
+    { icon: IdCard, label: "CPF/CNPJ", value: sheet.document ? formatDocument(sheet.document) : null },
+    { icon: Cake, label: "Nascimento", value: sheet.birthDate ? birthLabel(sheet.birthDate) : null },
+    { icon: Mail, label: "E-mail", value: customer.email },
+    { icon: Phone, label: "WhatsApp", value: customer.whatsapp ? formatPhone(customer.whatsapp) : null },
+    { icon: AtSign, label: "Instagram", value: sheet.instagram },
+    { icon: MapPin, label: "Cidade", value: location || null },
   ];
-  return details.filter((detail): detail is ProfileDetail => detail !== null);
+  if (record) {
+    rows.push(
+      { icon: Compass, label: "Chegou por", value: record.source ? LEAD_SOURCE_LABEL[record.source] : null },
+      { icon: Target, label: "Interesse", value: record.interest ? PLATFORM_LABEL[record.interest] : null },
+    );
+  }
+  return rows;
+}
+
+function sheetDescription(customer: CustomerSummary): string {
+  if (customer.origin === "manual") return "Cadastro manual, feito aqui no painel.";
+  if (customer.sheet.document) return "Preenchida pelo cliente no checkout do site. Só leitura.";
+  return "Comprou antes da ficha completa no checkout: só há os dados do pedido.";
+}
+
+function CustomerSheet({ customer }: { customer: CustomerSummary }) {
+  const rows = sheetRowsOf(customer);
+  return (
+    <section aria-labelledby="ficha-title" className="mt-6 rounded-3xl border border-line bg-surface/60 p-5 sm:p-6">
+      <h2 id="ficha-title" className="font-display text-base font-semibold text-white">
+        Ficha do cliente
+      </h2>
+      <p className="mt-1 text-xs text-mist">{sheetDescription(customer)}</p>
+      <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((row) => (
+          <div key={row.label} className="flex min-w-0 items-start gap-2.5">
+            <row.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-mist" />
+            <div className="min-w-0">
+              <dt className="text-xs text-mist">{row.label}</dt>
+              <dd className={row.value ? "break-words text-fog" : "text-mist/70"}>{row.value ?? "Não informado"}</dd>
+            </div>
+          </div>
+        ))}
+      </dl>
+      {customer.notes && <p className="mt-4 border-t border-line pt-4 text-sm whitespace-pre-line text-mist">{customer.notes}</p>}
+    </section>
+  );
+}
+
+function HistorySection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section aria-labelledby={id} className="mt-8">
+      <h2 id={id} className="font-display text-lg font-semibold text-white">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+const emptyBox = "mt-3 rounded-3xl border border-dashed border-line-strong p-6 text-center text-sm text-mist";
+const listBox = "mt-3 divide-y divide-line overflow-hidden rounded-3xl border border-line";
+const rowBox = "flex flex-col gap-3 bg-surface/40 px-5 py-4 sm:flex-row sm:items-center sm:justify-between";
+
+function SiteOrders({ customer }: { customer: CustomerSummary }) {
+  if (customer.orders.length === 0) {
+    return (
+      <p className={emptyBox}>
+        Nenhum pedido pelo site ainda. Quando comprar com o e-mail {customer.email ?? "cadastrado"}, o pedido aparece aqui.
+      </p>
+    );
+  }
+  return (
+    <>
+      <ul className={listBox}>
+        {customer.orders.map((order) => (
+          <li key={order.code} className={rowBox}>
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 font-medium text-white">
+                <PlatformGlyph platform={order.accountPlatform} className="size-3.5" />
+                {order.accountHandle}
+                <span className="font-mono text-xs text-mist">{order.code}</span>
+              </p>
+              <p className="mt-0.5 text-xs text-mist">
+                {PLATFORM_LABEL[order.accountPlatform]} · {formatDate(order.createdAt)}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <OrderStatusBadge order={order} />
+              <span className="font-semibold text-white tabular-nums">{formatBRL(order.total)}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-xs text-mist">
+        Para mudar o status de um pedido, use a aba{" "}
+        <Link to="/admin/pedidos" className="text-electric-soft underline-offset-4 hover:underline">
+          Pedidos
+        </Link>
+        .
+      </p>
+    </>
+  );
+}
+
+function ManualSales({ customer }: { customer: CustomerSummary }) {
+  if (customer.manualSales.length === 0) {
+    return <p className={emptyBox}>Nenhuma venda por fora lançada para este cliente. Use “Lançar venda” no topo.</p>;
+  }
+  return (
+    <ul className={listBox}>
+      {customer.manualSales.map((sale) => (
+        <li key={sale.id}>
+          <Link to={`/admin/financeiro/receitas/${sale.id}`} className={`${rowBox} transition-colors hover:bg-white/[0.03]`}>
+            <div className="min-w-0">
+              <p className="truncate font-medium text-white">{sale.description}</p>
+              <p className="mt-0.5 text-xs text-mist">
+                {REVENUE_CATEGORY_LABEL[sale.category]} · {formatIsoDate(sale.date)}
+              </p>
+            </div>
+            <span className="font-semibold text-white tabular-nums">{formatBRL(sale.amount)}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function CustomerProfile({ customer }: { customer: CustomerSummary }) {
-  const details = recordDetailsOf(customer);
   return (
     <>
       <BackLink />
@@ -103,80 +241,21 @@ function CustomerProfile({ customer }: { customer: CustomerSummary }) {
         <Stat label="Compras" value={String(customer.purchases)} />
         <Stat label="Total gasto" value={formatBRL(customer.totalSpent)} />
         <Stat label="Pedidos em aberto" value={String(customer.openOrders)} />
-        <Stat label="Último pedido" value={customer.lastOrderAt ? formatDate(customer.lastOrderAt) : "Nenhum"} />
+        <Stat label="Última compra" value={customer.lastPurchaseAt ? formatDate(customer.lastPurchaseAt) : "Nenhuma"} />
       </dl>
 
-      {(customer.email || customer.instagram || customer.notes || details.length > 0) && (
-        <section aria-label="Cadastro" className="mt-6 rounded-3xl border border-line bg-surface/60 p-5 text-sm">
-          <ul className="flex flex-wrap gap-x-6 gap-y-2 text-fog">
-            {customer.email && (
-              <li className="inline-flex items-center gap-2">
-                <Mail aria-hidden className="size-4 text-mist" /> {customer.email}
-              </li>
-            )}
-            {customer.instagram && (
-              <li className="inline-flex items-center gap-2">
-                <AtSign aria-hidden className="size-4 text-mist" /> {customer.instagram}
-              </li>
-            )}
-          </ul>
-          {details.length > 0 && (
-            <dl className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-2 lg:grid-cols-4">
-              {details.map((detail) => (
-                <div key={detail.label} className="flex items-start gap-2">
-                  <detail.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-mist" />
-                  <div>
-                    <dt className="text-xs text-mist">{detail.label}</dt>
-                    <dd className="text-fog">{detail.value}</dd>
-                  </div>
-                </div>
-              ))}
-            </dl>
-          )}
-          {customer.notes && <p className="mt-3 border-t border-line pt-3 whitespace-pre-line text-mist">{customer.notes}</p>}
-        </section>
-      )}
+      <CustomerSheet customer={customer} />
 
-      <section aria-labelledby="pedidos-title" className="mt-8">
-        <h2 id="pedidos-title" className="font-display text-lg font-semibold text-white">
-          Pedidos
-        </h2>
-        {customer.orders.length === 0 ? (
-          <p className="mt-3 rounded-3xl border border-dashed border-line-strong p-6 text-center text-sm text-mist">
-            Nenhum pedido pelo site ainda. Quando comprar com o e-mail {customer.email ?? "cadastrado"}, o pedido aparece aqui.
-          </p>
-        ) : (
-          <>
-            <ul className="mt-3 divide-y divide-line overflow-hidden rounded-3xl border border-line">
-              {customer.orders.map((order) => (
-                <li key={order.code} className="flex flex-col gap-3 bg-surface/40 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-medium text-white">
-                      <PlatformGlyph platform={order.accountPlatform} className="size-3.5" />
-                      {order.accountHandle}
-                      <span className="font-mono text-xs text-mist">{order.code}</span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-mist">
-                      {PLATFORM_LABEL[order.accountPlatform]} · {formatDate(order.createdAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <OrderStatusBadge order={order} />
-                    <span className="font-semibold text-white tabular-nums">{formatBRL(order.total)}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs text-mist">
-              Para mudar o status de um pedido, use a aba{" "}
-              <Link to="/admin/pedidos" className="text-electric-soft underline-offset-4 hover:underline">
-                Pedidos
-              </Link>
-              .
-            </p>
-          </>
-        )}
-      </section>
+      {(customer.origin === "site" || customer.orders.length > 0) && (
+        <HistorySection id="pedidos-title" title="Pedidos no site">
+          <SiteOrders customer={customer} />
+        </HistorySection>
+      )}
+      {customer.record && (
+        <HistorySection id="vendas-title" title="Vendas por fora">
+          <ManualSales customer={customer} />
+        </HistorySection>
+      )}
     </>
   );
 }

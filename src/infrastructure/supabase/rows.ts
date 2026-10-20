@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { accountBaseSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
 import { ACCOUNT_STATUSES, effectiveStatus, type Account, type AccountData } from "@/domain/account";
+import { BRAZIL_STATES } from "@/domain/brazil";
 import { ORDER_STATUSES, PAYMENT_METHODS, type Order } from "@/domain/order";
 import { PLATFORMS } from "@/domain/platform";
 import { TESTIMONIAL_KINDS, type Testimonial, type TestimonialData } from "@/domain/testimonial";
@@ -126,6 +127,12 @@ const orderRowSchema = z.object({
   customer_name: z.string(),
   customer_email: z.string(),
   customer_whatsapp: z.string().nullable(),
+  // Ficha do checkout: só o painel lê; a página pública do pedido e os pedidos antigos vêm sem ela.
+  customer_document: z.string().nullish(),
+  customer_birth_date: z.string().nullish(),
+  customer_instagram: z.string().nullish(),
+  customer_city: z.string().nullish(),
+  customer_state: z.enum(BRAZIL_STATES).nullish(),
   payment_method: z.enum(PAYMENT_METHODS),
   total_cents: z.number(),
   status: z.enum(ORDER_STATUSES),
@@ -136,7 +143,7 @@ const orderRowSchema = z.object({
 });
 
 export const ORDER_COLUMNS =
-  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at, created_at, delivered_at";
+  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document, customer_birth_date, customer_instagram, customer_city, customer_state, payment_method, total_cents, status, expires_at, created_at, delivered_at";
 
 export function toOrder(raw: unknown): Order {
   const row = orderRowSchema.parse(raw);
@@ -146,7 +153,16 @@ export function toOrder(raw: unknown): Order {
     accountHandle: row.account_handle,
     accountName: row.account_name,
     accountPlatform: row.account_platform,
-    customer: { name: row.customer_name, email: row.customer_email, whatsapp: row.customer_whatsapp },
+    customer: {
+      name: row.customer_name,
+      email: row.customer_email,
+      whatsapp: row.customer_whatsapp,
+      document: row.customer_document ?? null,
+      birthDate: row.customer_birth_date ?? null,
+      instagram: row.customer_instagram ?? null,
+      city: row.customer_city ?? null,
+      state: row.customer_state ?? null,
+    },
     paymentMethod: row.payment_method,
     total: row.total_cents,
     status: row.status,

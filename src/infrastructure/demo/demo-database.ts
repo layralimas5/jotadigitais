@@ -1,7 +1,7 @@
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord } from "@/domain/customer";
-import type { Expense } from "@/domain/finance";
+import type { Expense, Revenue } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
@@ -27,6 +27,7 @@ export interface DemoState {
   messageTemplates?: Partial<MessageTemplates>;
   preferences?: Record<string, unknown>;
   expenses?: Expense[];
+  revenues?: Revenue[];
   partners?: Partner[];
   adminUsers?: AdminUser[];
   notifications?: StoredNotification[];

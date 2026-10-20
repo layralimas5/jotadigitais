@@ -47,7 +47,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/contas", label: "Contas", icon: Package, inBottomNav: true, description: "Estoque da vitrine" },
       { to: "/admin/pedidos", label: "Pedidos", icon: Receipt, inBottomNav: true, description: "Pagamentos e entregas" },
       { to: "/admin/finalizados", label: "Finalizados", icon: CircleCheckBig, inBottomNav: false, description: "Vendas entregues e garantia" },
-      { to: "/admin/financeiro", label: "Financeiro", icon: Wallet, inBottomNav: false, description: "Faturamento, despesas e lucro" },
+      { to: "/admin/financeiro", label: "Financeiro", icon: Wallet, inBottomNav: false, description: "Receitas, despesas e lucro" },
     ],
   },
   {

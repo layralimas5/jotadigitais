@@ -142,7 +142,7 @@ async function main() {
 
   console.log("\npedidos");
   const placed = await as("anon", null, () =>
-    db.query(`select public.place_order($1, 'Maria Silva', 'Maria@Exemplo.com', '(11) 91234-5678', 'pix') as data`, [
+    db.query(`select public.place_order($1, 'Maria Silva', 'Maria@Exemplo.com', '(11) 91234-5678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix') as data`, [
       tiktokId,
     ]),
   );
@@ -155,7 +155,7 @@ async function main() {
 
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Outro Cliente', 'outro@exemplo.com', '', 'card')`, [tiktokId])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Outro Cliente', 'outro@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'card')`, [tiktokId])),
       /account_unavailable/,
     ),
     "segunda compra da mesma conta é recusada",
@@ -163,17 +163,47 @@ async function main() {
 
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Ab', 'x@exemplo.com', '', 'pix')`, [youtubeId])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Ab', 'x@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [youtubeId])),
       /invalid_name/,
     ),
     "servidor valida o nome",
   );
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Nome Ok', 'sem-arroba', '', 'pix')`, [youtubeId])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Nome Ok', 'sem-arroba', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [youtubeId])),
       /invalid_email/,
     ),
     "servidor valida o e-mail",
+  );
+  const placeYoutube = (whatsapp, document, birthDate, city, state) =>
+    as("anon", null, () =>
+      db.query(`select public.place_order($1, 'Nome Ok', 'ficha@exemplo.com', $2, $3, $4, '', $5, $6, 'pix')`, [
+        youtubeId,
+        whatsapp,
+        document,
+        birthDate,
+        city,
+        state,
+      ]),
+    );
+  check(await rejects(() => placeYoutube("", "52998224725", "1990-05-10", "Natal", "RN"), /invalid_whatsapp/), "checkout exige WhatsApp");
+  check(await rejects(() => placeYoutube("11912345678", "12345678900", "1990-05-10", "Natal", "RN"), /invalid_document/), "servidor recusa CPF com dígito errado");
+  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "2015-01-01", "Natal", "RN"), /invalid_birth_date/), "menor de 18 anos não compra");
+  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "", "RN"), /invalid_city/), "checkout exige cidade");
+  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "Natal", "XX"), /invalid_state/), "checkout exige UF válida");
+  check(
+    await rejects(
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Maria Silva', 'maria@exemplo.com', '11912345678', 'pix')`, [youtubeId])),
+      /function .* does not exist/,
+    ),
+    "versão antiga do checkout, sem ficha, não existe mais",
+  );
+  const sheet = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select customer_document, customer_birth_date::text as birth, customer_state from public.orders where code = $1`, [order.code]),
+  );
+  check(
+    sheet.rows[0]?.customer_document === "52998224725" && sheet.rows[0]?.birth === "1990-05-10" && sheet.rows[0]?.customer_state === "RN",
+    "admin lê a ficha do checkout, com o CPF só em números",
   );
 
   const anonOrders = await as("anon", null, () =>
@@ -187,6 +217,7 @@ async function main() {
 
   const lookup = await as("anon", null, () => db.query(`select public.get_order($1) as data`, [order.code.toLowerCase()]));
   check(lookup.rows[0].data?.code === order.code, "página do pedido encontra pelo código");
+  check(lookup.rows[0].data?.customer_document === undefined, "página pública do pedido não mostra a ficha");
 
   check(
     await rejects(
@@ -203,7 +234,7 @@ async function main() {
   await db.exec(`alter table public.accounts enable trigger accounts_normalize_reservation`);
   await db.query(`update public.orders set expires_at = now() - interval '1 minute' where code = $1`, [order.code]);
   const retaken = await as("anon", null, () =>
-    db.query(`select public.place_order($1, 'Joana Lima', 'joana@exemplo.com', '', 'card') as data`, [tiktokId]),
+    db.query(`select public.place_order($1, 'Joana Lima', 'joana@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'card') as data`, [tiktokId]),
   );
   check(Boolean(retaken.rows[0].data.code), "conta com reserva vencida volta a ser vendável");
   const oldOrder = await db.query(`select status from public.orders where code = $1`, [order.code]);
@@ -232,7 +263,7 @@ async function main() {
   );
 
   const third = await as("anon", null, () =>
-    db.query(`select public.place_order($1, 'Carlos Souza', 'carlos@exemplo.com', '', 'pix') as data`, [youtubeId]),
+    db.query(`select public.place_order($1, 'Carlos Souza', 'carlos@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix') as data`, [youtubeId]),
   );
   await as("authenticated", ADMIN_ID, () =>
     db.query(`update public.orders set status = 'canceled' where code = $1`, [third.rows[0].data.code]),
@@ -263,11 +294,11 @@ async function main() {
     );
     extra.push(row.rows[0].id);
   }
-  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '', 'pix')`, [extra[0]]));
-  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '', 'pix')`, [extra[1]]));
+  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [extra[0]]));
+  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [extra[1]]));
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '', 'pix')`, [extra[2]])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [extra[2]])),
       /too_many_open_orders/,
     ),
     "terceiro pedido aberto do mesmo e-mail é barrado",
@@ -557,6 +588,26 @@ async function main() {
   check(
     await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.update_my_profile('J')`)), /check constraint/),
     "nome com menos de 2 letras é barrado pelo banco",
+  );
+
+  console.log("\nreceitas");
+  const revenue = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.revenues (description, category, amount_cents, received_on, payment_method)
+      values ('Venda por fora', 'account_sale', 45000, '2026-10-20', 'pix') returning id`),
+  );
+  check(revenue.rows.length === 1, "admin lança receita");
+  const strangerRevenues = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.revenues`));
+  check(strangerRevenues.rows.length === 0, "usuário que não é admin não vê receitas");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select id from public.revenues`)), /permission denied/),
+    "visitante não lê receitas",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.revenues (description, amount_cents) values ('Zero', 0)`)),
+      /check constraint/,
+    ),
+    "receita de valor zero é barrada",
   );
 
   console.log("\nimagens");

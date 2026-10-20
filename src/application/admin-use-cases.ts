@@ -3,7 +3,7 @@ import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { DashboardSource } from "@/domain/dashboard";
 import { CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
-import type { Expense } from "@/domain/finance";
+import type { Expense, Revenue } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { canTransition, type Order, type OrderStatus } from "@/domain/order";
@@ -21,6 +21,7 @@ import type {
   AdminOrderRepository,
   AdminPartnerRepository,
   AdminPreferenceRepository,
+  AdminRevenueRepository,
   AdminSession,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -47,6 +48,7 @@ import {
   parseOrThrow,
   partnerDataSchema,
   profileSchema,
+  revenueDataSchema,
   signInSchema,
   storeSettingsSchema,
   testimonialDataSchema,
@@ -64,6 +66,7 @@ export interface AdminDeps {
   templates: AdminMessageTemplateRepository;
   preferences: AdminPreferenceRepository;
   expenses: AdminExpenseRepository;
+  revenues: AdminRevenueRepository;
   partners: AdminPartnerRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
@@ -127,8 +130,18 @@ export async function changeOrderStatus(deps: AdminDeps, order: Order, status: O
 }
 
 export async function listCustomers(deps: AdminDeps): Promise<CustomerSummary[]> {
-  const [orders, records] = await Promise.all([deps.orders.listAll(), deps.customers.listAll()]);
-  return groupCustomers(orders, records);
+  const [orders, records, revenues] = await Promise.all([
+    deps.orders.listAll(),
+    deps.customers.listAll(),
+    deps.revenues.listAll(),
+  ]);
+  return groupCustomers(orders, records, revenues);
+}
+
+/** Só os cadastros feitos à mão, em ordem de nome (para escolher numa lista). */
+export async function listCustomerRecords(deps: AdminDeps): Promise<CustomerRecord[]> {
+  const records = await deps.customers.listAll();
+  return [...records].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export function findCustomerRecord(deps: AdminDeps, id: string): Promise<CustomerRecord | null> {
@@ -186,13 +199,31 @@ export function saveMessageTemplates(deps: AdminDeps, raw: unknown): Promise<Mes
 
 export interface FinanceData {
   orders: Order[];
+  revenues: Revenue[];
   expenses: Expense[];
 }
 
 /** Tudo que o Financeiro precisa; o recorte por período é feito na tela, sem buscar de novo. */
 export async function loadFinance(deps: AdminDeps): Promise<FinanceData> {
-  const [orders, expenses] = await Promise.all([deps.orders.listAll(), deps.expenses.listAll()]);
-  return { orders, expenses };
+  const [orders, revenues, expenses] = await Promise.all([
+    deps.orders.listAll(),
+    deps.revenues.listAll(),
+    deps.expenses.listAll(),
+  ]);
+  return { orders, revenues, expenses };
+}
+
+export function findRevenue(deps: AdminDeps, id: string): Promise<Revenue | null> {
+  return deps.revenues.findById(id);
+}
+
+export function saveRevenue(deps: AdminDeps, id: string | null, raw: unknown): Promise<Revenue> {
+  const data = parseOrThrow(revenueDataSchema, raw);
+  return id ? deps.revenues.update(id, data) : deps.revenues.create(data);
+}
+
+export function deleteRevenue(deps: AdminDeps, id: string): Promise<void> {
+  return deps.revenues.remove(id);
 }
 
 export function findExpense(deps: AdminDeps, id: string): Promise<Expense | null> {
@@ -210,15 +241,16 @@ export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
 
 /** Tudo o que o dashboard precisa, carregado uma vez: o filtro de período recalcula sem buscar de novo. */
 export async function loadDashboardSource(deps: AdminDeps): Promise<DashboardSource> {
-  const [orders, expenses, accounts, leads, partners, customers] = await Promise.all([
+  const [orders, expenses, revenues, accounts, leads, partners, customers] = await Promise.all([
     deps.orders.listAll(),
     deps.expenses.listAll(),
+    deps.revenues.listAll(),
     deps.accounts.listAll(),
     deps.leads.listAll(),
     deps.partners.listAll(),
     deps.customers.listAll(),
   ]);
-  return { orders, expenses, accounts, leads, partners, customers };
+  return { orders, expenses, revenues, accounts, leads, partners, customers };
 }
 
 export interface FinalizedSalesData {

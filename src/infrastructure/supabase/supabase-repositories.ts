@@ -14,6 +14,7 @@ import type {
   AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
+  AdminRevenueRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminUserRepository,
@@ -31,6 +32,7 @@ import {
   CustomerEmailTakenError,
   CustomerNotFoundError,
   ExpenseNotFoundError,
+  RevenueNotFoundError,
   InvalidTransitionError,
   LeadNotFoundError,
   PartnerNotFoundError,
@@ -39,7 +41,15 @@ import {
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
 import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData } from "@/domain/customer";
-import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, type Expense, type ExpenseData } from "@/domain/finance";
+import {
+  EXPENSE_CATEGORIES,
+  EXPENSE_PAYMENT_METHODS,
+  REVENUE_CATEGORIES,
+  type Expense,
+  type ExpenseData,
+  type Revenue,
+  type RevenueData,
+} from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES, type Lead, type LeadData, type LeadStage } from "@/domain/lead";
 import {
   DEFAULT_MESSAGE_TEMPLATES,
@@ -244,6 +254,11 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_name: input.customer.name,
       p_email: input.customer.email,
       p_whatsapp: input.customer.whatsapp ?? "",
+      p_document: input.customer.document,
+      p_birth_date: input.customer.birthDate,
+      p_instagram: input.customer.instagram,
+      p_city: input.customer.city,
+      p_state: input.customer.state,
       p_payment_method: input.paymentMethod,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
     });
@@ -415,12 +430,13 @@ export class SupabaseLeadRepository implements AdminLeadRepository {
   }
 }
 
-const CUSTOMER_COLUMNS = "id, name, document, email, whatsapp, instagram, city, state, source, interest, notes, created_at";
+const CUSTOMER_COLUMNS = "id, name, document, birth_date, email, whatsapp, instagram, city, state, source, interest, notes, created_at";
 
 const customerRowSchema = z.object({
   id: z.string(),
   name: z.string(),
   document: z.string().nullable(),
+  birth_date: z.string().nullable(),
   email: z.string().nullable(),
   whatsapp: z.string().nullable(),
   instagram: z.string().nullable(),
@@ -438,6 +454,7 @@ function toCustomerRecord(raw: unknown): CustomerRecord {
     id: row.id,
     name: row.name,
     document: row.document,
+    birthDate: row.birth_date,
     email: row.email,
     whatsapp: row.whatsapp,
     instagram: row.instagram,
@@ -449,6 +466,8 @@ function toCustomerRecord(raw: unknown): CustomerRecord {
     createdAt: row.created_at,
   };
 }
+
+const toCustomerRow = ({ birthDate, ...data }: CustomerRecordData) => ({ ...data, birth_date: birthDate });
 
 function failOnCustomerWrite(error: PostgrestError, email: string | null): never {
   if (error.code === UNIQUE_VIOLATION && email) throw new CustomerEmailTakenError(email);
@@ -471,7 +490,7 @@ export class SupabaseCustomerRepository implements AdminCustomerRepository {
   }
 
   async create(input: CustomerRecordData): Promise<CustomerRecord> {
-    const { data, error } = await this.client.from("customers").insert(input).select(CUSTOMER_COLUMNS).single();
+    const { data, error } = await this.client.from("customers").insert(toCustomerRow(input)).select(CUSTOMER_COLUMNS).single();
     if (error) failOnCustomerWrite(error, input.email);
     return toCustomerRecord(data);
   }
@@ -479,7 +498,7 @@ export class SupabaseCustomerRepository implements AdminCustomerRepository {
   async update(id: string, input: CustomerRecordData): Promise<CustomerRecord> {
     const { data, error } = await this.client
       .from("customers")
-      .update(input)
+      .update(toCustomerRow(input))
       .eq("id", id)
       .select(CUSTOMER_COLUMNS)
       .maybeSingle();
@@ -610,6 +629,91 @@ export class SupabaseExpenseRepository implements AdminExpenseRepository {
 
   async remove(id: string): Promise<void> {
     const { error } = await this.client.from("expenses").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+const REVENUE_COLUMNS = "id, description, category, amount_cents, received_on, payment_method, customer_id, account_id, notes, created_at";
+
+const revenueRowSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  category: z.enum(REVENUE_CATEGORIES),
+  amount_cents: z.number(),
+  received_on: z.string(),
+  payment_method: z.enum(EXPENSE_PAYMENT_METHODS).nullable(),
+  customer_id: z.string().nullable(),
+  account_id: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+});
+
+function toRevenue(raw: unknown): Revenue {
+  const row = revenueRowSchema.parse(raw);
+  return {
+    id: row.id,
+    description: row.description,
+    category: row.category,
+    amount: row.amount_cents,
+    date: row.received_on,
+    paymentMethod: row.payment_method,
+    customerId: row.customer_id,
+    accountId: row.account_id,
+    notes: row.notes,
+    createdAt: row.created_at,
+  };
+}
+
+const toRevenueRow = (data: RevenueData) => ({
+  description: data.description,
+  category: data.category,
+  amount_cents: data.amount,
+  received_on: data.date,
+  payment_method: data.paymentMethod,
+  customer_id: data.customerId,
+  account_id: data.accountId,
+  notes: data.notes,
+});
+
+export class SupabaseRevenueRepository implements AdminRevenueRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<Revenue[]> {
+    const { data, error } = await this.client
+      .from("revenues")
+      .select(REVENUE_COLUMNS)
+      .order("received_on", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toRevenue);
+  }
+
+  async findById(id: string): Promise<Revenue | null> {
+    const { data, error } = await this.client.from("revenues").select(REVENUE_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toRevenue(data) : null;
+  }
+
+  async create(input: RevenueData): Promise<Revenue> {
+    const { data, error } = await this.client.from("revenues").insert(toRevenueRow(input)).select(REVENUE_COLUMNS).single();
+    if (error) fail(error);
+    return toRevenue(data);
+  }
+
+  async update(id: string, input: RevenueData): Promise<Revenue> {
+    const { data, error } = await this.client
+      .from("revenues")
+      .update(toRevenueRow(input))
+      .eq("id", id)
+      .select(REVENUE_COLUMNS)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new RevenueNotFoundError();
+    return toRevenue(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("revenues").delete().eq("id", id);
     if (error) fail(error);
   }
 }

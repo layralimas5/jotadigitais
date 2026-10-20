@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteExpense, findExpense, listAllAccounts, saveExpense } from "@/application/admin-use-cases";
+import { deleteExpense, findExpense, saveExpense } from "@/application/admin-use-cases";
 import { expenseDataSchema, fieldErrorsOf } from "@/application/schemas";
 import {
   EXPENSE_CATEGORIES,
@@ -11,13 +11,13 @@ import {
   type Expense,
   type ExpenseCategory,
 } from "@/domain/finance";
-import { PLATFORM_LABEL } from "@/domain/platform";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, SelectField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
+import { AccountSelect } from "../finance/AccountSelect";
 import { formatCentsInput, parseMoneyToCents } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
@@ -63,40 +63,6 @@ const fromExpense = (expense: Expense): ExpenseFormValues => ({
   accountId: expense.accountId ?? "",
   notes: expense.notes ?? "",
 });
-
-const NO_ACCOUNT_OPTION = { value: "", label: "Nenhuma conta" };
-
-/** Liga a despesa a uma conta do estoque. Na compra de conta, é o que mostra quanto ela custou. */
-function AccountSelect({ value, onChange, highlight }: { value: string; onChange: (accountId: string) => void; highlight: boolean }) {
-  const accounts = useAdminQuery(listAllAccounts, "expense-accounts");
-  const hint = highlight ? "Escolha a conta que foi comprada." : "Opcional. Use quando o gasto for de uma conta específica.";
-  if (accounts.status !== "success") {
-    return (
-      <SelectField
-        label="Conta relacionada"
-        name="accountId"
-        disabled
-        value=""
-        options={[{ value: "", label: accounts.status === "error" ? "Não foi possível carregar" : "Carregando…" }]}
-        hint={accounts.status === "error" ? accounts.error.message : hint}
-      />
-    );
-  }
-  const options = [
-    NO_ACCOUNT_OPTION,
-    ...accounts.data.map((account) => ({ value: account.id, label: `${account.handle} · ${PLATFORM_LABEL[account.platform]}` })),
-  ];
-  return (
-    <SelectField
-      label="Conta relacionada"
-      name="accountId"
-      hint={hint}
-      options={options}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
-  );
-}
 
 const toRaw = (values: ExpenseFormValues) => ({ ...values, amount: parseMoneyToCents(values.amount) });
 
@@ -233,7 +199,11 @@ function ExpenseEditor({ expense }: { expense: Expense | null }) {
         <FormSection title="Detalhes">
           <AccountSelect
             value={values.accountId}
-            highlight={values.category === "account_purchase"}
+            hint={
+              values.category === "account_purchase"
+                ? "Escolha a conta que foi comprada."
+                : "Opcional. Use quando o gasto for de uma conta específica."
+            }
             onChange={(accountId) => update({ accountId })}
           />
           <TextAreaField
