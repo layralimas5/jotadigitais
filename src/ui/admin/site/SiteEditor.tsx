@@ -1,5 +1,5 @@
-import { AlertCircle, ChevronDown, ExternalLink, Monitor, RotateCcw, Smartphone, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertCircle, ChevronDown, ExternalLink, Monitor, MousePointerClick, RotateCcw, Smartphone, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useBlocker } from "react-router-dom";
 import type { SiteContent, SiteSectionKey } from "@/domain/site-content";
 import { Button } from "@/ui/components/Button";
@@ -59,13 +59,27 @@ function SectionPanel({ section, open, onToggle, draft }: SectionPanelProps) {
   );
 }
 
-function PreviewPane({ draft, section, device, onDevice }: { draft: SiteDraft; section: SiteSectionDefinition | null; device: PreviewDevice; onDevice: (device: PreviewDevice) => void }) {
+interface PreviewPaneProps {
+  draft: SiteDraft;
+  section: SiteSectionDefinition | null;
+  scrollTarget: string | null;
+  device: PreviewDevice;
+  onDevice: (device: PreviewDevice) => void;
+  highlightPath: string | null;
+  onEdit: (path: string) => void;
+}
+
+function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlightPath, onEdit }: PreviewPaneProps) {
   const path = section?.path ?? "/";
   return (
     <div className="flex h-[calc(100dvh-13rem)] min-h-[28rem] flex-col rounded-3xl border border-line bg-surface/60 p-2.5 lg:h-[calc(100dvh-7.5rem)]">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1.5 pb-2.5">
-        <p className="text-xs text-mist">
-          Prévia ao vivo · <span className="text-fog">{path === "/" ? "Página inicial" : "Termos de compra"}</span>
+        <p className="flex min-w-0 items-center gap-1.5 text-xs text-mist">
+          <MousePointerClick aria-hidden className="size-3.5 shrink-0 text-electric" />
+          <span className="truncate">
+            Clique em qualquer texto ou imagem para editar ·{" "}
+            <span className="text-fog">{path === "/" ? "Página inicial" : "Termos de compra"}</span>
+          </span>
         </p>
         <div className="flex items-center gap-1.5">
           <div role="group" aria-label="Tamanho da prévia" className="flex rounded-full border border-line-strong p-0.5">
@@ -94,7 +108,14 @@ function PreviewPane({ draft, section, device, onDevice }: { draft: SiteDraft; s
         </div>
       </div>
       <div className="min-h-0 flex-1">
-        <SitePreview content={draft.draft} path={path} scrollTarget={section?.anchor ?? null} device={device} />
+        <SitePreview
+          content={draft.draft}
+          path={path}
+          scrollTarget={scrollTarget}
+          device={device}
+          highlightPath={highlightPath}
+          onEdit={onEdit}
+        />
       </div>
     </div>
   );
@@ -147,6 +168,39 @@ type MobileView = "edit" | "preview";
 /** Mesmo ponto do `lg:` do Tailwind, onde editor e prévia ficam lado a lado. */
 const WIDE_SCREEN = "(min-width: 64rem)";
 
+/** Classes do brilho rápido no campo aberto pelo clique na prévia. */
+const FLASH_CLASSES = ["ring-2", "ring-pink", "ring-offset-2", "ring-offset-ink", "rounded-xl"];
+const FLASH_MS = 1600;
+const MAX_FOCUS_ATTEMPTS = 20;
+
+/** Leva o foco ao campo do caminho ("hero.title") depois que a seção dele abrir, com um brilho para achar na tela. */
+function useFieldFocus(listRef: React.RefObject<HTMLUListElement | null>) {
+  const [request, setRequest] = useState<{ path: string; at: number } | null>(null);
+
+  useEffect(() => {
+    if (!request) return;
+    let frame = 0;
+    let attempts = 0;
+    // A seção pode levar alguns quadros para abrir: tenta de novo até o campo existir.
+    const tryFocus = () => {
+      const field = listRef.current?.querySelector<HTMLElement>(`[name="${CSS.escape(request.path)}"]`);
+      if (!field) {
+        if (attempts++ < MAX_FOCUS_ATTEMPTS) frame = window.requestAnimationFrame(tryFocus);
+        return;
+      }
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      field.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
+      field.focus({ preventScroll: true });
+      field.classList.add(...FLASH_CLASSES);
+      window.setTimeout(() => field.classList.remove(...FLASH_CLASSES), FLASH_MS);
+    };
+    frame = window.requestAnimationFrame(tryFocus);
+    return () => window.cancelAnimationFrame(frame);
+  }, [request, listRef]);
+
+  return (path: string) => setRequest({ path, at: Date.now() });
+}
+
 /** Textos e imagens do site, com a prévia do site real ao lado. Nada vai para o ar antes de "Salvar e publicar". */
 export function SiteEditor({ initial }: { initial: SiteContent }) {
   const toast = useToast();
@@ -154,8 +208,34 @@ export function SiteEditor({ initial }: { initial: SiteContent }) {
   const [openKey, setOpenKey] = useState<SiteSectionKey | null>("hero");
   const [device, setDevice] = useState<PreviewDevice>(() => (window.matchMedia(WIDE_SCREEN).matches ? "desktop" : "mobile"));
   const [mobileView, setMobileView] = useState<MobileView>("edit");
+  const [scrollTarget, setScrollTarget] = useState<string | null>(SITE_SECTIONS[0]?.anchor ?? null);
+  const [highlightPath, setHighlightPath] = useState<string | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const focusField = useFieldFocus(listRef);
   const blocker = useLeaveGuard(draft.dirty);
   const openSection = SITE_SECTIONS.find((section) => section.key === openKey) ?? null;
+
+  const toggleSection = (section: SiteSectionDefinition) => {
+    const opening = openKey !== section.key;
+    setOpenKey(opening ? section.key : null);
+    if (opening) setScrollTarget(section.anchor);
+  };
+
+  /** Clique na prévia: abre a seção do elemento e foca o campo, sem rolar a prévia para o topo da seção. */
+  const onPreviewEdit = (path: string) => {
+    const key = path.split(".")[0];
+    if (!SITE_SECTIONS.some((section) => section.key === key)) return;
+    setOpenKey(key as SiteSectionKey);
+    setMobileView("edit");
+    setHighlightPath(path);
+    focusField(path);
+  };
+
+  /** Campo focado no editor: destaca o elemento na prévia. */
+  const onEditorFocus = (event: React.FocusEvent<HTMLUListElement>) => {
+    const name = event.target.getAttribute("name");
+    if (name?.includes(".")) setHighlightPath(name);
+  };
 
   const onPublish = async () => {
     const result = await draft.publish();
@@ -165,6 +245,7 @@ export function SiteEditor({ initial }: { initial: SiteContent }) {
     }
     if (result.section) {
       setOpenKey(result.section);
+      setScrollTarget(SITE_SECTIONS.find((section) => section.key === result.section)?.anchor ?? null);
       setMobileView("edit");
       toast.show("Tem campo para corrigir. A seção com problema ficou aberta.", "error");
       return;
@@ -186,19 +267,32 @@ export function SiteEditor({ initial }: { initial: SiteContent }) {
         />
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(21rem,27rem)_minmax(0,1fr)] lg:items-start">
-        <ul className={cn("space-y-2.5", mobileView === "preview" && "max-lg:hidden")} aria-label="Seções do site">
+        <ul
+          ref={listRef}
+          onFocus={onEditorFocus}
+          className={cn("space-y-2.5", mobileView === "preview" && "max-lg:hidden")}
+          aria-label="Seções do site"
+        >
           {SITE_SECTIONS.map((section) => (
             <SectionPanel
               key={section.key}
               section={section}
               draft={draft}
               open={openKey === section.key}
-              onToggle={() => setOpenKey((current) => (current === section.key ? null : section.key))}
+              onToggle={() => toggleSection(section)}
             />
           ))}
         </ul>
         <div className={cn("lg:sticky lg:top-20", mobileView === "edit" && "max-lg:hidden")}>
-          <PreviewPane draft={draft} section={openSection} device={device} onDevice={setDevice} />
+          <PreviewPane
+            draft={draft}
+            section={openSection}
+            scrollTarget={scrollTarget}
+            device={device}
+            onDevice={setDevice}
+            highlightPath={highlightPath}
+            onEdit={onPreviewEdit}
+          />
         </div>
       </div>
       <div className="mt-5">

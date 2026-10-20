@@ -4,6 +4,7 @@ import { container } from "@/app/container";
 import { getSiteContent } from "@/application/use-cases";
 import { FULL_SHOP_MIN_FOLLOWERS } from "@/domain/account";
 import { DEFAULT_SITE_CONTENT, fillTokens, mergeWithDefaults, type SiteContent } from "@/domain/site-content";
+import { highlightEditable, installEditLayer, scrollWithinPage } from "@/ui/lib/preview-edit-layer";
 import { IS_SITE_PREVIEW, isEditorMessage, sendToEditor } from "@/ui/lib/site-preview";
 import { useStoreSettings } from "./useStoreSettings";
 
@@ -24,13 +25,20 @@ function usePreviewDraft(onDraft: (content: SiteContent) => void) {
         onDraft(mergeWithDefaults(message.content) as SiteContent);
       } else if (message.type === "scroll") {
         const target = document.getElementById(message.target);
-        (target?.closest("section, footer") ?? target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        const block = target?.closest("section, footer") ?? target;
+        if (block) scrollWithinPage(block, "start");
+      } else if (message.type === "highlight") {
+        highlightEditable(message.path);
       } else {
         navigate(message.path);
       }
     };
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    const removeEditLayer = installEditLayer();
+    return () => {
+      window.removeEventListener("message", onMessage);
+      removeEditLayer();
+    };
   }, [navigate, onDraft]);
 
   useEffect(() => {

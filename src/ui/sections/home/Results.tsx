@@ -5,6 +5,7 @@ import { SectionHeading } from "@/ui/components/SectionHeading";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useTestimonials } from "@/ui/hooks/useStore";
 import { cn } from "@/ui/lib/cn";
+import { editable } from "@/ui/lib/site-preview";
 
 /** Quantos cards cada metade da faixa precisa para nunca sobrar espaço vazio no fim do loop. */
 const MIN_CARDS_PER_LOOP = 12;
@@ -82,6 +83,7 @@ export function Results() {
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="resultados-title"
+          editPrefix="results"
           eyebrow={results.eyebrow}
           title={results.title}
           description={results.description}
@@ -104,7 +106,10 @@ export function Results() {
         )}
       </Reveal>
 
-      <p className="relative mx-auto mt-6 max-w-6xl px-4 text-xs leading-relaxed text-mist sm:mt-10 sm:px-6">
+      <p
+        {...editable("results.disclaimer")}
+        className="relative mx-auto mt-6 max-w-6xl px-4 text-xs leading-relaxed text-mist sm:mt-10 sm:px-6"
+      >
         {results.disclaimer}
       </p>
     </section>

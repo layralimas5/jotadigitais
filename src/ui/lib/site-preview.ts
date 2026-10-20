@@ -13,9 +13,14 @@ export const PREVIEW_PARAM = "preview";
 export type EditorMessage =
   | { source: typeof EDITOR; type: "content"; content: SiteContent }
   | { source: typeof EDITOR; type: "scroll"; target: string }
-  | { source: typeof EDITOR; type: "navigate"; path: string };
+  | { source: typeof EDITOR; type: "navigate"; path: string }
+  /** Campo focado no editor: a prévia destaca o elemento dele (nulo apaga o destaque). */
+  | { source: typeof EDITOR; type: "highlight"; path: string | null };
 
-export type PreviewMessage = { source: typeof PREVIEW; type: "ready"; path: string };
+export type PreviewMessage =
+  | { source: typeof PREVIEW; type: "ready"; path: string }
+  /** Clicaram num elemento da prévia: o editor abre o campo desse caminho ("hero.title"). */
+  | { source: typeof PREVIEW; type: "edit"; path: string };
 
 type Payload<M> = M extends unknown ? Omit<M, "source"> : never;
 
@@ -45,3 +50,14 @@ export const IS_SITE_PREVIEW =
   new URLSearchParams(window.location.search).has(PREVIEW_PARAM);
 
 export const previewUrl = (path: string) => `${path}${path.includes("?") ? "&" : "?"}${PREVIEW_PARAM}=1`;
+
+/** Atributo que liga um elemento do site ao campo do editor que o controla. */
+export const EDIT_ATTRIBUTE = "data-edit";
+
+/**
+ * Marca um elemento como editável pelo clique na prévia. Fora do editor não acrescenta nada ao HTML.
+ * Uso: `<p {...editable("hero.subtitle")}>`.
+ */
+export function editable(path: string): { "data-edit"?: string } {
+  return IS_SITE_PREVIEW ? { [EDIT_ATTRIBUTE]: path } : {};
+}

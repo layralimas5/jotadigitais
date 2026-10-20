@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
+import { editable } from "@/ui/lib/site-preview";
 
 interface WhatsAppTeaserProps {
   onOpen: () => void;
@@ -24,8 +25,10 @@ export function WhatsAppTeaser({ onOpen, onDismiss }: WhatsAppTeaserProps) {
         onClick={onOpen}
         className="text-left text-sm font-medium text-white after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none"
       >
-        {whatsapp.teaserTitle}
-        <span className="mt-0.5 block text-xs font-normal text-mist">{whatsapp.teaserText}</span>
+        <span {...editable("whatsapp.teaserTitle")}>{whatsapp.teaserTitle}</span>
+        <span {...editable("whatsapp.teaserText")} className="mt-0.5 block text-xs font-normal text-mist">
+          {whatsapp.teaserText}
+        </span>
       </button>
       <button
         type="button"
