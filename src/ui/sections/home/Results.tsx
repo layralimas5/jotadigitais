@@ -2,6 +2,7 @@ import type { Testimonial, TestimonialKind } from "@/domain/testimonial";
 import { Marquee } from "@/ui/components/Marquee";
 import { Reveal } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useTestimonials } from "@/ui/hooks/useStore";
 import { cn } from "@/ui/lib/cn";
 
@@ -65,6 +66,7 @@ function StripSkeleton() {
 /** Depoimentos vêm do painel: o Jota publica, reordena ou esconde, e a faixa acompanha. */
 export function Results() {
   const testimonials = useTestimonials();
+  const { results } = useSiteContent();
   if (testimonials.status === "error") return null;
   if (testimonials.status === "success" && testimonials.data.length === 0) return null;
 
@@ -80,9 +82,9 @@ export function Results() {
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="resultados-title"
-          eyebrow="Resultados de clientes"
-          title="Quem comprou, já está vendendo"
-          description="Prints reais: resultados de clientes e contas entregues prontas para usar."
+          eyebrow={results.eyebrow}
+          title={results.title}
+          description={results.description}
         />
       </div>
 
@@ -103,8 +105,7 @@ export function Results() {
       </Reveal>
 
       <p className="relative mx-auto mt-6 max-w-6xl px-4 text-xs leading-relaxed text-mist sm:mt-10 sm:px-6">
-        Resultados individuais. O ganho depende do nicho, dos produtos escolhidos e da frequência de postagem. Não há
-        garantia de faturamento. Nos perfis entregues, nome, @ e foto foram desfocados para preservar os novos donos.
+        {results.disclaimer}
       </p>
     </section>
   );

@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 
 interface WhatsAppTeaserProps {
   onOpen: () => void;
@@ -8,6 +9,7 @@ interface WhatsAppTeaserProps {
 
 export function WhatsAppTeaser({ onOpen, onDismiss }: WhatsAppTeaserProps) {
   const reduceMotion = useReducedMotion();
+  const { whatsapp } = useSiteContent();
   return (
     <motion.div
       role="status"
@@ -22,8 +24,8 @@ export function WhatsAppTeaser({ onOpen, onDismiss }: WhatsAppTeaserProps) {
         onClick={onOpen}
         className="text-left text-sm font-medium text-white after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none"
       >
-        Deseja falar com o Jota?
-        <span className="mt-0.5 block text-xs font-normal text-mist">Respondo pelo WhatsApp.</span>
+        {whatsapp.teaserTitle}
+        <span className="mt-0.5 block text-xs font-normal text-mist">{whatsapp.teaserText}</span>
       </button>
       <button
         type="button"

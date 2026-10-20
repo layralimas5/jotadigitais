@@ -9,6 +9,7 @@ import type { StoredNotification } from "@/domain/notification";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { Partner, PartnerData } from "@/domain/partner";
 import type { Platform } from "@/domain/platform";
+import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
@@ -64,6 +65,11 @@ export interface StoreSettingsRepository {
   get(): Promise<StoreSettings>;
 }
 
+/** Textos do site como foram salvos (ou nulo, se nunca foram editados). Quem lê junta com o padrão e valida. */
+export interface SiteContentRepository {
+  load(): Promise<unknown>;
+}
+
 // ---------------------------------------------------------------------------
 // Painel administrativo
 // ---------------------------------------------------------------------------
@@ -95,6 +101,10 @@ export interface AuthService {
   requestPasswordReset(email: string, redirectTo: string): Promise<void>;
   updateProfile(update: ProfileUpdate, emailRedirectTo: string): Promise<ProfileUpdateResult>;
   onChange(listener: (session: AdminSession | null) => void): () => void;
+}
+
+export interface AdminSiteContentRepository extends SiteContentRepository {
+  save(content: SiteContent): Promise<void>;
 }
 
 export interface AdminStoreSettingsRepository extends StoreSettingsRepository {
@@ -217,7 +227,7 @@ export interface CalendarService {
   upsertAllDayEvent(draft: CalendarEventDraft): Promise<UpsertResult>;
 }
 
-export type MediaFolder = "accounts" | "testimonials";
+export type MediaFolder = "accounts" | "testimonials" | "site";
 
 export interface PreparedImage {
   blob: Blob;

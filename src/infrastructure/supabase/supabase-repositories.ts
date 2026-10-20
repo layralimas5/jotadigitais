@@ -14,6 +14,7 @@ import type {
   AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
+  AdminSiteContentRepository,
   AdminRevenueRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -60,6 +61,7 @@ import {
 import type { StoredNotification } from "@/domain/notification";
 import type { Partner, PartnerData } from "@/domain/partner";
 import { PLATFORMS } from "@/domain/platform";
+import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import {
@@ -300,6 +302,22 @@ const toStoreSettings = (row: StoreSettingsRow): StoreSettings => ({
   instagramHandle: row.instagram_handle,
   guaranteeDays: row.guarantee_days,
 });
+
+/** Textos do site: linha única (`id = true`), criada no primeiro salvamento. */
+export class SupabaseSiteContentRepository implements AdminSiteContentRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async load(): Promise<unknown> {
+    const { data, error } = await this.client.from("site_content").select("content").eq("id", true).maybeSingle<{ content: unknown }>();
+    if (error) fail(error);
+    return data?.content ?? null;
+  }
+
+  async save(content: SiteContent): Promise<void> {
+    const { error } = await this.client.from("site_content").upsert({ id: true, content }, { onConflict: "id" });
+    if (error) fail(error);
+  }
+}
 
 /** Linha única (`id = true`) criada pela migration; o painel só atualiza. */
 export class SupabaseStoreSettingsRepository implements AdminStoreSettingsRepository {

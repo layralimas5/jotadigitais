@@ -413,6 +413,82 @@ export const storeSettingsSchema = z.object({
 
 export type StoreSettingsInput = z.input<typeof storeSettingsSchema>;
 
+// ---------------------------------------------------------------------------
+// Textos do site (aba Site do painel)
+// ---------------------------------------------------------------------------
+
+/** Texto obrigatório do site: sem espaço sobrando nas pontas e com limite para não quebrar o layout. */
+const copy = (max: number) =>
+  z.string().trim().min(1, "Não deixe em branco.").max(max, `Use no máximo ${max} caracteres.`);
+
+const copyList = (min: number, max: number, itemMax: number) =>
+  z
+    .array(copy(itemMax))
+    .min(min, `Mantenha pelo menos ${min}.`)
+    .max(max, `Use no máximo ${max}.`);
+
+const textCard = z.object({ title: copy(60), text: copy(220) });
+
+const siteImage = z.object({
+  url: z.string().min(1, "Envie a imagem.").refine(fitsImageLimit, IMAGE_TOO_LONG),
+  alt: copy(240),
+});
+
+const titleBlock = { eyebrow: copy(40), title: copy(90), description: copy(240) };
+
+export const siteContentSchema = z.object({
+  seo: z.object({ title: copy(70), description: copy(170) }),
+  hero: z.object({
+    badge: copy(60),
+    title: copy(60),
+    titleHighlight: z.string().trim().max(40, "Use no máximo 40 caracteres."),
+    subtitle: copy(260),
+    primaryCta: copy(32),
+    secondaryCta: copy(32),
+    proofPoints: z.tuple([copy(40), copy(40), copy(40)]),
+    phoneName: copy(30),
+    phoneHandle: copy(30),
+    chipTitle: copy(24),
+    chipText: copy(32),
+    statLabel: copy(40),
+    statValue: copy(10),
+  }),
+  problem: z.object({
+    eyebrow: copy(40),
+    title: copy(60),
+    titleMuted: z.string().trim().max(60, "Use no máximo 60 caracteres."),
+    description: copy(240),
+    fromScratchTitle: copy(50),
+    fromScratch: copyList(1, 6, 90),
+    fromScratchImage: siteImage,
+    withUsTitle: copy(50),
+    withUs: copyList(1, 6, 90),
+    withUsImage: siteImage,
+  }),
+  featured: z.object({ ...titleBlock, allButton: copy(24) }),
+  howItWorks: z.object({ eyebrow: copy(40), title: copy(90), steps: z.tuple([textCard, textCard, textCard, textCard]) }),
+  results: z.object({ ...titleBlock, disclaimer: copy(400) }),
+  guarantee: z.object({ ...titleBlock, items: z.tuple([textCard, textCard, textCard, textCard]) }),
+  faq: z.object({
+    ...titleBlock,
+    items: z
+      .array(z.object({ question: copy(120), answer: copy(600), tiktokOnly: z.boolean() }))
+      .min(1, "Mantenha pelo menos uma pergunta.")
+      .max(20, "Use no máximo 20 perguntas."),
+  }),
+  finalCta: z.object({ titleLine1: copy(50), titleLine2: z.string().trim().max(50, "Use no máximo 50 caracteres."), button: copy(32) }),
+  footer: z.object({ tagline: copy(160), slogan: z.string().trim().max(120, "Use no máximo 120 caracteres."), disclaimer: copy(200) }),
+  whatsapp: z.object({ teaserTitle: copy(40), teaserText: copy(50) }),
+  terms: z.object({
+    eyebrow: copy(30),
+    title: copy(80),
+    sections: z
+      .array(z.object({ title: copy(80), body: copy(2000) }))
+      .min(1, "Mantenha pelo menos uma seção.")
+      .max(20, "Use no máximo 20 seções."),
+  }),
+});
+
 export class ValidationError extends Error {
   constructor(
     message: string,

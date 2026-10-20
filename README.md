@@ -49,7 +49,7 @@ As telas só falam com os casos de uso. Trocar o backend é trocar a implementa�
 - `/admin` painel (login obrigatório): contas com foto de perfil, depoimentos ordenados arrastando, pedidos,
   financeiro (receitas dos pedidos pagos e lançadas à mão, despesas, lucro e gráfico por período),
   clientes (filtro do site / manual, ficha completa), CRM de leads com cards e colunas arrastáveis, automação (modelos de mensagem do WhatsApp),
-  APIs (o que cada integração exige; nada ligado ainda), site (contato e garantia) e configurações (perfil, senha e backup)
+  APIs (o que cada integração exige; nada ligado ainda), site (todos os textos e imagens com prévia ao vivo, contato e garantia) e configurações (perfil, senha e backup)
 
 ## O que ainda é provisório
 

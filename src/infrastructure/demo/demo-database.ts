@@ -22,6 +22,8 @@ export interface DemoState {
   orders: Order[];
   /** Opcionais para não apagar o estoque de quem já usava o painel antes destas partes existirem. */
   settings?: StoreSettings;
+  /** Guardado como veio; quem lê junta com o padrão e valida. */
+  siteContent?: unknown;
   leads?: Lead[];
   customers?: CustomerRecord[];
   messageTemplates?: Partial<MessageTemplates>;

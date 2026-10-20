@@ -10,6 +10,7 @@ import { canTransition, type Order, type OrderStatus } from "@/domain/order";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import { finalizedSales } from "@/domain/sale";
+import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
@@ -23,6 +24,7 @@ import type {
   AdminPreferenceRepository,
   AdminRevenueRepository,
   AdminSession,
+  AdminSiteContentRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminNotificationRepository,
@@ -50,6 +52,7 @@ import {
   profileSchema,
   revenueDataSchema,
   signInSchema,
+  siteContentSchema,
   storeSettingsSchema,
   testimonialDataSchema,
   ValidationError,
@@ -61,6 +64,7 @@ export interface AdminDeps {
   testimonials: AdminTestimonialRepository;
   orders: AdminOrderRepository;
   settings: AdminStoreSettingsRepository;
+  siteContent: AdminSiteContentRepository;
   leads: AdminLeadRepository;
   customers: AdminCustomerRepository;
   templates: AdminMessageTemplateRepository;
@@ -349,6 +353,14 @@ export function getStoreSettings(deps: AdminDeps): Promise<StoreSettings> {
 
 export function saveStoreSettings(deps: AdminDeps, raw: unknown): Promise<StoreSettings> {
   return deps.settings.save(parseOrThrow(storeSettingsSchema, raw));
+}
+
+export { getSiteContent } from "./use-cases";
+
+export async function saveSiteContent(deps: AdminDeps, raw: unknown): Promise<SiteContent> {
+  const content = parseOrThrow(siteContentSchema, raw);
+  await deps.siteContent.save(content);
+  return content;
 }
 
 export function uploadImage(deps: AdminDeps, image: PreparedImage, folder: MediaFolder): Promise<UploadedImage> {

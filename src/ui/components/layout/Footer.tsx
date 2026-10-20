@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { Logo } from "../Logo";
 
@@ -22,15 +23,16 @@ const LINKS = [
 export function Footer() {
   const year = new Date().getFullYear();
   const { instagramUrl, instagramHandle, whatsappUrl } = useStoreSettings();
+  const { footer } = useSiteContent();
   return (
-    <footer className="relative border-t border-line bg-night">
+    <footer id="rodape" className="relative border-t border-line bg-night">
       <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-6 sm:py-14 md:grid-cols-[1.4fr_1fr_1fr] md:gap-10">
         <div className="col-span-2 md:col-span-1">
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-mist sm:mt-5">
-            Contas de TikTok, Instagram, YouTube e Facebook conferidas e prontas para você usar.
+            {footer.tagline}
           </p>
-          <p className="mt-4 text-sm text-fog italic sm:mt-6">Jesus é o caminho, a verdade e a vida.</p>
+          {footer.slogan && <p className="mt-4 text-sm text-fog italic sm:mt-6">{footer.slogan}</p>}
         </div>
 
         <nav aria-label="Rodapé">
@@ -78,7 +80,7 @@ export function Footer() {
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-xs leading-relaxed text-mist sm:gap-3 sm:px-6 sm:py-6 md:flex-row md:items-center md:justify-between">
           <p>
-            © {year} Jota Digitais. Não somos afiliados, patrocinados ou endossados pelo TikTok ou pela ByteDance.
+            © {year} Jota Digitais. {footer.disclaimer}
           </p>
           <p>
             Desenvolvido por{" "}
