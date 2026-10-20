@@ -2,6 +2,7 @@ import { CreditCard, MailCheck, MousePointerClick, Sparkles } from "lucide-react
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
+import { editable } from "@/ui/lib/site-preview";
 
 /** Ícone de cada passo, na ordem. Títulos e textos vêm do painel. */
 export const STEP_ICONS = [MousePointerClick, CreditCard, MailCheck, Sparkles] as const;
@@ -20,6 +21,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="como-funciona-title"
+          editPrefix="howItWorks"
           eyebrow={howItWorks.eyebrow}
           title={howItWorks.title}
           align="center"
@@ -44,9 +46,11 @@ export function HowItWorks() {
                     <span aria-hidden className="mr-2 text-electric-soft/60 tabular-nums sm:hidden">
                       0{index + 1}
                     </span>
-                    {title}
+                    <span {...editable(`howItWorks.steps.${index}.title`)}>{title}</span>
                   </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-mist sm:mt-2">{text}</p>
+                  <p {...editable(`howItWorks.steps.${index}.text`)} className="mt-1 text-sm leading-relaxed text-mist sm:mt-2">
+                    {text}
+                  </p>
                 </div>
               </div>
             </RevealItem>

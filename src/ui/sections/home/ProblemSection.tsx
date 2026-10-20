@@ -4,6 +4,7 @@ import { SectionHeading } from "@/ui/components/SectionHeading";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { cn } from "@/ui/lib/cn";
+import { editable } from "@/ui/lib/site-preview";
 
 type Tone = "alert" | "electric";
 
@@ -15,9 +16,10 @@ interface Screenshot {
 }
 
 /** Print real do app, recortado no topo com um esmaecido embaixo para parecer cortado. */
-function ScreenshotCrop({ shot, className }: { shot: Screenshot; className?: string }) {
+function ScreenshotCrop({ shot, className, editPath }: { shot: Screenshot; className?: string; editPath: string }) {
   return (
     <div
+      {...editable(editPath)}
       className={cn(
         "relative overflow-hidden rounded-2xl border shadow-2xl shadow-black/50",
         shot.tone === "alert" ? "border-alert/30" : "border-electric/30",
@@ -53,11 +55,11 @@ function ToneMark({ tone }: { tone: Tone }) {
   );
 }
 
-function ChecklistItems({ items, tone }: { items: readonly string[]; tone: Tone }) {
+function ChecklistItems({ items, tone, editPath }: { items: readonly string[]; tone: Tone; editPath: string }) {
   return (
     <ul className="mt-4 space-y-2.5 md:mt-7 md:space-y-3.5">
       {items.map((item, index) => (
-        <li key={index} className="flex gap-3 text-sm text-fog">
+        <li key={index} {...editable(`${editPath}.${index}`)} className="flex gap-3 text-sm text-fog">
           <ToneMark tone={tone} />
           {item}
         </li>
@@ -78,6 +80,7 @@ export function ProblemSection() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           id="problema-title"
+          editPrefix="problem"
           eyebrow={problem.eyebrow}
           title={
             <>
@@ -85,7 +88,9 @@ export function ProblemSection() {
               {problem.titleMuted && (
                 <>
                   {" "}
-                  <span className="text-mist">{problem.titleMuted}</span>
+                  <span {...editable("problem.titleMuted")} className="text-mist">
+                    {problem.titleMuted}
+                  </span>
                 </>
               )}
             </>
@@ -95,18 +100,20 @@ export function ProblemSection() {
 
         <Reveal stagger className="mt-8 grid gap-3 md:mt-14 md:grid-cols-2 md:gap-5">
           <RevealItem className="rounded-3xl border border-line bg-surface/60 p-5 md:p-9">
-            <p className="text-sm font-semibold text-mist">{problem.fromScratchTitle}</p>
-            <ScreenshotCrop shot={rejected} className={shotClassName} />
-            <ChecklistItems items={problem.fromScratch} tone="alert" />
+            <p {...editable("problem.fromScratchTitle")} className="text-sm font-semibold text-mist">
+              {problem.fromScratchTitle}
+            </p>
+            <ScreenshotCrop shot={rejected} className={shotClassName} editPath="problem.fromScratchImage.url" />
+            <ChecklistItems items={problem.fromScratch} tone="alert" editPath="problem.fromScratch" />
           </RevealItem>
 
           <RevealItem className="relative rounded-3xl bg-gradient-brand p-px">
             <div className="h-full rounded-[calc(1.5rem-1px)] bg-surface p-5 md:p-9">
               <p className="flex items-center gap-2 text-sm font-semibold text-white">
-                <VerifiedBadge className="size-5" /> {problem.withUsTitle}
+                <VerifiedBadge className="size-5" /> <span {...editable("problem.withUsTitle")}>{problem.withUsTitle}</span>
               </p>
-              <ScreenshotCrop shot={approved} className={shotClassName} />
-              <ChecklistItems items={problem.withUs} tone="electric" />
+              <ScreenshotCrop shot={approved} className={shotClassName} editPath="problem.withUsImage.url" />
+              <ChecklistItems items={problem.withUs} tone="electric" editPath="problem.withUs" />
             </div>
           </RevealItem>
         </Reveal>

@@ -7,6 +7,7 @@ import { ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useAccounts } from "@/ui/hooks/useStore";
+import { editable } from "@/ui/lib/site-preview";
 
 const FEATURED_COUNT = 6;
 const MOBILE_COUNT = 3;
@@ -44,12 +45,13 @@ export function FeaturedAccounts() {
         <div className="flex flex-col gap-5 sm:gap-8 md:flex-row md:items-end md:justify-between">
           <SectionHeading
             id="destaques-title"
+            editPrefix="featured"
             eyebrow={featured.eyebrow}
             title={featured.title}
             description={featured.description}
           />
           <ButtonLink to="/contas" variant="secondary" className="hidden self-start sm:inline-flex md:self-auto">
-            {featured.allButton} <ArrowRight className="size-4" />
+            <span {...editable("featured.allButton")}>{featured.allButton}</span> <ArrowRight className="size-4" />
           </ButtonLink>
         </div>
 

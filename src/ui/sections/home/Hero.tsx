@@ -8,6 +8,7 @@ import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
+import { editable } from "@/ui/lib/site-preview";
 
 const previewOf = (name: string, handle: string): ProfilePreview => ({
   id: "hero-preview",
@@ -74,7 +75,7 @@ export function Hero() {
             <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-ink">
               <TikTokGlyph className="size-3.5" />
             </span>
-            {hero.badge}
+            <span {...editable("hero.badge")}>{hero.badge}</span>
           </motion.p>
 
           <motion.h1
@@ -82,17 +83,20 @@ export function Hero() {
             variants={fadeUp}
             className="mt-5 font-display text-hero font-semibold tracking-tight text-balance text-white sm:mt-7 sm:text-6xl sm:leading-[1.05] lg:text-[4.1rem]"
           >
-            {hero.title}
+            <span {...editable("hero.title")}>{hero.title}</span>
             {hero.titleHighlight && (
               <>
                 {" "}
-                <span className="text-gradient-brand">{hero.titleHighlight}</span>
+                <span {...editable("hero.titleHighlight")} className="text-gradient-brand">
+                  {hero.titleHighlight}
+                </span>
               </>
             )}
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
+            {...editable("hero.subtitle")}
             className="mx-auto mt-4 max-w-xl text-[0.95rem] leading-relaxed text-pretty text-mist sm:mt-6 sm:text-lg lg:mx-0"
           >
             {hero.subtitle}
@@ -102,12 +106,13 @@ export function Hero() {
             variants={fadeUp}
             className="mt-7 flex flex-col items-center gap-1 sm:mt-9 sm:flex-row sm:justify-center sm:gap-3 lg:justify-start"
           >
-            <ButtonLink to="/contas" size="lg" className="w-full sm:w-auto">
+            <ButtonLink to="/contas" size="lg" className="w-full sm:w-auto" {...editable("hero.primaryCta")}>
               {hero.primaryCta}
               <ArrowRight className="size-4 transition-transform group-hover/btn:translate-x-0.5" />
             </ButtonLink>
             <ButtonLink
               to="/#como-funciona"
+              {...editable("hero.secondaryCta")}
               variant="secondary"
               size="lg"
               className="max-sm:h-11 max-sm:border-transparent max-sm:bg-transparent max-sm:text-fog sm:w-auto"
@@ -123,7 +128,7 @@ export function Hero() {
             {hero.proofPoints.map((label, index) => {
               const Icon = PROOF_ICONS[index] ?? ShieldCheck;
               return (
-                <li key={index} className="flex items-center gap-1.5 sm:gap-2">
+                <li key={index} {...editable(`hero.proofPoints.${index}`)} className="flex items-center gap-1.5 sm:gap-2">
                   <Icon aria-hidden className="size-3.5 text-electric sm:size-4" />
                   {label}
                 </li>
@@ -139,7 +144,9 @@ export function Hero() {
             animate={{ opacity: 1, y: 0, rotate: -3 }}
             transition={{ duration: 0.9, delay: 0.15, ease: EASE_OUT_EXPO }}
           >
-            <PhoneProfile account={previewOf(hero.phoneName, hero.phoneHandle)} />
+            <div {...editable("hero.phoneName")}>
+              <PhoneProfile account={previewOf(hero.phoneName, hero.phoneHandle)} />
+            </div>
           </motion.div>
 
           <FloatingChip
@@ -149,8 +156,12 @@ export function Hero() {
           >
             <VerifiedBadge className="size-7" />
             <div>
-              <p className="text-xs font-semibold text-white">{hero.chipTitle}</p>
-              <p className="text-[0.68rem] text-mist">{hero.chipText}</p>
+              <p {...editable("hero.chipTitle")} className="text-xs font-semibold text-white">
+                {hero.chipTitle}
+              </p>
+              <p {...editable("hero.chipText")} className="text-[0.68rem] text-mist">
+                {hero.chipText}
+              </p>
             </div>
           </FloatingChip>
 
@@ -160,8 +171,12 @@ export function Hero() {
             positionClassName="-right-20 -bottom-6"
             className="rounded-2xl border border-white/10 bg-surface/90 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur"
           >
-            <p className="text-[0.68rem] text-mist">{hero.statLabel}</p>
-            <p className="font-display text-2xl font-bold text-alert">{hero.statValue}</p>
+            <p {...editable("hero.statLabel")} className="text-[0.68rem] text-mist">
+              {hero.statLabel}
+            </p>
+            <p {...editable("hero.statValue")} className="font-display text-2xl font-bold text-alert">
+              {hero.statValue}
+            </p>
           </FloatingChip>
         </div>
       </div>

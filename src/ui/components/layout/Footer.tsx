@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { Logo } from "../Logo";
+import { editable } from "@/ui/lib/site-preview";
 
 function InstagramGlyph() {
   return (
@@ -30,9 +31,13 @@ export function Footer() {
         <div className="col-span-2 md:col-span-1">
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-mist sm:mt-5">
-            {footer.tagline}
+            <span {...editable("footer.tagline")}>{footer.tagline}</span>
           </p>
-          {footer.slogan && <p className="mt-4 text-sm text-fog italic sm:mt-6">{footer.slogan}</p>}
+          {footer.slogan && (
+            <p {...editable("footer.slogan")} className="mt-4 text-sm text-fog italic sm:mt-6">
+              {footer.slogan}
+            </p>
+          )}
         </div>
 
         <nav aria-label="Rodapé">
@@ -80,8 +85,9 @@ export function Footer() {
       <div className="border-t border-line">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-xs leading-relaxed text-mist sm:gap-3 sm:px-6 sm:py-6 md:flex-row md:items-center md:justify-between">
           <p>
-            © {year} Jota Digitais. {footer.disclaimer}
+            © {year} Jota Digitais. <span {...editable("footer.disclaimer")}>{footer.disclaimer}</span>
           </p>
+          {/* Crédito de quem desenvolveu: fixo no código, sem campo no painel e sem clique na prévia. */}
           <p>
             Desenvolvido por{" "}
             <a

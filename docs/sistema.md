@@ -57,6 +57,10 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
   `site_content` (JSON, leitura pública, escrita só de admin) e é validado por `siteContentSchema`; campo que faltar
   ou vier inválido cai no texto original (`DEFAULT_SITE_CONTENT` em `src/domain/site-content.ts`). Marcadores:
   `{dias}`, `{instagram}` e `{seguidores_shop}`. "Contato e garantia" é a tela antiga (WhatsApp, Instagram, prazo).
+  Na prévia, todo texto e imagem é clicável: o clique abre a seção certa com o campo focado, e focar um campo
+  destaca o elemento na prévia. Os elementos são marcados com `editable("caminho")` (`data-edit`, só dentro do
+  editor; o site público não leva o atributo). O crédito "Desenvolvido por Layra Lima" no rodapé é fixo no código,
+  sem campo no editor e sem clique na prévia.
 - **Configurações** (`/admin/configuracoes`, também no menu do usuário): perfil (nome pela função `update_my_profile`,
   e-mail pelo Supabase Auth, que só troca depois do clique no link enviado ao e-mail novo), troca de senha pedindo a
   senha atual, link de redefinição por e-mail para você ou outra pessoa da equipe, e backup. Quem chega pelo link de

@@ -15,6 +15,10 @@ interface SitePreviewProps {
   /** Id de um elemento da página; a prévia rola até a seção dele. */
   scrollTarget: string | null;
   device: PreviewDevice;
+  /** Campo focado no editor; a prévia destaca o elemento dele. */
+  highlightPath: string | null;
+  /** Clicaram num elemento da prévia: abrir o campo desse caminho. */
+  onEdit: (path: string) => void;
 }
 
 function useBoxSize(ref: React.RefObject<HTMLElement | null>) {
@@ -32,19 +36,23 @@ function useBoxSize(ref: React.RefObject<HTMLElement | null>) {
 }
 
 /** O site de verdade, aberto num iframe com ?preview, recebendo o rascunho a cada alteração. */
-export function SitePreview({ content, path, scrollTarget, device }: SitePreviewProps) {
+export function SitePreview({ content, path, scrollTarget, device, highlightPath, onEdit }: SitePreviewProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const box = useBoxSize(boxRef);
   const [framePath, setFramePath] = useState<string | null>(null);
   const [initialSrc] = useState(() => previewUrl(path));
-  const latest = useRef({ content, scrollTarget });
-  latest.current = { content, scrollTarget };
+  const latest = useRef({ content, onEdit });
+  latest.current = { content, onEdit };
 
   // A cada página carregada no iframe, manda o rascunho e a seção aberta.
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (!isPreviewMessage(event) || event.source !== frameRef.current?.contentWindow) return;
+      if (event.data.type === "edit") {
+        latest.current.onEdit(event.data.path);
+        return;
+      }
       setFramePath(event.data.path);
       sendToPreview(frameRef.current, { type: "content", content: latest.current.content });
     };
@@ -68,6 +76,10 @@ export function SitePreview({ content, path, scrollTarget, device }: SitePreview
     const timer = window.setTimeout(() => sendToPreview(frameRef.current, { type: "scroll", target: scrollTarget }), SEND_DELAY_MS * 2);
     return () => window.clearTimeout(timer);
   }, [scrollTarget, framePath, path]);
+
+  useEffect(() => {
+    if (framePath) sendToPreview(frameRef.current, { type: "highlight", path: highlightPath });
+  }, [highlightPath, framePath]);
 
   const width = DEVICE_WIDTH[device];
   const scale = box.width > 0 ? Math.min(1, box.width / width) : 1;

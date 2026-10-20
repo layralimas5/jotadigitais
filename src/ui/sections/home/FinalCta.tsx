@@ -3,6 +3,7 @@ import { ButtonLink } from "@/ui/components/Button";
 import { Logo } from "@/ui/components/Logo";
 import { Reveal } from "@/ui/components/Reveal";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
+import { editable } from "@/ui/lib/site-preview";
 
 export function FinalCta() {
   const { finalCta } = useSiteContent();
@@ -16,16 +17,20 @@ export function FinalCta() {
             <div className="relative">
               <Logo size="lg" className="mx-auto max-sm:text-[2.6rem]" />
               <h2 id="cta-title" className="mx-auto mt-6 max-w-2xl font-display text-section font-semibold tracking-tight text-balance text-white sm:mt-10 md:text-5xl">
-                <span className="block sm:inline">{finalCta.titleLine1}</span>
+                <span {...editable("finalCta.titleLine1")} className="block sm:inline">
+                  {finalCta.titleLine1}
+                </span>
                 {finalCta.titleLine2 && (
                   <>
                     {" "}
-                    <span className="block sm:inline">{finalCta.titleLine2}</span>
+                    <span {...editable("finalCta.titleLine2")} className="block sm:inline">
+                      {finalCta.titleLine2}
+                    </span>
                   </>
                 )}
               </h2>
               <ButtonLink to="/contas" size="lg" className="mt-7 w-full sm:mt-10 sm:w-auto">
-                {finalCta.button} <ArrowRight className="size-4" />
+                <span {...editable("finalCta.button")}>{finalCta.button}</span> <ArrowRight className="size-4" />
               </ButtonLink>
             </div>
           </div>
