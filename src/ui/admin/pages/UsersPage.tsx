@@ -8,6 +8,7 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { Fab, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery, useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { useAdminSession } from "../session";
@@ -32,6 +33,7 @@ function UserRow({ user, isYou, canRemove, onRemove }: UserRowProps) {
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2">
           <span className="truncate font-semibold text-white">{displayName(user)}</span>
+          <RoleBadge role={user.role} />
           {isYou && (
             <span className="rounded-full border border-electric/40 bg-electric/10 px-2 py-0.5 text-[0.68rem] font-semibold text-electric-soft">
               Você

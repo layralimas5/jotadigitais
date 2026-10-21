@@ -6,6 +6,7 @@ import { cn } from "@/ui/lib/cn";
 import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
 import { SETTINGS_PATH } from "../navigation";
 import { useAdminSession } from "../session";
+import { RoleBadge } from "./RoleBadge";
 
 const itemClass =
   "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-fog transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:bg-white/[0.06] focus-visible:text-white focus-visible:outline-none";
@@ -32,7 +33,7 @@ export function UserMenu() {
   }, [open]);
 
   if (state.status !== "signed-in") return null;
-  const { email, name } = state.session;
+  const { email, name, role } = state.session;
 
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']") ?? []);
@@ -103,6 +104,7 @@ export function UserMenu() {
               Conectado como
               <span className="mt-0.5 block truncate text-sm font-medium text-white">{name ?? email}</span>
               {name && <span className="block truncate">{email}</span>}
+              <RoleBadge role={role} className="mt-2" />
             </p>
             <div className="pt-1.5">
               <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>

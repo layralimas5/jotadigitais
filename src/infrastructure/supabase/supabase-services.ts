@@ -9,7 +9,7 @@ import type {
   ProfileUpdateResult,
   UploadedImage,
 } from "@/application/ports";
-import { sameEmail } from "@/domain/admin-user";
+import { sameEmail, type AdminRole } from "@/domain/admin-user";
 import { InvalidCredentialsError, NotAdminError, WrongCurrentPasswordError } from "@/domain/errors";
 
 const MEDIA_BUCKET = "media";
@@ -121,15 +121,15 @@ export class SupabaseAuthService implements AuthService {
     // A tabela só deixa administrador ler: achar a própria linha já confirma o acesso.
     const { data, error } = await this.client
       .from("admin_users")
-      .select("name")
+      .select("name, role")
       .eq("user_id", session.user.id)
-      .maybeSingle<{ name: string | null }>();
+      .maybeSingle<{ name: string | null; role: AdminRole }>();
     if (error) {
       console.error(error);
       return null;
     }
     if (!data) return null;
-    return { email: session.user.email, name: data.name, recoveringPassword: this.recoveringPassword };
+    return { email: session.user.email, name: data.name, role: data.role, recoveringPassword: this.recoveringPassword };
   }
 }
 
