@@ -7,13 +7,22 @@ import type {
   ProfileUpdateResult,
   UploadedImage,
 } from "@/application/ports";
+import type { AdminRole } from "@/domain/admin-user";
 
 const AUTH_KEY = "jota:demo-auth";
 const NAME_KEY = "jota:demo-name";
 const SIGNED_OUT = "signed-out";
 /** Mesmo dono que a aba Usuários mostra no modo demonstração. */
 const DEFAULT_EMAIL = "jota@jotadigitais.com.br";
-const DEFAULT_NAME = "Jota";
+
+/** Quem já tem nome e papel conhecidos; qualquer outro e-mail entra como admin sem nome até preencher o perfil. */
+const KNOWN_PEOPLE: Record<string, { name: string; role: AdminRole }> = {
+  [DEFAULT_EMAIL]: { name: "Jota", role: "admin" },
+  "layralimas5@gmail.com": { name: "Layra", role: "developer" },
+};
+
+/** O nome fica guardado por e-mail: trocar de login não carrega o nome de outra pessoa. */
+const nameKeyOf = (email: string) => `${NAME_KEY}:${email.trim().toLowerCase()}`;
 
 type Listener = (session: AdminSession | null) => void;
 
@@ -48,7 +57,7 @@ export class DemoAuthService implements AuthService {
 
   async signIn(email: string): Promise<AdminSession> {
     this.storeEmail(email);
-    return { email, name: readKey(NAME_KEY), role: "admin", recoveringPassword: false };
+    return this.sessionOf(email);
   }
 
   async signOut(): Promise<void> {
@@ -64,7 +73,7 @@ export class DemoAuthService implements AuthService {
   async requestPasswordReset(): Promise<void> {}
 
   async updateProfile({ name, email }: ProfileUpdate): Promise<ProfileUpdateResult> {
-    writeKey(NAME_KEY, name);
+    writeKey(nameKeyOf(email), name);
     this.storeEmail(email);
     return { emailConfirmationPending: false };
   }
@@ -77,7 +86,13 @@ export class DemoAuthService implements AuthService {
   private readSession(): AdminSession | null {
     const email = readKey(AUTH_KEY);
     if (email === SIGNED_OUT) return null;
-    return { email: email ?? DEFAULT_EMAIL, name: readKey(NAME_KEY) ?? DEFAULT_NAME, role: "admin", recoveringPassword: false };
+    return this.sessionOf(email ?? DEFAULT_EMAIL);
+  }
+
+  private sessionOf(email: string): AdminSession {
+    const known = KNOWN_PEOPLE[email.trim().toLowerCase()];
+    const name = readKey(nameKeyOf(email)) ?? known?.name ?? null;
+    return { email, name, role: known?.role ?? "admin", recoveringPassword: false };
   }
 
   private storeEmail(value: string) {
