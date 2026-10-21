@@ -15,6 +15,7 @@ const STRANGER_ID = "00000000-0000-0000-0000-00000000b002";
 const SUPABASE_STUBS = `
   create role anon nologin;
   create role authenticated nologin;
+  create role service_role nologin;
   create schema auth;
   create table auth.users (id uuid primary key, email text, last_sign_in_at timestamptz);
   create function auth.uid() returns uuid language sql stable as $$
@@ -27,7 +28,7 @@ const SUPABASE_STUBS = `
   grant usage on schema public, auth, storage to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;
   grant select, insert, update, delete on storage.objects to anon, authenticated;
-  alter default privileges in schema public grant all on tables to anon, authenticated;
+  -- Como nos projetos novos do Supabase: tabela nenhuma nasce liberada; o acesso vem da migration table_grants.
   alter default privileges in schema public grant all on functions to anon, authenticated;
 `;
 
