@@ -8,12 +8,11 @@ import {
   REVENUE_ORIGIN_LABEL,
   entriesOf,
   isInflow,
-  rangeOf,
   summarizeFinance,
   type Entry,
   type FinanceSummary,
-  type PeriodPreset,
 } from "@/domain/finance";
+import { dashboardRangeOf } from "@/domain/dashboard-period";
 import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
@@ -21,7 +20,8 @@ import { cn } from "@/ui/lib/cn";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterChips } from "../components/FilterChips";
 import { Kpi } from "../components/Kpi";
-import { PeriodFilter } from "../components/PeriodFilter";
+import { DashboardPeriodPicker } from "../dashboard/DashboardPeriodPicker";
+import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
 import { RevenueChart, SERIES_COLOR } from "../finance/RevenueChart";
 import { useAdminQuery } from "../hooks";
 import { formatIsoDate } from "../lib/dates";
@@ -223,8 +223,8 @@ function HeaderActions() {
 
 export default function FinancePage() {
   const finance = useAdminQuery(loadFinance, "admin-finance");
-  const [period, setPeriod] = useState<PeriodPreset>("this_month");
-  const range = useMemo(() => rangeOf(period), [period]);
+  const [period, setPeriod] = useDashboardPeriod();
+  const range = useMemo(() => dashboardRangeOf(period), [period]);
   const data = finance.status === "success" ? finance.data : null;
   const summary = useMemo(() => (data ? summarizeFinance(data, range) : null), [data, range]);
   const entries = useMemo(() => (data ? entriesOf(data, range) : []), [data, range]);
@@ -236,7 +236,7 @@ export default function FinancePage() {
         description="Receitas: pedidos pagos do site e o que você lança por fora. Despesas: o que você lança."
         action={<HeaderActions />}
       />
-      <PeriodFilter value={period} onChange={setPeriod} />
+      <DashboardPeriodPicker value={period} onChange={setPeriod} align="start" label="Período do financeiro" />
 
       {finance.status === "loading" && <LoadingBlock />}
       {finance.status === "error" && <ErrorState message={finance.error.message} onRetry={finance.reload} />}
