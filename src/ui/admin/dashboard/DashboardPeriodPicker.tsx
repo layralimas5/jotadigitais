@@ -83,7 +83,24 @@ function CustomRangeForm({ value, onChange }: DashboardPeriodPickerProps) {
   );
 }
 
-export function DashboardPeriodPicker({ value, onChange }: DashboardPeriodPickerProps) {
+interface PeriodPickerOptions {
+  /** Lado em que o painel abre a partir do botão, no computador. */
+  align?: "start" | "end";
+  /** Lido pelo leitor de tela antes do período escolhido. */
+  label?: string;
+}
+
+const PANEL_ALIGN = {
+  start: "sm:origin-top-left",
+  end: "sm:right-0 sm:left-auto sm:origin-top-right",
+} as const;
+
+export function DashboardPeriodPicker({
+  value,
+  onChange,
+  align = "end",
+  label = "Período do dashboard",
+}: DashboardPeriodPickerProps & PeriodPickerOptions) {
   const reduceMotion = useReducedMotion();
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -121,7 +138,7 @@ export function DashboardPeriodPicker({ value, onChange }: DashboardPeriodPicker
         className="inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface px-3.5 py-1.5 text-xs text-fog transition-colors hover:border-white/25 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric"
       >
         <CalendarDays aria-hidden className="size-3.5 text-electric-soft" />
-        <span className="sr-only">Período do dashboard:</span>
+        <span className="sr-only">{label}:</span>
         {periodLabelOf(value)}
         <ChevronDown aria-hidden className={cn("size-3.5 transition-transform", open && "rotate-180")} />
       </button>
@@ -136,7 +153,8 @@ export function DashboardPeriodPicker({ value, onChange }: DashboardPeriodPicker
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -6, scale: 0.98 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute top-full left-0 z-30 mt-2 w-[min(18.5rem,calc(100vw-2rem))] origin-top-left rounded-2xl border border-line-strong bg-surface-2 p-3 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.8)] sm:right-0 sm:left-auto sm:origin-top-right"
+            className={cn(
+              "absolute top-full left-0 z-30 mt-2 w-[min(18.5rem,calc(100vw-2rem))] origin-top-left rounded-2xl border border-line-strong bg-surface-2 p-3 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.8)]", PANEL_ALIGN[align])}
           >
             <ul role="list" className="grid grid-cols-2 gap-1">
               {DASHBOARD_PRESETS.map((preset) => {

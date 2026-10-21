@@ -33,7 +33,8 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
   que entra no total gasto e em "Vendas por fora". Pedidos antigos, de antes da ficha, aparecem com o aviso.
 - **Financeiro**: receitas = pedidos pagos do site + receitas lançadas à mão (tabela `revenues`: venda de conta,
   serviço, comissão, outros). Despesas continuam em `expenses`. Os lançamentos têm filtro Tudo / Receitas / Despesas
-  com o total de cada um, e "Receitas por origem" mostra quanto veio do site e de cada categoria.
+  com o total de cada um, e "Receitas por origem" mostra quanto veio do site e de cada categoria. O período usa o
+  mesmo filtro do Dashboard (atalhos, mês específico ou intervalo de dias), guardado na URL em `?periodo=`.
 - **Topo do painel**: campo de busca (Ctrl+K) que acha telas, contas, pedidos, clientes, contatos do CRM e
   parceiros; e o sininho de notificações. O sininho junta pedidos novos do site (gravados pelo gatilho
   `notify_new_order`), novidades do sistema (tabela `notifications`, só por migration) e lembretes calculados na hora
