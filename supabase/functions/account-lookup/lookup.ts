@@ -73,7 +73,8 @@ async function getText(url: string, extraHeaders?: Record<string, string>): Prom
   return response.text();
 }
 
-const hostOf = (url: URL) => url.hostname.replace(/^(www|m)\./, "");
+/** Aceita também o que a pessoa costuma digitar de cabeça, como tiktok.com.br. */
+const hostOf = (url: URL) => url.hostname.replace(/^(www|m)\./, "").replace(/\.com\.br$/, ".com");
 
 /** Link curto do TikTok (vm.tiktok.com/...) aponta para o perfil depois do redirecionamento. */
 async function resolveShortLink(url: URL): Promise<URL> {
@@ -175,8 +176,19 @@ function tiktokCount(text: string | undefined, fallback: number | undefined): nu
   return fallback !== undefined && fallback >= 0 ? fallback : null;
 }
 
+/** Caminhos do TikTok que não são perfil: sem o @, o primeiro trecho só vira nome de conta fora desta lista. */
+const TIKTOK_RESERVED_PATHS = new Set(["video", "t", "tag", "music", "discover", "live", "explore", "foryou", "following"]);
+
+/** tiktok.com/@nome é o formato oficial; tiktok.com/nome também é aceito. */
+function tiktokHandleOf(url: URL): string | undefined {
+  const first = url.pathname.split("/").filter(Boolean)[0];
+  if (!first) return undefined;
+  if (first.startsWith("@")) return first.slice(1) || undefined;
+  return TIKTOK_RESERVED_PATHS.has(first.toLowerCase()) ? undefined : first;
+}
+
 async function lookupTikTok(url: URL): Promise<ProfileLookup> {
-  const handle = url.pathname.match(/^\/@([^/?#]+)/)?.[1];
+  const handle = tiktokHandleOf(url);
   if (!handle) throw new LookupError("invalid_url");
   const html = await getText(`https://www.tiktok.com/@${handle}?lang=en`);
   const json = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/)?.[1];
