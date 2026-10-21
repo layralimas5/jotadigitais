@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath, URL } from "node:url";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, type Plugin, type ViteDevServer } from "vite";
+import { defineConfig, loadEnv, type Plugin, type ViteDevServer } from "vite";
 
 const LOOKUP_MODULE = "/supabase/functions/account-lookup/lookup.ts";
 const MAX_BODY_BYTES = 4096;
@@ -56,10 +56,26 @@ function accountLookupDevApi(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), accountLookupDevApi()],
-  resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
-  },
-  server: { port: 5210 },
+/**
+ * Sem as chaves do Supabase o painel abre em modo demonstração, sem senha. Isso serve para desenvolver,
+ * nunca para o site no ar: o build de produção para aqui em vez de publicar o painel aberto.
+ */
+function requireSupabaseInProduction(command: string, mode: string) {
+  if (command !== "build" || mode !== "production") return;
+  const env = loadEnv(mode, process.cwd(), "VITE_");
+  const missing = ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"].filter((key) => !env[key]?.trim());
+  if (missing.length > 0) {
+    throw new Error(`Build de produção sem ${missing.join(" e ")}: o painel ficaria aberto em modo demonstração.`);
+  }
+}
+
+export default defineConfig(({ command, mode }) => {
+  requireSupabaseInProduction(command, mode);
+  return {
+    plugins: [react(), tailwindcss(), accountLookupDevApi()],
+    resolve: {
+      alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    },
+    server: { port: 5210 },
+  };
 });
