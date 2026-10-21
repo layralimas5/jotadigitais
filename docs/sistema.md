@@ -67,7 +67,7 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
   "esqueci a senha" cai aqui e cria a senha nova sem informar a antiga. O backup baixa um JSON com contas, pedidos,
   clientes, leads, parceiros, despesas, depoimentos, modelos de mensagem, dados do site e a lista de usuários (sem
   senhas; fotos como link). Ainda não há restauração pelo painel. `/admin/minha-conta` redireciona para cá.
-- **Usuários**: quem entra no sistema, todos com acesso completo. A lista vem da função `list_admin_users`.
+- **Usuários**: quem entra no sistema, todos com acesso completo. Cada um tem um papel (`admin_users.role`: Admin ou Desenvolvedora), que só identifica a pessoa no perfil, no menu do topo e na lista; o papel se troca pelo SQL, nunca pelo painel. A lista vem da função `list_admin_users`.
   Criar e tirar acesso passa pela Edge Function `admin-users`, que usa a chave de serviço do Supabase (nunca vai
   para o navegador) e confere se quem pede é administrador. Ninguém tira o próprio acesso e o sistema nunca fica
   sem usuário.

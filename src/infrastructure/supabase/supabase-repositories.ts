@@ -819,6 +819,7 @@ const adminUserRowSchema = z.object({
   user_id: z.string(),
   name: z.string().nullable(),
   email: z.string(),
+  role: z.enum(["admin", "developer"]),
   created_at: z.string(),
   last_sign_in_at: z.string().nullable(),
 });
@@ -829,6 +830,7 @@ function toAdminUser(raw: unknown): AdminUser {
     id: row.user_id,
     name: row.name,
     email: row.email,
+    role: row.role,
     createdAt: row.created_at,
     lastSignInAt: row.last_sign_in_at,
   };

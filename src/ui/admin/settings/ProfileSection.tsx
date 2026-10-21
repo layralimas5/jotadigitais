@@ -7,6 +7,7 @@ import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { FormSection, InlineError } from "../components/AdminUi";
 import { PersonAvatar } from "../components/PersonAvatar";
+import { RoleBadge } from "../components/RoleBadge";
 import { useMutation } from "../hooks";
 import { useAdminSession } from "../session";
 import { useToast } from "../toast";
@@ -44,7 +45,10 @@ export function ProfileSection({ session }: { session: AdminSession }) {
       <div className="flex flex-wrap items-center gap-4">
         <PersonAvatar name={displayName} className="size-12 text-sm" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-white">{displayName}</p>
+          <p className="flex items-center gap-2">
+            <span className="truncate font-semibold text-white">{displayName}</span>
+            <RoleBadge role={session.role} />
+          </p>
           <p className="truncate text-xs text-mist">{session.email}</p>
         </div>
         <Button variant="secondary" onClick={() => void signOut()} className="max-sm:w-full">

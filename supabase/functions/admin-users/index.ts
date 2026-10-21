@@ -67,7 +67,7 @@ async function createUser(service: SupabaseClient, input: CreateInput): Promise<
   const { data: row, error: insertError } = await service
     .from("admin_users")
     .insert({ user_id: user.id, name: input.name })
-    .select("user_id, name, created_at")
+    .select("user_id, name, role, created_at")
     .single();
   if (insertError) {
     console.error(insertError);

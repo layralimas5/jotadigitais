@@ -609,6 +609,7 @@ const DEMO_OWNER: AdminUser = {
   id: "usr_owner",
   name: "Jota",
   email: "jota@jotadigitais.com.br",
+  role: "admin",
   createdAt: "2026-10-09T12:00:00.000Z",
   lastSignInAt: null,
 };
@@ -617,7 +618,8 @@ export class DemoAdminUserRepository implements AdminUserRepository {
   constructor(private readonly db: DemoDatabase) {}
 
   private users(state: DemoState): AdminUser[] {
-    return state.adminUsers ?? [DEMO_OWNER];
+    // Dados locais de antes do papel existir chegam sem ele.
+    return (state.adminUsers ?? [DEMO_OWNER]).map((user) => ({ ...user, role: user.role ?? "admin" }));
   }
 
   async listAll(): Promise<AdminUser[]> {
@@ -634,6 +636,7 @@ export class DemoAdminUserRepository implements AdminUserRepository {
         id: newId("usr"),
         name: input.name,
         email: input.email,
+        role: "admin",
         createdAt: new Date().toISOString(),
         lastSignInAt: null,
       };

@@ -493,6 +493,15 @@ async function main() {
   console.log("\nusuários");
   const users = await as("authenticated", ADMIN_ID, () => db.query(`select * from public.list_admin_users()`));
   check(users.rows.length === 1 && users.rows[0]?.email === "jota@exemplo.com", "admin lista os usuários com e-mail");
+  check(users.rows[0]?.role === "admin", "usuário novo entra com o papel de admin");
+  const roleUpdate = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.admin_users set role = 'developer' where user_id = '${ADMIN_ID}' returning role`),
+  );
+  check(roleUpdate.rows.length === 0, "ninguém troca o próprio papel pelo painel");
+  check(
+    await rejects(() => db.query(`update public.admin_users set role = 'dono' where user_id = '${ADMIN_ID}'`), /check constraint/),
+    "papel fora de admin e developer é barrado pelo banco",
+  );
   check(
     await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select * from public.list_admin_users()`)), /forbidden/),
     "usuário que não é admin não lista os usuários",

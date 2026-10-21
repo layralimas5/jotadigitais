@@ -1,5 +1,5 @@
 import type { Account, AccountData } from "@/domain/account";
-import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
+import type { AdminRole, AdminUser, NewAdminUser } from "@/domain/admin-user";
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
@@ -77,6 +77,7 @@ export interface SiteContentRepository {
 export interface AdminSession {
   email: string;
   name: string | null;
+  role: AdminRole;
   /** Entrou pelo link de "esqueci a senha": cria a senha nova sem informar a atual. */
   recoveringPassword: boolean;
 }

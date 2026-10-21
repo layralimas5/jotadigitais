@@ -48,7 +48,7 @@ export class DemoAuthService implements AuthService {
 
   async signIn(email: string): Promise<AdminSession> {
     this.storeEmail(email);
-    return { email, name: readKey(NAME_KEY), recoveringPassword: false };
+    return { email, name: readKey(NAME_KEY), role: "admin", recoveringPassword: false };
   }
 
   async signOut(): Promise<void> {
@@ -77,7 +77,7 @@ export class DemoAuthService implements AuthService {
   private readSession(): AdminSession | null {
     const email = readKey(AUTH_KEY);
     if (email === SIGNED_OUT) return null;
-    return { email: email ?? DEFAULT_EMAIL, name: readKey(NAME_KEY) ?? DEFAULT_NAME, recoveringPassword: false };
+    return { email: email ?? DEFAULT_EMAIL, name: readKey(NAME_KEY) ?? DEFAULT_NAME, role: "admin", recoveringPassword: false };
   }
 
   private storeEmail(value: string) {
