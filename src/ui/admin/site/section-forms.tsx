@@ -247,36 +247,6 @@ const WhatsappForm: Form<"whatsapp"> = (props) => {
   );
 };
 
-const TermsForm: Form<"terms"> = (props) => {
-  const copy = copyFieldsFor("terms", props);
-  const { value, onChange, errors } = props;
-  return (
-    <>
-      {copy("eyebrow", "Chamada pequena", 30)}
-      {copy("title", "Título da página", 80)}
-      <p className="text-xs text-mist">{TOKEN_HINT}</p>
-      <Repeater
-        legend="Seções"
-        path="terms.sections"
-        items={value.sections}
-        errors={errors}
-        min={1}
-        max={20}
-        addLabel="Adicionar seção"
-        itemLabel={(index) => `Seção ${index + 1}`}
-        empty={() => ({ title: "", body: "" })}
-        onChange={(sections) => onChange({ ...value, sections })}
-        render={(item, update, itemPath) => (
-          <>
-            <CopyField label="Título" path={`${itemPath}.title`} value={item.title} max={80} errors={errors} onChange={(title) => update({ title })} />
-            <CopyField label="Texto" path={`${itemPath}.body`} value={item.body} max={2000} multiline errors={errors} onChange={(body) => update({ body })} />
-          </>
-        )}
-      />
-    </>
-  );
-};
-
 const SeoForm: Form<"seo"> = (props) => {
   const copy = copyFieldsFor("seo", props);
   return (
@@ -292,7 +262,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/" | "/termos";
+  path: "/";
   anchor: string;
   Form: Form<K>;
 }
@@ -311,6 +281,5 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({ key: "finalCta", title: "Chamada final", description: "O bloco antes do rodapé", path: "/", anchor: "cta-title", Form: FinalCtaForm }),
   define({ key: "footer", title: "Rodapé", description: "Frases e aviso legal", path: "/", anchor: "rodape", Form: FooterForm }),
   define({ key: "whatsapp", title: "Convite do WhatsApp", description: "Balão ao lado do botão flutuante", path: "/", anchor: "rodape", Form: WhatsappForm }),
-  define({ key: "terms", title: "Termos de compra", description: "Página /termos", path: "/termos", anchor: "conteudo", Form: TermsForm }),
   define({ key: "seo", title: "Google e aba do navegador", description: "Título e descrição da página inicial", path: "/", anchor: "hero-title", Form: SeoForm }),
 ];

@@ -59,9 +59,9 @@ import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 import { SEED_NEWS } from "./seed";
 
-const notificationsOf = (state: DemoState) => state.notifications ?? SEED_NEWS;
+export const notificationsOf = (state: DemoState) => state.notifications ?? SEED_NEWS;
 
-const MAX_NOTIFICATIONS = 50;
+export const MAX_NOTIFICATIONS = 50;
 
 /** Mesmo texto do gatilho `notify_new_order` do banco. */
 function newOrderNotification(order: Order): StoredNotification {
@@ -259,6 +259,19 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         deliveredAt: null,
       };
       state.orders.push(created);
+      state.consents = [
+        ...(state.consents ?? []),
+        ...input.consents.map((consent) => ({
+          orderCode: created.code,
+          slug: consent.slug,
+          version: consent.version,
+          sha256: consent.sha256,
+          acceptedAt: created.createdAt,
+          // Sem servidor no modo demonstração: não há IP para registrar.
+          ipAddress: null,
+          userAgent: navigator.userAgent.slice(0, 400),
+        })),
+      ];
       state.notifications = [newOrderNotification(created), ...notificationsOf(state)].slice(0, MAX_NOTIFICATIONS);
       account.status = "reserved";
       account.reservedUntil = created.expiresAt;
@@ -309,10 +322,10 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
 
   private toPublic(order: Order): Order {
     const { name, email } = order.customer;
-    // Como `get_order` no banco: a página pública do pedido não mostra a ficha.
+    // Como `get_order` no banco: a página pública do pedido mostra só o primeiro nome, sem a ficha.
     return {
       ...order,
-      customer: { name, email: maskEmail(email), whatsapp: null, document: null, birthDate: null, instagram: null, city: null, state: null },
+      customer: { name: name.split(" ")[0] ?? name, email: maskEmail(email), whatsapp: null, document: null, birthDate: null, instagram: null, city: null, state: null },
     };
   }
 }

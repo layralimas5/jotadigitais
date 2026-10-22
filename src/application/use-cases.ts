@@ -11,10 +11,12 @@ import type {
   OrderRepository,
   PaymentCharge,
   PaymentGateway,
+  PrivacyService,
   SiteContentRepository,
   StoreSettingsRepository,
   TestimonialRepository,
 } from "./ports";
+import { currentLegalConsents } from "./legal-documents";
 import { siteContentSchema, type CheckoutData } from "./schemas";
 
 export interface UseCaseDeps {
@@ -24,6 +26,7 @@ export interface UseCaseDeps {
   payments: PaymentGateway;
   settings: StoreSettingsRepository;
   siteContent: SiteContentRepository;
+  privacy: PrivacyService;
 }
 
 /** Textos do site: o que foi salvo por cima do padrão. Se algo salvo não passar na validação, vale o texto original. */
@@ -77,6 +80,7 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
       state: data.state,
     },
     paymentMethod: data.paymentMethod,
+    consents: await currentLegalConsents(),
   });
   const charge = await deps.payments.createCharge(order);
   return { order, charge };

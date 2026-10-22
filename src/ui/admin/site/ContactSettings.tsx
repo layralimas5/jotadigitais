@@ -75,9 +75,9 @@ function SiteContent() {
           </Link>
         </li>
         <li>
-          <a href="/termos" target="_blank" rel="noreferrer" className={shortcutClass}>
+          <a href="/termos-de-uso" target="_blank" rel="noreferrer" className={shortcutClass}>
             <FileText aria-hidden className="size-4 text-electric" />
-            <span className="flex-1">Termos de compra</span>
+            <span className="flex-1">Termos de Uso</span>
             <ExternalLink aria-hidden className="size-4 text-mist" />
           </a>
         </li>

@@ -4,7 +4,7 @@ import { backupCounts, backupFileName } from "@/domain/backup";
 import { Button } from "@/ui/components/Button";
 import { FormSection, InlineError } from "../components/AdminUi";
 import { useMutation } from "../hooks";
-import { downloadJson } from "../lib/download";
+import { downloadJson } from "@/ui/lib/download";
 import { useToast } from "../toast";
 
 function summaryOf(counts: ReturnType<typeof backupCounts>): string {

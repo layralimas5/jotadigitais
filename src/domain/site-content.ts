@@ -28,11 +28,6 @@ export interface FaqEntry {
   tiktokOnly: boolean;
 }
 
-export interface TermsEntry {
-  title: string;
-  body: string;
-}
-
 export interface SiteContent {
   seo: { title: string; description: string };
   hero: {
@@ -72,7 +67,6 @@ export interface SiteContent {
   finalCta: { titleLine1: string; titleLine2: string; button: string };
   footer: { tagline: string; slogan: string; disclaimer: string };
   whatsapp: { teaserTitle: string; teaserText: string };
-  terms: { eyebrow: string; title: string; sections: TermsEntry[] };
 }
 
 export const DEFAULT_SITE_CONTENT: SiteContent = {
@@ -231,33 +225,6 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   whatsapp: {
     teaserTitle: "Deseja falar com o Jota?",
     teaserText: "Respondo pelo WhatsApp.",
-  },
-  terms: {
-    eyebrow: "Termos",
-    title: "Termos de compra e garantia",
-    sections: [
-      {
-        title: "1. O que você está comprando",
-        body: "Uma conta de TikTok já criada, com seguidores e com acesso à Central de Criadores do TikTok Shop liberado no momento da entrega. As informações de seguidores, curtidas e status do Shop são as exibidas na página da conta na data da compra.",
-      },
-      {
-        title: "2. Entrega",
-        body: "Depois da confirmação do pagamento, enviamos login, senha e instruções para o e-mail informado no pedido. Recomendamos trocar a senha e o e-mail da conta assim que receber o acesso.",
-      },
-      {
-        title: "3. Garantia",
-        body: "Você tem {dias} dias a partir da entrega para relatar qualquer problema de acesso ou de status do Shop. Se a conta não corresponder ao anunciado, oferecemos outra conta equivalente ou o reembolso integral.",
-      },
-      {
-        title: "4. Uso da conta",
-        body: "Depois da entrega, o uso da conta é de responsabilidade de quem comprou, incluindo o conteúdo publicado e o cumprimento das regras da plataforma. A Jota Digitais não é afiliada, patrocinada ou endossada pelo TikTok.",
-      },
-      {
-        title: "5. Resultados",
-        body: "Os resultados de clientes divulgados são individuais. O faturamento com o TikTok Shop depende do nicho, dos produtos e da dedicação de cada pessoa, e não é garantido.",
-      },
-      { title: "6. Contato", body: "Dúvidas ou suporte pelo Instagram {instagram}." },
-    ],
   },
 };
 

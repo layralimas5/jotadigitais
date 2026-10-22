@@ -28,6 +28,7 @@ import type {
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminNotificationRepository,
+  AdminPrivacyRepository,
   AdminUserRepository,
   AuthService,
   CalendarService,
@@ -77,6 +78,7 @@ export interface AdminDeps {
   notifications: AdminNotificationRepository;
   calendar: CalendarService;
   images: ImageStorage;
+  privacy: AdminPrivacyRepository;
 }
 
 export function signIn(deps: AdminDeps, raw: unknown): Promise<AdminSession> {

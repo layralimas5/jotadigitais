@@ -24,6 +24,7 @@ import type {
   TestimonialRepository,
 } from "@/application/ports";
 import type { Account, AccountData } from "@/domain/account";
+import type { LegalConsent, LegalDocumentSlug } from "@/domain/legal/legal-document";
 import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
@@ -39,6 +40,9 @@ import {
   PartnerNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
+  OutdatedLegalDocumentsError,
+  TooManyOpenDataRequestsError,
+  TooManyPrivacyAttemptsError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
 import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData } from "@/domain/customer";
@@ -88,13 +92,16 @@ export class BackendError extends Error {
   }
 }
 
-function fail(error: PostgrestError): never {
+export function fail(error: PostgrestError): never {
   console.error(error);
   throw new BackendError(error);
 }
 
 /** Erros de regra que as funções do banco levantam com `raise exception '<código>'`. */
-function failFromRpc(error: PostgrestError): never {
+export function failFromRpc(error: PostgrestError): never {
+  if (error.message.includes("outdated_legal_documents")) throw new OutdatedLegalDocumentsError();
+  if (error.message.includes("too_many_attempts")) throw new TooManyPrivacyAttemptsError();
+  if (error.message.includes("too_many_open_requests")) throw new TooManyOpenDataRequestsError();
   if (error.message.includes("account_unavailable")) throw new AccountUnavailableError();
   if (error.message.includes("account_not_found")) throw new AccountNotFoundError("");
   if (error.message.includes("too_many_open_orders")) throw new TooManyOpenOrdersError();
@@ -247,6 +254,12 @@ export class SupabaseTestimonialRepository implements TestimonialRepository, Adm
   }
 }
 
+function consentOf(input: NewOrder, slug: LegalDocumentSlug): LegalConsent {
+  const consent = input.consents.find((item) => item.slug === slug);
+  if (!consent) throw new OutdatedLegalDocumentsError();
+  return consent;
+}
+
 export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepository {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -262,6 +275,10 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_city: input.customer.city,
       p_state: input.customer.state,
       p_payment_method: input.paymentMethod,
+      p_terms_version: consentOf(input, "terms").version,
+      p_terms_sha256: consentOf(input, "terms").sha256,
+      p_privacy_version: consentOf(input, "privacy").version,
+      p_privacy_sha256: consentOf(input, "privacy").sha256,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
     });
     if (error) failFromRpc(error);
@@ -887,7 +904,7 @@ const MAX_NOTIFICATIONS = 50;
 
 const notificationRowSchema = z.object({
   id: z.string(),
-  kind: z.enum(["order", "news"]),
+  kind: z.enum(["order", "news", "privacy"]),
   title: z.string(),
   body: z.string().nullable(),
   link: z.string().nullable(),

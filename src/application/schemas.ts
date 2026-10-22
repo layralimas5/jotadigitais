@@ -4,7 +4,9 @@ import { BRAZIL_STATES, MIN_BUYER_AGE, OLDEST_BIRTH_DATE, ageOn, isValidDocument
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
+import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
 import { PLATFORMS } from "@/domain/platform";
+import { DATA_REQUEST_KINDS } from "@/domain/privacy";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -96,7 +98,7 @@ export const checkoutSchema = z
   .object({
     ...checkoutProfileShape,
     paymentMethod: z.enum(["pix", "card"], { message: "Escolha a forma de pagamento." }),
-    acceptedTerms: z.literal(true, { message: "Você precisa aceitar os termos para continuar." }),
+    acceptedTerms: z.literal(true, { message: "Para continuar, aceite os Termos de Uso e a Política de Privacidade." }),
   })
   .refine(emailsMatch, EMAILS_MISMATCH);
 
@@ -479,15 +481,76 @@ export const siteContentSchema = z.object({
   finalCta: z.object({ titleLine1: copy(50), titleLine2: z.string().trim().max(50, "Use no máximo 50 caracteres."), button: copy(32) }),
   footer: z.object({ tagline: copy(160), slogan: z.string().trim().max(120, "Use no máximo 120 caracteres."), disclaimer: copy(200) }),
   whatsapp: z.object({ teaserTitle: copy(40), teaserText: copy(50) }),
-  terms: z.object({
-    eyebrow: copy(30),
-    title: copy(80),
-    sections: z
-      .array(z.object({ title: copy(80), body: copy(2000) }))
-      .min(1, "Mantenha pelo menos uma seção.")
-      .max(20, "Use no máximo 20 seções."),
-  }),
 });
+
+// ---------------------------------------------------------------------------
+// LGPD: documentos legais, Meus dados e respostas do painel
+// ---------------------------------------------------------------------------
+
+const legalText = z.string().min(1);
+
+const legalBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("p"), text: legalText }),
+  z.object({ type: z.literal("note"), text: legalText }),
+  z.object({ type: z.literal("list"), items: z.array(legalText).min(1) }),
+  z.object({ type: z.literal("defs"), items: z.array(z.object({ term: legalText, text: legalText })).min(1) }),
+]);
+
+export const legalDocumentSchema = z.object({
+  slug: z.enum(LEGAL_DOCUMENT_SLUGS),
+  version: z.string().regex(/^\d+\.\d+\.\d+$/),
+  effectiveDate: z.iso.date(),
+  title: legalText,
+  summary: legalText,
+  sections: z.array(z.object({ id: legalText, title: legalText, blocks: z.array(legalBlockSchema).min(1) })).min(1),
+  history: z.array(z.object({ version: legalText, date: z.iso.date(), summary: legalText })).min(1),
+});
+
+export const legalControllerSchema = z.object(
+  Object.fromEntries(CONTROLLER_FIELDS.map((field) => [field, z.string().min(1).nullable()])) as Record<
+    (typeof CONTROLLER_FIELDS)[number],
+    z.ZodNullable<z.ZodString>
+  >,
+);
+
+const orderCodeField = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^JD-[A-Z0-9]{6}$/, "Use o código do pedido no formato JD-XXXXXX.");
+
+/** Quem entra em Meus dados prova que é dono de um pedido. */
+export const privacyAccessSchema = z.object({ email: requiredEmail, orderCode: orderCodeField });
+export type PrivacyAccess = z.output<typeof privacyAccessSchema>;
+
+export const dataRequestSchema = z
+  .object({
+    kind: z.enum(DATA_REQUEST_KINDS, { message: "Escolha o que você quer pedir." }),
+    details: z
+      .string()
+      .trim()
+      .max(2000, "Use no máximo 2000 caracteres.")
+      .transform((value) => value || null),
+  })
+  .refine((data) => data.kind !== "correction" || data.details !== null, {
+    path: ["details"],
+    message: "Conte qual dado está errado e qual é o correto.",
+  });
+export type DataRequestInput = z.output<typeof dataRequestSchema>;
+
+export const dataRequestAnswerSchema = z
+  .object({
+    status: z.enum(["done", "rejected"]),
+    response: z
+      .string()
+      .trim()
+      .max(2000, "Use no máximo 2000 caracteres.")
+      .transform((value) => value || null),
+  })
+  .refine((data) => data.status !== "rejected" || data.response !== null, {
+    path: ["response"],
+    message: "Explique o motivo da recusa: o titular vai ler.",
+  });
 
 export class ValidationError extends Error {
   constructor(

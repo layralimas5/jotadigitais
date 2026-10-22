@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Bell, BellRing, CheckCheck, ShoppingBag, Sparkles, X, type LucideIcon } from "lucide-react";
+import { Bell, BellRing, CheckCheck, ShieldCheck, ShoppingBag, Sparkles, X, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { AppNotification, NotificationKind } from "@/domain/notification";
@@ -12,6 +12,7 @@ import { useNotifications } from "./useNotifications";
 const KIND_VIEW: Record<NotificationKind, { icon: LucideIcon; className: string; label: string }> = {
   order: { icon: ShoppingBag, className: "bg-electric/12 text-electric-soft ring-electric/25", label: "Pedido" },
   news: { icon: Sparkles, className: "bg-pink/12 text-pink ring-pink/25", label: "Novidade" },
+  privacy: { icon: ShieldCheck, className: "bg-emerald-400/12 text-emerald-300 ring-emerald-400/25", label: "Privacidade" },
   reminder: { icon: BellRing, className: "bg-amber-400/12 text-amber-300 ring-amber-400/25", label: "Lembrete" },
 };
 
