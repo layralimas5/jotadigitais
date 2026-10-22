@@ -1,10 +1,10 @@
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { SiteImage } from "@/domain/site-content";
 import { TextField } from "@/ui/components/form/Fields";
-import { cn } from "@/ui/lib/cn";
 import { TextAreaField } from "../components/FormControls";
 import { SingleImageField } from "../components/ImageUpload";
+import { SortableList } from "./sortable";
 
 /** Erros do rascunho por caminho completo ("hero.title"). */
 export type FieldErrors = Record<string, string>;
@@ -30,53 +30,6 @@ export function CopyField({ label, path, value, onChange, errors, max, multiline
     <TextAreaField {...props} rows={3} onChange={(event) => onChange(event.target.value)} />
   ) : (
     <TextField {...props} onChange={(event) => onChange(event.target.value)} />
-  );
-}
-
-const iconButton =
-  "grid size-9 shrink-0 place-items-center rounded-lg text-mist transition-colors hover:bg-white/[0.06] hover:text-white disabled:pointer-events-none disabled:opacity-30";
-
-function move<T>(items: readonly T[], from: number, to: number): T[] {
-  const next = [...items];
-  const [item] = next.splice(from, 1);
-  if (item !== undefined) next.splice(to, 0, item);
-  return next;
-}
-
-interface ItemControlsProps {
-  index: number;
-  count: number;
-  min: number;
-  label: string;
-  onMove: (to: number) => void;
-  onRemove: () => void;
-}
-
-function ItemControls({ index, count, min, label, onMove, onRemove }: ItemControlsProps) {
-  return (
-    <div className="flex shrink-0 items-center">
-      <button type="button" className={iconButton} aria-label={`Subir ${label}`} disabled={index === 0} onClick={() => onMove(index - 1)}>
-        <ArrowUp aria-hidden className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={iconButton}
-        aria-label={`Descer ${label}`}
-        disabled={index === count - 1}
-        onClick={() => onMove(index + 1)}
-      >
-        <ArrowDown aria-hidden className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={cn(iconButton, "hover:text-[#ff9a9a]")}
-        aria-label={`Remover ${label}`}
-        disabled={count <= min}
-        onClick={onRemove}
-      >
-        <Trash2 aria-hidden className="size-4" />
-      </button>
-    </div>
   );
 }
 
@@ -112,12 +65,16 @@ export function CopyListField({ label, path, items, onChange, errors, itemMax, m
     <fieldset className="space-y-2.5">
       <legend className="text-sm font-medium text-fog">{label}</legend>
       {errors[path] && <p className="text-xs font-medium text-[#ff7a7a]">{errors[path]}</p>}
-      <ol className="space-y-2">
-        {items.map((item, index) => (
-          <li key={index} className="flex items-start gap-1.5">
-            <span aria-hidden className="mt-3 w-5 shrink-0 text-right text-xs text-mist tabular-nums">
-              {index + 1}.
-            </span>
+      <SortableList
+        items={items}
+        onChange={onChange}
+        min={min}
+        itemLabel={(index) => `item ${index + 1}`}
+        className="space-y-2"
+        itemClassName="flex items-start gap-1 rounded-xl bg-surface"
+        renderItem={(item, index, { handle, remove }) => (
+          <>
+            {handle}
             <TextField
               label={`${label}, item ${index + 1}`}
               name={`${path}.${index}`}
@@ -127,17 +84,10 @@ export function CopyListField({ label, path, items, onChange, errors, itemMax, m
               onChange={(event) => update(index, event.target.value)}
               error={errors[`${path}.${index}`]}
             />
-            <ItemControls
-              index={index}
-              count={items.length}
-              min={min}
-              label={`item ${index + 1}`}
-              onMove={(to) => onChange(move(items, index, to))}
-              onRemove={() => onChange(items.filter((_, current) => current !== index))}
-            />
-          </li>
-        ))}
-      </ol>
+            {remove}
+          </>
+        )}
+      />
       <AddButton label={addLabel} disabled={items.length >= max} onClick={() => onChange([...items, ""])} />
     </fieldset>
   );
@@ -163,28 +113,28 @@ export function Repeater<T>({ legend, path, items, onChange, errors, min, max, a
     <fieldset className="space-y-3">
       <legend className="text-sm font-medium text-fog">{legend}</legend>
       {errors[path] && <p className="text-xs font-medium text-[#ff7a7a]">{errors[path]}</p>}
-      <ol className="space-y-3">
-        {items.map((item, index) => {
+      <SortableList
+        items={items}
+        onChange={onChange}
+        min={min}
+        itemLabel={(index) => itemLabel(index).toLowerCase()}
+        className="space-y-3"
+        itemClassName="rounded-2xl border border-line-strong bg-ink p-3.5"
+        renderItem={(item, index, { handle, remove }) => {
           const update = (patch: Partial<T>) =>
             onChange(items.map((current, position) => (position === index ? { ...current, ...patch } : current)));
           return (
-            <li key={index} className="rounded-2xl border border-line-strong bg-ink/60 p-3.5">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-mist">{itemLabel(index)}</p>
-                <ItemControls
-                  index={index}
-                  count={items.length}
-                  min={min}
-                  label={itemLabel(index).toLowerCase()}
-                  onMove={(to) => onChange(move(items, index, to))}
-                  onRemove={() => onChange(items.filter((_, position) => position !== index))}
-                />
+            <>
+              <div className="mb-2 flex items-center gap-1">
+                {handle}
+                <p className="flex-1 text-xs font-semibold text-mist">{itemLabel(index)}</p>
+                {remove}
               </div>
               <div className="space-y-3">{render(item, update, `${path}.${index}`)}</div>
-            </li>
+            </>
           );
-        })}
-      </ol>
+        }}
+      />
       <AddButton label={addLabel} disabled={items.length >= max} onClick={() => onChange([...items, empty()])} />
     </fieldset>
   );
