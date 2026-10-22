@@ -101,18 +101,24 @@ interface SingleImageFieldProps {
 
 export function SingleImageField({ label, name, hint, error, folder, value, alt, onUploaded }: SingleImageFieldProps) {
   return (
-    <div>
+    // Lado a lado só quando a coluna comporta (container query): na aba Site a coluna é estreita e
+    // um print largo empurrava o botão para baixo da prévia.
+    <div className="@container">
       <p className="text-sm font-medium text-fog">{label}</p>
-      <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div className="mt-2 flex flex-col gap-3 @md:flex-row @md:items-start">
         {value && (
-          <img src={value} alt={alt} className="h-56 w-auto self-start rounded-2xl border border-line object-contain" />
+          <img
+            src={value}
+            alt={alt}
+            className="h-56 w-auto max-w-full min-w-0 self-start rounded-2xl border border-line object-contain @md:max-w-[calc(100%-10.75rem)]"
+          />
         )}
         <DropZone
           folder={folder}
           name={name}
           onUploaded={onUploaded}
           label={value ? "Trocar imagem" : "Enviar imagem"}
-          className={cn(value ? "h-20 sm:h-56 sm:w-40" : "h-40", error && "border-alert/70")}
+          className={cn(value ? "h-20 @md:h-56 @md:w-40 @md:shrink-0" : "h-40", error && "border-alert/70")}
         >
           <span className="flex flex-col items-center gap-1.5 px-4 text-sm text-mist">
             <ImagePlus aria-hidden className="size-5 text-electric" />

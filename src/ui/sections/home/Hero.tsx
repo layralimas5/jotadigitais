@@ -1,10 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Mail, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowRight, CircleCheck, Mail, ShieldCheck, Wallet, type LucideIcon } from "lucide-react";
+import { normalizeSearch } from "@/application/catalog";
 import { ButtonLink } from "@/ui/components/Button";
 import { PhoneProfile, type ProfilePreview } from "@/ui/components/account/PhoneProfile";
 import { Backdrop } from "@/ui/components/layout/Backdrop";
 import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
+import { WhatsAppGlyph } from "@/ui/components/whatsapp/WhatsAppGlyph";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
@@ -19,8 +21,20 @@ const previewOf = (name: string, handle: string): ProfilePreview => ({
   stats: { likes: 2123, following: 0, monetized: false },
 });
 
-/** Os ícones ficam na ordem; os textos vêm do painel. */
-const PROOF_ICONS = [ShieldCheck, Wallet, Mail] as const;
+type ProofIcon = LucideIcon | typeof WhatsAppGlyph;
+
+/** O ícone sai do texto da prova (o Jota escreve e reordena à vontade). A primeira regra que bater vale. */
+const PROOF_ICON_RULES: readonly { words: RegExp; icon: ProofIcon }[] = [
+  { words: /whats|zap/, icon: WhatsAppGlyph },
+  { words: /e-?mail/, icon: Mail },
+  { words: /pix|cartao|parcel|\d+x|pagamento|boleto/, icon: Wallet },
+  { words: /seguidor|garantia|seguran|segur|real|reais|verificad|conferid/, icon: ShieldCheck },
+];
+
+function proofIconOf(label: string): ProofIcon {
+  const text = normalizeSearch(label);
+  return PROOF_ICON_RULES.find((rule) => rule.words.test(text))?.icon ?? CircleCheck;
+}
 
 const FLOAT_DURATION_S = 3.2;
 const FLOAT_DISTANCE_PX = 10;
@@ -126,7 +140,7 @@ export function Hero() {
             className="mt-5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-2 text-[0.78rem] text-fog sm:mt-10 sm:gap-x-6 sm:gap-y-3 sm:text-sm lg:justify-start"
           >
             {hero.proofPoints.map((label, index) => {
-              const Icon = PROOF_ICONS[index] ?? ShieldCheck;
+              const Icon = proofIconOf(label);
               return (
                 <li key={index} {...editable(`hero.proofPoints.${index}`)} className="flex items-center gap-1.5 sm:gap-2">
                   <Icon aria-hidden className="size-3.5 text-electric sm:size-4" />
