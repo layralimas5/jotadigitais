@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { currentLegalDocuments } from "./legal-hashes.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const MIGRATIONS_DIR = join(ROOT, "supabase", "migrations");
@@ -33,6 +34,8 @@ const SUPABASE_STUBS = `
 `;
 
 const db = new PGlite();
+/** Aceite da versão atual dos Termos e da Política, como o checkout manda. */
+let CONSENT = "";
 let failures = 0;
 
 function check(condition, message) {
@@ -67,6 +70,8 @@ const tiktokStats = JSON.stringify({ likes: 2123, following: 0 });
 const youtubeStats = JSON.stringify({ views: 120000, videos: 40, watchHours: 4100, monetized: true });
 
 async function main() {
+  const legal = Object.fromEntries((await currentLegalDocuments()).map((doc) => [doc.slug, doc]));
+  CONSENT = `'${legal.terms.version}', '${legal.terms.sha256}', '${legal.privacy.version}', '${legal.privacy.sha256}'`;
   await db.exec(SUPABASE_STUBS);
   for (const file of readdirSync(MIGRATIONS_DIR).sort()) {
     await db.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
@@ -143,7 +148,7 @@ async function main() {
 
   console.log("\npedidos");
   const placed = await as("anon", null, () =>
-    db.query(`select public.place_order($1, 'Maria Silva', 'Maria@Exemplo.com', '(11) 91234-5678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix') as data`, [
+    db.query(`select public.place_order($1, 'Maria Silva', 'Maria@Exemplo.com', '(11) 91234-5678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT}) as data`, [
       tiktokId,
     ]),
   );
@@ -156,7 +161,7 @@ async function main() {
 
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Outro Cliente', 'outro@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'card')`, [tiktokId])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Outro Cliente', 'outro@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'card', ${CONSENT})`, [tiktokId])),
       /account_unavailable/,
     ),
     "segunda compra da mesma conta é recusada",
@@ -164,21 +169,21 @@ async function main() {
 
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Ab', 'x@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [youtubeId])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Ab', 'x@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT})`, [youtubeId])),
       /invalid_name/,
     ),
     "servidor valida o nome",
   );
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Nome Ok', 'sem-arroba', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [youtubeId])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Nome Ok', 'sem-arroba', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT})`, [youtubeId])),
       /invalid_email/,
     ),
     "servidor valida o e-mail",
   );
   const placeYoutube = (whatsapp, document, birthDate, city, state) =>
     as("anon", null, () =>
-      db.query(`select public.place_order($1, 'Nome Ok', 'ficha@exemplo.com', $2, $3, $4, '', $5, $6, 'pix')`, [
+      db.query(`select public.place_order($1, 'Nome Ok', 'ficha@exemplo.com', $2, $3, $4, '', $5, $6, 'pix', ${CONSENT})`, [
         youtubeId,
         whatsapp,
         document,
@@ -235,7 +240,7 @@ async function main() {
   await db.exec(`alter table public.accounts enable trigger accounts_normalize_reservation`);
   await db.query(`update public.orders set expires_at = now() - interval '1 minute' where code = $1`, [order.code]);
   const retaken = await as("anon", null, () =>
-    db.query(`select public.place_order($1, 'Joana Lima', 'joana@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'card') as data`, [tiktokId]),
+    db.query(`select public.place_order($1, 'Joana Lima', 'joana@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'card', ${CONSENT}) as data`, [tiktokId]),
   );
   check(Boolean(retaken.rows[0].data.code), "conta com reserva vencida volta a ser vendável");
   const oldOrder = await db.query(`select status from public.orders where code = $1`, [order.code]);
@@ -264,7 +269,7 @@ async function main() {
   );
 
   const third = await as("anon", null, () =>
-    db.query(`select public.place_order($1, 'Carlos Souza', 'carlos@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix') as data`, [youtubeId]),
+    db.query(`select public.place_order($1, 'Carlos Souza', 'carlos@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT}) as data`, [youtubeId]),
   );
   await as("authenticated", ADMIN_ID, () =>
     db.query(`update public.orders set status = 'canceled' where code = $1`, [third.rows[0].data.code]),
@@ -295,11 +300,11 @@ async function main() {
     );
     extra.push(row.rows[0].id);
   }
-  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [extra[0]]));
-  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [extra[1]]));
+  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT})`, [extra[0]]));
+  await as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT})`, [extra[1]]));
   check(
     await rejects(
-      () => as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix')`, [extra[2]])),
+      () => as("anon", null, () => db.query(`select public.place_order($1, 'Spam Teste', 'spam@exemplo.com', '11912345678', '529.982.247-25', '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT})`, [extra[2]])),
       /too_many_open_orders/,
     ),
     "terceiro pedido aberto do mesmo e-mail é barrado",
@@ -655,8 +660,157 @@ async function main() {
   );
   check(upload.rows.length === 1, "admin sobe imagem");
 
+  await lgpdChecks(legal);
+
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
+}
+
+async function lgpdChecks(legal) {
+  console.log("\nlgpd: aceite");
+  const published = await db.query(`select slug, version, sha256 from public.legal_documents order by published_at desc, version desc`);
+  for (const slug of ["terms", "privacy"]) {
+    const latest = published.rows.find((row) => row.slug === slug);
+    check(
+      latest?.version === legal[slug].version && latest?.sha256 === legal[slug].sha256,
+      `migration tem a versão atual de ${slug} (rode node scripts/legal-hashes.mjs se o texto mudou)`,
+    );
+  }
+
+  const account = await db.query(
+    `insert into public.accounts (slug, platform, display_name, handle, followers, price_cents, stats)
+     values ('conta-lgpd', 'tiktok', 'Conta LGPD', '@contalgpd', 1000, 50000, $1) returning id`,
+    [tiktokStats],
+  );
+  const accountId = account.rows[0].id;
+  const ficha = `'Ana Paula Souza', 'anapaula@lgpd.com.br', '11912345678', '529.982.247-25', '1990-05-10', '@anapaula', 'Natal', 'RN', 'pix'`;
+  const staleHash = "0".repeat(64);
+  check(
+    await rejects(
+      () => as("anon", null, () => db.query(`select public.place_order($1, ${ficha}, '${legal.terms.version}', '${staleHash}', '${legal.privacy.version}', '${legal.privacy.sha256}')`, [accountId])),
+      /outdated_legal_documents/,
+    ),
+    "checkout recusa aceite de texto diferente do publicado",
+  );
+  const anaOrder = (await as("anon", null, () => db.query(`select public.place_order($1, ${ficha}, ${CONSENT}) as data`, [accountId]))).rows[0].data;
+  check(anaOrder.customer_name === "Ana", "página pública do pedido mostra só o primeiro nome");
+
+  const consents = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select r.document_slug, r.document_sha256 from public.consent_records r join public.orders o on o.id = r.order_id where o.code = $1`, [anaOrder.code]),
+  );
+  check(consents.rows.length === 2, "pedido grava o aceite dos Termos e da Política");
+  check(consents.rows.every((row) => row.document_sha256 === legal[row.document_slug].sha256), "aceite guarda o hash do documento");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.consent_records`)), /permission denied/),
+    "visitante não lê provas de aceite",
+  );
+  const strangerConsents = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.consent_records`));
+  check(strangerConsents.rows.length === 0, "usuário que não é admin não lê provas de aceite");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`delete from public.consent_records`)), /permission denied/),
+    "nem o admin apaga prova de aceite",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.create_order($1, ${ficha})`, [accountId])), /permission denied/),
+    "etapa interna do pedido, sem aceite, não fica exposta",
+  );
+
+  console.log("\nlgpd: meus dados");
+  const wrong = await as("anon", null, () => db.query(`select public.privacy_lookup('anapaula@lgpd.com.br', 'JD-AAAAAA') as data`));
+  check(wrong.rows[0].data === null, "código errado não mostra nada");
+  const mine = (await as("anon", null, () => db.query(`select public.privacy_lookup(' ANAPAULA@lgpd.com.br ', $1) as data`, [anaOrder.code.toLowerCase()]))).rows[0].data;
+  check(mine?.orders?.[0]?.customer_document === "52998224725", "titular vê a própria ficha completa");
+  check(mine?.consents?.length === 2, "titular vê os próprios aceites");
+
+  const opened = (await as("anon", null, () =>
+    db.query(`select public.privacy_request('anapaula@lgpd.com.br', $1, 'access', 'Quero meus dados') as data`, [anaOrder.code]),
+  )).rows[0].data;
+  check(/^LGPD-[A-Z0-9]{8}$/.test(opened?.protocol ?? ""), `solicitação gera protocolo ${opened?.protocol}`);
+  const denied = (await as("anon", null, () =>
+    db.query(`select public.privacy_request('outra@exemplo.com', $1, 'access', null) as data`, [anaOrder.code]),
+  )).rows[0].data;
+  check(denied === null, "outra pessoa não abre solicitação no pedido alheio");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.data_requests`)), /permission denied/),
+    "visitante não lista solicitações",
+  );
+  const bell = await as("authenticated", ADMIN_ID, () => db.query(`select link from public.notifications where kind = 'privacy'`));
+  check(bell.rows[0]?.link === "/admin/privacidade", "solicitação avisa no sininho");
+
+  const due = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select extract(day from due_at - created_at)::int as days from public.data_requests where protocol = $1`, [opened.protocol]),
+  );
+  check(due.rows[0]?.days === 15, "prazo de resposta de 15 dias");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.data_requests set status = 'rejected' where protocol = $1`, [opened.protocol])),
+      /rejected_needs_reason/,
+    ),
+    "recusa exige motivo",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.data_requests set email = 'x@x.com' where protocol = $1`, [opened.protocol])),
+      /permission denied/,
+    ),
+    "painel não muda o conteúdo da solicitação",
+  );
+  const answered = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.data_requests set status = 'done', response = 'Enviado.' where protocol = $1 returning resolved_at`, [opened.protocol]),
+  );
+  check(answered.rows[0]?.resolved_at, "resposta marca a data de conclusão");
+  const strangerAnswer = await as("authenticated", STRANGER_ID, () =>
+    db.query(`update public.data_requests set status = 'open' returning id`),
+  );
+  check(strangerAnswer.rows.length === 0, "usuário que não é admin não responde solicitação");
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    await as("anon", null, () => db.query(`select public.privacy_lookup('robo@exemplo.com', 'JD-ZZZZZZ')`));
+  }
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.privacy_lookup('robo@exemplo.com', 'JD-ZZZZZZ')`)), /too_many_attempts/),
+    "Meus dados trava depois de 10 tentativas por hora",
+  );
+
+  console.log("\nlgpd: anonimização e retenção");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.anonymize_data_subject('anapaula@lgpd.com.br')`)), /permission denied/),
+    "visitante não anonimiza",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.anonymize_data_subject('anapaula@lgpd.com.br')`)), /forbidden/),
+    "usuário que não é admin não anonimiza",
+  );
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.orders set status = 'canceled' where code = $1`, [anaOrder.code]));
+  await db.query(`insert into public.customers (name, email, whatsapp) values ('Ana Paula', 'anapaula@lgpd.com.br', '11912345678')`);
+  const result = (await as("authenticated", ADMIN_ID, () => db.query(`select public.anonymize_data_subject('anapaula@lgpd.com.br') as data`))).rows[0].data;
+  check(result.anonymized_orders === 1 && result.kept_orders === 0 && result.deleted_customers === 1, "pedido cancelado é anonimizado e o cadastro some");
+  const after = await db.query(`select customer_name, customer_document, customer_instagram from public.orders where code = $1`, [anaOrder.code]);
+  check(
+    after.rows[0].customer_name === "Titular anonimizado" && after.rows[0].customer_document === null && after.rows[0].customer_instagram === null,
+    "pedido anonimizado não identifica mais a pessoa",
+  );
+  const keptProof = await db.query(`select count(*)::int as total, count(ip_address)::int as with_ip from public.consent_records r join public.orders o on o.id = r.order_id where o.code = $1`, [anaOrder.code]);
+  check(keptProof.rows[0].total === 2 && keptProof.rows[0].with_ip === 0, "prova de aceite fica, sem IP e navegador");
+
+  await db.exec(`
+    insert into public.orders (code, account_handle, account_name, account_platform, customer_name, customer_email, payment_method, total_cents, status, expires_at, created_at)
+    values ('JD-VELHO1', '@velha', 'Velha', 'tiktok', 'Pedro Antigo', 'pedro@exemplo.com', 'pix', 1000, 'canceled', now() - interval '7 months', now() - interval '7 months'),
+           ('JD-RECENT', '@nova', 'Nova', 'tiktok', 'Paula Recente', 'paula@exemplo.com', 'pix', 1000, 'canceled', now() - interval '1 month', now() - interval '1 month');
+    insert into public.leads (name, stage, updated_at) values ('Lead Antigo', 'lost', now() - interval '13 months');
+  `);
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.apply_retention_policy()`)), /permission denied/),
+    "visitante não aplica retenção",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.run_retention_policy()`)), /permission denied/),
+    "rotina interna de retenção só roda pelo banco",
+  );
+  const retention = (await as("authenticated", ADMIN_ID, () => db.query(`select public.apply_retention_policy() as data`))).rows[0].data;
+  check(retention.anonymized_orders === 1 && retention.deleted_leads >= 1, "retenção anonimiza pedido cancelado com mais de 6 meses e apaga lead parado");
+  const recent = await db.query(`select customer_name from public.orders where code = 'JD-RECENT'`);
+  check(recent.rows[0].customer_name === "Paula Recente", "pedido cancelado recente fica intacto");
 }
 
 main().catch((error) => {

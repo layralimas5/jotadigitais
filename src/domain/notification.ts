@@ -6,9 +6,10 @@ import type { Order } from "./order";
  * O sininho junta três origens:
  * - `order`: pedido novo do site, gravado pelo banco na hora em que entra;
  * - `news`: novidades do sistema, publicadas por quem cuida dele;
+ * - `privacy`: solicitação LGPD aberta em Meus dados, gravada pelo banco;
  * - `reminder`: lembretes calculados na hora a partir dos pedidos e do CRM.
  */
-export type NotificationKind = "order" | "news" | "reminder";
+export type NotificationKind = "order" | "news" | "privacy" | "reminder";
 
 export interface AppNotification {
   /** Identifica a notificação para apagar: o mesmo aviso não volta depois de apagado. */
@@ -21,10 +22,10 @@ export interface AppNotification {
   createdAt: string;
 }
 
-/** Notificação guardada no banco (pedido novo ou novidade). */
+/** Notificação guardada no banco (pedido novo, novidade ou solicitação LGPD). */
 export interface StoredNotification {
   id: string;
-  kind: Extract<NotificationKind, "order" | "news">;
+  kind: Extract<NotificationKind, "order" | "news" | "privacy">;
   title: string;
   body: string | null;
   link: string | null;

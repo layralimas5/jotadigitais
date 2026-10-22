@@ -18,6 +18,7 @@ import {
   DemoStoreSettingsRepository,
   DemoTestimonialRepository,
 } from "@/infrastructure/demo/demo-repositories";
+import { DemoPrivacyRepository, DemoPrivacyService } from "@/infrastructure/demo/demo-privacy";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
@@ -38,6 +39,7 @@ import {
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
 } from "@/infrastructure/supabase/supabase-repositories";
+import { SupabasePrivacyRepository, SupabasePrivacyService } from "@/infrastructure/supabase/supabase-privacy";
 import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
 import { backendConfig, defaultStoreSettings } from "./config";
 
@@ -58,7 +60,15 @@ function supabaseContainer(url: string, anonKey: string): Container {
   const siteContent = new SupabaseSiteContentRepository(client);
   return {
     mode: "supabase",
-    store: { accounts, testimonials, orders, settings, siteContent, payments: new PendingPaymentGateway() },
+    store: {
+      accounts,
+      testimonials,
+      orders,
+      settings,
+      siteContent,
+      payments: new PendingPaymentGateway(),
+      privacy: new SupabasePrivacyService(client),
+    },
     admin: {
       auth: new SupabaseAuthService(client),
       accounts,
@@ -78,6 +88,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       notifications: new SupabaseNotificationRepository(client),
       calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new SupabaseImageStorage(client),
+      privacy: new SupabasePrivacyRepository(client),
     },
   };
 }
@@ -92,7 +103,15 @@ function demoContainer(): Container {
   const siteContent = new DemoSiteContentRepository(db);
   return {
     mode: "demo",
-    store: { accounts, testimonials, orders, settings, siteContent, payments: new PendingPaymentGateway() },
+    store: {
+      accounts,
+      testimonials,
+      orders,
+      settings,
+      siteContent,
+      payments: new PendingPaymentGateway(),
+      privacy: new DemoPrivacyService(db),
+    },
     admin: {
       auth: new DemoAuthService(),
       accounts,
@@ -112,6 +131,7 @@ function demoContainer(): Container {
       notifications: new DemoNotificationRepository(db),
       calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new DemoImageStorage(),
+      privacy: new DemoPrivacyRepository(db),
     },
   };
 }

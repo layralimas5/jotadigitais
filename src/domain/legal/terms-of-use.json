@@ -1,0 +1,166 @@
+{
+  "slug": "terms",
+  "version": "1.0.0",
+  "effectiveDate": "2026-10-21",
+  "title": "Termos de Uso",
+  "summary": "Estas são as regras para usar o site da {{brand}} e comprar uma conta. Elas incluem as condições de compra, entrega, garantia e reembolso. Leia com calma: ao marcar o aceite no checkout, você concorda com elas.",
+  "sections": [
+    {
+      "id": "aceitacao",
+      "title": "1. Aceitação e idade mínima",
+      "blocks": [
+        { "type": "p", "text": "Ao navegar no site você concorda com estes Termos e com a [Política de Privacidade](/politica-de-privacidade). Para comprar, é preciso marcar o aceite no checkout, e a versão aceita fica registrada no seu pedido." },
+        { "type": "p", "text": "Só pode comprar quem tem 18 anos ou mais e plena capacidade civil. Quando a compra é feita em nome de uma empresa, quem compra declara ter poderes para representá-la." }
+      ]
+    },
+    {
+      "id": "servico",
+      "title": "2. O que a {{brand}} faz e o que não faz",
+      "blocks": [
+        { "type": "p", "text": "A {{brand}} vende contas de redes sociais já criadas (TikTok, Instagram, YouTube e Facebook). Cada página de conta mostra a rede, os números públicos e o status informado, como a Central de Criadores do TikTok Shop liberada. Depois do pagamento, enviamos login, senha e instruções para o e-mail do pedido e ajudamos na troca de nome, @ e foto." },
+        { "type": "p", "text": "A {{brand}} não:" },
+        {
+          "type": "list",
+          "items": [
+            "é afiliada, patrocinada ou endossada por TikTok, Meta (Instagram, Facebook, WhatsApp) ou Google (YouTube);",
+            "garante faturamento, comissões, alcance ou qualquer resultado: isso depende do nicho, dos produtos e da sua dedicação;",
+            "vende seguidores, curtidas ou visualizações, nem gerencia a conta depois da entrega;",
+            "controla as regras das plataformas, que podem mudar, limitar recursos ou restringir contas por decisão própria."
+          ]
+        },
+        { "type": "note", "text": "As plataformas têm termos próprios, que podem tratar da transferência de contas entre pessoas. Antes de comprar, conheça as regras da rede escolhida. Ao comprar, você declara estar ciente delas." }
+      ]
+    },
+    {
+      "id": "cadastro",
+      "title": "3. Dados do pedido e conta recebida",
+      "blocks": [
+        { "type": "p", "text": "O site não tem cadastro com senha para compradores. O seu pedido é identificado pelo e-mail e pelo código JD-XXXXXX. Você se compromete a:" },
+        {
+          "type": "list",
+          "items": [
+            "informar dados verdadeiros, completos e seus no checkout, incluindo CPF ou CNPJ e data de nascimento;",
+            "manter em sigilo o código do pedido e, depois da entrega, o login e a senha recebidos;",
+            "trocar a senha, o e-mail e o telefone da conta assim que receber o acesso, seguindo as nossas instruções;",
+            "responder por tudo o que for feito na conta depois da entrega, inclusive o conteúdo publicado e o cumprimento das regras da plataforma;",
+            "apagar, sem usar nem divulgar, qualquer dado pessoal de terceiros que encontrar na conta, como mensagens antigas."
+          ]
+        },
+        { "type": "p", "text": "Se suspeitar que alguém teve acesso indevido ao seu pedido ou à conta recebida, avise a gente na hora pelos canais da seção 13." }
+      ]
+    },
+    {
+      "id": "pagamento",
+      "title": "4. Preço, pagamento, entrega, garantia e reembolso",
+      "blocks": [
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Preço e moeda", "text": "Os preços estão em reais (R$) e são os da página da conta no momento do pedido." },
+            { "term": "Formas de pagamento", "text": "Pix à vista ou cartão de crédito em até 12 vezes, com os juros da operadora no parcelado. O pagamento é processado por {{paymentProvider}}." },
+            { "term": "Reserva", "text": "Ao concluir o pedido, a conta fica reservada para você por 2 horas. Sem pagamento nesse prazo, o pedido é cancelado e a conta volta para a vitrine." },
+            { "term": "Sem renovação automática", "text": "Cada compra é avulsa. Não há assinatura, mensalidade nem cobrança recorrente." },
+            { "term": "Entrega", "text": "Com o pagamento confirmado, enviamos login, senha e o passo a passo para o e-mail do pedido. Confira também a caixa de spam." },
+            { "term": "Garantia", "text": "Você tem {{guaranteeDays}} dias a partir da entrega para relatar problema de acesso ou de status anunciado. Se a conta não corresponder ao anúncio, oferecemos outra conta equivalente ou o reembolso integral, à sua escolha." },
+            { "term": "Direito de arrependimento", "text": "Como a compra é feita pela internet, você pode desistir em até 7 dias a partir do recebimento do acesso, sem precisar explicar o motivo (art. 49 do Código de Defesa do Consumidor). Para isso, devolva o acesso à conta sem alterações que impeçam a revenda, como exclusão de conteúdo ou violação das regras da plataforma." },
+            { "term": "Como é o reembolso", "text": "O valor pago é devolvido integralmente, pelo mesmo meio de pagamento, em até 7 dias úteis depois da devolução do acesso. No cartão, o estorno pode aparecer em até duas faturas, conforme a operadora." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "uso",
+      "title": "5. Uso permitido e proibido",
+      "blocks": [
+        { "type": "p", "text": "Você pode usar o site para conhecer as contas, comprar, acompanhar o pedido e exercer os seus direitos. É proibido:" },
+        {
+          "type": "list",
+          "items": [
+            "usar o site ou a conta comprada para fins ilegais, golpes, fraude, spam ou para enganar outras pessoas;",
+            "fazer pedidos falsos para travar o estoque ou usar dados de outra pessoa sem autorização;",
+            "copiar o site, fazer engenharia reversa, extrair dados de forma automatizada (scraping) ou usar robôs;",
+            "tentar acessar o painel administrativo, o banco de dados ou dados de outros clientes;",
+            "sobrecarregar os servidores, espalhar vírus ou atrapalhar o funcionamento do site;",
+            "revender a conta prometendo números ou status diferentes dos que você recebeu."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "propriedade",
+      "title": "6. Propriedade intelectual",
+      "blocks": [
+        { "type": "p", "text": "A marca {{brand}}, o site, o código, o layout, os textos e as imagens produzidos por nós pertencem ao controlador indicado na seção 13 ou a quem nos licenciou. Você não pode copiá-los ou usá-los sem autorização por escrito." },
+        { "type": "p", "text": "Depois da entrega, o que você publicar na conta comprada é seu. Os nomes e marcas TikTok, Instagram, Facebook, WhatsApp e YouTube pertencem às respectivas empresas e aparecem aqui só para identificar a rede de cada conta." }
+      ]
+    },
+    {
+      "id": "conteudo-usuario",
+      "title": "7. Conteúdo que você envia",
+      "blocks": [
+        { "type": "p", "text": "Mensagens, prints e depoimentos que você nos envia são de sua responsabilidade e não podem violar a lei nem direitos de outras pessoas. Se você autorizar a publicação de um print ou depoimento, nos dá uma licença gratuita, não exclusiva e revogável para exibi-lo no site e nas nossas redes, pelo tempo em que a autorização valer." },
+        { "type": "p", "text": "Podemos remover, sem aviso prévio, qualquer conteúdo ilegal ou que viole estes Termos." }
+      ]
+    },
+    {
+      "id": "disponibilidade",
+      "title": "8. Disponibilidade do site",
+      "blocks": [
+        { "type": "p", "text": "Trabalhamos para manter o site no ar o tempo todo, mas não garantimos funcionamento sem interrupções. Ele pode ficar fora do ar por manutenção, de preferência em horários de pouco movimento, por falha de fornecedores (hospedagem, banco de dados, pagamento) ou por caso fortuito e força maior. Se a sua reserva vencer por falha nossa, combinamos uma solução pelo suporte." }
+      ]
+    },
+    {
+      "id": "responsabilidade",
+      "title": "9. Limitação de responsabilidade",
+      "blocks": [
+        { "type": "p", "text": "Respondemos pelo que vendemos: a conta tem que corresponder ao anúncio na entrega, e a garantia e o arrependimento valem como descrito na seção 4. Não respondemos por:" },
+        {
+          "type": "list",
+          "items": [
+            "resultados que você esperava obter com a conta, lucros cessantes ou outros danos indiretos;",
+            "restrições, mudanças de regra ou decisões tomadas pela plataforma depois da entrega;",
+            "o uso que você faz da conta depois de recebê-la, ou falhas por não ter trocado senha, e-mail e telefone."
+          ]
+        },
+        { "type": "p", "text": "Quando a lei permitir limitar, a nossa responsabilidade fica limitada ao valor que você pagou nos últimos 12 meses. Nada aqui afasta os direitos que o Código de Defesa do Consumidor garante e que não podem ser limitados, como a responsabilidade por defeito ou vício do produto (arts. 12, 14, 18 e 20) e a nulidade de cláusulas abusivas (arts. 25 e 51)." }
+      ]
+    },
+    {
+      "id": "suspensao",
+      "title": "10. Cancelamento de pedido e bloqueio",
+      "blocks": [
+        { "type": "p", "text": "Podemos recusar ou cancelar um pedido, com devolução integral do que foi pago, quando houver indício de fraude, dados falsos, compra por menor de 18 anos ou violação destes Termos. Avisamos pelo e-mail do pedido, com o motivo, em até 2 dias úteis, salvo quando o aviso atrapalhar a apuração de fraude." },
+        { "type": "p", "text": "Em caso de violação grave, como fraude ou ataque ao site, podemos bloquear novas compras do mesmo e-mail ou documento. Mesmo assim, você continua podendo ver e baixar os seus dados em [Meus dados](/meus-dados) e exercer todos os direitos da LGPD." }
+      ]
+    },
+    {
+      "id": "alteracoes",
+      "title": "11. Mudanças nestes Termos",
+      "blocks": [
+        { "type": "p", "text": "Podemos atualizar estes Termos. A versão nova vale para compras feitas a partir da data dela; a compra que você já fez continua regida pela versão que você aceitou, que fica registrada no pedido. Mudanças relevantes são avisadas no site com pelo menos 15 dias de antecedência. Se você não concordar, pode deixar de usar o site, e os pedidos em aberto podem ser cancelados com reembolso integral." }
+      ]
+    },
+    {
+      "id": "foro",
+      "title": "12. Lei aplicável e foro",
+      "blocks": [
+        { "type": "p", "text": "Estes Termos seguem a legislação brasileira, em especial o Código de Defesa do Consumidor, o Marco Civil da Internet e a LGPD. Qualquer questão pode ser levada ao foro do seu domicílio (art. 101, I, do Código de Defesa do Consumidor). Antes, tente resolver com a gente pelos canais abaixo ou pelo [consumidor.gov.br](https://www.consumidor.gov.br)." }
+      ]
+    },
+    {
+      "id": "contato",
+      "title": "13. Contato",
+      "blocks": [
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Quem vende", "text": "{{legalName}}, {{document}}, {{address}}" },
+            { "term": "Dúvidas e suporte", "text": "{{email}} ou pelo Instagram {{instagram}}" },
+            { "term": "Privacidade e dados pessoais", "text": "[Meus dados](/meus-dados) ou {{privacyEmail}}" }
+          ]
+        }
+      ]
+    }
+  ],
+  "history": [{ "version": "1.0.0", "date": "2026-10-21", "summary": "Primeira versão. Substitui os antigos Termos de compra e garantia." }]
+}

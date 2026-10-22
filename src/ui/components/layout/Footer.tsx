@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useCookieConsent } from "@/ui/components/cookies/CookieConsentProvider";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { Logo } from "../Logo";
@@ -18,8 +19,38 @@ const LINKS = [
   { to: "/contas", label: "Contas disponíveis" },
   { to: "/#como-funciona", label: "Como funciona" },
   { to: "/#garantia", label: "Garantia" },
-  { to: "/termos", label: "Termos de compra" },
 ] as const;
+
+const LEGAL_LINKS = [
+  { to: "/termos-de-uso", label: "Termos de Uso" },
+  { to: "/politica-de-privacidade", label: "Política de Privacidade" },
+  { to: "/meus-dados", label: "Meus dados" },
+] as const;
+
+const footerLinkClass = "text-sm text-mist transition-colors hover:text-white";
+
+function LegalNav() {
+  const { openPreferences } = useCookieConsent();
+  return (
+    <nav aria-label="Privacidade">
+      <p className="font-display text-sm font-semibold text-white">Privacidade</p>
+      <ul className="mt-4 space-y-3">
+        {LEGAL_LINKS.map((link) => (
+          <li key={link.to}>
+            <Link to={link.to} className={footerLinkClass}>
+              {link.label}
+            </Link>
+          </li>
+        ))}
+        <li>
+          <button type="button" onClick={openPreferences} className={`${footerLinkClass} text-left`}>
+            Preferências de cookies
+          </button>
+        </li>
+      </ul>
+    </nav>
+  );
+}
 
 export function Footer() {
   const year = new Date().getFullYear();
@@ -27,7 +58,7 @@ export function Footer() {
   const { footer } = useSiteContent();
   return (
     <footer id="rodape" className="relative border-t border-line bg-night">
-      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-6 sm:py-14 md:grid-cols-[1.4fr_1fr_1fr] md:gap-10">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-6 sm:py-14 md:grid-cols-[1.4fr_1fr_1fr_1fr] md:gap-10">
         <div className="col-span-2 md:col-span-1">
           <Logo />
           <p className="mt-4 max-w-xs text-sm text-mist sm:mt-5">
@@ -45,13 +76,15 @@ export function Footer() {
           <ul className="mt-4 space-y-3">
             {LINKS.map((link) => (
               <li key={link.to}>
-                <Link to={link.to} className="text-sm text-mist transition-colors hover:text-white">
+                <Link to={link.to} className={footerLinkClass}>
                   {link.label}
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
+
+        <LegalNav />
 
         <div>
           <p className="font-display text-sm font-semibold text-white">Contato</p>

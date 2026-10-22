@@ -7,7 +7,8 @@ const CatalogPage = lazy(() => import("@/ui/pages/CatalogPage"));
 const AccountPage = lazy(() => import("@/ui/pages/AccountPage"));
 const CheckoutPage = lazy(() => import("@/ui/pages/CheckoutPage"));
 const OrderPage = lazy(() => import("@/ui/pages/OrderPage"));
-const TermsPage = lazy(() => import("@/ui/pages/TermsPage"));
+const LegalDocumentPage = lazy(() => import("@/ui/pages/LegalDocumentPage"));
+const MyDataPage = lazy(() => import("@/ui/pages/MyDataPage"));
 const NotFoundPage = lazy(() => import("@/ui/pages/NotFoundPage"));
 
 // Painel em pedaços separados: quem visita a loja não baixa nada dele.
@@ -33,6 +34,7 @@ const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
 const LeadEditorPage = lazy(() => import("@/ui/admin/pages/LeadEditorPage"));
 const CustomerEditorPage = lazy(() => import("@/ui/admin/pages/CustomerEditorPage"));
 const AutomationPage = lazy(() => import("@/ui/admin/pages/AutomationPage"));
+const PrivacyPage = lazy(() => import("@/ui/admin/pages/PrivacyPage"));
 const ApisPage = lazy(() => import("@/ui/admin/pages/ApisPage"));
 const MorePage = lazy(() => import("@/ui/admin/pages/MorePage"));
 const FinancePage = lazy(() => import("@/ui/admin/pages/FinancePage"));
@@ -48,7 +50,11 @@ export const router = createBrowserRouter([
       { path: "contas/:slug", element: <AccountPage /> },
       { path: "checkout/:slug", element: <CheckoutPage /> },
       { path: "pedido/:code", element: <OrderPage /> },
-      { path: "termos", element: <TermsPage /> },
+      { path: "termos-de-uso", element: <LegalDocumentPage slug="terms" /> },
+      { path: "politica-de-privacidade", element: <LegalDocumentPage slug="privacy" /> },
+      { path: "meus-dados", element: <MyDataPage /> },
+      // Endereço antigo dos "Termos de compra e garantia", que agora fazem parte dos Termos de Uso.
+      { path: "termos", element: <Navigate to="/termos-de-uso" replace /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
@@ -87,6 +93,7 @@ export const router = createBrowserRouter([
           { path: "crm/:id", element: <LeadEditorPage /> },
           { path: "automacao", element: <AutomationPage /> },
           { path: "apis", element: <ApisPage /> },
+          { path: "privacidade", element: <PrivacyPage /> },
           { path: "mais", element: <MorePage /> },
           { path: "site", element: <SitePage /> },
           { path: "configuracoes", element: <SettingsPage /> },

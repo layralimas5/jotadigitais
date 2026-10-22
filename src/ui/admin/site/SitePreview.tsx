@@ -10,7 +10,7 @@ const SEND_DELAY_MS = 120;
 
 interface SitePreviewProps {
   content: SiteContent;
-  /** Página que a prévia deve mostrar ("/" ou "/termos"). */
+  /** Página que a prévia deve mostrar. */
   path: string;
   /** Id de um elemento da página; a prévia rola até a seção dele. */
   scrollTarget: string | null;

@@ -1,6 +1,6 @@
 import { KeyRound, Lock } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { signIn } from "@/application/admin-use-cases";
 import { ValidationError } from "@/application/schemas";
 import { Button } from "@/ui/components/Button";
@@ -106,6 +106,15 @@ export default function LoginPage() {
             </form>
           )}
         </div>
+        <p className="mt-6 text-center text-xs text-mist">
+          <Link to="/termos-de-uso" className="hover:text-white">
+            Termos de Uso
+          </Link>
+          <span aria-hidden> · </span>
+          <Link to="/politica-de-privacidade" className="hover:text-white">
+            Política de Privacidade
+          </Link>
+        </p>
       </div>
     </main>
   );

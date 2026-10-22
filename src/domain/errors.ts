@@ -120,3 +120,31 @@ export class WrongCurrentPasswordError extends Error {
     this.name = "WrongCurrentPasswordError";
   }
 }
+
+export class OutdatedLegalDocumentsError extends Error {
+  constructor() {
+    super("Os Termos de Uso ou a Política de Privacidade foram atualizados. Recarregue a página, leia a versão nova e tente de novo.");
+    this.name = "OutdatedLegalDocumentsError";
+  }
+}
+
+export class TooManyPrivacyAttemptsError extends Error {
+  constructor() {
+    super("Muitas tentativas seguidas. Por segurança, espere uma hora ou escreva para o e-mail de privacidade.");
+    this.name = "TooManyPrivacyAttemptsError";
+  }
+}
+
+export class TooManyOpenDataRequestsError extends Error {
+  constructor() {
+    super("Você já tem cinco solicitações em aberto. Aguarde a resposta delas antes de abrir outra.");
+    this.name = "TooManyOpenDataRequestsError";
+  }
+}
+
+export class DataSubjectNotFoundError extends Error {
+  constructor() {
+    super("Não encontramos um pedido com esse e-mail e esse código. Confira os dois e tente de novo.");
+    this.name = "DataSubjectNotFoundError";
+  }
+}

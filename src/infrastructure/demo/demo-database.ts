@@ -5,6 +5,7 @@ import type { Expense, Revenue } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
+import type { ConsentRecord, DataRequest } from "@/domain/privacy";
 import type { Order } from "@/domain/order";
 import type { Partner } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -34,6 +35,10 @@ export interface DemoState {
   adminUsers?: AdminUser[];
   notifications?: StoredNotification[];
   dismissedNotifications?: string[];
+  consents?: ConsentRecord[];
+  dataRequests?: DataRequest[];
+  /** Horários das tentativas em Meus dados, por e-mail (limite de 10 por hora). */
+  privacyAttempts?: Record<string, string[]>;
 }
 
 function seedState(): DemoState {

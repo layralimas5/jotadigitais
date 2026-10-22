@@ -2,6 +2,7 @@ import type { Account, AccountData } from "@/domain/account";
 import type { AdminRole, AdminUser, NewAdminUser } from "@/domain/admin-user";
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import type { LegalConsent } from "@/domain/legal/legal-document";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
@@ -9,6 +10,15 @@ import type { StoredNotification } from "@/domain/notification";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { Partner, PartnerData } from "@/domain/partner";
 import type { Platform } from "@/domain/platform";
+import type {
+  AnonymizationResult,
+  DataRequest,
+  DataRequestAnswer,
+  DataRequestKind,
+  OpenedDataRequest,
+  RetentionResult,
+  SubjectData,
+} from "@/domain/privacy";
 import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -43,12 +53,24 @@ export interface NewOrder {
   accountId: string;
   customer: Customer;
   paymentMethod: PaymentMethod;
+  /** Termos de Uso e Política de Privacidade aceitos no checkout; o banco grava como prova. */
+  consents: LegalConsent[];
 }
 
 export interface OrderRepository {
   /** Cria o pedido e reserva a conta numa operação só. Falha se a conta já estiver reservada ou vendida. */
   place(input: NewOrder): Promise<Order>;
   findByCode(code: string): Promise<Order | null>;
+}
+
+/**
+ * Meus dados: o titular prova que é dono de um pedido (e-mail + código).
+ * Os dois métodos devolvem nulo quando e-mail e código não batem, e falham com
+ * `TooManyPrivacyAttemptsError` quando há tentativas demais.
+ */
+export interface PrivacyService {
+  lookup(email: string, orderCode: string): Promise<SubjectData | null>;
+  request(email: string, orderCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null>;
 }
 
 export type PaymentCharge =
@@ -190,6 +212,14 @@ export interface AdminPartnerRepository {
   update(id: string, data: PartnerData): Promise<Partner>;
   /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
   remove(id: string): Promise<void>;
+}
+
+/** Solicitações LGPD, anonimização de titular e prazos de retenção. */
+export interface AdminPrivacyRepository {
+  listRequests(): Promise<DataRequest[]>;
+  answer(id: string, answer: DataRequestAnswer): Promise<void>;
+  anonymizeSubject(email: string): Promise<AnonymizationResult>;
+  applyRetention(): Promise<RetentionResult>;
 }
 
 /** Quem entra no sistema. Criar e remover passam pelo servidor, que confere se quem pede é administrador. */

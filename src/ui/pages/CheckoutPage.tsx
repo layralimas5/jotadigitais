@@ -178,10 +178,14 @@ function PaymentStep({ account, values, errors, setField }: PaymentStepProps) {
           />
           <span>
             Li e aceito os{" "}
-            <Link to="/termos" target="_blank" className="text-electric-soft underline underline-offset-4">
-              termos de compra e garantia
+            <Link to="/termos-de-uso" target="_blank" className="text-electric-soft underline underline-offset-4">
+              Termos de Uso<span className="sr-only"> (abre em outra aba)</span>
+            </Link>{" "}
+            e a{" "}
+            <Link to="/politica-de-privacidade" target="_blank" className="text-electric-soft underline underline-offset-4">
+              Política de Privacidade<span className="sr-only"> (abre em outra aba)</span>
             </Link>
-            .
+            , incluindo as condições de entrega, garantia e reembolso.
           </span>
         </label>
         {errors.acceptedTerms && (

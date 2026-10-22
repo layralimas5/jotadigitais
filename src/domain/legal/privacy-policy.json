@@ -1,0 +1,271 @@
+{
+  "slug": "privacy",
+  "version": "1.0.0",
+  "effectiveDate": "2026-10-21",
+  "title": "Política de Privacidade",
+  "summary": "Aqui explicamos, sem juridiquês, quais dados a {{brand}} coleta quando você visita o site, fala com a gente ou compra uma conta, para que usamos cada um, com quem dividimos, por quanto tempo guardamos e como você exerce os seus direitos pela Lei Geral de Proteção de Dados (Lei nº 13.709/2018).",
+  "sections": [
+    {
+      "id": "controlador",
+      "title": "1. Quem cuida dos seus dados",
+      "blocks": [
+        { "type": "p", "text": "O controlador dos seus dados pessoais, ou seja, quem decide como eles são tratados, é:" },
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Nome ou razão social", "text": "{{legalName}}, que atua com a marca {{brand}}" },
+            { "term": "CNPJ ou CPF", "text": "{{document}}" },
+            { "term": "Endereço", "text": "{{address}}" },
+            { "term": "E-mail de contato", "text": "{{email}}" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "encarregado",
+      "title": "2. Encarregado de dados (DPO)",
+      "blocks": [
+        { "type": "p", "text": "O encarregado é a pessoa que recebe as suas solicitações e as comunicações da Autoridade Nacional de Proteção de Dados (ANPD)." },
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Nome", "text": "{{dpoName}}" },
+            { "term": "Contato", "text": "{{dpoEmail}}" }
+          ]
+        },
+        { "type": "note", "text": "Agentes de tratamento de pequeno porte, como microempresas, podem ser dispensados de indicar um encarregado pela Resolução CD/ANPD nº 2/2022 (art. 11). A mesma resolução exige que eles mantenham um canal de comunicação com o titular. Mesmo podendo usar essa dispensa, a {{brand}} indica um encarregado e mantém o canal acima." }
+      ]
+    },
+    {
+      "id": "dados-coletados",
+      "title": "3. Quais dados coletamos",
+      "blocks": [
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Quando você compra uma conta", "text": "Nome completo, e-mail, WhatsApp, CPF ou CNPJ, data de nascimento, cidade e estado, e o seu @ do Instagram, se você quiser informar. Também guardamos a conta escolhida, o valor, a forma de pagamento escolhida (Pix ou cartão) e a situação do pedido." },
+            { "term": "Prova do seu aceite", "text": "Quando você aceita estes documentos no checkout, registramos a versão aceita, a impressão digital do texto (hash SHA-256), a data e a hora, o endereço IP e o navegador usado." },
+            { "term": "Quando você fala com a gente", "text": "Se você nos chama no WhatsApp ou no Instagram, podemos anotar o seu nome, WhatsApp, @ do Instagram, o tipo de conta que procura, o orçamento informado, observações da conversa e a data combinada para retorno." },
+            { "term": "Parceiros e fornecedores", "text": "De quem fornece contas para a loja, guardamos nome, WhatsApp, @ do Instagram, percentual de comissão e observações." },
+            { "term": "Quando você exerce os seus direitos", "text": "E-mail, código do pedido, o tipo de pedido feito em Meus dados, a mensagem que você escrever, o protocolo e a resposta dada." },
+            { "term": "Navegação", "text": "Os servidores que hospedam o site registram automaticamente o endereço IP, a data e a hora do acesso, a página aberta e informações técnicas do navegador e do aparelho. Não usamos geolocalização." },
+            { "term": "Pagamento", "text": "Não recebemos nem guardamos número de cartão ou senha bancária. Esses dados são digitados direto no ambiente da empresa de pagamento ({{paymentProvider}}), que nos informa apenas se o pagamento foi aprovado." },
+            { "term": "Dados sensíveis", "text": "Não coletamos dados sensíveis, como origem racial ou étnica, religião, opinião política, saúde, vida sexual, dado genético ou biométrico (art. 5º, II, da LGPD). Pedimos que você não os envie nas mensagens." },
+            { "term": "Menores de idade", "text": "Não vendemos para menores de 18 anos e não coletamos de propósito dados de crianças ou adolescentes. Veja a seção 13." },
+            { "term": "Conteúdo publicado", "text": "Prints de resultados e de entregas que clientes autorizaram publicar, e os dados públicos dos perfis das contas à venda (nome, @, foto, biografia e números de seguidores)." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "finalidades",
+      "title": "4. Para que usamos os dados",
+      "blocks": [
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Vender e entregar a conta", "text": "Nome, e-mail e WhatsApp servem para registrar o pedido, reservar a conta, confirmar o pagamento, enviar o login e a senha e prestar suporte." },
+            { "term": "Emitir nota fiscal", "text": "CPF ou CNPJ, nome, cidade e estado são exigidos para a nota fiscal de serviço." },
+            { "term": "Confirmar a maioridade", "text": "A data de nascimento confirma que quem compra tem 18 anos ou mais e pode assinar o contrato." },
+            { "term": "Evitar fraude", "text": "O CPF e o e-mail ajudam a barrar pedidos falsos que travam o estoque. O sistema não deixa o mesmo e-mail segurar mais de dois pedidos sem pagamento." },
+            { "term": "Cumprir a garantia", "text": "O pedido e a data de entrega mostram se a garantia está valendo e permitem trocar a conta ou devolver o dinheiro." },
+            { "term": "Responder e acompanhar contatos", "text": "Os dados de quem conversa com a gente servem para dar retorno no dia combinado. O lembrete pode ir para a agenda do Google de quem atende." },
+            { "term": "Provar o seu aceite", "text": "O registro do aceite mostra qual versão destes documentos valia na sua compra." },
+            { "term": "Segurança e lei", "text": "Os registros de acesso servem para manter o site seguro, investigar abusos e cumprir o Marco Civil da Internet (Lei nº 12.965/2014, art. 15)." },
+            { "term": "Divulgar resultados", "text": "Prints de clientes só são publicados com autorização de quem aparece neles." }
+          ]
+        },
+        { "type": "p", "text": "Não vendemos os seus dados, não fazemos perfil de comportamento para publicidade e não tomamos decisões só por meio de máquina que afetem os seus interesses. A única regra automática do site é a que barra a compra de quem informa idade abaixo de 18 anos, e você pode pedir revisão dela." }
+      ]
+    },
+    {
+      "id": "bases-legais",
+      "title": "5. Base legal de cada tratamento",
+      "blocks": [
+        { "type": "p", "text": "A LGPD só permite tratar dados com uma das hipóteses do art. 7º. Usamos estas:" },
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Execução de contrato (art. 7º, V)", "text": "Registro do pedido, reserva, pagamento, entrega, suporte, garantia e confirmação da maioridade." },
+            { "term": "Cumprimento de obrigação legal (art. 7º, II)", "text": "Nota fiscal e guarda de documentos fiscais, guarda dos registros de acesso por 6 meses (Marco Civil, art. 15) e atendimento a ordens de autoridades." },
+            { "term": "Exercício regular de direitos (art. 7º, VI)", "text": "Guarda do pedido e do registro de aceite depois da garantia, para nos defender em reclamações, processos ou disputas de pagamento." },
+            { "term": "Legítimo interesse (art. 7º, IX)", "text": "Prevenção de fraude, anotações de quem nos procurou para dar retorno, lembretes na agenda, cadastro de parceiros e leitura dos dados públicos dos perfis à venda. Avaliamos que esses usos são esperados por você, usam o mínimo de dados e não se sobrepõem aos seus direitos. Você pode se opor a qualquer um deles em Meus dados." },
+            { "term": "Consentimento (art. 7º, I)", "text": "Publicação de print com o seu nome ou imagem e, se um dia forem usados, cookies analíticos ou de marketing. Você pode retirar o consentimento quando quiser." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "compartilhamento",
+      "title": "6. Com quem compartilhamos",
+      "blocks": [
+        { "type": "p", "text": "Só compartilhamos o necessário com empresas que operam serviços para nós (operadores) e que têm o dever de proteger os dados:" },
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Supabase (banco de dados, login do painel e arquivos)", "text": "Guarda todos os dados do sistema. [Política de privacidade](https://supabase.com/privacy)" },
+            { "term": "Netlify (hospedagem do site)", "text": "Recebe os dados técnicos de navegação de quem acessa o site. [Política de privacidade](https://www.netlify.com/privacy/)" },
+            { "term": "Google (Gmail e Google Agenda)", "text": "O e-mail de entrega com login e senha sai pelo Gmail. Os lembretes de retorno de contatos (nome, WhatsApp, @, orçamento e anotações) vão para a agenda de quem atende. [Política de privacidade](https://policies.google.com/privacy)" },
+            { "term": "WhatsApp e Instagram (Meta)", "text": "Quando você clica para conversar, a conversa acontece na plataforma da Meta, que trata os dados como controladora. [WhatsApp](https://www.whatsapp.com/legal/privacy-policy) e [Instagram](https://privacycenter.instagram.com/policy)" },
+            { "term": "TikTok, Instagram e YouTube", "text": "Para cadastrar uma conta à venda, o sistema consulta a página pública do perfil. Nenhum dado de cliente é enviado nessa consulta. [TikTok](https://www.tiktok.com/legal/page/row/privacy-policy/pt-BR) e [YouTube](https://policies.google.com/privacy)" },
+            { "term": "Empresa de pagamento", "text": "{{paymentProvider}} recebe nome, e-mail, CPF ou CNPJ e valor para processar o Pix ou o cartão." },
+            { "term": "Emissor de nota fiscal", "text": "{{invoiceProvider}} recebe nome, CPF ou CNPJ, e-mail, cidade, estado e valor para emitir a nota." },
+            { "term": "Autoridades", "text": "Órgãos públicos e a Justiça, quando houver ordem legal ou para defender os nossos direitos." }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transferencia-internacional",
+      "title": "7. Transferência internacional",
+      "blocks": [
+        { "type": "p", "text": "Supabase, Netlify e Google guardam ou processam dados em servidores nos Estados Unidos. O banco de dados da {{brand}} fica na região us-east-2 (Ohio, EUA). A ANPD ainda não reconheceu os Estados Unidos como país com nível de proteção adequado." },
+        { "type": "p", "text": "Por isso, essas transferências se apoiam no art. 33 da LGPD:" },
+        {
+          "type": "list",
+          "items": [
+            "art. 33, IX: a transferência é necessária para executar o contrato com você, cumprir obrigação legal e exercer os nossos direitos (art. 7º, II, V e VI);",
+            "art. 33, II: os operadores oferecem garantias contratuais de proteção de dados. Seguimos a Resolução CD/ANPD nº 19/2024, que aprovou as cláusulas-padrão contratuais para transferência internacional, e só usamos fornecedores com acordo de tratamento de dados (DPA) e medidas de segurança reconhecidas, como criptografia e certificação SOC 2."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "retencao",
+      "title": "8. Por quanto tempo guardamos",
+      "blocks": [
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Pedidos pagos ou entregues", "text": "5 anos depois da venda, por causa dos prazos fiscais (Código Tributário Nacional, art. 173) e do prazo para reclamações do consumidor (Código de Defesa do Consumidor, art. 27)." },
+            { "term": "Pedidos cancelados ou não pagos", "text": "6 meses. Depois disso, os dados pessoais do pedido são anonimizados." },
+            { "term": "Registro do aceite", "text": "Pelo mesmo prazo do pedido a que ele pertence." },
+            { "term": "Cadastro de cliente feito pelo atendimento", "text": "Enquanto houver relação com você e por mais 5 anos após a última compra." },
+            { "term": "Contatos que não viraram compra", "text": "Até 12 meses depois do último contato. Depois disso, a ficha é apagada." },
+            { "term": "Parceiros", "text": "Enquanto durar a parceria e por mais 5 anos, pelos registros financeiros." },
+            { "term": "Registros de acesso ao site", "text": "6 meses, como exige o Marco Civil da Internet (art. 15), guardados pelos provedores de hospedagem." },
+            { "term": "Avisos internos do painel com o seu nome", "text": "90 dias." },
+            { "term": "Solicitações feitas em Meus dados", "text": "5 anos, para provar que atendemos o seu pedido." },
+            { "term": "Tentativas de acesso a Meus dados", "text": "30 dias, só para limitar abusos." }
+          ]
+        },
+        { "type": "p", "text": "Ao fim de cada prazo, os dados são apagados de vez ou anonimizados, ou seja, deixam de identificar você. Cópias de segurança seguem os mesmos prazos e são substituídas periodicamente. Podemos guardar por mais tempo apenas quando a lei exigir ou houver processo em andamento." }
+      ]
+    },
+    {
+      "id": "direitos",
+      "title": "9. Os seus direitos",
+      "blocks": [
+        { "type": "p", "text": "A LGPD (art. 18) garante a você, a qualquer momento e sem custo:" },
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Confirmação", "text": "Saber se tratamos algum dado seu." },
+            { "term": "Acesso", "text": "Receber uma cópia de todos os dados que temos sobre você." },
+            { "term": "Correção", "text": "Corrigir dados incompletos, errados ou desatualizados." },
+            { "term": "Anonimização, bloqueio ou eliminação", "text": "Pedir que dados desnecessários, excessivos ou tratados fora da lei sejam anonimizados, bloqueados ou apagados." },
+            { "term": "Portabilidade", "text": "Receber os seus dados em formato aberto (JSON) para levar a outro fornecedor." },
+            { "term": "Eliminação do que depende de consentimento", "text": "Apagar os dados tratados com base no seu consentimento, salvo quando a lei exigir a guarda." },
+            { "term": "Informação sobre compartilhamento", "text": "Saber com quais empresas e órgãos dividimos os seus dados (veja a seção 6)." },
+            { "term": "Informação sobre não consentir", "text": "Saber o que acontece se você não der o consentimento. Exemplo: sem autorização, o seu print não é publicado, e isso não muda nada na sua compra." },
+            { "term": "Revogação do consentimento", "text": "Retirar um consentimento dado antes. O que foi feito até ali continua válido." },
+            { "term": "Revisão de decisão automatizada (art. 20)", "text": "Pedir que uma pessoa revise uma decisão tomada só por máquina, como o bloqueio da compra por idade." }
+          ]
+        },
+        { "type": "p", "text": "Você também pode se opor a um tratamento feito com base no legítimo interesse, quando achar que ele não respeita a LGPD (art. 18, § 2º)." }
+      ]
+    },
+    {
+      "id": "canal",
+      "title": "10. Como exercer os seus direitos",
+      "blocks": [
+        { "type": "p", "text": "Use a página [Meus dados](/meus-dados) ou escreva para {{privacyEmail}}. Em Meus dados, você informa o e-mail e o código de um pedido (JD-XXXXXX) para provar que os dados são seus, vê tudo o que temos, baixa uma cópia e abre o pedido que quiser." },
+        { "type": "p", "text": "Respondemos em até 15 dias, contados do pedido. Cada solicitação gera um protocolo. Se não puder atender alguma parte, por exemplo porque a lei manda guardar a nota fiscal, explicamos o motivo." },
+        { "type": "p", "text": "Se você nunca comprou, mas conversou com a gente, escreva para o e-mail acima e confirmaremos a sua identidade pelo mesmo canal em que falamos com você." }
+      ]
+    },
+    {
+      "id": "seguranca",
+      "title": "11. Como protegemos os dados",
+      "blocks": [
+        { "type": "p", "text": "Adotamos medidas técnicas e administrativas para proteger os dados contra acesso indevido, perda ou vazamento (art. 46 da LGPD):" },
+        {
+          "type": "list",
+          "items": [
+            "conexão sempre criptografada (HTTPS) e dados criptografados no banco;",
+            "regras de acesso por linha no banco (RLS): visitante não lê dado de cliente, e só pessoas autorizadas entram no painel;",
+            "senhas do painel guardadas só como hash pelo serviço de login, com recuperação por e-mail;",
+            "acesso ao painel restrito a quem precisa, com o mínimo de permissões;",
+            "página pública do pedido sem e-mail completo, sem documento e sem telefone;",
+            "limite de tentativas em Meus dados e no checkout para barrar robôs e abusos;",
+            "cabeçalhos de segurança no site (proteção contra clique sequestrado e conteúdo trocado);",
+            "fornecedores com acordo de proteção de dados e revisão destas medidas sempre que o sistema muda."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cookies",
+      "title": "12. Cookies e armazenamento no navegador",
+      "blocks": [
+        { "type": "p", "text": "Cookies e o armazenamento local são pequenos registros que o site guarda no seu navegador. Classificamos assim:" },
+        {
+          "type": "defs",
+          "items": [
+            { "term": "Necessários (sempre ativos)", "text": "Guardam a sua escolha sobre cookies, lembram que o convite do WhatsApp já apareceu nesta visita e mantêm a sessão de quem entra no painel. Sem eles o site não funciona direito, por isso não dependem de consentimento." },
+            { "term": "Analíticos (desligados)", "text": "Mediriam visitas e cliques de forma agregada. Hoje o site não usa nenhum." },
+            { "term": "Marketing (desligados)", "text": "Mediriam anúncios e criariam públicos em redes sociais. Hoje o site não usa nenhum." }
+          ]
+        },
+        { "type": "p", "text": "Se um dia adotarmos ferramentas analíticas ou de marketing, elas só serão ativadas com o seu consentimento no aviso de cookies, e esta política será atualizada antes." },
+        { "type": "p", "text": "Você muda a sua escolha a qualquer momento pelo link Preferências de cookies, no rodapé de todas as páginas. Também pode apagar ou bloquear cookies nas configurações do navegador; ao apagar, o aviso aparece de novo." }
+      ]
+    },
+    {
+      "id": "menores",
+      "title": "13. Crianças e adolescentes",
+      "blocks": [
+        { "type": "p", "text": "A loja é só para maiores de 18 anos. O checkout pede a data de nascimento e o sistema recusa a compra de quem tem menos de 18 anos." },
+        { "type": "p", "text": "Não coletamos de propósito dados de menores. Se descobrirmos que recebemos dados de uma criança (até 12 anos incompletos) sem o consentimento específico de um dos pais ou responsável, ou de um adolescente fora do que a lei permite, apagamos esses dados, sempre no melhor interesse da criança ou do adolescente (art. 14 da LGPD e Estatuto da Criança e do Adolescente). Pais ou responsáveis podem pedir isso pelo canal da seção 10." }
+      ]
+    },
+    {
+      "id": "incidentes",
+      "title": "14. Se acontecer um incidente de segurança",
+      "blocks": [
+        { "type": "p", "text": "Se houver um incidente que possa causar risco ou dano relevante a você, como um vazamento, nós:" },
+        {
+          "type": "list",
+          "items": [
+            "contemos o incidente e investigamos a causa assim que tomarmos conhecimento;",
+            "comunicamos a ANPD e as pessoas afetadas em até 3 dias úteis, como manda a Resolução CD/ANPD nº 15/2024, buscando fazer isso em até 72 horas (art. 48 da LGPD);",
+            "informamos o que aconteceu, quais dados foram afetados, os riscos, o que fizemos e o que você pode fazer para se proteger;",
+            "registramos o incidente e guardamos esse registro por pelo menos 5 anos."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "anpd",
+      "title": "15. Reclamação à ANPD",
+      "blocks": [
+        { "type": "p", "text": "Se achar que não atendemos o seu pedido ou que tratamos os seus dados de forma errada, você pode reclamar à Autoridade Nacional de Proteção de Dados pelo site oficial [gov.br/anpd](https://www.gov.br/anpd). Pedimos que fale com a gente antes, pelo canal da seção 10, para resolvermos mais rápido." }
+      ]
+    },
+    {
+      "id": "vigencia",
+      "title": "16. Vigência e alterações",
+      "blocks": [
+        { "type": "p", "text": "Esta versão vale a partir da data indicada no topo da página. Quando houver mudança relevante, como um novo uso dos dados ou um novo fornecedor, avisaremos no site e, se você tiver comprado, pelo e-mail do pedido, antes de a mudança valer. O histórico de versões fica no fim desta página." }
+      ]
+    },
+    {
+      "id": "lei-e-foro",
+      "title": "17. Lei aplicável e foro",
+      "blocks": [
+        { "type": "p", "text": "Esta política segue a legislação brasileira, em especial a LGPD (Lei nº 13.709/2018), o Marco Civil da Internet (Lei nº 12.965/2014) e o Código de Defesa do Consumidor (Lei nº 8.078/1990). Fica eleito o foro do domicílio do titular para resolver qualquer questão sobre ela." }
+      ]
+    }
+  ],
+  "history": [{ "version": "1.0.0", "date": "2026-10-21", "summary": "Primeira versão." }]
+}

@@ -78,7 +78,7 @@ function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlight
           <MousePointerClick aria-hidden className="size-3.5 shrink-0 text-electric" />
           <span className="truncate">
             Clique em qualquer texto ou imagem para editar ·{" "}
-            <span className="text-fog">{path === "/" ? "Página inicial" : "Termos de compra"}</span>
+            <span className="text-fog">Página inicial</span>
           </span>
         </p>
         <div className="flex items-center gap-1.5">
