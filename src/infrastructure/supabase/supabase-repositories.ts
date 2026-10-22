@@ -1,6 +1,7 @@
 import { FunctionsHttpError, type PostgrestError, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { matchesFilter, sortAccounts } from "@/application/catalog";
+import { PASSWORD_RULE_HINT } from "@/application/schemas";
 import type {
   AccountFilter,
   AccountRepository,
@@ -39,6 +40,7 @@ import {
   LeadNotFoundError,
   PartnerNotFoundError,
   SlugTakenError,
+  TooManyAttemptsError,
   TooManyOpenOrdersError,
   OutdatedLegalDocumentsError,
   TooManyOpenDataRequestsError,
@@ -92,9 +94,23 @@ export class BackendError extends Error {
   }
 }
 
+/**
+ * Só código, mensagem e dica vão para o console. `details` fica de fora: numa violação de constraint o Postgres
+ * repete ali a linha inteira, com os dados pessoais digitados.
+ */
+export function logBackendError(error: PostgrestError): void {
+  console.error("Erro do banco", { code: error.code, message: error.message, hint: error.hint });
+}
+
 export function fail(error: PostgrestError): never {
-  console.error(error);
+  logBackendError(error);
   throw new BackendError(error);
+}
+
+/** Checkout e página do pedido: o limite de tentativas tem mensagem própria (a do Meus dados fala de privacidade). */
+function failFromOrderRpc(error: PostgrestError): never {
+  if (error.message.includes("too_many_attempts")) throw new TooManyAttemptsError();
+  return failFromRpc(error);
 }
 
 /** Erros de regra que as funções do banco levantam com `raise exception '<código>'`. */
@@ -115,14 +131,18 @@ function sanitizeQuery(query: string): string {
 }
 
 export class SupabaseAccountRepository implements AccountRepository, AdminAccountRepository {
-  constructor(private readonly client: SupabaseClient) {}
+  /** A vitrine (chave anon) usa PUBLIC_ACCOUNT_COLUMNS; o painel, todas as colunas. */
+  constructor(
+    private readonly client: SupabaseClient,
+    private readonly columns: string = ACCOUNT_COLUMNS,
+  ) {}
 
   /**
    * Rede, faixa de seguidores e busca vão para o banco. Disponibilidade e ordenação são resolvidas aqui,
    * porque reserva vencida conta como disponível (ver `effectiveStatus`).
    */
   async list(filter: AccountFilter): Promise<Account[]> {
-    let request = this.client.from("accounts").select(ACCOUNT_COLUMNS);
+    let request = this.client.from("accounts").select(this.columns);
     if (filter.platform) request = request.eq("platform", filter.platform);
     if (filter.minFollowers !== undefined) request = request.gte("followers", filter.minFollowers);
     if (filter.maxFollowers !== undefined) request = request.lt("followers", filter.maxFollowers);
@@ -137,13 +157,13 @@ export class SupabaseAccountRepository implements AccountRepository, AdminAccoun
   }
 
   async findBySlug(slug: string): Promise<Account | null> {
-    const { data, error } = await this.client.from("accounts").select(ACCOUNT_COLUMNS).eq("slug", slug).maybeSingle();
+    const { data, error } = await this.client.from("accounts").select(this.columns).eq("slug", slug).maybeSingle();
     if (error) fail(error);
     return data ? toAccount(data) : null;
   }
 
   async findById(id: string): Promise<Account | null> {
-    const { data, error } = await this.client.from("accounts").select(ACCOUNT_COLUMNS).eq("id", id).maybeSingle();
+    const { data, error } = await this.client.from("accounts").select(this.columns).eq("id", id).maybeSingle();
     if (error) fail(error);
     return data ? toAccount(data) : null;
   }
@@ -151,14 +171,14 @@ export class SupabaseAccountRepository implements AccountRepository, AdminAccoun
   async listAll(): Promise<Account[]> {
     const { data, error } = await this.client
       .from("accounts")
-      .select(ACCOUNT_COLUMNS)
+      .select(this.columns)
       .order("listed_at", { ascending: false });
     if (error) fail(error);
     return sortAccounts(data.map(toAccount), "recent");
   }
 
   async create(input: AccountData): Promise<Account> {
-    const { data, error } = await this.client.from("accounts").insert(toAccountRow(input)).select(ACCOUNT_COLUMNS).single();
+    const { data, error } = await this.client.from("accounts").insert(toAccountRow(input)).select(this.columns).single();
     if (error) this.failOnWrite(error, input.slug);
     return toAccount(data);
   }
@@ -168,7 +188,7 @@ export class SupabaseAccountRepository implements AccountRepository, AdminAccoun
       .from("accounts")
       .update(toAccountRow(input))
       .eq("id", id)
-      .select(ACCOUNT_COLUMNS)
+      .select(this.columns)
       .single();
     if (error) this.failOnWrite(error, input.slug);
     return toAccount(data);
@@ -281,13 +301,13 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_privacy_sha256: consentOf(input, "privacy").sha256,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
     });
-    if (error) failFromRpc(error);
+    if (error) failFromOrderRpc(error);
     return toOrder(data);
   }
 
   async findByCode(code: string): Promise<Order | null> {
     const { data, error } = await this.client.rpc("get_order", { p_code: code });
-    if (error) fail(error);
+    if (error) failFromOrderRpc(error);
     return data ? toOrder(data) : null;
   }
 
@@ -465,7 +485,8 @@ export class SupabaseLeadRepository implements AdminLeadRepository {
   }
 }
 
-const CUSTOMER_COLUMNS = "id, name, document, birth_date, email, whatsapp, instagram, city, state, source, interest, notes, created_at";
+// O documento entra pela coluna `document` (o banco cifra) e volta aberto por document_plain, só para administrador.
+const CUSTOMER_COLUMNS = "id, name, document:document_plain, birth_date, email, whatsapp, instagram, city, state, source, interest, notes, created_at";
 
 const customerRowSchema = z.object({
   id: z.string(),
@@ -868,7 +889,7 @@ async function failFromFunction(error: unknown, email = ""): Promise<never> {
     if (code === "self") throw new CannotRemoveAdminUserError("self");
     if (code === "last") throw new CannotRemoveAdminUserError("last");
     if (code === "forbidden") throw new Error("Só quem tem acesso ao sistema pode mexer nos usuários.");
-    if (code === "invalid") throw new Error("Dados inválidos. Confira nome, e-mail e senha.");
+    if (code === "invalid") throw new Error(`Dados inválidos. Confira nome e e-mail. ${PASSWORD_RULE_HINT}`);
   }
   throw new Error("Não foi possível falar com o servidor. Tente de novo em instantes.");
 }
@@ -904,7 +925,7 @@ const MAX_NOTIFICATIONS = 50;
 
 const notificationRowSchema = z.object({
   id: z.string(),
-  kind: z.enum(["order", "news", "privacy"]),
+  kind: z.enum(["order", "news", "privacy", "security"]),
   title: z.string(),
   body: z.string().nullable(),
   link: z.string().nullable(),

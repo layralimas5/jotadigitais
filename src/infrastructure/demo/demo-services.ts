@@ -1,16 +1,25 @@
 import type {
   AdminSession,
   AuthService,
+  AuthState,
   ImageStorage,
+  MfaEnrollment,
   PreparedImage,
   ProfileUpdate,
   ProfileUpdateResult,
   UploadedImage,
 } from "@/application/ports";
 import type { AdminRole } from "@/domain/admin-user";
+import { InvalidMfaCodeError } from "@/domain/errors";
 
 const AUTH_KEY = "jota:demo-auth";
 const NAME_KEY = "jota:demo-name";
+const MFA_KEY = "jota:demo-mfa";
+/** Senha aceita, código ainda não digitado: sobrevive ao recarregar a página, como o token do Supabase. */
+const MFA_PENDING_KEY = "jota:demo-mfa-pending";
+const DEMO_FACTOR_ID = "demo-totp";
+const MFA_ON = "on";
+const MFA_CODE = /^\d{6}$/;
 const SIGNED_OUT = "signed-out";
 /** Mesmo dono que a aba Usuários mostra no modo demonstração. */
 const DEFAULT_EMAIL = "jota@jotadigitais.com.br";
@@ -24,7 +33,7 @@ const KNOWN_PEOPLE: Record<string, { name: string; role: AdminRole }> = {
 /** O nome fica guardado por e-mail: trocar de login não carrega o nome de outra pessoa. */
 const nameKeyOf = (email: string) => `${NAME_KEY}:${email.trim().toLowerCase()}`;
 
-type Listener = (session: AdminSession | null) => void;
+type Listener = (state: AuthState) => void;
 
 function readKey(key: string): string | null {
   try {
@@ -51,17 +60,44 @@ function writeKey(key: string, value: string) {
 export class DemoAuthService implements AuthService {
   private readonly listeners = new Set<Listener>();
 
-  async getSession(): Promise<AdminSession | null> {
-    return this.readSession();
+  async getState(): Promise<AuthState> {
+    return this.readState();
   }
 
-  async signIn(email: string): Promise<AdminSession> {
+  async signIn(email: string): Promise<AuthState> {
+    writeKey(MFA_PENDING_KEY, this.mfaEnabled() ? MFA_ON : "");
     this.storeEmail(email);
-    return this.sessionOf(email);
+    return this.readState();
+  }
+
+  /** Sem servidor para conferir: qualquer código de 6 números passa. */
+  async verifyMfa(code: string): Promise<AdminSession> {
+    if (!MFA_CODE.test(code)) throw new InvalidMfaCodeError();
+    writeKey(MFA_PENDING_KEY, "");
+    this.notify();
+    return this.sessionOf(readKey(AUTH_KEY) ?? DEFAULT_EMAIL);
   }
 
   async signOut(): Promise<void> {
+    writeKey(MFA_PENDING_KEY, "");
     this.storeEmail(SIGNED_OUT);
+  }
+
+  async getMfaFactorId(): Promise<string | null> {
+    return this.mfaEnabled() ? DEMO_FACTOR_ID : null;
+  }
+
+  async startMfaEnrollment(): Promise<MfaEnrollment> {
+    return { factorId: DEMO_FACTOR_ID, qrCode: null, secret: "JOTADEMODUASETAPAS" };
+  }
+
+  async confirmMfaEnrollment(_factorId: string, code: string): Promise<void> {
+    if (!MFA_CODE.test(code)) throw new InvalidMfaCodeError();
+    writeKey(MFA_KEY, MFA_ON);
+  }
+
+  async disableMfa(): Promise<void> {
+    writeKey(MFA_KEY, "");
   }
 
   /** Não há senha guardada no modo local: conferir e trocar só valem com o Supabase. */
@@ -83,10 +119,15 @@ export class DemoAuthService implements AuthService {
     return () => this.listeners.delete(listener);
   }
 
-  private readSession(): AdminSession | null {
+  private mfaEnabled(): boolean {
+    return readKey(MFA_KEY) === MFA_ON;
+  }
+
+  private readState(): AuthState {
     const email = readKey(AUTH_KEY);
-    if (email === SIGNED_OUT) return null;
-    return this.sessionOf(email ?? DEFAULT_EMAIL);
+    if (email === SIGNED_OUT) return { status: "signed-out" };
+    if (readKey(MFA_PENDING_KEY) === MFA_ON) return { status: "mfa-required" };
+    return { status: "signed-in", session: this.sessionOf(email ?? DEFAULT_EMAIL) };
   }
 
   private sessionOf(email: string): AdminSession {
@@ -97,8 +138,12 @@ export class DemoAuthService implements AuthService {
 
   private storeEmail(value: string) {
     writeKey(AUTH_KEY, value);
-    const session = this.readSession();
-    this.listeners.forEach((listener) => listener(session));
+    this.notify();
+  }
+
+  private notify() {
+    const state = this.readState();
+    this.listeners.forEach((listener) => listener(state));
   }
 }
 

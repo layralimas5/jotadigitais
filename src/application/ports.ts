@@ -114,16 +114,39 @@ export interface ProfileUpdateResult {
   emailConfirmationPending: boolean;
 }
 
+export type AuthState =
+  | { status: "signed-out" }
+  /** Senha conferida; falta o código do app autenticador (verificação em duas etapas). */
+  | { status: "mfa-required" }
+  | { status: "signed-in"; session: AdminSession };
+
+export interface MfaEnrollment {
+  factorId: string;
+  /** QR code (data URL) para ler no app autenticador. Nulo no modo demonstração. */
+  qrCode: string | null;
+  /** A mesma chave do QR, para digitar à mão. */
+  secret: string;
+}
+
 export interface AuthService {
-  getSession(): Promise<AdminSession | null>;
-  signIn(email: string, password: string): Promise<AdminSession>;
+  getState(): Promise<AuthState>;
+  /** Devolve "mfa-required" quando a pessoa ligou a verificação em duas etapas. */
+  signIn(email: string, password: string): Promise<AuthState>;
+  /** Confere o código do app autenticador depois da senha. Falha com `InvalidMfaCodeError`. */
+  verifyMfa(code: string): Promise<AdminSession>;
   signOut(): Promise<void>;
+  /** Fator do app autenticador já confirmado, ou nulo com a verificação em duas etapas desligada. */
+  getMfaFactorId(): Promise<string | null>;
+  startMfaEnrollment(): Promise<MfaEnrollment>;
+  /** Confirma o cadastro com o primeiro código do app. Falha com `InvalidMfaCodeError`. */
+  confirmMfaEnrollment(factorId: string, code: string): Promise<void>;
+  disableMfa(factorId: string): Promise<void>;
   /** Confere a senha atual. Falha com `WrongCurrentPasswordError`. */
   verifyPassword(email: string, password: string): Promise<void>;
   changePassword(newPassword: string): Promise<void>;
   requestPasswordReset(email: string, redirectTo: string): Promise<void>;
   updateProfile(update: ProfileUpdate, emailRedirectTo: string): Promise<ProfileUpdateResult>;
-  onChange(listener: (session: AdminSession | null) => void): () => void;
+  onChange(listener: (state: AuthState) => void): () => void;
 }
 
 export interface AdminSiteContentRepository extends SiteContentRepository {

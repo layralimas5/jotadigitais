@@ -2,6 +2,7 @@ import { KeyRound } from "lucide-react";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminSession } from "../session";
 import { BackupSection } from "../settings/BackupSection";
+import { MfaSection } from "../settings/MfaSection";
 import { PasswordResetSection } from "../settings/PasswordResetSection";
 import { PasswordSection } from "../settings/PasswordSection";
 import { ProfileSection } from "../settings/ProfileSection";
@@ -25,7 +26,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Configurações" description="Seu perfil, sua senha e o backup do sistema." />
+      <PageHeader title="Configurações" description="Seu perfil, sua senha, a verificação em duas etapas e o backup do sistema." />
       {session.recoveringPassword && (
         <p role="status" className="mt-6 flex gap-3 rounded-2xl border border-electric/30 bg-electric/[0.07] px-4 py-3 text-sm text-white">
           <KeyRound aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
@@ -43,6 +44,7 @@ export default function SettingsPage() {
         ) : (
           <DemoPasswordNotice />
         )}
+        <MfaSection />
         <BackupSection />
       </div>
     </>

@@ -2,7 +2,7 @@ import { KeyRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { changePassword } from "@/application/admin-use-cases";
 import type { AdminSession } from "@/application/ports";
-import { ValidationError, type ChangePasswordInput } from "@/application/schemas";
+import { PASSWORD_RULE_HINT, ValidationError, type ChangePasswordInput } from "@/application/schemas";
 import { WrongCurrentPasswordError } from "@/domain/errors";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
@@ -41,7 +41,7 @@ export function PasswordSection({ session }: { session: AdminSession }) {
   return (
     <FormSection
       title={recoveringPassword ? "Criar senha nova" : "Trocar senha"}
-      description="Use pelo menos 8 caracteres. Você continua conectado neste aparelho."
+      description={`${PASSWORD_RULE_HINT} Você continua conectado neste aparelho.`}
     >
       <form id="senha" noValidate onSubmit={onSubmit} aria-busy={change.pending} className="space-y-4">
         {!recoveringPassword && (

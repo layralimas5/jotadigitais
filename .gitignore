@@ -6,3 +6,6 @@ dist
 *.log
 supabase/.temp
 supabase/.branches
+
+# Contratos e documentos do cliente nunca vão para o repositório.
+*.pdf

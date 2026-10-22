@@ -24,13 +24,17 @@ const accountRowSchema = z.object({
   images: z.array(z.string()),
   stats: z.unknown(),
   listed_at: z.string(),
-  partner_id: z.string().nullable(),
+  // A vitrine não recebe estas duas: o visitante não tem acesso às colunas (ver PUBLIC_ACCOUNT_COLUMNS).
+  partner_id: z.string().nullish(),
   profile_url: z.string().nullable(),
-  stats_synced_at: z.string().nullable(),
+  stats_synced_at: z.string().nullish(),
 });
 
-export const ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, partner_id, profile_url, stats_synced_at";
+/** O que a chave anon pode ler de uma conta: sem o parceiro que a forneceu. */
+export const PUBLIC_ACCOUNT_COLUMNS =
+  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url";
+
+export const ACCOUNT_COLUMNS = `${PUBLIC_ACCOUNT_COLUMNS}, partner_id, stats_synced_at`;
 
 export function toAccount(raw: unknown): Account {
   const row = accountRowSchema.parse(raw);
@@ -46,7 +50,7 @@ export function toAccount(raw: unknown): Account {
     avatarUrl: row.avatar_url,
     images: row.images,
     listedAt: row.listed_at,
-    partnerId: row.partner_id,
+    partnerId: row.partner_id ?? null,
     profileUrl: row.profile_url,
     statsSyncedAt: row.stats_synced_at ? new Date(row.stats_synced_at).toISOString() : null,
   });
@@ -143,7 +147,8 @@ const orderRowSchema = z.object({
 });
 
 export const ORDER_COLUMNS =
-  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document, customer_birth_date, customer_instagram, customer_city, customer_state, payment_method, total_cents, status, expires_at, created_at, delivered_at";
+  // O CPF/CNPJ fica cifrado no banco; customer_document_plain devolve o número aberto só para administrador.
+  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, payment_method, total_cents, status, expires_at, created_at, delivered_at";
 
 export function toOrder(raw: unknown): Order {
   const row = orderRowSchema.parse(raw);
