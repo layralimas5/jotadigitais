@@ -28,6 +28,9 @@ export interface FaqEntry {
   tiktokOnly: boolean;
 }
 
+/** Provas abaixo dos botões do topo: mais que isso quebra em linhas demais no celular. */
+export const MAX_PROOF_POINTS = 6;
+
 export interface SiteContent {
   seo: { title: string; description: string };
   hero: {
@@ -38,7 +41,8 @@ export interface SiteContent {
     subtitle: string;
     primaryCta: string;
     secondaryCta: string;
-    proofPoints: [string, string, string];
+    /** De 1 a 6 frases curtas abaixo dos botões. O ícone de cada uma sai do próprio texto. */
+    proofPoints: string[];
     phoneName: string;
     phoneHandle: string;
     chipTitle: string;

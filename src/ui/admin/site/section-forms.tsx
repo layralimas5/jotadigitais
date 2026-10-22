@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
+import { MAX_PROOF_POINTS, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 
@@ -70,22 +70,21 @@ const HeroForm: Form<"hero"> = (props) => {
         {copy("primaryCta", "Botão principal", 32)}
         {copy("secondaryCta", "Botão secundário", 32)}
       </div>
-      <fieldset className="space-y-2.5">
-        <legend className="text-sm font-medium text-fog">Três provas abaixo dos botões</legend>
-        {value.proofPoints.map((point, index) => (
-          <CopyField
-            key={index}
-            label={`Prova ${index + 1}`}
-            path={`hero.proofPoints.${index}`}
-            value={point}
-            max={40}
-            errors={errors}
-            onChange={(next) =>
-              onChange({ ...value, proofPoints: value.proofPoints.map((item, position) => (position === index ? next : item)) as [string, string, string] })
-            }
-          />
-        ))}
-      </fieldset>
+      <CopyListField
+        label="Provas abaixo dos botões"
+        path="hero.proofPoints"
+        items={value.proofPoints}
+        itemMax={40}
+        min={1}
+        max={MAX_PROOF_POINTS}
+        addLabel="Adicionar prova"
+        errors={errors}
+        onChange={(proofPoints) => onChange({ ...value, proofPoints })}
+      />
+      <p className="-mt-2 text-xs text-mist">
+        Até {MAX_PROOF_POINTS}, com 40 caracteres cada. O ícone segue o texto: WhatsApp, e-mail, Pix ou cartão e garantia ganham o
+        símbolo certo.
+      </p>
       <p className="border-t border-line pt-4 text-xs font-semibold text-mist">Celular ilustrativo (só no computador)</p>
       <div className="grid gap-3">
         {copy("phoneName", "Nome no perfil", 30)}
