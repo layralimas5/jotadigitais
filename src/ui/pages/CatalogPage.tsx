@@ -1,5 +1,4 @@
-import { Search } from "lucide-react";
-import { useDeferredValue, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AccountFilter, AccountSort } from "@/application/ports";
 import { PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
@@ -38,7 +37,6 @@ function isSort(value: string | null): value is AccountSort {
 
 function useCatalogParams() {
   const [params, setParams] = useSearchParams();
-  const query = params.get("busca") ?? "";
   const platformParam = params.get("rede");
   const rangeParam = params.get("seguidores");
   const sortParam = params.get("ordem");
@@ -58,7 +56,7 @@ function useCatalogParams() {
     );
   };
 
-  return { query, platform, range, sort, update, reset: () => setParams({}, { replace: true }) };
+  return { platform, range, sort, update, reset: () => setParams({}, { replace: true }) };
 }
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
@@ -84,21 +82,19 @@ export default function CatalogPage() {
     "Contas disponíveis",
     "Contas de TikTok, Instagram, YouTube e Facebook prontas para usar. Filtre por rede social e número de seguidores.",
   );
-  const { query, platform, range, sort, update, reset } = useCatalogParams();
-  const deferredQuery = useDeferredValue(query);
+  const { platform, range, sort, update, reset } = useCatalogParams();
 
   const filter = useMemo<AccountFilter>(
     () => ({
-      query: deferredQuery || undefined,
       platform,
       minFollowers: FOLLOWER_RANGES[range].min,
       maxFollowers: FOLLOWER_RANGES[range].max,
       sort,
     }),
-    [deferredQuery, platform, range, sort],
+    [platform, range, sort],
   );
   const accounts = useAccounts(filter);
-  const hasFilters = Boolean(query || platform || range !== "todas");
+  const hasFilters = Boolean(platform || range !== "todas");
   const availableCount =
     accounts.status === "success" ? accounts.data.filter((account) => account.status === "available").length : null;
 
@@ -117,19 +113,24 @@ export default function CatalogPage() {
         </header>
 
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <label className="relative flex-1">
-              <span className="sr-only">Buscar conta</span>
-              <Search aria-hidden className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-mist" />
-              <input
-                type="search"
-                value={query}
-                onChange={(event) => update("busca", event.target.value || undefined)}
-                placeholder="Buscar por nome ou @"
-                className="h-11 w-full rounded-full border border-line-strong bg-surface pr-4 pl-11 text-sm text-white placeholder:text-mist focus:border-electric focus:outline-none"
-              />
-            </label>
-            <div className="flex gap-3">
+          {/* Filtros pedidos pelo Jota: rede social, faixa de seguidores e ordem (recentes primeiro). Sem busca por nome. */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div
+              role="group"
+              aria-label="Filtrar por rede social"
+              className="-mx-4 -mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
+            >
+              <FilterChip active={!platform} onClick={() => update("rede", undefined)}>
+                Todas as redes
+              </FilterChip>
+              {PLATFORMS.map((option) => (
+                <FilterChip key={option} active={platform === option} onClick={() => update("rede", option)}>
+                  <PlatformGlyph platform={option} className="size-4" />
+                  {PLATFORM_LABEL[option]}
+                </FilterChip>
+              ))}
+            </div>
+            <div className="flex shrink-0 gap-3">
               <label className="flex-1 lg:flex-none">
                 <span className="sr-only">Seguidores ou inscritos</span>
                 <select
@@ -159,22 +160,6 @@ export default function CatalogPage() {
                 </select>
               </label>
             </div>
-          </div>
-
-          <div
-            role="group"
-            aria-label="Filtrar por rede social"
-            className="mt-3 -mx-4 -mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
-          >
-            <FilterChip active={!platform} onClick={() => update("rede", undefined)}>
-              Todas as redes
-            </FilterChip>
-            {PLATFORMS.map((option) => (
-              <FilterChip key={option} active={platform === option} onClick={() => update("rede", option)}>
-                <PlatformGlyph platform={option} className="size-4" />
-                {PLATFORM_LABEL[option]}
-              </FilterChip>
-            ))}
           </div>
         </div>
 
