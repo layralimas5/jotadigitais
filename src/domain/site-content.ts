@@ -31,6 +31,32 @@ export interface FaqEntry {
 /** Provas abaixo dos botões do topo: mais que isso quebra em linhas demais no celular. */
 export const MAX_PROOF_POINTS = 6;
 
+/** Ícones que o Jota escolhe para cada prova. "auto" escolhe pelo texto (WhatsApp, e-mail, Pix...). */
+export const PROOF_ICONS = [
+  "auto",
+  "shield",
+  "badge",
+  "users",
+  "wallet",
+  "card",
+  "mail",
+  "whatsapp",
+  "zap",
+  "clock",
+  "lock",
+  "star",
+  "headset",
+  "check",
+  "trending",
+] as const;
+
+export type ProofIcon = (typeof PROOF_ICONS)[number];
+
+export interface ProofPoint {
+  text: string;
+  icon: ProofIcon;
+}
+
 export interface SiteContent {
   seo: { title: string; description: string };
   hero: {
@@ -41,8 +67,8 @@ export interface SiteContent {
     subtitle: string;
     primaryCta: string;
     secondaryCta: string;
-    /** De 1 a 6 frases curtas abaixo dos botões. O ícone de cada uma sai do próprio texto. */
-    proofPoints: string[];
+    /** De 1 a 6 frases curtas abaixo dos botões, cada uma com seu ícone. */
+    proofPoints: ProofPoint[];
     phoneName: string;
     phoneHandle: string;
     chipTitle: string;
@@ -87,7 +113,11 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "Pule a fila de análise que recusa a maioria dos pedidos. Escolha uma conta com o Shop ativo, troque nome, @ e foto, e comece a afiliar produtos e ganhar comissão hoje.",
     primaryCta: "Ver contas disponíveis",
     secondaryCta: "Como funciona",
-    proofPoints: ["Seguidores reais e brasileiros", "Pix ou até 12x no cartão", "Acesso entregue no seu e-mail"],
+    proofPoints: [
+      { text: "Seguidores reais e brasileiros", icon: "auto" },
+      { text: "Pix ou até 12x no cartão", icon: "auto" },
+      { text: "Acesso entregue no seu e-mail", icon: "auto" },
+    ],
     phoneName: "Sua Loja Aqui",
     phoneHandle: "@sualoja.aqui",
     chipTitle: "Shop ativo",

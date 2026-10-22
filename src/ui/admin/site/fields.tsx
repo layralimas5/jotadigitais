@@ -33,7 +33,7 @@ export function CopyField({ label, path, value, onChange, errors, max, multiline
   );
 }
 
-function AddButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
+export function AddButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled: boolean }) {
   return (
     <button
       type="button"

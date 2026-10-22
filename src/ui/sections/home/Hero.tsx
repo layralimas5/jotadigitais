@@ -1,15 +1,14 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, CircleCheck, Mail, ShieldCheck, Wallet, type LucideIcon } from "lucide-react";
-import { normalizeSearch } from "@/application/catalog";
+import { ArrowRight } from "lucide-react";
 import { ButtonLink } from "@/ui/components/Button";
 import { PhoneProfile, type ProfilePreview } from "@/ui/components/account/PhoneProfile";
 import { Backdrop } from "@/ui/components/layout/Backdrop";
 import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
-import { WhatsAppGlyph } from "@/ui/components/whatsapp/WhatsAppGlyph";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
+import { proofIconComponent } from "@/ui/lib/proof-icons";
 import { editable } from "@/ui/lib/site-preview";
 
 const previewOf = (name: string, handle: string): ProfilePreview => ({
@@ -20,21 +19,6 @@ const previewOf = (name: string, handle: string): ProfilePreview => ({
   followers: 1259,
   stats: { likes: 2123, following: 0, monetized: false },
 });
-
-type ProofIcon = LucideIcon | typeof WhatsAppGlyph;
-
-/** O ícone sai do texto da prova (o Jota escreve e reordena à vontade). A primeira regra que bater vale. */
-const PROOF_ICON_RULES: readonly { words: RegExp; icon: ProofIcon }[] = [
-  { words: /whats|zap/, icon: WhatsAppGlyph },
-  { words: /e-?mail/, icon: Mail },
-  { words: /pix|cartao|parcel|\d+x|pagamento|boleto/, icon: Wallet },
-  { words: /seguidor|garantia|seguran|segur|real|reais|verificad|conferid/, icon: ShieldCheck },
-];
-
-function proofIconOf(label: string): ProofIcon {
-  const text = normalizeSearch(label);
-  return PROOF_ICON_RULES.find((rule) => rule.words.test(text))?.icon ?? CircleCheck;
-}
 
 const FLOAT_DURATION_S = 3.2;
 const FLOAT_DISTANCE_PX = 10;
@@ -139,12 +123,12 @@ export function Hero() {
             variants={fadeUp}
             className="mt-5 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-2 text-[0.78rem] text-fog sm:mt-10 sm:gap-x-6 sm:gap-y-3 sm:text-sm lg:justify-start"
           >
-            {hero.proofPoints.map((label, index) => {
-              const Icon = proofIconOf(label);
+            {hero.proofPoints.map((point, index) => {
+              const Icon = proofIconComponent(point);
               return (
-                <li key={index} {...editable(`hero.proofPoints.${index}`)} className="flex items-center gap-1.5 sm:gap-2">
+                <li key={index} {...editable(`hero.proofPoints.${index}.text`)} className="flex items-center gap-1.5 sm:gap-2">
                   <Icon aria-hidden className="size-3.5 text-electric sm:size-4" />
-                  {label}
+                  {point.text}
                 </li>
               );
             })}

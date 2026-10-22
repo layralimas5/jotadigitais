@@ -7,7 +7,7 @@ import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
 import { PLATFORMS } from "@/domain/platform";
 import { DATA_REQUEST_KINDS } from "@/domain/privacy";
-import { MAX_PROOF_POINTS } from "@/domain/site-content";
+import { MAX_PROOF_POINTS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -459,6 +459,12 @@ const siteImage = z.object({
 
 const titleBlock = { eyebrow: copy(40), title: copy(90), description: copy(240) };
 
+/** Prova salva antes de existir a escolha de ícone era só o texto: vira texto com ícone automático. */
+const proofPoint = z.preprocess(
+  (value) => (typeof value === "string" ? { text: value, icon: "auto" } : value),
+  z.object({ text: copy(40), icon: z.enum(PROOF_ICONS).catch("auto") }),
+);
+
 export const siteContentSchema = z.object({
   seo: z.object({ title: copy(70), description: copy(170) }),
   hero: z.object({
@@ -468,7 +474,7 @@ export const siteContentSchema = z.object({
     subtitle: copy(260),
     primaryCta: copy(32),
     secondaryCta: copy(32),
-    proofPoints: z.array(copy(40)).min(1, "Deixe pelo menos uma prova.").max(MAX_PROOF_POINTS),
+    proofPoints: z.array(proofPoint).min(1, "Deixe pelo menos uma prova.").max(MAX_PROOF_POINTS),
     phoneName: copy(30),
     phoneHandle: copy(30),
     chipTitle: copy(24),
