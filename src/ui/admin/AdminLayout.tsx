@@ -232,7 +232,8 @@ export function AdminProtected() {
   const formPage = matchesAny(FORM_ROUTES, location.pathname);
 
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;
-  if (state.status === "signed-out") return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
+  // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
+  if (state.status !== "signed-in") return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
 
   return (
     <>

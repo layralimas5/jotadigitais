@@ -30,10 +30,15 @@
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
 
+# CSP: só o próprio site, o Supabase do projeto e o Google (login do Google Agenda) carregam código e dados.
+# style-src precisa de 'unsafe-inline' por causa das animações (Framer Motion escreve estilo inline).
+# frame-ancestors 'self' e SAMEORIGIN: ninguém embute o site, mas a aba Site do painel abre a prévia num iframe do próprio domínio.
 [[headers]]
   for = "/*"
   [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob: https://jdioavepehkxmnhwshtx.supabase.co; font-src 'self'; connect-src 'self' https://jdioavepehkxmnhwshtx.supabase.co wss://jdioavepehkxmnhwshtx.supabase.co https://www.googleapis.com https://accounts.google.com/gsi/; frame-src 'self' https://accounts.google.com/gsi/; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
     X-Content-Type-Options = "nosniff"
-    X-Frame-Options = "DENY"
+    X-Frame-Options = "SAMEORIGIN"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"

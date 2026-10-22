@@ -40,6 +40,7 @@ import {
   SupabaseTestimonialRepository,
 } from "@/infrastructure/supabase/supabase-repositories";
 import { SupabasePrivacyRepository, SupabasePrivacyService } from "@/infrastructure/supabase/supabase-privacy";
+import { PUBLIC_ACCOUNT_COLUMNS } from "@/infrastructure/supabase/rows";
 import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
 import { backendConfig, defaultStoreSettings } from "./config";
 
@@ -53,6 +54,10 @@ interface Container {
 
 function supabaseContainer(url: string, anonKey: string): Container {
   const client = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+  const passwordChecker = () =>
+    createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "jd-password-check" },
+    });
   const accounts = new SupabaseAccountRepository(client);
   const testimonials = new SupabaseTestimonialRepository(client);
   const orders = new SupabaseOrderRepository(client);
@@ -61,7 +66,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
   return {
     mode: "supabase",
     store: {
-      accounts,
+      accounts: new SupabaseAccountRepository(client, PUBLIC_ACCOUNT_COLUMNS),
       testimonials,
       orders,
       settings,
@@ -70,7 +75,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       privacy: new SupabasePrivacyService(client),
     },
     admin: {
-      auth: new SupabaseAuthService(client),
+      auth: new SupabaseAuthService(client, passwordChecker),
       accounts,
       testimonials,
       orders,

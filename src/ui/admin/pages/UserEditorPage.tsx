@@ -2,7 +2,7 @@ import { ArrowLeft, UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createAdminUser } from "@/application/admin-use-cases";
-import { fieldErrorsOf, newAdminUserSchema } from "@/application/schemas";
+import { fieldErrorsOf, newAdminUserSchema, PASSWORD_RULE_HINT } from "@/application/schemas";
 import type { NewAdminUser } from "@/domain/admin-user";
 import { TextField } from "@/ui/components/form/Fields";
 import { FormSection, PageHeader } from "../components/AdminUi";
@@ -92,7 +92,7 @@ export default function UserEditorPage() {
             value={values.password}
             onChange={(event) => update({ password: event.target.value })}
             error={errors.password}
-            hint="Pelo menos 8 caracteres."
+            hint={PASSWORD_RULE_HINT}
           />
         </FormSection>
 

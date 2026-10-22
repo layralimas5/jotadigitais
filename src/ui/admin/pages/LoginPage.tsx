@@ -1,4 +1,4 @@
-import { KeyRound, Lock } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { signIn } from "@/application/admin-use-cases";
@@ -8,6 +8,7 @@ import { TextField } from "@/ui/components/form/Fields";
 import { Logo } from "@/ui/components/Logo";
 import { InlineError, LoadingBlock } from "../components/AdminUi";
 import { ForgotPasswordForm } from "../components/ForgotPasswordForm";
+import { MfaChallengeForm } from "../components/MfaChallengeForm";
 import { useMutation } from "../hooks";
 import { HOME_PATH } from "../navigation";
 import { useAdminSession } from "../session";
@@ -17,6 +18,12 @@ interface FromState {
 }
 
 type Mode = "sign-in" | "forgot-password";
+
+const COPY = {
+  "sign-in": { title: "Entrar no painel", description: "Área restrita para cadastrar contas, depoimentos e acompanhar pedidos." },
+  "forgot-password": { title: "Recuperar senha", description: "Informe o e-mail de acesso e enviamos um link para criar uma senha nova." },
+  "mfa": { title: "Verificação em duas etapas", description: "Senha aceita. Abra o app autenticador no celular e digite o código desta conta." },
+} as const;
 
 export default function LoginPage() {
   const { state } = useAdminSession();
@@ -33,11 +40,15 @@ export default function LoginPage() {
 
   const fieldErrors = login.error instanceof ValidationError ? login.error.fieldErrors : {};
   const forgotPassword = mode === "forgot-password";
+  // Vale também para quem chega pelo link de redefinição ou recarrega a página no meio do login.
+  const needsCode = state.status === "mfa-required";
+  const copy = COPY[needsCode ? "mfa" : mode];
+  const goToPanel = () => navigate(destination, { replace: true });
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const session = await login.run({ email, password });
-    if (session) navigate(destination, { replace: true });
+    const result = await login.run({ email, password });
+    if (result?.status === "signed-in") goToPanel();
   };
 
   return (
@@ -49,20 +60,20 @@ export default function LoginPage() {
         </div>
         <div className="mt-8 rounded-3xl border border-line bg-surface p-6 sm:p-7">
           <h1 className="flex items-center gap-2 font-display text-xl font-semibold text-white">
-            {forgotPassword ? (
+            {needsCode ? (
+              <ShieldCheck aria-hidden className="size-5 text-electric" />
+            ) : forgotPassword ? (
               <KeyRound aria-hidden className="size-5 text-electric" />
             ) : (
               <Lock aria-hidden className="size-5 text-electric" />
             )}
-            {forgotPassword ? "Recuperar senha" : "Entrar no painel"}
+            {copy.title}
           </h1>
-          <p className="mt-1.5 text-sm text-mist">
-            {forgotPassword
-              ? "Informe o e-mail de acesso e enviamos um link para criar uma senha nova."
-              : "Área restrita para cadastrar contas, depoimentos e acompanhar pedidos."}
-          </p>
+          <p className="mt-1.5 text-sm text-mist">{copy.description}</p>
 
-          {forgotPassword ? (
+          {needsCode ? (
+            <MfaChallengeForm onVerified={goToPanel} />
+          ) : forgotPassword ? (
             <ForgotPasswordForm initialEmail={email} onBack={() => setMode("sign-in")} />
           ) : (
             <form noValidate onSubmit={onSubmit} className="mt-6 space-y-4" aria-busy={login.pending}>

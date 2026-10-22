@@ -31,10 +31,12 @@ import type {
   AdminPrivacyRepository,
   AdminUserRepository,
   AuthService,
+  AuthState,
   CalendarService,
   ProfileLookupService,
   ImageStorage,
   MediaFolder,
+  MfaEnrollment,
   PreparedImage,
   ProfileUpdateResult,
   UploadedImage,
@@ -47,6 +49,7 @@ import {
   expenseDataSchema,
   leadDataSchema,
   messageTemplatesSchema,
+  mfaCodeSchema,
   newAdminUserSchema,
   parseOrThrow,
   partnerDataSchema,
@@ -81,9 +84,15 @@ export interface AdminDeps {
   privacy: AdminPrivacyRepository;
 }
 
-export function signIn(deps: AdminDeps, raw: unknown): Promise<AdminSession> {
+export function signIn(deps: AdminDeps, raw: unknown): Promise<AuthState> {
   const { email, password } = parseOrThrow(signInSchema, raw);
   return deps.auth.signIn(email, password);
+}
+
+/** Segunda etapa do login: o código do app autenticador. */
+export function verifyMfaCode(deps: AdminDeps, raw: unknown): Promise<AdminSession> {
+  const { code } = parseOrThrow(mfaCodeSchema, raw);
+  return deps.auth.verifyMfa(code);
 }
 
 export function listAllAccounts(deps: AdminDeps): Promise<Account[]> {
@@ -341,6 +350,23 @@ export async function changePassword(deps: AdminDeps, raw: unknown, session: Adm
 
 export function updateProfile(deps: AdminDeps, raw: unknown, emailRedirectTo: string): Promise<ProfileUpdateResult> {
   return deps.auth.updateProfile(parseOrThrow(profileSchema, raw), emailRedirectTo);
+}
+
+export function getMfaFactorId(deps: AdminDeps): Promise<string | null> {
+  return deps.auth.getMfaFactorId();
+}
+
+export function startMfaEnrollment(deps: AdminDeps): Promise<MfaEnrollment> {
+  return deps.auth.startMfaEnrollment();
+}
+
+export function confirmMfaEnrollment(deps: AdminDeps, factorId: string, raw: unknown): Promise<void> {
+  const { code } = parseOrThrow(mfaCodeSchema, raw);
+  return deps.auth.confirmMfaEnrollment(factorId, code);
+}
+
+export function disableMfa(deps: AdminDeps, factorId: string): Promise<void> {
+  return deps.auth.disableMfa(factorId);
 }
 
 /** O link do e-mail entra logado em Configurações, onde a senha nova é definida. */

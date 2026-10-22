@@ -114,6 +114,21 @@ export class NotAdminError extends Error {
   }
 }
 
+export class InvalidMfaCodeError extends Error {
+  constructor() {
+    super("Código incorreto ou vencido. Confira o app autenticador e digite o código atual.");
+    this.name = "InvalidMfaCodeError";
+  }
+}
+
+/** Limite de tentativas do checkout ou da página do pedido (o servidor barra quem repete demais). */
+export class TooManyAttemptsError extends Error {
+  constructor() {
+    super("Muitas tentativas seguidas. Espere alguns minutos e tente de novo.");
+    this.name = "TooManyAttemptsError";
+  }
+}
+
 export class WrongCurrentPasswordError extends Error {
   constructor() {
     super("A senha atual não confere.");

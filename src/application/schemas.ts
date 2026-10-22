@@ -284,10 +284,20 @@ export const partnerDataSchema = z.object({
 // Usuários do sistema
 // ---------------------------------------------------------------------------
 
+/** Mesma regra da Edge Function admin-users e do Supabase (Authentication > Sign In / Providers > Email). */
+export const PASSWORD_RULE_HINT = "Use pelo menos 10 caracteres, com letras e números.";
+
+const newPassword = z
+  .string()
+  .min(10, "Use pelo menos 10 caracteres.")
+  .max(72, "Use no máximo 72 caracteres.")
+  .regex(/[A-Za-z]/, "Use pelo menos uma letra.")
+  .regex(/\d/, "Use pelo menos um número.");
+
 export const newAdminUserSchema = z.object({
   name: personName,
   email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
-  password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),
+  password: newPassword,
 });
 
 // ---------------------------------------------------------------------------
@@ -357,6 +367,16 @@ export const signInSchema = z.object({
   password: z.string().min(6, "A senha tem pelo menos 6 caracteres."),
 });
 
+/** Código de 6 números do app autenticador. Espaço no meio (como alguns apps mostram) é ignorado. */
+export const mfaCodeSchema = z.object({
+  code: z
+    .string()
+    .transform((value) => value.replace(/\s/g, ""))
+    .pipe(z.string().regex(/^\d{6}$/, "Digite os 6 números do app autenticador.")),
+});
+
+export type MfaCodeInput = z.input<typeof mfaCodeSchema>;
+
 export const passwordResetSchema = signInSchema.pick({ email: true });
 
 export type PasswordResetInput = z.input<typeof passwordResetSchema>;
@@ -365,7 +385,7 @@ export const changePasswordSchema = z
   .object({
     /** Vazia só quando a pessoa entrou pelo link de redefinição. */
     currentPassword: z.string().default(""),
-    password: z.string().min(8, "Use pelo menos 8 caracteres.").max(72, "Use no máximo 72 caracteres."),
+    password: newPassword,
     confirmation: z.string(),
   })
   .refine((data) => data.password === data.confirmation, {

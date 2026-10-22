@@ -9,7 +9,7 @@ import type { Order } from "./order";
  * - `privacy`: solicitação LGPD aberta em Meus dados, gravada pelo banco;
  * - `reminder`: lembretes calculados na hora a partir dos pedidos e do CRM.
  */
-export type NotificationKind = "order" | "news" | "privacy" | "reminder";
+export type NotificationKind = "order" | "news" | "privacy" | "security" | "reminder";
 
 export interface AppNotification {
   /** Identifica a notificação para apagar: o mesmo aviso não volta depois de apagado. */
@@ -25,7 +25,7 @@ export interface AppNotification {
 /** Notificação guardada no banco (pedido novo, novidade ou solicitação LGPD). */
 export interface StoredNotification {
   id: string;
-  kind: Extract<NotificationKind, "order" | "news" | "privacy">;
+  kind: Extract<NotificationKind, "order" | "news" | "privacy" | "security">;
   title: string;
   body: string | null;
   link: string | null;

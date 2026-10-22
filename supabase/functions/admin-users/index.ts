@@ -11,6 +11,10 @@ const CORS_HEADERS = {
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+/** 10 a 72 caracteres, com pelo menos uma letra e um número. */
+const isStrongPassword = (password: string) =>
+  password.length >= 10 && password.length <= 72 && /[A-Za-z]/.test(password) && /\d/.test(password);
+
 type ErrorCode = "forbidden" | "invalid" | "email_taken" | "self" | "last" | "server";
 
 const STATUS: Record<ErrorCode, number> = {
@@ -41,7 +45,7 @@ function parseCreate(body: Record<string, unknown>): CreateInput | null {
   const password = typeof body.password === "string" ? body.password : "";
   if (name.length < 2 || name.length > 80) return null;
   if (!EMAIL_PATTERN.test(email) || email.length > 254) return null;
-  if (password.length < 8 || password.length > 72) return null;
+  if (!isStrongPassword(password)) return null;
   return { name, email, password };
 }
 
