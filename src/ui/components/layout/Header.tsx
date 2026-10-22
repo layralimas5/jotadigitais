@@ -2,13 +2,10 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { LayoutDashboard, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { container } from "@/app/container";
+import { useHasAdminSession } from "@/ui/hooks/useHasAdminSession";
 import { cn } from "@/ui/lib/cn";
 import { ButtonLink } from "../Button";
 import { Logo } from "../Logo";
-
-/** Atalho para o painel só enquanto o banco não está ligado: em produção o Jota entra por /admin. */
-const SHOW_SYSTEM_LINK = container.mode === "demo";
 
 const NAV_ITEMS = [
   { to: "/contas", label: "Contas" },
@@ -33,6 +30,7 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  const showSystemLink = useHasAdminSession();
 
   useEffect(() => setOpen(false), [location.pathname, location.hash]);
 
@@ -76,7 +74,8 @@ export function Header() {
           <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem]">
             Ver contas
           </ButtonLink>
-          {SHOW_SYSTEM_LINK && (
+          {/* Atalho para o painel só para quem já entrou nele neste navegador: o cliente não vê. */}
+          {showSystemLink && (
             <ButtonLink
               to="/admin"
               variant="secondary"
