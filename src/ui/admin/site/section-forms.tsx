@@ -1,7 +1,8 @@
 import type { ComponentType } from "react";
-import { MAX_PROOF_POINTS, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
+import type { SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
+import { ProofPointsField } from "./ProofPointsField";
 
 interface SectionFormProps<K extends SiteSectionKey> {
   value: SiteContent[K];
@@ -70,21 +71,7 @@ const HeroForm: Form<"hero"> = (props) => {
         {copy("primaryCta", "Botão principal", 32)}
         {copy("secondaryCta", "Botão secundário", 32)}
       </div>
-      <CopyListField
-        label="Provas abaixo dos botões"
-        path="hero.proofPoints"
-        items={value.proofPoints}
-        itemMax={40}
-        min={1}
-        max={MAX_PROOF_POINTS}
-        addLabel="Adicionar prova"
-        errors={errors}
-        onChange={(proofPoints) => onChange({ ...value, proofPoints })}
-      />
-      <p className="-mt-2 text-xs text-mist">
-        Até {MAX_PROOF_POINTS}, com 40 caracteres cada. O ícone segue o texto: WhatsApp, e-mail, Pix ou cartão e garantia ganham o
-        símbolo certo.
-      </p>
+      <ProofPointsField points={value.proofPoints} errors={errors} onChange={(proofPoints) => onChange({ ...value, proofPoints })} />
       <p className="border-t border-line pt-4 text-xs font-semibold text-mist">Celular ilustrativo (só no computador)</p>
       <div className="grid gap-3">
         {copy("phoneName", "Nome no perfil", 30)}
