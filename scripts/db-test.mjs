@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { currentLegalDocuments } from "./legal-hashes.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -11,29 +12,47 @@ const MIGRATIONS_DIR = join(ROOT, "supabase", "migrations");
 
 const ADMIN_ID = "00000000-0000-0000-0000-00000000a001";
 const STRANGER_ID = "00000000-0000-0000-0000-00000000b002";
+/** Sessão aberta de cada usuário: is_admin confere a sessão do token (session_id) em auth.sessions. */
+const SESSION_OF = {
+  [ADMIN_ID]: "00000000-0000-0000-0000-0000000005a1",
+  [STRANGER_ID]: "00000000-0000-0000-0000-0000000005b2",
+};
 
-/** O mínimo do ambiente Supabase que as migrations usam: papéis, auth.uid() e storage. */
+/** O mínimo do ambiente Supabase que as migrations usam: papéis, auth (sessões e MFA), storage, Vault e pgcrypto. */
 const SUPABASE_STUBS = `
   create role anon nologin;
   create role authenticated nologin;
   create role service_role nologin;
   create schema auth;
   create table auth.users (id uuid primary key, email text, last_sign_in_at timestamptz);
+  create table auth.sessions (id uuid primary key, user_id uuid not null, created_at timestamptz not null default now(), ip text, user_agent text);
+  create table auth.mfa_factors (id uuid primary key default gen_random_uuid(), user_id uuid not null, status text not null);
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+  $$;
+  create function auth.jwt() returns jsonb language sql stable as $$
+    select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb
+  $$;
+  create schema extensions;
+  create schema vault;
+  create table vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
+  create view vault.decrypted_secrets as select id, name, secret as decrypted_secret, description from vault.secrets;
+  create function vault.create_secret(new_secret text, new_name text default null, new_description text default '')
+    returns uuid language sql as $$
+    insert into vault.secrets (secret, name, description) values (new_secret, new_name, new_description) returning id
   $$;
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
   alter table storage.objects enable row level security;
   grant usage on schema public, auth, storage to anon, authenticated;
-  grant execute on function auth.uid() to anon, authenticated;
+  grant execute on function auth.uid(), auth.jwt() to anon, authenticated;
   grant select, insert, update, delete on storage.objects to anon, authenticated;
   -- Como nos projetos novos do Supabase: tabela nenhuma nasce liberada; o acesso vem da migration table_grants.
   alter default privileges in schema public grant all on functions to anon, authenticated;
 `;
 
-const db = new PGlite();
+const db = new PGlite({ extensions: { pgcrypto } });
 /** Aceite da versão atual dos Termos e da Política, como o checkout manda. */
 let CONSENT = "";
 let failures = 0;
@@ -47,8 +66,20 @@ function check(condition, message) {
   }
 }
 
-async function as(role, userId, fn) {
-  await db.exec(`reset role; select set_config('request.jwt.claim.sub', '${userId ?? ""}', false);`);
+/**
+ * Roda `fn` como o papel indicado, com o token de `userId`. `aal` e `sessionId` simulam a verificação em duas etapas
+ * e a sessão do token; `ip` e `forwardedFor` simulam os cabeçalhos que chegam ao PostgREST.
+ */
+async function as(role, userId, fn, { aal = "aal1", sessionId, ip, forwardedFor } = {}) {
+  const claims = userId ? JSON.stringify({ sub: userId, aal, session_id: sessionId ?? SESSION_OF[userId] }) : "";
+  const headers = {};
+  if (ip) headers["cf-connecting-ip"] = ip;
+  if (forwardedFor) headers["x-forwarded-for"] = forwardedFor;
+  await db.exec("reset role;");
+  await db.query(
+    `select set_config('request.jwt.claim.sub', $1, false), set_config('request.jwt.claims', $2, false), set_config('request.headers', $3, false)`,
+    [userId ?? "", claims, Object.keys(headers).length > 0 ? JSON.stringify(headers) : ""],
+  );
   if (role !== "postgres") await db.exec(`set role ${role};`);
   try {
     return await fn();
@@ -81,6 +112,7 @@ async function main() {
   await db.exec(`
     insert into auth.users (id, email) values ('${ADMIN_ID}', 'jota@exemplo.com'), ('${STRANGER_ID}', 'x@exemplo.com');
     insert into public.admin_users (user_id) values ('${ADMIN_ID}');
+    insert into auth.sessions (id, user_id, ip) values ('${SESSION_OF[ADMIN_ID]}', '${ADMIN_ID}', '203.0.113.1'), ('${SESSION_OF[STRANGER_ID]}', '${STRANGER_ID}', null);
   `);
 
   console.log("\ncontas");
@@ -122,7 +154,7 @@ async function main() {
             [tiktokStats],
           ),
         ),
-      /row-level security/,
+      /row-level security|permission denied/,
     ),
     "visitante não cadastra conta",
   );
@@ -205,7 +237,7 @@ async function main() {
     "versão antiga do checkout, sem ficha, não existe mais",
   );
   const sheet = await as("authenticated", ADMIN_ID, () =>
-    db.query(`select customer_document, customer_birth_date::text as birth, customer_state from public.orders where code = $1`, [order.code]),
+    db.query(`select o.customer_document_plain as customer_document, customer_birth_date::text as birth, customer_state from public.orders o where code = $1`, [order.code]),
   );
   check(
     sheet.rows[0]?.customer_document === "52998224725" && sheet.rows[0]?.birth === "1990-05-10" && sheet.rows[0]?.customer_state === "RN",
@@ -661,6 +693,7 @@ async function main() {
   check(upload.rows.length === 1, "admin sobe imagem");
 
   await lgpdChecks(legal);
+  await securityChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -683,7 +716,7 @@ async function lgpdChecks(legal) {
     [tiktokStats],
   );
   const accountId = account.rows[0].id;
-  const ficha = `'Ana Paula Souza', 'anapaula@lgpd.com.br', '11912345678', '529.982.247-25', '1990-05-10', '@anapaula', 'Natal', 'RN', 'pix'`;
+  const ficha = `'Ana Paula Souza', 'anapaula@lgpd.com.br', '11955554444', '111.444.777-35', '1990-05-10', '@anapaula', 'Natal', 'RN', 'pix'`;
   const staleHash = "0".repeat(64);
   check(
     await rejects(
@@ -719,7 +752,7 @@ async function lgpdChecks(legal) {
   const wrong = await as("anon", null, () => db.query(`select public.privacy_lookup('anapaula@lgpd.com.br', 'JD-AAAAAA') as data`));
   check(wrong.rows[0].data === null, "código errado não mostra nada");
   const mine = (await as("anon", null, () => db.query(`select public.privacy_lookup(' ANAPAULA@lgpd.com.br ', $1) as data`, [anaOrder.code.toLowerCase()]))).rows[0].data;
-  check(mine?.orders?.[0]?.customer_document === "52998224725", "titular vê a própria ficha completa");
+  check(mine?.orders?.[0]?.customer_document === "11144477735", "titular vê a própria ficha completa");
   check(mine?.consents?.length === 2, "titular vê os próprios aceites");
 
   const opened = (await as("anon", null, () =>
@@ -785,9 +818,16 @@ async function lgpdChecks(legal) {
   await db.query(`insert into public.customers (name, email, whatsapp) values ('Ana Paula', 'anapaula@lgpd.com.br', '11912345678')`);
   const result = (await as("authenticated", ADMIN_ID, () => db.query(`select public.anonymize_data_subject('anapaula@lgpd.com.br') as data`))).rows[0].data;
   check(result.anonymized_orders === 1 && result.kept_orders === 0 && result.deleted_customers === 1, "pedido cancelado é anonimizado e o cadastro some");
-  const after = await db.query(`select customer_name, customer_document, customer_instagram from public.orders where code = $1`, [anaOrder.code]);
+  const after = await db.query(
+    `select customer_name, customer_document, customer_document_encrypted, customer_document_hash, customer_instagram from public.orders where code = $1`,
+    [anaOrder.code],
+  );
   check(
-    after.rows[0].customer_name === "Titular anonimizado" && after.rows[0].customer_document === null && after.rows[0].customer_instagram === null,
+    after.rows[0].customer_name === "Titular anonimizado" &&
+      after.rows[0].customer_document === null &&
+      after.rows[0].customer_document_encrypted === null &&
+      after.rows[0].customer_document_hash === null &&
+      after.rows[0].customer_instagram === null,
     "pedido anonimizado não identifica mais a pessoa",
   );
   const keptProof = await db.query(`select count(*)::int as total, count(ip_address)::int as with_ip from public.consent_records r join public.orders o on o.id = r.order_id where o.code = $1`, [anaOrder.code]);
@@ -811,6 +851,196 @@ async function lgpdChecks(legal) {
   check(retention.anonymized_orders === 1 && retention.deleted_leads >= 1, "retenção anonimiza pedido cancelado com mais de 6 meses e apaga lead parado");
   const recent = await db.query(`select customer_name from public.orders where code = 'JD-RECENT'`);
   check(recent.rows[0].customer_name === "Paula Recente", "pedido cancelado recente fica intacto");
+}
+
+/** CPF válido a partir de 9 dígitos (mesma regra de src/domain/brazil.ts). */
+function cpfFrom(base) {
+  const digits = base.split("").map(Number);
+  for (const length of [9, 10]) {
+    const total = digits.slice(0, length).reduce((sum, digit, index) => sum + digit * (length + 1 - index), 0);
+    digits.push(total % 11 < 2 ? 0 : 11 - (total % 11));
+  }
+  return digits.join("");
+}
+
+async function newAccount(slug) {
+  const row = await db.query(
+    `insert into public.accounts (slug, platform, display_name, handle, followers, price_cents, stats)
+     values ($1, 'tiktok', 'Conta Teste', '@' || $1, 1000, 37000, $2) returning id`,
+    [slug, tiktokStats],
+  );
+  return row.rows[0].id;
+}
+
+function placeAs(accountId, buyer, headers = {}, holdMinutes = null) {
+  const hold = holdMinutes === null ? "" : `, ${holdMinutes}`;
+  return as(
+    "anon",
+    null,
+    () =>
+      db.query(
+        `select public.place_order($1, 'Cliente Teste', $2, $3, $4, '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT}${hold}) as data`,
+        [accountId, buyer.email, buyer.whatsapp, buyer.document],
+      ),
+    headers,
+  );
+}
+
+async function securityChecks() {
+  console.log("\nsegurança: IP e limite de tentativas");
+  const forgedLookup = (index) =>
+    as("anon", null, () => db.query(`select public.privacy_lookup('alvo@exemplo.com', 'JD-AAAAAA')`), {
+      ip: "198.51.100.20",
+      forwardedFor: `10.0.0.${index}`,
+    });
+  for (let index = 0; index < 10; index += 1) await forgedLookup(index);
+  check(await rejects(() => forgedLookup(99), /too_many_attempts/), "trocar o X-Forwarded-For não fura o limite do Meus dados");
+  const limitAlert = await db.query(`select body from public.notifications where kind = 'security' and title = 'Limite de tentativas atingido'`);
+  check(limitAlert.rows.length === 1 && limitAlert.rows[0].body.includes("Meus dados"), "limite atingido avisa no sininho uma vez só");
+
+  const orderPage = (index) =>
+    as("anon", null, () => db.query(`select public.get_order($1) as data`, [`JD-AAA${String(index).padStart(3, "0")}`]), { ip: "198.51.100.30" });
+  for (let index = 0; index < 60; index += 1) await orderPage(index);
+  check(await rejects(() => orderPage(999), /too_many_attempts/), "página do pedido trava quem varre códigos");
+
+  const limiter = await db.query(
+    `select public.rate_limit_allows('teste', 'teste', 2, interval '1 hour') as a,
+            public.rate_limit_allows('teste', 'teste', 2, interval '1 hour') as b,
+            public.rate_limit_allows('teste', 'teste', 2, interval '1 hour') as c`,
+  );
+  check(limiter.rows[0].a && limiter.rows[0].b && !limiter.rows[0].c, "limite genérico recusa a tentativa além do teto");
+
+  console.log("\nsegurança: checkout");
+  const holdAccount = await newAccount("prazo-fixo");
+  const holdDocument = "11222333000181";
+  const held = (await placeAs(holdAccount, { email: "prazo@exemplo.com", whatsapp: "11933332222", document: holdDocument }, {}, 1440)).rows[0].data;
+  const holdMinutes = await db.query(`select extract(epoch from expires_at - created_at) / 60 as minutes from public.orders where code = $1`, [held.code]);
+  check(Math.round(Number(holdMinutes.rows[0].minutes)) === 120, "checkout ignora o prazo de reserva pedido pelo navegador (fica em 2h)");
+
+  const sameDocument = cpfFrom("123456780");
+  const documentAccounts = [await newAccount("doc-1"), await newAccount("doc-2"), await newAccount("doc-3")];
+  for (const [index, accountId] of documentAccounts.slice(0, 2).entries()) {
+    await placeAs(accountId, { email: `doc${index}@exemplo.com`, whatsapp: `1192000000${index}`, document: sameDocument });
+  }
+  check(
+    await rejects(
+      () => placeAs(documentAccounts[2], { email: "doc9@exemplo.com", whatsapp: "11920000009", document: sameDocument }),
+      /too_many_open_orders/,
+    ),
+    "terceiro pedido aberto com o mesmo CPF é barrado, mesmo trocando e-mail e WhatsApp",
+  );
+
+  const ipAccounts = [await newAccount("ip-1"), await newAccount("ip-2"), await newAccount("ip-3"), await newAccount("ip-4")];
+  const fromIp = { ip: "198.51.100.40" };
+  for (const [index, accountId] of ipAccounts.slice(0, 3).entries()) {
+    await placeAs(accountId, { email: `ip${index}@exemplo.com`, whatsapp: `1193000000${index}`, document: cpfFrom(`23456789${index}`) }, fromIp);
+  }
+  check(
+    await rejects(
+      () => placeAs(ipAccounts[3], { email: "ip9@exemplo.com", whatsapp: "11930000009", document: cpfFrom("345678912") }, fromIp),
+      /too_many_open_orders/,
+    ),
+    "quarto pedido aberto do mesmo IP é barrado, mesmo com dados diferentes",
+  );
+
+  console.log("\nsegurança: CPF cifrado");
+  const stored = await db.query(
+    `select customer_document, customer_document_encrypted is not null as encrypted from public.orders where code = $1`,
+    [held.code],
+  );
+  check(stored.rows[0].customer_document === null && stored.rows[0].encrypted, "documento do pedido fica gravado só cifrado");
+  const adminPlain = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select o.customer_document_plain as document from public.orders o where code = $1`, [held.code]),
+  );
+  check(adminPlain.rows[0]?.document === holdDocument, "admin lê o documento aberto");
+  const strangerPlain = await as("authenticated", STRANGER_ID, () =>
+    db.query(`select public.customer_document_plain(o) as document from public.orders o where code = $1`, [held.code]),
+  );
+  check(strangerPlain.rows.length === 0 || strangerPlain.rows[0].document === null, "usuário que não é admin não abre documento");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.decrypt_pii('\\x00'::bytea)`)), /permission denied/),
+    "visitante não chama a função que decifra",
+  );
+
+  const cipheredCustomer = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.customers (name, email, document) values ('Cliente Cifrado', 'cifrado@exemplo.com', '52998224725') returning id, document`),
+  );
+  const cipheredId = cipheredCustomer.rows[0].id;
+  const customerPlain = () =>
+    as("authenticated", ADMIN_ID, () => db.query(`select c.document_plain as document from public.customers c where id = $1`, [cipheredId]));
+  check(cipheredCustomer.rows[0].document === null && (await customerPlain()).rows[0].document === "52998224725", "CPF do cliente fica cifrado e o admin lê aberto");
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.customers set notes = 'Comprou duas vezes' where id = $1`, [cipheredId]));
+  check((await customerPlain()).rows[0].document === "52998224725", "editar outro campo não apaga o CPF");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`update public.customers set document = '123' where id = $1`, [cipheredId])),
+      /check constraint/,
+    ),
+    "CPF com formato errado continua barrado",
+  );
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.customers set document = null where id = $1`, [cipheredId]));
+  check((await customerPlain()).rows[0].document === null, "limpar o CPF apaga o cifrado");
+
+  console.log("\nsegurança: admin com duas etapas e sessão com prazo");
+  const ordersSeen = (options) =>
+    as("authenticated", ADMIN_ID, () => db.query(`select count(*)::int as total from public.orders`), options).then((result) => result.rows[0].total);
+  await db.query(`insert into auth.mfa_factors (user_id, status) values ($1, 'verified')`, [ADMIN_ID]);
+  check((await ordersSeen({ aal: "aal1" })) === 0, "admin com duas etapas ligadas não vê nada só com a senha");
+  check((await ordersSeen({ aal: "aal2" })) > 0, "admin com o código conferido vê os pedidos");
+  await db.query(`delete from auth.mfa_factors where user_id = $1`, [ADMIN_ID]);
+
+  const oldSession = "00000000-0000-0000-0000-0000000005c3";
+  await db.query(`insert into auth.sessions (id, user_id, created_at) values ($1, $2, now() - interval '8 days')`, [oldSession, ADMIN_ID]);
+  check((await ordersSeen({ sessionId: oldSession })) === 0, "sessão aberta há mais de 7 dias perde o acesso");
+  check((await ordersSeen({ sessionId: "00000000-0000-0000-0000-0000000005d4" })) === 0, "token de sessão encerrada (Sair) perde o acesso na hora");
+
+  console.log("\nsegurança: tabela nova e vitrine");
+  await db.exec(`create table public.rls_probe (id integer)`);
+  const probe = await db.query(`select relrowsecurity from pg_class where oid = 'public.rls_probe'::regclass`);
+  check(probe.rows[0].relrowsecurity === true, "tabela nova no schema public nasce com RLS ligado");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.rls_probe`)), /permission denied/),
+    "tabela nova não nasce aberta para a chave anon",
+  );
+  await db.exec(`drop table public.rls_probe`);
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select partner_id from public.accounts`)), /permission denied/),
+    "visitante não descobre qual conta é de parceiro",
+  );
+
+  console.log("\nsegurança: auditoria e avisos");
+  const auditLead = await as("authenticated", ADMIN_ID, () => db.query(`insert into public.leads (name) values ('Lead Auditado') returning id`));
+  await as("authenticated", ADMIN_ID, () => db.query(`delete from public.leads where id = $1`, [auditLead.rows[0].id]));
+  const deletion = await db.query(`select actor_id, details from public.audit_events where action = 'delete' and entity = 'leads' and entity_id = $1`, [
+    auditLead.rows[0].id,
+  ]);
+  check(deletion.rows[0]?.actor_id === ADMIN_ID, "exclusão fica registrada com quem apagou");
+  const statusChanges = await db.query(`select count(*)::int as total from public.audit_events where entity = 'orders' and action = 'update'`);
+  check(statusChanges.rows[0].total > 0, "troca de status de pedido fica registrada");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.audit_events`)), /permission denied/),
+    "visitante não lê a auditoria",
+  );
+  const strangerAudit = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.audit_events`));
+  check(strangerAudit.rows.length === 0, "usuário que não é admin não lê a auditoria");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.audit_events (action, entity) values ('forjado', 'x')`)),
+      /permission denied/,
+    ),
+    "nem o admin forja registro de auditoria",
+  );
+
+  await db.query(`insert into auth.sessions (id, user_id, ip) values (gen_random_uuid(), $1, '203.0.113.9')`, [ADMIN_ID]);
+  const loginAudit = await db.query(`select ip_address from public.audit_events where action = 'login' order by id desc limit 1`);
+  check(loginAudit.rows[0]?.ip_address === "203.0.113.9", "login de admin fica registrado com o IP");
+  const loginAlert = await db.query(`select link from public.notifications where kind = 'security' and title = 'Novo login no painel'`);
+  check(loginAlert.rows.length > 0 && loginAlert.rows[0].link === "/admin/configuracoes", "login de admin avisa no sininho");
+  await db.query(`insert into auth.sessions (id, user_id) values (gen_random_uuid(), $1)`, [STRANGER_ID]);
+  const strangerLogin = await db.query(`select count(*)::int as total from public.audit_events where action = 'login' and actor_id = $1`, [STRANGER_ID]);
+  check(strangerLogin.rows[0].total === 0, "login de quem não é admin não gera aviso");
+  const adminAdded = await db.query(`select body from public.notifications where kind = 'security' and title = 'Novo acesso ao painel criado'`);
+  check(adminAdded.rows[0]?.body.startsWith("jota@exemplo.com"), "usuário novo no painel avisa no sininho");
 }
 
 main().catch((error) => {
