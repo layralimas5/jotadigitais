@@ -125,22 +125,22 @@ export default function CatalogPage() {
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
           {/* Filtros pedidos pelo Jota: rede social, faixa de seguidores e ordem (recentes primeiro). Sem busca por nome. */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* Em loop para a esquerda a pedido do Jota: as redes passam sozinhas e ficam fáceis de achar. */}
-            <ChipMarquee label="Filtrar por rede social" className="-mx-4 min-w-0 sm:mx-0 lg:flex-1">
-              {(repeated) => (
-                <>
-                  <FilterChip active={!platform} repeated={repeated} onClick={() => update("rede", undefined)}>
-                    Todas as redes
-                  </FilterChip>
-                  {PLATFORMS.map((option) => (
+            {/* A pedido do Jota: "Todas as redes" fica fixo no início e as redes passam em loop para a esquerda. */}
+            <div role="group" aria-label="Filtrar por rede social" className="-mx-4 flex min-w-0 items-center gap-2 pl-4 sm:mx-0 sm:pl-0 lg:flex-1">
+              <FilterChip active={!platform} onClick={() => update("rede", undefined)}>
+                Todas as redes
+              </FilterChip>
+              <ChipMarquee label="Redes sociais" className="min-w-0 flex-1">
+                {(repeated) =>
+                  PLATFORMS.map((option) => (
                     <FilterChip key={option} active={platform === option} repeated={repeated} onClick={() => update("rede", option)}>
                       <PlatformGlyph platform={option} className="size-4" />
                       {PLATFORM_LABEL[option]}
                     </FilterChip>
-                  ))}
-                </>
-              )}
-            </ChipMarquee>
+                  ))
+                }
+              </ChipMarquee>
+            </div>
             <div className="flex shrink-0 gap-3">
               <label className="flex-1 lg:flex-none">
                 <span className="sr-only">Seguidores ou inscritos</span>
