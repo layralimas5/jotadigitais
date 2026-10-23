@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Ellipsis, ExternalLink, type LucideIcon } from "lucide-react";
+import { Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
 import { Suspense, useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { Logo } from "@/ui/components/Logo";
@@ -89,7 +89,10 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
       className={cn("flex rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
     >
       <Logo />
-      <span className="font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase">Sistema</span>
+      <span className="flex items-center gap-1.5 font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase">
+        <MonitorCog aria-hidden className="size-3.5 text-electric" />
+        Sistema
+      </span>
     </Link>
   );
 }
