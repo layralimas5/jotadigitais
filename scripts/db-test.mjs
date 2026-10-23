@@ -694,6 +694,7 @@ async function main() {
 
   await lgpdChecks(legal);
   await securityChecks();
+  await emailVaultChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1041,6 +1042,58 @@ async function securityChecks() {
   check(strangerLogin.rows[0].total === 0, "login de quem não é admin não gera aviso");
   const adminAdded = await db.query(`select body from public.notifications where kind = 'security' and title = 'Novo acesso ao painel criado'`);
   check(adminAdded.rows[0]?.body.startsWith("jota@exemplo.com"), "usuário novo no painel avisa no sininho");
+}
+
+async function emailVaultChecks() {
+  console.log("\ne-mails das contas");
+  const saved = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.email_accounts (email, password, used_for, recovery_phone)
+       values ('conta.tiktok@gmail.com', ' S3nh@ com espaço ', 'TikTok @achadinhos', '11912345678') returning id, password`,
+    ),
+  );
+  const emailId = saved.rows[0]?.id;
+  check(Boolean(emailId) && saved.rows[0].password === null, "admin salva e-mail e a senha não fica aberta na tabela");
+  const stored = await db.query(`select password_encrypted is not null as encrypted from public.email_accounts where id = $1`, [emailId]);
+  check(stored.rows[0]?.encrypted === true, "senha fica gravada cifrada");
+  const plain = () =>
+    as("authenticated", ADMIN_ID, () =>
+      db.query(`select e.password_plain as password, e.has_password from public.email_accounts e where id = $1`, [emailId]),
+    );
+  const opened = (await plain()).rows[0];
+  check(opened?.password === " S3nh@ com espaço " && opened.has_password === true, "admin lê a senha exatamente como foi digitada");
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.email_accounts set notes = 'Nascimento 01/01/2000' where id = $1`, [emailId]));
+  check((await plain()).rows[0]?.password === " S3nh@ com espaço ", "editar outro campo não apaga a senha");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.email_accounts (email) values ('CONTA.TIKTOK@gmail.com')`)),
+      /duplicate key|unique/,
+    ),
+    "o mesmo e-mail não é salvo duas vezes, nem com maiúsculas",
+  );
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.email_accounts (email) values ('sem-arroba')`)),
+      /check constraint/,
+    ),
+    "e-mail sem formato válido é recusado",
+  );
+  const strangerRows = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.email_accounts`));
+  check(strangerRows.rows.length === 0, "usuário que não é admin não enxerga os e-mails");
+  const strangerPlain = await as("authenticated", STRANGER_ID, () =>
+    db.query(`select public.password_plain(e) as password from public.email_accounts e where id = $1`, [emailId]),
+  );
+  check(strangerPlain.rows.length === 0 || strangerPlain.rows[0].password === null, "usuário que não é admin não abre a senha");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select id from public.email_accounts`)), /permission denied/),
+    "visitante não acessa a tabela de e-mails",
+  );
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.email_accounts set password = null where id = $1`, [emailId]));
+  const cleared = (await plain()).rows[0];
+  check(cleared?.password === null && cleared.has_password === false, "apagar a senha deixa o e-mail sem senha");
+  await as("authenticated", ADMIN_ID, () => db.query(`delete from public.email_accounts where id = $1`, [emailId]));
+  const audited = await db.query(`select count(*)::int as total from public.audit_events where action = 'delete' and entity = 'email_accounts'`);
+  check(audited.rows[0].total === 1, "apagar um e-mail fica na auditoria");
 }
 
 main().catch((error) => {

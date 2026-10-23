@@ -282,6 +282,35 @@ export const partnerDataSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// E-mails das contas (mesmas regras da tabela email_accounts)
+// ---------------------------------------------------------------------------
+
+const optionalEmail = z
+  .string()
+  .nullable()
+  .transform((value) => value?.trim().toLowerCase() ?? "")
+  .pipe(z.union([z.literal(""), z.email("Informe um e-mail válido.").max(254, "E-mail longo demais.")]))
+  .transform((value) => value || null);
+
+export const emailAccountDataSchema = z.object({
+  email: requiredEmail.pipe(z.string().max(254, "E-mail longo demais.")),
+  // A senha vai como foi digitada: espaço no começo ou no fim pode fazer parte dela.
+  password: z
+    .string()
+    .max(200, "Use no máximo 200 caracteres.")
+    .nullable()
+    .transform((value) => (value ? value : null)),
+  usedFor: optionalText(120),
+  recoveryEmail: optionalEmail,
+  recoveryPhone: optionalWhatsapp,
+  accountId: z
+    .string()
+    .nullable()
+    .transform((value) => value || null),
+  notes: optionalText(2000),
+});
+
+// ---------------------------------------------------------------------------
 // Usuários do sistema
 // ---------------------------------------------------------------------------
 

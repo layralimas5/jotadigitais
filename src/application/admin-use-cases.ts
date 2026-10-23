@@ -2,6 +2,7 @@ import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { DashboardSource } from "@/domain/dashboard";
+import type { EmailAccount, EmailAccountListItem } from "@/domain/email-account";
 import { CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
 import type { Expense, Revenue } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
@@ -16,6 +17,7 @@ import type { Testimonial } from "@/domain/testimonial";
 import type {
   AdminAccountRepository,
   AdminCustomerRepository,
+  AdminEmailAccountRepository,
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
@@ -46,6 +48,7 @@ import {
   changePasswordSchema,
   passwordResetSchema,
   customerRecordSchema,
+  emailAccountDataSchema,
   expenseDataSchema,
   leadDataSchema,
   messageTemplatesSchema,
@@ -76,6 +79,7 @@ export interface AdminDeps {
   expenses: AdminExpenseRepository;
   revenues: AdminRevenueRepository;
   partners: AdminPartnerRepository;
+  emailAccounts: AdminEmailAccountRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
   notifications: AdminNotificationRepository;
@@ -314,6 +318,23 @@ export function savePartner(deps: AdminDeps, id: string | null, raw: unknown): P
 
 export function deletePartner(deps: AdminDeps, id: string): Promise<void> {
   return deps.partners.remove(id);
+}
+
+export function listEmailAccounts(deps: AdminDeps): Promise<EmailAccountListItem[]> {
+  return deps.emailAccounts.listAll();
+}
+
+export function findEmailAccount(deps: AdminDeps, id: string): Promise<EmailAccount | null> {
+  return deps.emailAccounts.findById(id);
+}
+
+export function saveEmailAccount(deps: AdminDeps, id: string | null, raw: unknown): Promise<EmailAccount> {
+  const data = parseOrThrow(emailAccountDataSchema, raw);
+  return id ? deps.emailAccounts.update(id, data) : deps.emailAccounts.create(data);
+}
+
+export function deleteEmailAccount(deps: AdminDeps, id: string): Promise<void> {
+  return deps.emailAccounts.remove(id);
 }
 
 export function listAdminUsers(deps: AdminDeps): Promise<AdminUser[]> {

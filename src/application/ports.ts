@@ -8,6 +8,7 @@ import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
+import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
 import type { Platform } from "@/domain/platform";
 import type {
@@ -234,6 +235,15 @@ export interface AdminPartnerRepository {
   create(data: PartnerData): Promise<Partner>;
   update(id: string, data: PartnerData): Promise<Partner>;
   /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
+  remove(id: string): Promise<void>;
+}
+
+export interface AdminEmailAccountRepository {
+  /** Sem a senha: ela só é aberta pelo findById. */
+  listAll(): Promise<EmailAccountListItem[]>;
+  findById(id: string): Promise<EmailAccount | null>;
+  create(data: EmailAccountData): Promise<EmailAccount>;
+  update(id: string, data: EmailAccountData): Promise<EmailAccount>;
   remove(id: string): Promise<void>;
 }
 

@@ -4,6 +4,7 @@ import {
   Handshake,
   ImageIcon,
   LayoutDashboard,
+  Mail,
   Package,
   PlugZap,
   Receipt,
@@ -46,6 +47,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: "Vendas",
     items: [
       { to: "/admin/contas", label: "Contas", icon: Package, inBottomNav: true, description: "Estoque da vitrine" },
+      { to: "/admin/emails", label: "E-mails", icon: Mail, inBottomNav: false, description: "Senhas das contas em crescimento" },
       { to: "/admin/pedidos", label: "Pedidos", icon: Receipt, inBottomNav: true, description: "Pagamentos e entregas" },
       { to: "/admin/finalizados", label: "Finalizados", icon: CircleCheckBig, inBottomNav: false, description: "Vendas entregues e garantia" },
       { to: "/admin/financeiro", label: "Financeiro", icon: Wallet, inBottomNav: false, description: "Receitas, despesas e lucro" },

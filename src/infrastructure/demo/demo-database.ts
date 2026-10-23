@@ -1,6 +1,7 @@
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord } from "@/domain/customer";
+import type { EmailAccount } from "@/domain/email-account";
 import type { Expense, Revenue } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
@@ -32,6 +33,7 @@ export interface DemoState {
   expenses?: Expense[];
   revenues?: Revenue[];
   partners?: Partner[];
+  emailAccounts?: EmailAccount[];
   adminUsers?: AdminUser[];
   notifications?: StoredNotification[];
   dismissedNotifications?: string[];

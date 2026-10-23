@@ -50,6 +50,10 @@ Tudo o que ele salva aparece no site na hora. A primeira tela é o **Dashboard**
 - **Parceiros**: quem fornece contas. Cada conta pode ter um parceiro (`accounts.partner_id`); a comissão é a
   porcentagem do parceiro sobre as vendas finalizadas das contas dele. Apagar o parceiro deixa as contas como da loja.
   Ainda não há registro de repasse pago: o total mostrado é sobre todas as vendas finalizadas.
+- **E-mails**: e-mail, senha e dados de recuperação das contas que o Jota está crescendo (`email_accounts`). A senha
+  entra pela coluna `password` e um gatilho grava só a versão cifrada (mesma chave do Vault do CPF); o painel lê
+  aberta por `password_plain`, só para administrador, e a lista nem pede essa coluna (usa `has_password`). Cada
+  e-mail pode ficar ligado a uma conta do estoque. Fica fora do backup de propósito, para a senha não sair num JSON.
 - **Site**: duas abas. "Textos e imagens" edita todo o texto do site (topo, problema com os dois prints, destaques,
   como funciona, resultados, garantia, dúvidas, chamada final, rodapé, convite do WhatsApp, termos e SEO da home)
   com a prévia do site real ao lado, em tamanho de computador ou celular. A prévia é o próprio site aberto num
