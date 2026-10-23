@@ -1,11 +1,12 @@
-import { CreditCard, MailCheck, MousePointerClick, Sparkles } from "lucide-react";
+import { CreditCard, MousePointerClick, Sparkles } from "lucide-react";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
+import { WhatsAppGlyph } from "@/ui/components/whatsapp/WhatsAppGlyph";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { editable } from "@/ui/lib/site-preview";
 
 /** Ícone de cada passo, na ordem. Títulos e textos vêm do painel. */
-export const STEP_ICONS = [MousePointerClick, CreditCard, MailCheck, Sparkles] as const;
+export const STEP_ICONS = [MousePointerClick, CreditCard, WhatsAppGlyph, Sparkles] as const;
 
 /** Os quatro passos com ícone, prontos para a home e para a página da conta. */
 export function useSteps() {
