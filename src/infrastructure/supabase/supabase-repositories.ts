@@ -12,6 +12,7 @@ import type {
   AdminMessageTemplateRepository,
   AdminNotificationRepository,
   AdminOrderRepository,
+  AdminEmailAccountRepository,
   AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
@@ -39,6 +40,8 @@ import {
   InvalidTransitionError,
   LeadNotFoundError,
   PartnerNotFoundError,
+  EmailAccountNotFoundError,
+  EmailAccountTakenError,
   SlugTakenError,
   TooManyAttemptsError,
   TooManyOpenOrdersError,
@@ -65,6 +68,7 @@ import {
   type MessageTemplates,
 } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
+import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
 import { PLATFORMS } from "@/domain/platform";
 import type { SiteContent } from "@/domain/site-content";
@@ -849,6 +853,99 @@ export class SupabasePartnerRepository implements AdminPartnerRepository {
 
   async remove(id: string): Promise<void> {
     const { error } = await this.client.from("partners").delete().eq("id", id);
+    if (error) fail(error);
+  }
+}
+
+// A senha entra pela coluna `password` (o banco cifra) e volta aberta por password_plain, só para administrador.
+const EMAIL_ACCOUNT_LIST_COLUMNS = "id, email, used_for, recovery_email, recovery_phone, account_id, notes, created_at, updated_at, has_password";
+const EMAIL_ACCOUNT_COLUMNS = `${EMAIL_ACCOUNT_LIST_COLUMNS}, password:password_plain`;
+
+const emailAccountRowSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  used_for: z.string().nullable(),
+  recovery_email: z.string().nullable(),
+  recovery_phone: z.string().nullable(),
+  account_id: z.string().nullable(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  has_password: z.boolean(),
+});
+
+function toEmailAccountListItem(raw: unknown): EmailAccountListItem {
+  const row = emailAccountRowSchema.parse(raw);
+  return {
+    id: row.id,
+    email: row.email,
+    usedFor: row.used_for,
+    recoveryEmail: row.recovery_email,
+    recoveryPhone: row.recovery_phone,
+    accountId: row.account_id,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    hasPassword: row.has_password,
+  };
+}
+
+function toEmailAccount(raw: unknown): EmailAccount {
+  const { password } = z.object({ password: z.string().nullable() }).parse(raw);
+  const { hasPassword: _hasPassword, ...item } = toEmailAccountListItem(raw);
+  return { ...item, password };
+}
+
+const toEmailAccountRow = (data: EmailAccountData) => ({
+  email: data.email,
+  password: data.password,
+  used_for: data.usedFor,
+  recovery_email: data.recoveryEmail,
+  recovery_phone: data.recoveryPhone,
+  account_id: data.accountId,
+  notes: data.notes,
+});
+
+function failOnEmailAccountWrite(error: PostgrestError, email: string): never {
+  if (error.code === UNIQUE_VIOLATION) throw new EmailAccountTakenError(email);
+  return fail(error);
+}
+
+export class SupabaseEmailAccountRepository implements AdminEmailAccountRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listAll(): Promise<EmailAccountListItem[]> {
+    const { data, error } = await this.client.from("email_accounts").select(EMAIL_ACCOUNT_LIST_COLUMNS).order("email");
+    if (error) fail(error);
+    return data.map(toEmailAccountListItem);
+  }
+
+  async findById(id: string): Promise<EmailAccount | null> {
+    const { data, error } = await this.client.from("email_accounts").select(EMAIL_ACCOUNT_COLUMNS).eq("id", id).maybeSingle();
+    if (error) fail(error);
+    return data ? toEmailAccount(data) : null;
+  }
+
+  async create(input: EmailAccountData): Promise<EmailAccount> {
+    const { data, error } = await this.client.from("email_accounts").insert(toEmailAccountRow(input)).select(EMAIL_ACCOUNT_COLUMNS).single();
+    if (error) failOnEmailAccountWrite(error, input.email);
+    return toEmailAccount(data);
+  }
+
+  async update(id: string, input: EmailAccountData): Promise<EmailAccount> {
+    const { data, error } = await this.client
+      .from("email_accounts")
+      .update(toEmailAccountRow(input))
+      .eq("id", id)
+      .select(EMAIL_ACCOUNT_COLUMNS)
+      .maybeSingle();
+    if (error) failOnEmailAccountWrite(error, input.email);
+    if (!data) throw new EmailAccountNotFoundError();
+    return toEmailAccount(data);
+  }
+
+  async remove(id: string): Promise<void> {
+    const { error } = await this.client.from("email_accounts").delete().eq("id", id);
     if (error) fail(error);
   }
 }

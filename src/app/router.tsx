@@ -25,6 +25,8 @@ const DashboardPage = lazy(() => import("@/ui/admin/pages/DashboardPage"));
 const FinalizedPage = lazy(() => import("@/ui/admin/pages/FinalizedPage"));
 const PartnersPage = lazy(() => import("@/ui/admin/pages/PartnersPage"));
 const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
+const EmailAccountsPage = lazy(() => import("@/ui/admin/pages/EmailAccountsPage"));
+const EmailAccountEditorPage = lazy(() => import("@/ui/admin/pages/EmailAccountEditorPage"));
 const UsersPage = lazy(() => import("@/ui/admin/pages/UsersPage"));
 const UserEditorPage = lazy(() => import("@/ui/admin/pages/UserEditorPage"));
 const SettingsPage = lazy(() => import("@/ui/admin/pages/SettingsPage"));
@@ -71,6 +73,9 @@ export const router = createBrowserRouter([
           { path: "contas", element: <AccountsListPage /> },
           { path: "contas/nova", element: <AccountEditorPage /> },
           { path: "contas/:id", element: <AccountEditorPage /> },
+          { path: "emails", element: <EmailAccountsPage /> },
+          { path: "emails/novo", element: <EmailAccountEditorPage /> },
+          { path: "emails/:id", element: <EmailAccountEditorPage /> },
           { path: "depoimentos", element: <TestimonialsListPage /> },
           { path: "depoimentos/novo", element: <TestimonialEditorPage /> },
           { path: "depoimentos/:id", element: <TestimonialEditorPage /> },

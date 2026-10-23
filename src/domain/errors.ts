@@ -82,6 +82,20 @@ export class PartnerNotFoundError extends Error {
   }
 }
 
+export class EmailAccountNotFoundError extends Error {
+  constructor() {
+    super("Este e-mail não existe mais. Ele pode ter sido apagado.");
+    this.name = "EmailAccountNotFoundError";
+  }
+}
+
+export class EmailAccountTakenError extends Error {
+  constructor(email: string) {
+    super(`O e-mail ${email} já está salvo. Abra o cadastro dele para editar.`);
+    this.name = "EmailAccountTakenError";
+  }
+}
+
 export class AdminUserEmailTakenError extends Error {
   constructor(email: string) {
     super(`Já existe um usuário com o e-mail ${email}.`);

@@ -9,6 +9,7 @@ import type {
   AdminMessageTemplateRepository,
   AdminNotificationRepository,
   AdminOrderRepository,
+  AdminEmailAccountRepository,
   AdminPartnerRepository,
   AdminPreferenceKey,
   AdminPreferenceRepository,
@@ -34,6 +35,8 @@ import {
   InvalidTransitionError,
   LeadNotFoundError,
   PartnerNotFoundError,
+  EmailAccountNotFoundError,
+  EmailAccountTakenError,
   RevenueNotFoundError,
   SlugTakenError,
   TooManyOpenOrdersError,
@@ -52,6 +55,7 @@ import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
 import type { StoredNotification } from "@/domain/notification";
+import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
 import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -613,6 +617,55 @@ export class DemoPartnerRepository implements AdminPartnerRepository {
     this.db.write((state) => {
       state.partners = (state.partners ?? []).filter((partner) => partner.id !== id);
       for (const account of state.accounts) if (account.partnerId === id) account.partnerId = null;
+    });
+  }
+}
+
+const byEmail = (a: EmailAccount, b: EmailAccount) => a.email.localeCompare(b.email, "pt-BR");
+
+/** Sem banco a senha fica no navegador, em texto: o modo demo serve só para ver a tela. */
+export class DemoEmailAccountRepository implements AdminEmailAccountRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async listAll(): Promise<EmailAccountListItem[]> {
+    return [...(this.db.read().emailAccounts ?? [])]
+      .sort(byEmail)
+      .map(({ password, ...item }) => ({ ...item, hasPassword: password !== null }));
+  }
+
+  async findById(id: string): Promise<EmailAccount | null> {
+    return (this.db.read().emailAccounts ?? []).find((item) => item.id === id) ?? null;
+  }
+
+  async create(data: EmailAccountData): Promise<EmailAccount> {
+    await simulateLatency();
+    const now = new Date().toISOString();
+    const created: EmailAccount = { ...data, id: newId("eml"), createdAt: now, updatedAt: now };
+    return this.db.write((state) => {
+      const all = state.emailAccounts ?? [];
+      if (all.some((item) => item.email === data.email)) throw new EmailAccountTakenError(data.email);
+      state.emailAccounts = [...all, created];
+      return created;
+    });
+  }
+
+  async update(id: string, data: EmailAccountData): Promise<EmailAccount> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const all = state.emailAccounts ?? [];
+      const current = all.find((item) => item.id === id);
+      if (!current) throw new EmailAccountNotFoundError();
+      if (all.some((item) => item.id !== id && item.email === data.email)) throw new EmailAccountTakenError(data.email);
+      const updated: EmailAccount = { ...current, ...data, updatedAt: new Date().toISOString() };
+      state.emailAccounts = all.map((item) => (item.id === id ? updated : item));
+      return updated;
+    });
+  }
+
+  async remove(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.emailAccounts = (state.emailAccounts ?? []).filter((item) => item.id !== id);
     });
   }
 }

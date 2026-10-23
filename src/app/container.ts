@@ -5,6 +5,7 @@ import { DemoDatabase } from "@/infrastructure/demo/demo-database";
 import {
   DemoAccountRepository,
   DemoCustomerRepository,
+  DemoEmailAccountRepository,
   DemoExpenseRepository,
   DemoLeadRepository,
   DemoMessageTemplateRepository,
@@ -26,6 +27,7 @@ import { DevServerProfileLookupService, SupabaseProfileLookupService } from "@/i
 import {
   SupabaseAccountRepository,
   SupabaseCustomerRepository,
+  SupabaseEmailAccountRepository,
   SupabaseExpenseRepository,
   SupabaseLeadRepository,
   SupabaseMessageTemplateRepository,
@@ -88,6 +90,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       expenses: new SupabaseExpenseRepository(client),
       revenues: new SupabaseRevenueRepository(client),
       partners: new SupabasePartnerRepository(client),
+      emailAccounts: new SupabaseEmailAccountRepository(client),
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
       notifications: new SupabaseNotificationRepository(client),
@@ -131,6 +134,7 @@ function demoContainer(): Container {
       expenses: new DemoExpenseRepository(db),
       revenues: new DemoRevenueRepository(db),
       partners: new DemoPartnerRepository(db),
+      emailAccounts: new DemoEmailAccountRepository(db),
       users: new DemoAdminUserRepository(db),
       profiles: new DevServerProfileLookupService(),
       notifications: new DemoNotificationRepository(db),
