@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import type { AccountFilter, AccountSort } from "@/application/ports";
 import { PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
+import { ChipMarquee } from "@/ui/components/ChipMarquee";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/AccountCard";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
@@ -59,10 +60,19 @@ function useCatalogParams() {
   return { platform, range, sort, update, reset: () => setParams({}, { replace: true }) };
 }
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+interface FilterChipProps {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  /** Cópia repetida do loop: clicável, mas fora do Tab. */
+  repeated?: boolean;
+}
+
+function FilterChip({ active, onClick, children, repeated = false }: FilterChipProps) {
   return (
     <button
       type="button"
+      tabIndex={repeated ? -1 : undefined}
       aria-pressed={active}
       onClick={onClick}
       className={cn(
@@ -115,21 +125,22 @@ export default function CatalogPage() {
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
           {/* Filtros pedidos pelo Jota: rede social, faixa de seguidores e ordem (recentes primeiro). Sem busca por nome. */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div
-              role="group"
-              aria-label="Filtrar por rede social"
-              className="-mx-4 -mb-1 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0"
-            >
-              <FilterChip active={!platform} onClick={() => update("rede", undefined)}>
-                Todas as redes
-              </FilterChip>
-              {PLATFORMS.map((option) => (
-                <FilterChip key={option} active={platform === option} onClick={() => update("rede", option)}>
-                  <PlatformGlyph platform={option} className="size-4" />
-                  {PLATFORM_LABEL[option]}
-                </FilterChip>
-              ))}
-            </div>
+            {/* Em loop para a esquerda a pedido do Jota: as redes passam sozinhas e ficam fáceis de achar. */}
+            <ChipMarquee label="Filtrar por rede social" className="-mx-4 min-w-0 sm:mx-0 lg:flex-1">
+              {(repeated) => (
+                <>
+                  <FilterChip active={!platform} repeated={repeated} onClick={() => update("rede", undefined)}>
+                    Todas as redes
+                  </FilterChip>
+                  {PLATFORMS.map((option) => (
+                    <FilterChip key={option} active={platform === option} repeated={repeated} onClick={() => update("rede", option)}>
+                      <PlatformGlyph platform={option} className="size-4" />
+                      {PLATFORM_LABEL[option]}
+                    </FilterChip>
+                  ))}
+                </>
+              )}
+            </ChipMarquee>
             <div className="flex shrink-0 gap-3">
               <label className="flex-1 lg:flex-none">
                 <span className="sr-only">Seguidores ou inscritos</span>
