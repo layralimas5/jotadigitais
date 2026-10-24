@@ -18,6 +18,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^14.0.0",
     "lucide-react": "^1.51.0",
+    "qrcode-generator": "1.4.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",

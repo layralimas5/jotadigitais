@@ -126,6 +126,9 @@ export function failFromRpc(error: PostgrestError): never {
   if (error.message.includes("account_not_found")) throw new AccountNotFoundError("");
   if (error.message.includes("too_many_open_orders")) throw new TooManyOpenOrdersError();
   if (error.message.includes("invalid_transition")) throw new InvalidTransitionError();
+  if (error.message.includes("invalid_split")) {
+    throw new BackendError(error, "A divisão do pagamento não fecha com o valor da conta. Confira os valores.");
+  }
   return fail(error);
 }
 
@@ -305,6 +308,7 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_privacy_sha256: consentOf(input, "privacy").sha256,
       p_source: input.customer.source,
       p_referred_by: input.customer.referredBy,
+      p_first_part_cents: input.firstPartCents,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
     });
     if (error) failFromOrderRpc(error);
@@ -330,20 +334,36 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
     const { error } = await this.client.from("orders").update({ status }).eq("code", code);
     if (error) failFromRpc(error);
   }
+
+  async confirmPixPayment(paymentId: string): Promise<void> {
+    const { error } = await this.client
+      .from("order_payments")
+      .update({ status: "paid" })
+      .eq("id", paymentId)
+      .eq("method", "pix")
+      .eq("status", "pending");
+    if (error) failFromRpc(error);
+  }
 }
 
-const SETTINGS_COLUMNS = "whatsapp_number, instagram_handle, guarantee_days";
+const SETTINGS_COLUMNS = "whatsapp_number, instagram_handle, guarantee_days, pix_key, pix_receiver_name, pix_receiver_city";
 
 interface StoreSettingsRow {
   whatsapp_number: string | null;
   instagram_handle: string;
   guarantee_days: number;
+  pix_key: string | null;
+  pix_receiver_name: string | null;
+  pix_receiver_city: string | null;
 }
 
 const toStoreSettings = (row: StoreSettingsRow): StoreSettings => ({
   whatsappNumber: row.whatsapp_number,
   instagramHandle: row.instagram_handle,
   guaranteeDays: row.guarantee_days,
+  pixKey: row.pix_key,
+  pixReceiverName: row.pix_receiver_name,
+  pixReceiverCity: row.pix_receiver_city,
 });
 
 /** Textos do site: linha única (`id = true`), criada no primeiro salvamento. */
@@ -385,6 +405,9 @@ export class SupabaseStoreSettingsRepository implements AdminStoreSettingsReposi
         whatsapp_number: settings.whatsappNumber,
         instagram_handle: settings.instagramHandle,
         guarantee_days: settings.guaranteeDays,
+        pix_key: settings.pixKey,
+        pix_receiver_name: settings.pixReceiverName,
+        pix_receiver_city: settings.pixReceiverCity,
       })
       .eq("id", true)
       .select(SETTINGS_COLUMNS)

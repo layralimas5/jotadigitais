@@ -696,6 +696,7 @@ async function main() {
   await securityChecks();
   await emailVaultChecks();
   await referralChecks();
+  await splitPaymentChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1101,6 +1102,87 @@ async function referralChecks() {
     ),
     "nome de quem indicou com uma letra só é recusado",
   );
+}
+
+function placeWithPlan(accountId, buyer, plan, firstPartCents) {
+  return as("anon", null, () =>
+    db.query(
+      `select public.place_order($1, 'Cliente Dividido', $2, $3, $4, '1990-05-10', '', 'Natal', 'RN', $5, ${CONSENT}, 'instagram', null, $6) as data`,
+      [accountId, buyer.email, buyer.whatsapp, buyer.document, plan, firstPartCents],
+    ),
+  );
+}
+
+async function splitPaymentChecks() {
+  console.log("\npagamento dividido");
+  const buyer = (n) => ({ email: `dividido${n}@exemplo.com`, whatsapp: `1195556000${n}`, document: cpfFrom(`4${n}${n}777111`.slice(0, 9)) });
+
+  const single = await placeWithPlan(await newAccount("plano-pix"), buyer(1), "pix", null);
+  const singleParts = single.rows[0].data.payments;
+  check(
+    singleParts.length === 1 && singleParts[0].method === "pix" && singleParts[0].amount_cents === 37000,
+    "Pix à vista gera uma cobrança com o total",
+  );
+  check(!("transaction_nsu" in singleParts[0]), "página pública mostra a cobrança sem dados internos da transação");
+
+  const splitAccount = await newAccount("plano-dividido");
+  const split = (await placeWithPlan(splitAccount, buyer(2), "card_pix", 15000)).rows[0].data;
+  const [cardPart, pixPart] = split.payments;
+  check(
+    split.payments.length === 2 && cardPart.method === "card" && cardPart.amount_cents === 15000 && pixPart.method === "pix" && pixPart.amount_cents === 22000,
+    "cartão + Pix divide o total em duas cobranças, na ordem",
+  );
+
+  check(
+    await rejects(async () => placeWithPlan(await newAccount("plano-ruim-1"), buyer(3), "two_cards", 300), /invalid_split/),
+    "parte menor que R$ 5,00 é recusada",
+  );
+  check(
+    await rejects(async () => placeWithPlan(await newAccount("plano-ruim-2"), buyer(4), "two_cards", 36800), /invalid_split/),
+    "segunda parte menor que R$ 5,00 é recusada",
+  );
+  check(
+    await rejects(async () => placeWithPlan(await newAccount("plano-ruim-3"), buyer(5), "card", 1000), /invalid_split/),
+    "valor de divisão em pagamento único é recusado",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`update public.order_payments set status = 'paid' where id = $1`, [pixPart.id])), /permission denied/),
+    "visitante não marca pagamento como pago",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.confirm_card_payment($1, 'tx', 'slug', 15000, 1, null)`, [cardPart.id])), /permission denied/),
+    "só a Edge Function confirma cartão",
+  );
+
+  const underpaid = await db.query(`select public.confirm_card_payment($1, 'tx-1', 'slug-1', 14000, 3, null) as ok`, [cardPart.id]);
+  check(underpaid.rows[0].ok === false, "cartão pago com valor menor não conta como pago");
+  const paidCard = await db.query(`select public.confirm_card_payment($1, 'tx-1', 'slug-1', 15000, 3, 'https://recibo.exemplo/1') as ok`, [cardPart.id]);
+  const repeated = await db.query(`select public.confirm_card_payment($1, 'tx-1', 'slug-1', 15000, 3, null) as ok`, [cardPart.id]);
+  const afterCard = await db.query(`select status from public.orders where code = $1`, [split.code]);
+  check(paidCard.rows[0].ok && repeated.rows[0].ok, "confirmação do cartão é aceita e repetir o aviso não muda nada");
+  check(afterCard.rows[0].status === "awaiting_payment", "com só o cartão pago o pedido continua esperando o Pix");
+
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.order_payments set status = 'paid' where id = $1`, [pixPart.id]));
+  const afterPix = await db.query(
+    `select o.status, a.status as account_status, p.paid_at is not null as stamped
+     from public.orders o join public.accounts a on a.id = o.account_id join public.order_payments p on p.id = $2
+     where o.code = $1`,
+    [split.code, pixPart.id],
+  );
+  check(afterPix.rows[0]?.status === "paid" && afterPix.rows[0]?.stamped, "Pix confirmado pelo Jota fecha o pedido como pago");
+
+  const manual = (await placeWithPlan(await newAccount("plano-manual"), buyer(6), "two_cards", 20000)).rows[0].data;
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.orders set status = 'paid' where code = $1`, [manual.code]));
+  const manualParts = await db.query(`select count(*) filter (where status = 'paid')::int as paid from public.order_payments where order_id = (select id from public.orders where code = $1)`, [manual.code]);
+  check(manualParts.rows[0].paid === 2, "pedido confirmado à mão em Pedidos dá as partes como pagas");
+
+  const canceled = (await placeWithPlan(await newAccount("plano-cancelado"), buyer(7), "card_pix", 20000)).rows[0].data;
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.orders set status = 'canceled' where code = $1`, [canceled.code]));
+  const canceledParts = await db.query(`select count(*) filter (where status = 'canceled')::int as closed from public.order_payments where order_id = (select id from public.orders where code = $1)`, [canceled.code]);
+  check(canceledParts.rows[0].closed === 2, "cancelar o pedido fecha as cobranças em aberto");
+
+  const lookup = await as("anon", null, () => db.query(`select public.get_order($1) as data`, [split.code]));
+  check(lookup.rows[0].data.payments.every((part) => part.status === "paid"), "página do pedido mostra as duas partes pagas");
 }
 
 async function emailVaultChecks() {

@@ -5,6 +5,7 @@ import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLoca
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
+import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { DATA_REQUEST_KINDS } from "@/domain/privacy";
@@ -120,7 +121,9 @@ export const checkoutProfileSchema = z
 export const checkoutSchema = z
   .object({
     ...checkoutProfileShape,
-    paymentMethod: z.enum(["pix", "card"], { message: "Escolha a forma de pagamento." }),
+    paymentMethod: z.enum(PAYMENT_PLANS, { message: "Escolha a forma de pagamento." }),
+    /** Só no pagamento dividido. O limite contra o total é conferido no caso de uso, que conhece o preço. */
+    firstPartCents: z.number({ message: "Informe quanto vai no primeiro cartão." }).int().positive().nullable(),
     acceptedTerms: z.literal(true, { message: "Para continuar, aceite os Termos de Uso e a Política de Privacidade." }),
   })
   .refine(emailsMatch, EMAILS_MISMATCH)
@@ -488,6 +491,19 @@ export const storeSettingsSchema = z.object({
     .int("Use um número inteiro.")
     .min(1, "A garantia precisa ter pelo menos 1 dia.")
     .max(90, "Use no máximo 90 dias."),
+  pixKey: optionalText(77),
+  pixReceiverName: z
+    .string()
+    .trim()
+    .max(25, "O Pix aceita no máximo 25 caracteres no nome.")
+    .nullable()
+    .transform((value) => value || null),
+  pixReceiverCity: z
+    .string()
+    .trim()
+    .max(15, "O Pix aceita no máximo 15 caracteres na cidade.")
+    .nullable()
+    .transform((value) => value || null),
 });
 
 export type StoreSettingsInput = z.input<typeof storeSettingsSchema>;

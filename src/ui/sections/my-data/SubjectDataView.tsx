@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { LEGAL_DOCUMENTS } from "@/application/legal-documents";
+import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { formatDocument } from "@/domain/customer";
 import { LEAD_SOURCE_LABEL } from "@/domain/lead";
 import { formatBRL } from "@/domain/money";
@@ -14,7 +15,6 @@ const ORDER_STATUS_LABEL: Record<Order["status"], string> = {
   canceled: "Cancelado",
 };
 
-const PAYMENT_LABEL: Record<Order["paymentMethod"], string> = { pix: "Pix", card: "Cartão" };
 
 const formatDateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 const formatBirth = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
@@ -63,7 +63,7 @@ export function SubjectDataView({ data }: { data: SubjectData }) {
               <Fields
                 rows={[
                   ["Conta", `${order.accountHandle} (${PLATFORM_LABEL[order.accountPlatform]})`],
-                  ["Valor", `${formatBRL(order.total)} no ${PAYMENT_LABEL[order.paymentMethod]}`],
+                  ["Valor", `${formatBRL(order.total)} · ${PAYMENT_PLAN_LABEL[order.paymentMethod]}`],
                   ["Pedido em", formatDateTime(order.createdAt)],
                   ["Entregue em", order.deliveredAt ? formatDateTime(order.deliveredAt) : null],
                   ["Nome", order.customer.name],

@@ -22,7 +22,8 @@ import {
 import { DemoPrivacyRepository, DemoPrivacyService } from "@/infrastructure/demo/demo-privacy";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { GoogleCalendarService } from "@/infrastructure/google-calendar";
-import { PendingPaymentGateway } from "@/infrastructure/pending-payment-gateway";
+import { DemoPaymentGateway } from "@/infrastructure/demo/demo-payment-gateway";
+import { SupabasePaymentGateway } from "@/infrastructure/supabase/supabase-payment-gateway";
 import { DevServerProfileLookupService, SupabaseProfileLookupService } from "@/infrastructure/profile-lookup";
 import {
   SupabaseAccountRepository,
@@ -73,7 +74,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       orders,
       settings,
       siteContent,
-      payments: new PendingPaymentGateway(),
+      payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
     },
     admin: {
@@ -117,7 +118,7 @@ function demoContainer(): Container {
       orders,
       settings,
       siteContent,
-      payments: new PendingPaymentGateway(),
+      payments: new DemoPaymentGateway(orders),
       privacy: new DemoPrivacyService(db),
     },
     admin: {

@@ -2,6 +2,7 @@ import { MessageCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { loadFinalizedSales } from "@/application/admin-use-cases";
+import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { customerKeyOf } from "@/domain/customer";
 import { rangeOf, toLocalIsoDate, type DateRange, type PeriodPreset } from "@/domain/finance";
 import type { MessageTemplates } from "@/domain/message-template";
@@ -22,7 +23,6 @@ import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
 import { whatsappChatUrl } from "../lib/whatsapp";
 
-const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
 
 const deliveredDayOf = (order: Order) => toLocalIsoDate(new Date(deliveredAtOf(order)));
 
@@ -91,7 +91,7 @@ function SaleCard({ order, guaranteeDays, templates }: { order: Order; guarantee
         <div>
           <dt className="text-xs text-mist">Valor</dt>
           <dd className="mt-0.5 font-display text-lg font-bold text-white tabular-nums">{formatBRL(order.total)}</dd>
-          <dd className="text-xs text-mist">{PAYMENT_LABEL[order.paymentMethod]}</dd>
+          <dd className="text-xs text-mist">{PAYMENT_PLAN_LABEL[order.paymentMethod]}</dd>
         </div>
       </dl>
     </li>

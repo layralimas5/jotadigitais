@@ -42,11 +42,13 @@ const INTEGRATIONS: readonly StaticIntegration[] = [
   {
     id: "payments",
     icon: <CreditCard className="size-6 text-amber-300" />,
-    title: "Pagamento (Pix e cartão)",
-    description: "Cobrança automática no checkout do site, com o pedido marcado como pago sozinho.",
+    title: "Pagamento (InfinitePay e Pix Nubank)",
+    description:
+      "Pix, cartão ou dividido em dois (dois cartões ou cartão + Pix). Cartão pela InfinitePay, confirmado sozinho; Pix com QR Code da sua chave Nubank.",
     tone: "soon",
-    status: "Em breve",
-    next: "Depende de escolher um gateway que aceite a venda de contas. Até lá, você confirma o pagamento em Pedidos.",
+    status: "Falta ligar",
+    next: "Cadastre a chave Pix em Site > Contato e mande a InfiniteTag para a Lay ligar o cartão. O Pix você confirma em Pedidos quando cair no Nubank.",
+    action: { to: "/admin/site", label: "Cadastrar chave Pix" },
   },
   {
     id: "ai",

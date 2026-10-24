@@ -1,19 +1,20 @@
-import { ArrowLeft, ArrowRight, CreditCard, Lock, Mail, QrCode } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, Mail } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
 import { formatCount, isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
-import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
+import { acceptsPix } from "@/domain/store-settings";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
 import { AccountBadgePill, PlatformTag } from "@/ui/components/account/AccountBadges";
-import { ChoiceCard } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { useCheckoutForm, type CheckoutField, type CheckoutValues } from "@/ui/hooks/useCheckoutForm";
+import { useCheckoutForm } from "@/ui/hooks/useCheckoutForm";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccount, usePlaceOrder } from "@/ui/hooks/useStore";
+import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
+import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
 import { CheckoutProfileFields } from "@/ui/sections/checkout/CheckoutProfileFields";
 import { CheckoutProfileReview } from "@/ui/sections/checkout/CheckoutProfileReview";
 import { CheckoutSteps } from "@/ui/sections/checkout/CheckoutSteps";
@@ -71,7 +72,8 @@ function CheckoutForm({ account }: { account: Account }) {
     const placed = await placeOrder.submit(account.id, data);
     if (placed) navigate(`/pedido/${placed.order.code}`, { replace: true });
   };
-  const { values, errors, step, setField, handleSubmit, editProfile } = useCheckoutForm(onValid);
+  const { values, errors, step, setField, handleSubmit, editProfile } = useCheckoutForm(account.price, onValid);
+  const pixEnabled = acceptsPix(useStoreSettings());
 
   const firstRender = useRef(true);
 
@@ -102,7 +104,7 @@ function CheckoutForm({ account }: { account: Account }) {
       ) : (
         <>
           <CheckoutProfileReview values={values} onEdit={editProfile} />
-          <PaymentStep account={account} values={values} errors={errors} setField={setField} />
+          <CheckoutPaymentStep total={account.price} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
 
           {placeOrder.state.status === "error" && (
             <p role="alert" className="rounded-2xl border border-alert/30 bg-alert/[0.07] p-4 text-sm text-white">
@@ -128,73 +130,6 @@ function CheckoutForm({ account }: { account: Account }) {
         </>
       )}
     </form>
-  );
-}
-
-interface PaymentStepProps {
-  account: Account;
-  values: CheckoutValues;
-  errors: Partial<Record<CheckoutField, string>>;
-  setField: <K extends CheckoutField>(field: K, value: CheckoutValues[K]) => void;
-}
-
-function PaymentStep({ account, values, errors, setField }: PaymentStepProps) {
-  return (
-    <>
-      <fieldset>
-        <legend className="font-display text-lg font-semibold text-white">Pagamento</legend>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <ChoiceCard
-            name="paymentMethod"
-            value="pix"
-            checked={values.paymentMethod === "pix"}
-            onChange={() => setField("paymentMethod", "pix")}
-            title="Pix"
-            description={`${formatBRL(account.price)} à vista, aprovação imediata`}
-            icon={<QrCode className="size-5" />}
-          />
-          <ChoiceCard
-            name="paymentMethod"
-            value="card"
-            checked={values.paymentMethod === "card"}
-            onChange={() => setField("paymentMethod", "card")}
-            title="Cartão de crédito"
-            description={`Em até ${MAX_CARD_INSTALLMENTS}x com juros da operadora`}
-            icon={<CreditCard className="size-5" />}
-          />
-        </div>
-      </fieldset>
-
-      <div>
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-fog">
-          <input
-            type="checkbox"
-            name="acceptedTerms"
-            checked={values.acceptedTerms}
-            onChange={(event) => setField("acceptedTerms", event.target.checked)}
-            aria-invalid={errors.acceptedTerms ? true : undefined}
-            aria-describedby={errors.acceptedTerms ? "terms-error" : undefined}
-            className="mt-0.5 size-5 shrink-0 accent-electric"
-          />
-          <span>
-            Li e aceito os{" "}
-            <Link to="/termos-de-uso" target="_blank" className="text-electric-soft underline underline-offset-4">
-              Termos de Uso<span className="sr-only"> (abre em outra aba)</span>
-            </Link>{" "}
-            e a{" "}
-            <Link to="/politica-de-privacidade" target="_blank" className="text-electric-soft underline underline-offset-4">
-              Política de Privacidade<span className="sr-only"> (abre em outra aba)</span>
-            </Link>
-            , incluindo as condições de entrega, garantia e reembolso.
-          </span>
-        </label>
-        {errors.acceptedTerms && (
-          <p id="terms-error" className="mt-2 text-xs font-medium text-[#ff7a7a]">
-            {errors.acceptedTerms}
-          </p>
-        )}
-      </div>
-    </>
   );
 }
 

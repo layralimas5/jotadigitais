@@ -148,6 +148,15 @@ export async function changeOrderStatus(deps: AdminDeps, order: Order, status: O
   await deps.orders.updateStatus(order.code, status);
 }
 
+/** O Jota viu o Pix na conta Nubank. Só vale para a parte em Pix ainda aberta de um pedido esperando pagamento. */
+export async function confirmPixPayment(deps: AdminDeps, order: Order, paymentId: string): Promise<void> {
+  const part = order.payments.find((payment) => payment.id === paymentId);
+  if (!part || part.method !== "pix" || part.status !== "pending" || order.status !== "awaiting_payment") {
+    throw new InvalidTransitionError();
+  }
+  await deps.orders.confirmPixPayment(paymentId);
+}
+
 export async function listCustomers(deps: AdminDeps): Promise<CustomerSummary[]> {
   const [orders, records, revenues] = await Promise.all([
     deps.orders.listAll(),
