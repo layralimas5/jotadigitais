@@ -1,5 +1,6 @@
 import { useReducedMotion } from "framer-motion";
-import { type CSSProperties, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import { useDraggableMarquee } from "@/ui/hooks/useDraggableMarquee";
 import { cn } from "@/ui/lib/cn";
 
 interface ChipMarqueeProps {
@@ -16,12 +17,13 @@ interface ChipMarqueeProps {
 const EDGE_FADE = "[mask-image:linear-gradient(to_right,transparent,black_4%,black_96%,transparent)]";
 
 /**
- * Faixa de botões em loop contínuo para a esquerda (mesma animação do Marquee dos depoimentos).
+ * Faixa de botões em loop contínuo para a esquerda que o cliente também pode arrastar até a opção que quiser.
  * Toda cópia aceita clique (é a que estiver na tela), mas só a primeira vale para teclado e leitor de tela.
  * Pausa no hover e no foco pelo teclado; com movimento reduzido vira rolagem manual.
  */
-export function ChipMarquee({ children, label, durationSeconds = 12, repeat = 3, className }: ChipMarqueeProps) {
+export function ChipMarquee({ children, label, durationSeconds = 24, repeat = 3, className }: ChipMarqueeProps) {
   const reduceMotion = useReducedMotion();
+  const { viewportRef, trackRef, viewportProps } = useDraggableMarquee(durationSeconds * repeat);
 
   if (reduceMotion) {
     return (
@@ -31,14 +33,14 @@ export function ChipMarquee({ children, label, durationSeconds = 12, repeat = 3,
     );
   }
 
-  const style = { "--marquee-duration": `${durationSeconds * repeat}s` } as CSSProperties;
   const copies = Array.from({ length: repeat * 2 }, (_, index) => index);
   return (
-    <div className={cn("group/chips overflow-hidden py-0.5", EDGE_FADE, className)}>
-      <div
-        className="flex w-max animate-marquee group-hover/chips:[animation-play-state:paused] group-has-[:focus-visible]/chips:[animation-play-state:paused]"
-        style={style}
-      >
+    <div
+      ref={viewportRef}
+      {...viewportProps}
+      className={cn("cursor-grab touch-pan-y overflow-hidden py-0.5 select-none active:cursor-grabbing", EDGE_FADE, className)}
+    >
+      <div ref={trackRef} className="flex w-max will-change-transform">
         {copies.map((copy) =>
           copy === 0 ? (
             <div key={copy} role="group" aria-label={label} className="flex shrink-0 gap-2 pr-2">

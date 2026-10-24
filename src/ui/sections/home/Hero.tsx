@@ -1,10 +1,11 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { Platform } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
 import { PhoneProfile, type ProfilePreview } from "@/ui/components/account/PhoneProfile";
 import { Backdrop } from "@/ui/components/layout/Backdrop";
-import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
+import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { OTHER_NETWORKS_CATALOG_PATH } from "@/ui/lib/catalog-links";
@@ -21,6 +22,14 @@ const previewOf = (name: string, handle: string): ProfilePreview => ({
   followers: 1259,
   stats: { likes: 2123, following: 0, monetized: false },
 });
+
+/** Ícones do selo do topo, na mesma ordem da vitrine que ele abre. Cada um sobre o seguinte, com borda para separar. */
+const BADGE_NETWORKS: readonly { platform: Platform; className: string }[] = [
+  { platform: "instagram", className: "bg-gradient-to-tr from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white" },
+  { platform: "youtube", className: "bg-[#ff0000] text-white" },
+  { platform: "tiktok", className: "bg-white text-ink" },
+  { platform: "facebook", className: "bg-[#1877f2] text-white" },
+];
 
 const FLOAT_DURATION_S = 3.2;
 const FLOAT_DISTANCE_PX = 10;
@@ -73,8 +82,16 @@ export function Hero() {
               to={OTHER_NETWORKS_CATALOG_PATH}
               className="group/badge inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pr-3 pl-1.5 text-[0.72rem] font-medium text-fog backdrop-blur transition-colors hover:border-white/25 hover:text-white sm:pr-3.5 sm:text-xs"
             >
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-ink">
-                <TikTokGlyph className="size-3.5" />
+              <span className="flex shrink-0 -space-x-1">
+                {BADGE_NETWORKS.map(({ platform, className }, index) => (
+                  <span
+                    key={platform}
+                    style={{ zIndex: BADGE_NETWORKS.length - index }}
+                    className={cn("relative grid size-6 place-items-center rounded-full ring-2 ring-ink", className)}
+                  >
+                    <PlatformGlyph platform={platform} className="size-3.5" />
+                  </span>
+                ))}
               </span>
               <span {...editable("hero.badge")}>{hero.badge}</span>
               <ArrowRight aria-hidden className="size-3.5 transition-transform group-hover/badge:translate-x-0.5" />
