@@ -1,11 +1,13 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ButtonLink } from "@/ui/components/Button";
 import { PhoneProfile, type ProfilePreview } from "@/ui/components/account/PhoneProfile";
 import { Backdrop } from "@/ui/components/layout/Backdrop";
 import { TikTokGlyph } from "@/ui/components/TikTokGlyph";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
+import { OTHER_NETWORKS_CATALOG_PATH } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
 import { proofIconComponent } from "@/ui/lib/proof-icons";
@@ -66,15 +68,18 @@ export function Hero() {
           animate="show"
           className="text-center lg:text-left"
         >
-          <motion.p
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pr-3.5 pl-1.5 text-[0.72rem] font-medium text-fog backdrop-blur sm:pr-4 sm:text-xs"
-          >
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-ink">
-              <TikTokGlyph className="size-3.5" />
-            </span>
-            <span {...editable("hero.badge")}>{hero.badge}</span>
-          </motion.p>
+          <motion.div variants={fadeUp}>
+            <Link
+              to={OTHER_NETWORKS_CATALOG_PATH}
+              className="group/badge inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1.5 pr-3 pl-1.5 text-[0.72rem] font-medium text-fog backdrop-blur transition-colors hover:border-white/25 hover:text-white sm:pr-3.5 sm:text-xs"
+            >
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-white text-ink">
+                <TikTokGlyph className="size-3.5" />
+              </span>
+              <span {...editable("hero.badge")}>{hero.badge}</span>
+              <ArrowRight aria-hidden className="size-3.5 transition-transform group-hover/badge:translate-x-0.5" />
+            </Link>
+          </motion.div>
 
           <motion.h1
             id="hero-title"

@@ -17,6 +17,9 @@ export const AUDIENCE_LABEL: Record<Platform, string> = {
   facebook: "Seguidores",
 };
 
+/** Ordem da vitrine quando o cliente chega pelo selo "outras redes" do topo: TikTok, carro-chefe, vai para depois. */
+export const OTHER_NETWORKS_FIRST: readonly Platform[] = ["instagram", "youtube", "tiktok", "facebook"];
+
 export function isPlatform(value: unknown): value is Platform {
   return typeof value === "string" && (PLATFORMS as readonly string[]).includes(value);
 }

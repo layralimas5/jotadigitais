@@ -72,7 +72,7 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem]">
-            Ver contas
+            Catálogo
           </ButtonLink>
           {/* Atalho para o painel só para quem já entrou nele neste navegador: o cliente não vê. */}
           {showSystemLink && (
@@ -123,7 +123,7 @@ export function Header() {
               ))}
               <li className="pt-3">
                 <ButtonLink to="/contas" size="lg" className="w-full">
-                  Ver contas disponíveis
+                  Catálogo
                 </ButtonLink>
               </li>
             </ul>

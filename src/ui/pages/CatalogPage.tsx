@@ -1,7 +1,8 @@
 import { useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AccountFilter, AccountSort } from "@/application/ports";
-import { PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
+import type { Account } from "@/domain/account";
+import { OTHER_NETWORKS_FIRST, PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { ChipMarquee } from "@/ui/components/ChipMarquee";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
@@ -10,6 +11,7 @@ import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccounts } from "@/ui/hooks/useStore";
+import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
 
 const FOLLOWER_RANGES = {
@@ -44,6 +46,7 @@ function useCatalogParams() {
   const platform = isPlatform(platformParam) ? platformParam : undefined;
   const range: RangeKey = isRange(rangeParam) ? rangeParam : "todas";
   const sort: AccountSort = isSort(sortParam) ? sortParam : "recent";
+  const otherNetworksFirst = params.get(OTHER_NETWORKS_PARAM) === OTHER_NETWORKS_VALUE;
 
   const update = (key: string, value: string | undefined) => {
     setParams(
@@ -57,7 +60,13 @@ function useCatalogParams() {
     );
   };
 
-  return { platform, range, sort, update, reset: () => setParams({}, { replace: true }) };
+  return { platform, range, sort, otherNetworksFirst, update, reset: () => setParams({}, { replace: true }) };
+}
+
+/** Agrupa por rede na ordem Instagram, YouTube, TikTok, mantendo a ordem escolhida dentro de cada rede. */
+function groupOtherNetworksFirst(accounts: readonly Account[]): Account[] {
+  const rank = (account: Account) => OTHER_NETWORKS_FIRST.indexOf(account.platform);
+  return [...accounts].sort((a, b) => rank(a) - rank(b));
 }
 
 interface FilterChipProps {
@@ -92,7 +101,7 @@ export default function CatalogPage() {
     "Contas disponíveis",
     "Contas de TikTok, Instagram, YouTube e Facebook prontas para usar. Filtre por rede social e número de seguidores.",
   );
-  const { platform, range, sort, update, reset } = useCatalogParams();
+  const { platform, range, sort, otherNetworksFirst, update, reset } = useCatalogParams();
 
   const filter = useMemo<AccountFilter>(
     () => ({
@@ -103,7 +112,14 @@ export default function CatalogPage() {
     }),
     [platform, range, sort],
   );
-  const accounts = useAccounts(filter);
+  const fetched = useAccounts(filter);
+  const accounts = useMemo(
+    () =>
+      otherNetworksFirst && fetched.status === "success"
+        ? { ...fetched, data: groupOtherNetworksFirst(fetched.data) }
+        : fetched,
+    [fetched, otherNetworksFirst],
+  );
   const hasFilters = Boolean(platform || range !== "todas");
   const availableCount =
     accounts.status === "success" ? accounts.data.filter((account) => account.status === "available").length : null;
@@ -203,7 +219,7 @@ export default function CatalogPage() {
             />
           )}
           {accounts.status === "success" && accounts.data.length > 0 && (
-            <Reveal as="ul" stagger key={JSON.stringify(filter)} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Reveal as="ul" stagger key={`${JSON.stringify(filter)}-${otherNetworksFirst}`} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {accounts.data.map((account) => (
                 <RevealItem as="li" key={account.id}>
                   <AccountCard account={account} />
