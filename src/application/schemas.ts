@@ -6,6 +6,7 @@ import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
 import { PLATFORMS } from "@/domain/platform";
+import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { DATA_REQUEST_KINDS } from "@/domain/privacy";
 import { MAX_PROOF_POINTS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
@@ -76,6 +77,22 @@ const cityField = z.string().trim().min(2, "Informe a cidade.").max(60, "Use no 
 
 const stateField = z.enum(BRAZIL_STATES, { message: "Escolha o estado." });
 
+const referredByField = z
+  .string()
+  .nullable()
+  .transform((value) => value?.trim().replace(/\s+/g, " ") ?? "")
+  .refine((value) => value.length <= REFERRED_BY_MAX_LENGTH, { message: `Use no máximo ${REFERRED_BY_MAX_LENGTH} caracteres.` })
+  .transform((value) => value || null);
+
+/** Indicação sem o nome de quem indicou não serve para o parceiro: o campo passa a ser obrigatório. */
+const referralNamed = (data: { source: string | null; referredBy: string | null }) =>
+  data.source !== "referral" || (data.referredBy !== null && data.referredBy.length >= 2);
+const REFERRAL_UNNAMED = { path: ["referredBy"], message: "Informe o nome de quem indicou." };
+
+/** Quem indicou só vale para indicação; em qualquer outra origem é descartado. */
+export const referredByFor = (data: { source: string | null; referredBy: string | null }) =>
+  data.source === "referral" ? data.referredBy : null;
+
 
 const checkoutProfileShape = {
   name: z.string().trim().min(3, "Informe seu nome completo.").max(120, "Nome muito longo."),
@@ -87,13 +104,18 @@ const checkoutProfileShape = {
   instagram: optionalInstagram,
   city: cityField,
   state: stateField,
+  source: z.enum(LEAD_SOURCES, { message: "Conte como você conheceu a Jota Digitais." }),
+  referredBy: referredByField,
 };
 
 const emailsMatch = (data: { email: string; emailConfirmation: string }) => data.email === data.emailConfirmation;
 const EMAILS_MISMATCH = { path: ["emailConfirmation"], message: "Os e-mails não conferem." };
 
 /** Primeiro passo do checkout: a ficha completa, conferida antes de mostrar o pagamento. */
-export const checkoutProfileSchema = z.object(checkoutProfileShape).refine(emailsMatch, EMAILS_MISMATCH);
+export const checkoutProfileSchema = z
+  .object(checkoutProfileShape)
+  .refine(emailsMatch, EMAILS_MISMATCH)
+  .refine(referralNamed, REFERRAL_UNNAMED);
 
 export const checkoutSchema = z
   .object({
@@ -101,7 +123,8 @@ export const checkoutSchema = z
     paymentMethod: z.enum(["pix", "card"], { message: "Escolha a forma de pagamento." }),
     acceptedTerms: z.literal(true, { message: "Para continuar, aceite os Termos de Uso e a Política de Privacidade." }),
   })
-  .refine(emailsMatch, EMAILS_MISMATCH);
+  .refine(emailsMatch, EMAILS_MISMATCH)
+  .refine(referralNamed, REFERRAL_UNNAMED);
 
 export type CheckoutInput = z.input<typeof checkoutSchema>;
 export type CheckoutData = z.output<typeof checkoutSchema>;
@@ -232,19 +255,23 @@ export const testimonialDataSchema = z.object({
 
 
 /** Cliente cadastrado à mão: mesma ficha completa do checkout, mais origem e anotações. */
-export const customerRecordSchema = z.object({
-  name: personName,
-  document: requiredDocument,
-  birthDate: birthDateField(),
-  email: requiredEmail,
-  whatsapp: requiredWhatsapp,
-  instagram: optionalInstagram,
-  city: cityField,
-  state: stateField,
-  source: z.enum(LEAD_SOURCES, { message: "Escolha como o cliente chegou." }),
-  interest: optionalChoice(PLATFORMS),
-  notes: optionalText(2000),
-});
+export const customerRecordSchema = z
+  .object({
+    name: personName,
+    document: requiredDocument,
+    birthDate: birthDateField(),
+    email: requiredEmail,
+    whatsapp: requiredWhatsapp,
+    instagram: optionalInstagram,
+    city: cityField,
+    state: stateField,
+    source: z.enum(LEAD_SOURCES, { message: "Escolha como o cliente chegou." }),
+    referredBy: referredByField,
+    interest: optionalChoice(PLATFORMS),
+    notes: optionalText(2000),
+  })
+  .refine(referralNamed, REFERRAL_UNNAMED)
+  .transform((data) => ({ ...data, referredBy: referredByFor(data) }));
 
 export const leadDataSchema = z.object({
   name: personName,

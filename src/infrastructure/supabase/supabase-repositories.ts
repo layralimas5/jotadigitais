@@ -303,6 +303,8 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_terms_sha256: consentOf(input, "terms").sha256,
       p_privacy_version: consentOf(input, "privacy").version,
       p_privacy_sha256: consentOf(input, "privacy").sha256,
+      p_source: input.customer.source,
+      p_referred_by: input.customer.referredBy,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
     });
     if (error) failFromOrderRpc(error);
@@ -490,7 +492,8 @@ export class SupabaseLeadRepository implements AdminLeadRepository {
 }
 
 // O documento entra pela coluna `document` (o banco cifra) e volta aberto por document_plain, só para administrador.
-const CUSTOMER_COLUMNS = "id, name, document:document_plain, birth_date, email, whatsapp, instagram, city, state, source, interest, notes, created_at";
+const CUSTOMER_COLUMNS =
+  "id, name, document:document_plain, birth_date, email, whatsapp, instagram, city, state, source, referred_by, interest, notes, created_at";
 
 const customerRowSchema = z.object({
   id: z.string(),
@@ -503,6 +506,7 @@ const customerRowSchema = z.object({
   city: z.string().nullable(),
   state: z.enum(BRAZIL_STATES).nullable(),
   source: z.enum(LEAD_SOURCES).nullable(),
+  referred_by: z.string().nullable(),
   interest: z.enum(PLATFORMS).nullable(),
   notes: z.string().nullable(),
   created_at: z.string(),
@@ -521,13 +525,18 @@ function toCustomerRecord(raw: unknown): CustomerRecord {
     city: row.city,
     state: row.state,
     source: row.source,
+    referredBy: row.referred_by,
     interest: row.interest,
     notes: row.notes,
     createdAt: row.created_at,
   };
 }
 
-const toCustomerRow = ({ birthDate, ...data }: CustomerRecordData) => ({ ...data, birth_date: birthDate });
+const toCustomerRow = ({ birthDate, referredBy, ...data }: CustomerRecordData) => ({
+  ...data,
+  birth_date: birthDate,
+  referred_by: referredBy,
+});
 
 function failOnCustomerWrite(error: PostgrestError, email: string | null): never {
   if (error.code === UNIQUE_VIOLATION && email) throw new CustomerEmailTakenError(email);

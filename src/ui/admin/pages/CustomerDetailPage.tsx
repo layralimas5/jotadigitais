@@ -3,6 +3,7 @@ import {
   AtSign,
   Cake,
   Compass,
+  Handshake,
   IdCard,
   Mail,
   MapPin,
@@ -15,13 +16,15 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { listCustomers } from "@/application/admin-use-cases";
+import { listCustomers, listPartners } from "@/application/admin-use-cases";
 import { ageOn } from "@/domain/brazil";
 import { formatDocument, type CustomerSummary } from "@/domain/customer";
 import { REVENUE_CATEGORY_LABEL, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCE_LABEL } from "@/domain/lead";
 import { formatBRL } from "@/domain/money";
+import type { Partner } from "@/domain/partner";
 import { PLATFORM_LABEL } from "@/domain/platform";
+import { matchReferralPartner } from "@/domain/referral";
 import { ButtonLink, buttonClasses } from "@/ui/components/Button";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -88,6 +91,8 @@ interface SheetRow {
   icon: LucideIcon;
   label: string;
   value: string | null;
+  /** Abre outra tela do painel (ex.: o parceiro que indicou). */
+  to?: string;
 }
 
 /** "1992-03-15" vira "15/03/1992 (34 anos)". */
@@ -96,7 +101,19 @@ function birthLabel(birthDate: string): string {
   return `${day}/${month}/${year} (${ageOn(birthDate, toLocalIsoDate(new Date()))} anos)`;
 }
 
-function sheetRowsOf(customer: CustomerSummary): SheetRow[] {
+function referralRow(customer: CustomerSummary, partners: readonly Partner[]): SheetRow | null {
+  const { source, referredBy } = customer.sheet;
+  if (source !== "referral") return null;
+  const partner = matchReferralPartner(referredBy, partners);
+  return {
+    icon: Handshake,
+    label: partner ? "Indicado pelo parceiro" : "Indicado por",
+    value: partner?.name ?? referredBy,
+    to: partner ? `/admin/parceiros/${partner.id}` : undefined,
+  };
+}
+
+function sheetRowsOf(customer: CustomerSummary, partners: readonly Partner[]): SheetRow[] {
   const { sheet, record } = customer;
   const location = [sheet.city, sheet.state].filter(Boolean).join(" / ");
   const rows: SheetRow[] = [
@@ -106,13 +123,11 @@ function sheetRowsOf(customer: CustomerSummary): SheetRow[] {
     { icon: Phone, label: "WhatsApp", value: customer.whatsapp ? formatPhone(customer.whatsapp) : null },
     { icon: AtSign, label: "Instagram", value: sheet.instagram },
     { icon: MapPin, label: "Cidade", value: location || null },
+    { icon: Compass, label: "Chegou por", value: sheet.source ? LEAD_SOURCE_LABEL[sheet.source] : null },
   ];
-  if (record) {
-    rows.push(
-      { icon: Compass, label: "Chegou por", value: record.source ? LEAD_SOURCE_LABEL[record.source] : null },
-      { icon: Target, label: "Interesse", value: record.interest ? PLATFORM_LABEL[record.interest] : null },
-    );
-  }
+  const referral = referralRow(customer, partners);
+  if (referral) rows.push(referral);
+  if (record) rows.push({ icon: Target, label: "Interesse", value: record.interest ? PLATFORM_LABEL[record.interest] : null });
   return rows;
 }
 
@@ -122,8 +137,8 @@ function sheetDescription(customer: CustomerSummary): string {
   return "Comprou antes da ficha completa no checkout: só há os dados do pedido.";
 }
 
-function CustomerSheet({ customer }: { customer: CustomerSummary }) {
-  const rows = sheetRowsOf(customer);
+function CustomerSheet({ customer, partners }: { customer: CustomerSummary; partners: readonly Partner[] }) {
+  const rows = sheetRowsOf(customer, partners);
   return (
     <section aria-labelledby="ficha-title" className="mt-6 rounded-3xl border border-line bg-surface/60 p-5 sm:p-6">
       <h2 id="ficha-title" className="font-display text-base font-semibold text-white">
@@ -136,7 +151,15 @@ function CustomerSheet({ customer }: { customer: CustomerSummary }) {
             <row.icon aria-hidden className="mt-0.5 size-4 shrink-0 text-mist" />
             <div className="min-w-0">
               <dt className="text-xs text-mist">{row.label}</dt>
-              <dd className={row.value ? "break-words text-fog" : "text-mist/70"}>{row.value ?? "Não informado"}</dd>
+              <dd className={row.value ? "break-words text-fog" : "text-mist/70"}>
+                {row.value && row.to ? (
+                  <Link to={row.to} className="text-electric-soft underline-offset-4 hover:underline">
+                    {row.value}
+                  </Link>
+                ) : (
+                  (row.value ?? "Não informado")
+                )}
+              </dd>
             </div>
           </div>
         ))}
@@ -225,7 +248,7 @@ function ManualSales({ customer }: { customer: CustomerSummary }) {
   );
 }
 
-function CustomerProfile({ customer }: { customer: CustomerSummary }) {
+function CustomerProfile({ customer, partners }: { customer: CustomerSummary; partners: readonly Partner[] }) {
   return (
     <>
       <BackLink />
@@ -244,7 +267,7 @@ function CustomerProfile({ customer }: { customer: CustomerSummary }) {
         <Stat label="Última compra" value={customer.lastPurchaseAt ? formatDate(customer.lastPurchaseAt) : "Nenhuma"} />
       </dl>
 
-      <CustomerSheet customer={customer} />
+      <CustomerSheet customer={customer} partners={partners} />
 
       {(customer.origin === "site" || customer.orders.length > 0) && (
         <HistorySection id="pedidos-title" title="Pedidos no site">
@@ -263,6 +286,8 @@ function CustomerProfile({ customer }: { customer: CustomerSummary }) {
 export default function CustomerDetailPage() {
   const { key = "" } = useParams();
   const customers = useAdminQuery(listCustomers, "admin-customers");
+  // Sem a lista de parceiros a ficha ainda mostra o nome digitado, só sem o link para o parceiro.
+  const partners = useAdminQuery(listPartners, "admin-partner-list");
 
   if (customers.status === "loading") return <LoadingBlock />;
   if (customers.status === "error") return <ErrorState message={customers.error.message} onRetry={customers.reload} />;
@@ -277,5 +302,5 @@ export default function CustomerDetailPage() {
       />
     );
   }
-  return <CustomerProfile customer={customer} />;
+  return <CustomerProfile customer={customer} partners={partners.status === "success" ? partners.data : []} />;
 }

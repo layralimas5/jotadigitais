@@ -329,7 +329,18 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
     // Como `get_order` no banco: a página pública do pedido mostra só o primeiro nome, sem a ficha.
     return {
       ...order,
-      customer: { name: name.split(" ")[0] ?? name, email: maskEmail(email), whatsapp: null, document: null, birthDate: null, instagram: null, city: null, state: null },
+      customer: {
+        name: name.split(" ")[0] ?? name,
+        email: maskEmail(email),
+        whatsapp: null,
+        document: null,
+        birthDate: null,
+        instagram: null,
+        city: null,
+        state: null,
+        source: null,
+        referredBy: null,
+      },
     };
   }
 }

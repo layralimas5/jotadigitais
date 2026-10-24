@@ -1,4 +1,5 @@
 import type { BrazilState } from "./brazil";
+import type { LeadSource } from "./lead";
 import type { Cents } from "./money";
 import type { Platform } from "./platform";
 
@@ -25,6 +26,10 @@ export interface Customer {
   instagram: string | null;
   city: string | null;
   state: BrazilState | null;
+  /** Como conheceu a loja. */
+  source: LeadSource | null;
+  /** Quem indicou, como o cliente escreveu. Só quando `source` é indicação. */
+  referredBy: string | null;
 }
 
 export interface Order {

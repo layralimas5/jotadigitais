@@ -12,13 +12,15 @@ export const LEAD_STAGE_LABEL: Record<LeadStage, string> = {
   lost: "Perdido",
 };
 
-export const LEAD_SOURCES = ["instagram", "whatsapp", "tiktok", "referral", "other"] as const;
+export const LEAD_SOURCES = ["instagram", "whatsapp", "tiktok", "youtube", "google", "referral", "other"] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 
 export const LEAD_SOURCE_LABEL: Record<LeadSource, string> = {
   instagram: "Instagram",
   whatsapp: "WhatsApp",
   tiktok: "TikTok",
+  youtube: "YouTube",
+  google: "Google",
   referral: "Indicação",
   other: "Outro",
 };

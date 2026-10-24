@@ -59,6 +59,7 @@ function PartnersTable({ summaries }: { summaries: PartnerSummary[] }) {
         <thead className="bg-surface text-xs text-mist">
           <tr>
             <th scope="col" className="px-5 py-3 font-medium">Parceiro</th>
+            <th scope="col" className="px-4 py-3 text-right font-medium">Indicados</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">No estoque</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Vendidas</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Vendas finalizadas</th>
@@ -69,6 +70,7 @@ function PartnersTable({ summaries }: { summaries: PartnerSummary[] }) {
           {summaries.map((summary) => (
             <tr key={summary.partner.id} className="relative transition-colors hover:bg-white/[0.02]">
               <td className="px-5 py-3"><PartnerIdentity summary={summary} /></td>
+              <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.referredCustomers.length}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.inStock}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.sold}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{formatBRL(summary.revenue)}</td>
@@ -89,6 +91,7 @@ function PartnersCards({ summaries }: { summaries: PartnerSummary[] }) {
           <PartnerIdentity summary={summary} />
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
             <span className="text-fog">
+              {summary.referredCustomers.length} {summary.referredCustomers.length === 1 ? "indicado" : "indicados"} ·{" "}
               {summary.inStock} no estoque · {summary.sold} vendidas
             </span>
             <span className="font-semibold text-white tabular-nums">{formatBRL(summary.commission)}</span>
@@ -109,7 +112,7 @@ export default function PartnersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Parceiros"
-        description="Quem fornece contas para a loja. A comissão é calculada sobre as vendas finalizadas das contas de cada um."
+        description="Quem fornece contas ou indica clientes. A comissão é calculada sobre as vendas finalizadas das contas de cada um."
         action={
           <ButtonLink to="/admin/parceiros/novo" className="max-md:hidden">
             <Plus aria-hidden className="size-4" /> Novo parceiro
@@ -132,8 +135,13 @@ export default function PartnersPage() {
       )}
       {data && data.length > 0 && (
         <>
-          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3 [&>div:last-child]:col-span-2 lg:[&>div:last-child]:col-span-1">
+          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi label="Parceiros ativos" value={String(data.filter((summary) => summary.partner.active).length)} />
+            <Kpi
+              label="Clientes indicados"
+              value={String(data.reduce((sum, summary) => sum + summary.referredCustomers.length, 0))}
+              hint="Quem citou um parceiro no “quem indicou”"
+            />
             <Kpi label="Contas de parceiros no estoque" value={String(data.reduce((sum, summary) => sum + summary.inStock, 0))} />
             <Kpi label="Comissão total" value={formatBRL(data.reduce((sum, summary) => sum + summary.commission, 0))} hint="Sobre todas as vendas finalizadas" />
           </dl>

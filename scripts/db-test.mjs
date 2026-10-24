@@ -695,6 +695,7 @@ async function main() {
   await lgpdChecks(legal);
   await securityChecks();
   await emailVaultChecks();
+  await referralChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1042,6 +1043,64 @@ async function securityChecks() {
   check(strangerLogin.rows[0].total === 0, "login de quem não é admin não gera aviso");
   const adminAdded = await db.query(`select body from public.notifications where kind = 'security' and title = 'Novo acesso ao painel criado'`);
   check(adminAdded.rows[0]?.body.startsWith("jota@exemplo.com"), "usuário novo no painel avisa no sininho");
+}
+
+function placeWithSource(accountId, buyer, source, referredBy) {
+  return as("anon", null, () =>
+    db.query(
+      `select public.place_order($1, 'Cliente Indicado', $2, $3, $4, '1990-05-10', '', 'Natal', 'RN', 'pix', ${CONSENT}, $5, $6) as data`,
+      [accountId, buyer.email, buyer.whatsapp, buyer.document, source, referredBy],
+    ),
+  );
+}
+
+async function referralChecks() {
+  console.log("\ncomo conheceu e indicação");
+  const referred = await placeWithSource(
+    await newAccount("indicacao-1"),
+    { email: "indicado@exemplo.com", whatsapp: "11955550001", document: cpfFrom("111444777") },
+    "referral",
+    "  Gimena   Souza ",
+  );
+  const saved = await db.query(`select customer_source, customer_referred_by from public.orders where code = $1`, [referred.rows[0].data.code]);
+  check(
+    saved.rows[0]?.customer_source === "referral" && saved.rows[0]?.customer_referred_by === "Gimena Souza",
+    "checkout grava a origem e quem indicou, sem espaço sobrando",
+  );
+  check(!("customer_referred_by" in referred.rows[0].data), "resposta pública do pedido não devolve quem indicou");
+
+  const instagram = await placeWithSource(
+    await newAccount("indicacao-2"),
+    { email: "insta@exemplo.com", whatsapp: "11955550002", document: cpfFrom("222555888") },
+    "instagram",
+    "Gimena",
+  );
+  const fromInstagram = await db.query(`select customer_source, customer_referred_by from public.orders where code = $1`, [instagram.rows[0].data.code]);
+  check(
+    fromInstagram.rows[0]?.customer_source === "instagram" && fromInstagram.rows[0]?.customer_referred_by === null,
+    "quem indicou é descartado quando a origem não é indicação",
+  );
+
+  const unnamedAccount = await newAccount("indicacao-3");
+  const buyer = { email: "semnome@exemplo.com", whatsapp: "11955550003", document: cpfFrom("333666999") };
+  check(await rejects(() => placeWithSource(unnamedAccount, buyer, "referral", " "), /invalid_referred_by/), "indicação sem o nome de quem indicou é recusada");
+  check(await rejects(() => placeWithSource(unnamedAccount, buyer, "panfleto", null), /invalid_source/), "origem fora da lista é recusada");
+  check(await rejects(() => placeWithSource(unnamedAccount, buyer, null, null), /invalid_source/), "checkout novo sem origem é recusado");
+
+  const legacy = await placeAs(unnamedAccount, buyer);
+  check(Boolean(legacy.rows[0]?.data.code), "checkout antigo, sem a pergunta, continua funcionando durante a publicação");
+
+  const manual = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.customers (name, email, source, referred_by) values ('Cliente Manual', 'manual-indicado@exemplo.com', 'referral', 'Gimena') returning referred_by`),
+  );
+  check(manual.rows[0]?.referred_by === "Gimena", "cadastro manual guarda quem indicou");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.customers (name, source, referred_by) values ('Outro', 'referral', 'G')`)),
+      /check/,
+    ),
+    "nome de quem indicou com uma letra só é recusado",
+  );
 }
 
 async function emailVaultChecks() {

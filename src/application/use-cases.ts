@@ -17,7 +17,7 @@ import type {
   TestimonialRepository,
 } from "./ports";
 import { currentLegalConsents } from "./legal-documents";
-import { siteContentSchema, type CheckoutData } from "./schemas";
+import { referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
 
 export interface UseCaseDeps {
   accounts: AccountRepository;
@@ -78,6 +78,8 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
       instagram: data.instagram,
       city: data.city,
       state: data.state,
+      source: data.source,
+      referredBy: referredByFor(data),
     },
     paymentMethod: data.paymentMethod,
     consents: await currentLegalConsents(),

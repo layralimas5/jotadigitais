@@ -14,6 +14,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { TextAreaField, ToggleField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
+import { formatDate } from "../lib/dates";
 import { formatPercent, parsePercent } from "../lib/percent";
 import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
@@ -82,6 +83,40 @@ function PartnerAccounts({ summary }: { summary: PartnerSummary }) {
   );
 }
 
+function ReferredCustomers({ summary }: { summary: PartnerSummary }) {
+  const { referredCustomers } = summary;
+  return (
+    <FormSection
+      title="Clientes indicados"
+      description={`Quem escreveu ${summary.partner.name} (ou o @ dele) em “quem indicou”, no checkout ou no cadastro do cliente.`}
+    >
+      {referredCustomers.length === 0 ? (
+        <p className="text-sm text-mist">Nenhuma indicação ainda.</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {referredCustomers.map((customer) => (
+            <li key={customer.key}>
+              <Link
+                to={`/admin/clientes/${encodeURIComponent(customer.key)}`}
+                className="flex items-center gap-3 py-2.5 text-sm hover:text-electric-soft"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-white">{customer.name}</span>
+                  <span className="block text-xs text-mist">
+                    {customer.since ? `Desde ${formatDate(customer.since)} · ` : ""}
+                    {customer.purchases} {customer.purchases === 1 ? "compra" : "compras"}
+                  </span>
+                </span>
+                <span className="w-24 text-right text-fog tabular-nums">{formatBRL(customer.totalSpent)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </FormSection>
+  );
+}
+
 function SummaryCard({ summary }: { summary: PartnerSummary }) {
   const { partner } = summary;
   return (
@@ -103,6 +138,18 @@ function SummaryCard({ summary }: { summary: PartnerSummary }) {
         <div className="flex justify-between gap-3 border-t border-line pt-2">
           <dt className="text-mist">Comissão ({formatPercent(partner.commissionPercent)})</dt>
           <dd className="font-semibold text-white tabular-nums">{formatBRL(summary.commission)}</dd>
+        </div>
+        <div className="flex justify-between gap-3 border-t border-line pt-2">
+          <dt className="text-mist">Clientes indicados</dt>
+          <dd className="text-white tabular-nums">{summary.referredCustomers.length}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-mist">Compras dos indicados</dt>
+          <dd className="text-white tabular-nums">{summary.referredPurchases}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-mist">Total gasto pelos indicados</dt>
+          <dd className="text-white tabular-nums">{formatBRL(summary.referredRevenue)}</dd>
         </div>
       </dl>
       {partner.whatsapp && (
@@ -259,6 +306,7 @@ function PartnerEditor({ summary }: { summary: PartnerSummary | null }) {
             />
           </FormSection>
 
+          {summary && <ReferredCustomers summary={summary} />}
           {summary && <PartnerAccounts summary={summary} />}
         </div>
 

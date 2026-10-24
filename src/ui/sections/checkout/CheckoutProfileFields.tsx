@@ -1,8 +1,18 @@
 import { BRAZIL_STATES, maskDocumentInput } from "@/domain/brazil";
+import { LEAD_SOURCE_LABEL, type LeadSource } from "@/domain/lead";
+import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { SelectInput, TextField } from "@/ui/components/form/Fields";
 import { formatWhatsapp, type CheckoutField, type CheckoutValues } from "@/ui/hooks/useCheckoutForm";
 
 const STATE_OPTIONS = [{ value: "", label: "UF" }, ...BRAZIL_STATES.map((state) => ({ value: state, label: state }))];
+
+/** Ordem pensada para quem compra: redes primeiro, indicação e "outro" no fim. */
+const CHECKOUT_SOURCES: readonly LeadSource[] = ["instagram", "tiktok", "youtube", "google", "whatsapp", "referral", "other"];
+
+const SOURCE_OPTIONS = [
+  { value: "", label: "Escolha" },
+  ...CHECKOUT_SOURCES.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] })),
+];
 
 interface CheckoutProfileFieldsProps {
   values: CheckoutValues;
@@ -124,6 +134,28 @@ export function CheckoutProfileFields({ values, errors, setField }: CheckoutProf
           onChange={(event) => setField("state", event.target.value as CheckoutValues["state"])}
           error={errors.state}
         />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+        <SelectInput
+          label="Como você conheceu a Jota Digitais?"
+          name="source"
+          options={SOURCE_OPTIONS}
+          value={values.source}
+          onChange={(event) => setField("source", event.target.value as CheckoutValues["source"])}
+          error={errors.source}
+        />
+        {values.source === "referral" && (
+          <TextField
+            label="Quem indicou?"
+            name="referredBy"
+            autoCapitalize="words"
+            maxLength={REFERRED_BY_MAX_LENGTH}
+            placeholder="Nome ou @ de quem indicou"
+            value={values.referredBy}
+            onChange={(event) => setField("referredBy", event.target.value)}
+            error={errors.referredBy}
+          />
+        )}
       </div>
     </fieldset>
   );
