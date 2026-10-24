@@ -57,6 +57,7 @@ import { formatBRL } from "@/domain/money";
 import type { StoredNotification } from "@/domain/notification";
 import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
+import { planParts } from "@/domain/payment";
 import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
@@ -224,6 +225,9 @@ function isActiveOrder(order: Order, now: number): boolean {
   );
 }
 
+/** Pedidos salvos no navegador antes do pagamento dividido não têm a lista de cobranças. */
+const withPayments = (order: Order): Order => ({ ...order, payments: order.payments ?? [] });
+
 /** Espelha `place_order` e `sync_order_status` do banco para o modo demonstração. */
 export class DemoOrderRepository implements OrderRepository, AdminOrderRepository {
   constructor(private readonly db: DemoDatabase) {}
@@ -261,6 +265,16 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         expiresAt: new Date(now + RESERVATION_HOLD_MINUTES * MINUTE_MS).toISOString(),
         createdAt: new Date(now).toISOString(),
         deliveredAt: null,
+        payments: planParts(input.paymentMethod, account.price, input.firstPartCents).map((part, index) => ({
+          id: newId("pay"),
+          position: index + 1,
+          method: part.method,
+          amount: part.amount,
+          status: "pending",
+          checkoutUrl: null,
+          paidAt: null,
+          card: null,
+        })),
       };
       state.orders.push(created);
       state.consents = [
@@ -286,12 +300,39 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
 
   async findByCode(code: string): Promise<Order | null> {
     const order = this.db.read().orders.find((item) => item.code === code.trim().toUpperCase());
-    return order ? this.toPublic(order) : null;
+    return order ? this.toPublic(withPayments(order)) : null;
   }
 
   async listAll(): Promise<Order[]> {
     await simulateLatency();
-    return [...this.db.read().orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...this.db.read().orders].map(withPayments).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async confirmPixPayment(paymentId: string): Promise<void> {
+    await simulateLatency();
+    this.settlePart(paymentId, "pix");
+  }
+
+  /**
+   * Espelha os gatilhos de order_payments: a parte vira paga e, com todas pagas, o pedido também.
+   * Também simula a volta do checkout de cartão no modo demonstração.
+   */
+  settlePart(paymentId: string, method: "pix" | "card"): void {
+    this.db.write((state) => {
+      const order = state.orders.find((item) => (item.payments ?? []).some((payment) => payment.id === paymentId));
+      const part = order?.payments.find((payment) => payment.id === paymentId);
+      if (!order || !part || part.method !== method || part.status !== "pending") return;
+      part.status = "paid";
+      part.paidAt = new Date().toISOString();
+      if (method === "card") {
+        part.card = { transactionNsu: `DEMO-${part.id.slice(-6)}`, installments: 1, paidAmount: part.amount, receiptUrl: null };
+      }
+      if (order.status === "awaiting_payment" && order.payments.every((payment) => payment.status === "paid")) {
+        order.status = "paid";
+        const account = state.accounts.find((item) => item.id === order.accountId);
+        if (account) account.reservedUntil = null;
+      }
+    });
   }
 
   async updateStatus(code: string, status: OrderStatus): Promise<void> {
@@ -300,8 +341,18 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       const order = state.orders.find((item) => item.code === code);
       if (!order) throw new Error(`Pedido ${code} não encontrado.`);
       if (!canTransition(order.status, status)) throw new InvalidTransitionError();
+      const previous = order.status;
       order.status = status;
       if (status === "delivered") order.deliveredAt = new Date().toISOString();
+      // Como sync_payments_with_order: cancelar fecha as partes em aberto; pagar à mão dá todas como pagas.
+      for (const payment of order.payments ?? []) {
+        if (payment.status !== "pending") continue;
+        if (status === "canceled") payment.status = "canceled";
+        if (status === "paid" && previous === "awaiting_payment") {
+          payment.status = "paid";
+          payment.paidAt = new Date().toISOString();
+        }
+      }
 
       const account = state.accounts.find((item) => item.id === order.accountId);
       if (!account) return;

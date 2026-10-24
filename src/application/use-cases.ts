@@ -2,14 +2,15 @@ import type { Account } from "@/domain/account";
 import { isPurchasable } from "@/domain/account";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
 import type { Order } from "@/domain/order";
+import { checkSplit, isSplitPlan } from "@/domain/payment";
 import { DEFAULT_SITE_CONTENT, mergeWithDefaults, type SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
 import type {
   AccountFilter,
   AccountRepository,
+  CardPaymentReturn,
   OrderRepository,
-  PaymentCharge,
   PaymentGateway,
   PrivacyService,
   SiteContentRepository,
@@ -17,7 +18,7 @@ import type {
   TestimonialRepository,
 } from "./ports";
 import { currentLegalConsents } from "./legal-documents";
-import { referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
+import { ValidationError, referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
 
 export interface UseCaseDeps {
   accounts: AccountRepository;
@@ -59,13 +60,17 @@ export function listTestimonials(deps: UseCaseDeps): Promise<Testimonial[]> {
 
 export interface PlacedOrder {
   order: Order;
-  charge: PaymentCharge;
 }
 
 export async function placeOrder(deps: UseCaseDeps, accountId: string, data: CheckoutData): Promise<PlacedOrder> {
   const account = await deps.accounts.findById(accountId);
   if (!account) throw new AccountNotFoundError(accountId);
   if (!isPurchasable(account)) throw new AccountUnavailableError(account.handle);
+  const split = isSplitPlan(data.paymentMethod);
+  if (split) {
+    const check = checkSplit(account.price, data.firstPartCents);
+    if (!check.ok) throw new ValidationError(check.message, { firstPartCents: check.message });
+  }
 
   const order = await deps.orders.place({
     accountId: account.id,
@@ -82,10 +87,19 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
       referredBy: referredByFor(data),
     },
     paymentMethod: data.paymentMethod,
+    firstPartCents: split ? data.firstPartCents : null,
     consents: await currentLegalConsents(),
   });
-  const charge = await deps.payments.createCharge(order);
-  return { order, charge };
+  return { order };
+}
+
+/** Leva o cliente ao checkout de cartão daquela parte do pedido. */
+export function startCardPayment(deps: UseCaseDeps, orderCode: string, paymentId: string): Promise<string> {
+  return deps.payments.cardCheckoutUrl(orderCode, paymentId);
+}
+
+export function confirmCardReturn(deps: UseCaseDeps, payment: CardPaymentReturn): Promise<boolean> {
+  return deps.payments.confirmCardReturn(payment);
 }
 
 export async function getOrder(deps: UseCaseDeps, code: string): Promise<Order> {

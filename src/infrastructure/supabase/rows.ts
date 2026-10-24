@@ -4,6 +4,7 @@ import { ACCOUNT_STATUSES, effectiveStatus, type Account, type AccountData } fro
 import { BRAZIL_STATES } from "@/domain/brazil";
 import { LEAD_SOURCES } from "@/domain/lead";
 import { ORDER_STATUSES, PAYMENT_METHODS, type Order } from "@/domain/order";
+import { PAYMENT_PART_STATUSES } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { TESTIMONIAL_KINDS, type Testimonial, type TestimonialData } from "@/domain/testimonial";
 
@@ -147,11 +148,34 @@ const orderRowSchema = z.object({
   created_at: z.string(),
   // A página pública do pedido (`get_order`) não devolve a data de entrega.
   delivered_at: z.string().nullish(),
+  // Pedidos de antes do pagamento dividido não têm cobranças.
+  payments: z
+    .array(
+      z.object({
+        id: z.string(),
+        position: z.number(),
+        method: z.enum(["pix", "card"]),
+        amount_cents: z.number(),
+        status: z.enum(PAYMENT_PART_STATUSES),
+        checkout_url: z.string().nullable(),
+        paid_at: z.string().nullable(),
+        // Só o painel lê estes: a página pública do pedido (public_order_json) não devolve.
+        transaction_nsu: z.string().nullish(),
+        installments: z.number().nullish(),
+        paid_amount_cents: z.number().nullish(),
+        receipt_url: z.string().nullish(),
+      }),
+    )
+    .nullish(),
 });
+
+const ORDER_PAYMENT_COLUMNS =
+  "id, position, method, amount_cents, status, checkout_url, paid_at, transaction_nsu, installments, paid_amount_cents, receipt_url";
 
 export const ORDER_COLUMNS =
   // O CPF/CNPJ fica cifrado no banco; customer_document_plain devolve o número aberto só para administrador.
-  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, customer_source, customer_referred_by, payment_method, total_cents, status, expires_at, created_at, delivered_at";
+  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, customer_source, customer_referred_by, payment_method, total_cents, status, expires_at, created_at, delivered_at, " +
+  `payments:order_payments(${ORDER_PAYMENT_COLUMNS})`;
 
 export function toOrder(raw: unknown): Order {
   const row = orderRowSchema.parse(raw);
@@ -179,5 +203,24 @@ export function toOrder(raw: unknown): Order {
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     deliveredAt: row.delivered_at ?? null,
+    payments: (row.payments ?? [])
+      .map((payment) => ({
+        id: payment.id,
+        position: payment.position,
+        method: payment.method,
+        amount: payment.amount_cents,
+        status: payment.status,
+        checkoutUrl: payment.checkout_url,
+        paidAt: payment.paid_at,
+        card: payment.transaction_nsu
+          ? {
+              transactionNsu: payment.transaction_nsu,
+              installments: payment.installments ?? null,
+              paidAmount: payment.paid_amount_cents ?? null,
+              receiptUrl: payment.receipt_url ?? null,
+            }
+          : null,
+      }))
+      .sort((a, b) => a.position - b.position),
   };
 }

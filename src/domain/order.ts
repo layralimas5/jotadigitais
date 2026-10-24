@@ -1,11 +1,13 @@
 import type { BrazilState } from "./brazil";
 import type { LeadSource } from "./lead";
 import type { Cents } from "./money";
+import { PAYMENT_PLANS, type OrderPayment, type PaymentPlan } from "./payment";
 import type { Platform } from "./platform";
 
-export const PAYMENT_METHODS = ["pix", "card"] as const;
+/** Forma de pagamento do pedido inteiro. As divididas viram duas cobranças em `Order.payments`. */
+export const PAYMENT_METHODS = PAYMENT_PLANS;
 
-export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+export type PaymentMethod = PaymentPlan;
 
 export const ORDER_STATUSES = ["awaiting_payment", "paid", "delivered", "canceled"] as const;
 
@@ -47,6 +49,8 @@ export interface Order {
   createdAt: string;
   /** Quando o pedido foi marcado como entregue; a garantia conta daqui. */
   deliveredAt: string | null;
+  /** Cobranças do pedido, na ordem. Pedidos de antes do pagamento dividido chegam sem nenhuma. */
+  payments: OrderPayment[];
 }
 
 export const MAX_CARD_INSTALLMENTS = 12;

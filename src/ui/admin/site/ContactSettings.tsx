@@ -1,9 +1,9 @@
-import { AtSign, ChevronRight, ExternalLink, FileText, ImageIcon, MessageCircle, ShieldCheck } from "lucide-react";
+import { AtSign, ChevronRight, ExternalLink, FileText, ImageIcon, MessageCircle, QrCode, ShieldCheck } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getStoreSettings, saveStoreSettings } from "@/application/admin-use-cases";
 import { fieldErrorsOf, storeSettingsSchema } from "@/application/schemas";
-import { instagramUrlOf, whatsappUrlOf, type StoreSettings } from "@/domain/store-settings";
+import { acceptsPix, instagramUrlOf, whatsappUrlOf, type StoreSettings } from "@/domain/store-settings";
 import { TextField } from "@/ui/components/form/Fields";
 import { ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock } from "../components/AdminUi";
@@ -15,14 +15,20 @@ interface SettingsForm {
   whatsappNumber: string;
   instagramHandle: string;
   guaranteeDays: string;
+  pixKey: string;
+  pixReceiverName: string;
+  pixReceiverCity: string;
 }
 
-const FIELD_ORDER = ["whatsappNumber", "instagramHandle", "guaranteeDays"] as const;
+const FIELD_ORDER = ["whatsappNumber", "instagramHandle", "guaranteeDays", "pixKey", "pixReceiverName", "pixReceiverCity"] as const;
 
 const toForm = (settings: StoreSettings): SettingsForm => ({
   whatsappNumber: settings.whatsappNumber ?? "",
   instagramHandle: settings.instagramHandle,
   guaranteeDays: String(settings.guaranteeDays),
+  pixKey: settings.pixKey ?? "",
+  pixReceiverName: settings.pixReceiverName ?? "",
+  pixReceiverCity: settings.pixReceiverCity ?? "",
 });
 
 function validate(form: SettingsForm) {
@@ -176,6 +182,47 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
           />
         </FormSection>
 
+        <FormSection
+          title="Pix (Nubank)"
+          description="O checkout gera o QR Code com o valor e o código do pedido. Sem os três campos, o Pix some das formas de pagamento."
+        >
+          <TextField
+            label="Chave Pix"
+            name="pixKey"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            maxLength={77}
+            placeholder="CNPJ, e-mail, celular (+55...) ou chave aleatória"
+            value={form.pixKey}
+            onChange={(event) => update({ pixKey: event.target.value })}
+            error={errors.pixKey}
+            hint="Exatamente como está no app do Nubank. Celular vai com +55 e DDD."
+          />
+          <div className="grid gap-4 xl:grid-cols-2">
+            <TextField
+              label="Nome de quem recebe"
+              name="pixReceiverName"
+              maxLength={25}
+              placeholder="JOTA DIGITAIS"
+              value={form.pixReceiverName}
+              onChange={(event) => update({ pixReceiverName: event.target.value })}
+              error={errors.pixReceiverName}
+              hint="Até 25 letras. É o que o cliente vê no banco."
+            />
+            <TextField
+              label="Cidade"
+              name="pixReceiverCity"
+              maxLength={15}
+              placeholder="SAO PAULO"
+              value={form.pixReceiverCity}
+              onChange={(event) => update({ pixReceiverCity: event.target.value })}
+              error={errors.pixReceiverCity}
+              hint="Até 15 letras, sem acento."
+            />
+          </div>
+        </FormSection>
+
         <SiteContent />
       </div>
 
@@ -188,6 +235,10 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
               <PreviewLink href={instagramUrlOf(preview)} icon={<AtSign aria-hidden className="size-4 text-pink" />} label={preview.instagramHandle} />
               <li className="flex items-center gap-3 text-sm text-fog">
                 <ShieldCheck aria-hidden className="size-4 text-electric" /> {preview.guaranteeDays} dias de garantia
+              </li>
+              <li className="flex items-center gap-3 text-sm text-fog">
+                <QrCode aria-hidden className="size-4 text-electric" />
+                {acceptsPix(preview) ? "Pix no checkout" : <span className="text-mist">Pix desligado (faltam dados)</span>}
               </li>
             </ul>
           ) : (

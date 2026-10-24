@@ -27,7 +27,8 @@ export function useTestimonials() {
 }
 
 export function useOrder(code: string) {
-  return useAsync(() => getOrder(store, code), code);
+  // Recarrega sem piscar: a página do pedido confere o pagamento de tempos em tempos.
+  return useAsync(() => getOrder(store, code), code, { keepPrevious: true });
 }
 
 type PlaceOrderState = { status: "idle" } | { status: "submitting" } | { status: "error"; message: string };

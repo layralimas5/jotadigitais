@@ -5,7 +5,17 @@ export interface StoreSettings {
   /** Sempre com @ na frente. */
   instagramHandle: string;
   guaranteeDays: number;
+  /** Chave Pix da conta Nubank que recebe. Sem ela o checkout não oferece Pix. */
+  pixKey: string | null;
+  /** Nome que aparece para o cliente no app do banco ao pagar (até 25 caracteres). */
+  pixReceiverName: string | null;
+  /** Cidade do recebedor (até 15 caracteres), exigida no código Pix. */
+  pixReceiverCity: string | null;
 }
+
+/** Pix só entra no checkout com chave, nome e cidade: os três vão no código copia e cola. */
+export const acceptsPix = (settings: StoreSettings) =>
+  Boolean(settings.pixKey && settings.pixReceiverName && settings.pixReceiverCity);
 
 export function whatsappUrlOf(settings: StoreSettings): string | null {
   return settings.whatsappNumber ? `https://wa.me/${settings.whatsappNumber}` : null;

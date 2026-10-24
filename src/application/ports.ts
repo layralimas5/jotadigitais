@@ -54,6 +54,8 @@ export interface NewOrder {
   accountId: string;
   customer: Customer;
   paymentMethod: PaymentMethod;
+  /** Valor do primeiro cartão quando o pagamento é dividido; o resto vai na segunda parte. */
+  firstPartCents: number | null;
   /** Termos de Uso e Política de Privacidade aceitos no checkout; o banco grava como prova. */
   consents: LegalConsent[];
 }
@@ -74,14 +76,21 @@ export interface PrivacyService {
   request(email: string, orderCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null>;
 }
 
-export type PaymentCharge =
-  | { kind: "pending_integration" }
-  | { kind: "redirect"; url: string }
-  | { kind: "pix"; qrCode: string; copyPaste: string; expiresAt: string };
+/** Parâmetros que a InfinitePay põe no endereço de volta, depois do pagamento no cartão. */
+export interface CardPaymentReturn {
+  /** O id da parte do pedido (mandamos como order_nsu). */
+  orderNsu: string;
+  transactionNsu: string;
+  slug: string;
+  receiptUrl: string | null;
+}
 
-/** Porta do gateway de pagamento. A implementação real (Pix/cartão) entra aqui sem mexer na UI. */
+/** Cobrança no cartão (InfinitePay). O Pix não passa por aqui: o código sai da chave do Jota, no próprio site. */
 export interface PaymentGateway {
-  createCharge(order: Order): Promise<PaymentCharge>;
+  /** Link do checkout de cartão para uma parte do pedido; reaproveita o link já criado. */
+  cardCheckoutUrl(orderCode: string, paymentId: string): Promise<string>;
+  /** Volta do checkout: confere na InfinitePay e marca a parte como paga. Devolve se ficou paga. */
+  confirmCardReturn(payment: CardPaymentReturn): Promise<boolean>;
 }
 
 export interface StoreSettingsRepository {
@@ -179,6 +188,8 @@ export interface AdminTestimonialRepository {
 export interface AdminOrderRepository {
   listAll(): Promise<Order[]>;
   updateStatus(code: string, status: OrderStatus): Promise<void>;
+  /** O Jota viu o Pix cair no Nubank. Com todas as partes pagas, o pedido vira "pago". */
+  confirmPixPayment(paymentId: string): Promise<void>;
 }
 
 export interface AdminCustomerRepository {

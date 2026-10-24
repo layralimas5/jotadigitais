@@ -1,11 +1,12 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Mail, MessageCircle } from "lucide-react";
+import { ArrowRight, CreditCard, Mail, MessageCircle, QrCode } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { changeOrderStatus, loadOrdersBoard } from "@/application/admin-use-cases";
-import { formatBRL } from "@/domain/money";
+import { changeOrderStatus, confirmPixPayment, loadOrdersBoard } from "@/application/admin-use-cases";
 import type { MessageTemplates } from "@/domain/message-template";
+import { formatBRL } from "@/domain/money";
 import { ORDER_TRANSITIONS, type Order, type OrderStatus } from "@/domain/order";
+import { paymentPartLabel, PAYMENT_PLAN_LABEL, type OrderPayment } from "@/domain/payment";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ORDER_STAGES, ORDER_STAGE_LABEL, deliveredAtOf, matchesOrderQuery, orderStageOf, type OrderStage } from "@/domain/sale";
 import { Button } from "@/ui/components/Button";
@@ -42,7 +43,6 @@ const ACTION_LABEL: Record<OrderStatus, string> = {
   canceled: "Cancelar pedido",
 };
 
-const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
 
 const DONE_MESSAGE: Record<OrderStatus, string> = {
   awaiting_payment: "",
@@ -58,15 +58,82 @@ function whatsappLink(order: Order, templates: MessageTemplates): string | null 
   return whatsappChatUrl(order.customer.whatsapp, orderMessage(templates, order));
 }
 
+const PART_STATUS_LABEL: Record<OrderPayment["status"], string> = { pending: "Aguardando", paid: "Pago", canceled: "Cancelado" };
+const PART_STATUS_TONE: Record<OrderPayment["status"], string> = {
+  pending: "text-amber-200",
+  paid: "text-emerald-300",
+  canceled: "text-mist",
+};
+
+/** Dados para achar a venda na InfinitePay e provar o pagamento se o cliente contestar no cartão. */
+function PaymentProof({ payment }: { payment: OrderPayment }) {
+  const { card } = payment;
+  const details = [
+    payment.paidAt ? `Pago em ${dateTime.format(new Date(payment.paidAt))}` : null,
+    card ? `Transação ${card.transactionNsu}` : null,
+    card?.installments ? `${card.installments}x` : null,
+    card?.paidAmount && card.paidAmount !== payment.amount ? `Cobrado ${formatBRL(card.paidAmount)} (com juros)` : null,
+    payment.method === "pix" && !card ? "Confirmado por você no Nubank" : null,
+  ].filter(Boolean);
+  if (details.length === 0 && !card?.receiptUrl) return null;
+  return (
+    <p className="flex w-full flex-wrap gap-x-3 gap-y-1 pl-6 text-xs text-mist">
+      {details.map((detail) => (
+        <span key={detail} className="tabular-nums">
+          {detail}
+        </span>
+      ))}
+      {card?.receiptUrl && (
+        <a href={card.receiptUrl} target="_blank" rel="noreferrer" className="text-electric-soft hover:underline">
+          Comprovante
+        </a>
+      )}
+    </p>
+  );
+}
+
+interface PaymentPartsProps {
+  order: Order;
+  busy: boolean;
+  onConfirmPix: (order: Order, payment: OrderPayment) => void;
+}
+
+/** Partes do pagamento: cartão confirma sozinho pela InfinitePay; Pix o Jota confirma ao ver o dinheiro no Nubank. */
+function PaymentParts({ order, busy, onConfirmPix }: PaymentPartsProps) {
+  if (order.payments.length === 0) return null;
+  return (
+    <ul className="mt-4 divide-y divide-line rounded-xl border border-line text-sm">
+      {order.payments.map((payment) => (
+        <li key={payment.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <span className="flex items-center gap-2 text-fog">
+            {payment.method === "pix" ? <QrCode aria-hidden className="size-4 text-mist" /> : <CreditCard aria-hidden className="size-4 text-mist" />}
+            {paymentPartLabel(payment, order.payments)}
+            <span className="text-white tabular-nums">{formatBRL(payment.amount)}</span>
+            <span className={cn("text-xs font-semibold", PART_STATUS_TONE[payment.status])}>· {PART_STATUS_LABEL[payment.status]}</span>
+            {payment.method === "card" && payment.status === "pending" && <span className="text-xs text-mist">(confirma sozinho)</span>}
+          </span>
+          {payment.method === "pix" && payment.status === "pending" && order.status === "awaiting_payment" && (
+            <Button variant="secondary" disabled={busy} onClick={() => onConfirmPix(order, payment)} className="h-9 px-4 text-xs">
+              Confirmar Pix recebido
+            </Button>
+          )}
+          {payment.status === "paid" && <PaymentProof payment={payment} />}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 interface OrderCardProps {
   order: Order;
   guaranteeDays: number;
   templates: MessageTemplates;
   busy: boolean;
   onAction: (order: Order, status: OrderStatus) => void;
+  onConfirmPix: (order: Order, payment: OrderPayment) => void;
 }
 
-function OrderCard({ order, guaranteeDays, templates, busy, onAction }: OrderCardProps) {
+function OrderCard({ order, guaranteeDays, templates, busy, onAction, onConfirmPix }: OrderCardProps) {
   const whatsapp = whatsappLink(order, templates);
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
@@ -127,9 +194,11 @@ function OrderCard({ order, guaranteeDays, templates, busy, onAction }: OrderCar
         <div>
           <dt className="text-xs text-mist">Valor</dt>
           <dd className="mt-0.5 font-display text-lg font-bold text-white tabular-nums">{formatBRL(order.total)}</dd>
-          <dd className="text-xs text-mist">{PAYMENT_LABEL[order.paymentMethod]}</dd>
+          <dd className="text-xs text-mist">{PAYMENT_PLAN_LABEL[order.paymentMethod]}</dd>
         </div>
       </dl>
+
+      <PaymentParts order={order} busy={busy} onConfirmPix={onConfirmPix} />
 
       {order.status === "delivered" && (
         <div className="mt-4 flex justify-end border-t border-line pt-4">
@@ -173,6 +242,25 @@ export default function OrdersPage() {
   const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState("");
   const [toCancel, setToCancel] = useState<Order | null>(null);
+  const [pixToConfirm, setPixToConfirm] = useState<{ order: Order; payment: OrderPayment } | null>(null);
+  const confirmPix = useMutation(async (deps, order: Order, paymentId: string) => {
+    await confirmPixPayment(deps, order, paymentId);
+    return true;
+  });
+
+  const applyPix = async () => {
+    if (!pixToConfirm) return;
+    const { order, payment } = pixToConfirm;
+    const result = await confirmPix.run(order, payment.id);
+    setPixToConfirm(null);
+    if (!result) {
+      toast.show("Não foi possível confirmar o Pix.", "error");
+      return;
+    }
+    const lastOpen = order.payments.every((part) => part.id === payment.id || part.status === "paid");
+    toast.show(lastOpen ? "Pix confirmado. O pedido está pago." : "Pix confirmado. Falta a outra parte do pagamento.");
+    board.reload();
+  };
 
   const data = board.status === "success" ? board.data : null;
   const staged = useMemo(
@@ -239,6 +327,7 @@ export default function OrdersPage() {
       </div>
 
       {change.error && <InlineError message={change.error.message} />}
+      {confirmPix.error && <InlineError message={confirmPix.error.message} />}
       {board.status === "loading" && <LoadingBlock />}
       {board.status === "error" && <ErrorState message={board.error.message} onRetry={board.reload} />}
       {data && visible.length === 0 && (
@@ -260,8 +349,9 @@ export default function OrdersPage() {
                 order={order}
                 guaranteeDays={data?.guaranteeDays ?? 0}
                 templates={templates}
-                busy={change.pending}
+                busy={change.pending || confirmPix.pending}
                 onAction={onAction}
+                onConfirmPix={(order, payment) => setPixToConfirm({ order, payment })}
               />
             ))}
           </AnimatePresence>
@@ -281,6 +371,22 @@ export default function OrdersPage() {
         pending={change.pending}
         onConfirm={() => toCancel && void apply(toCancel, "canceled")}
         onClose={() => setToCancel(null)}
+      />
+
+      <ConfirmDialog
+        open={pixToConfirm !== null}
+        title="O Pix caiu na conta?"
+        description={
+          <>
+            Confira no app do Nubank um Pix de{" "}
+            <strong className="text-white">{pixToConfirm ? formatBRL(pixToConfirm.payment.amount) : ""}</strong> com o código{" "}
+            <strong className="text-white">{pixToConfirm?.order.code}</strong> na descrição antes de confirmar.
+          </>
+        }
+        confirmLabel="Confirmar Pix recebido"
+        pending={confirmPix.pending}
+        onConfirm={() => void applyPix()}
+        onClose={() => setPixToConfirm(null)}
       />
     </div>
   );

@@ -10,6 +10,9 @@ export const defaultStoreSettings: StoreSettings = {
   whatsappNumber: (import.meta.env.VITE_WHATSAPP_NUMBER ?? "").replace(/\D/g, "") || null,
   instagramHandle: "@jotadigitais",
   guaranteeDays: 7,
+  pixKey: null,
+  pixReceiverName: null,
+  pixReceiverCity: null,
 };
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();

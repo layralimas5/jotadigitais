@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
 import { slugify, type Account, type AccountData, type AccountStatus, type FacebookKind } from "@/domain/account";
+import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 
@@ -73,7 +74,6 @@ export function emptyAccountForm(): AccountFormValues {
 }
 
 const integerFormat = new Intl.NumberFormat("pt-BR");
-const moneyFormat = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** "1.250" ou "1250" viram 1250. Texto vazio ou inválido vira NaN para o zod acusar. */
 export function parseInteger(text: string): number {
@@ -81,16 +81,7 @@ export function parseInteger(text: string): number {
   return /^\d+$/.test(digits) ? Number(digits) : Number.NaN;
 }
 
-/** "370", "370,00" e "1.250,50" viram centavos. */
-export function parseMoneyToCents(text: string): number {
-  const normalized = text.replace(/[R$\s.]/g, "").replace(",", ".");
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return Number.NaN;
-  return Math.round(Number(normalized) * 100);
-}
-
-export function formatCentsInput(cents: number): string {
-  return moneyFormat.format(cents / 100);
-}
+export { formatCentsInput, parseMoneyToCents };
 
 export function fromAccount(account: Account): AccountFormValues {
   const values: AccountFormValues = {

@@ -12,6 +12,7 @@ import {
   type Entry,
   type FinanceSummary,
 } from "@/domain/finance";
+import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { dashboardRangeOf } from "@/domain/dashboard-period";
 import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
@@ -26,7 +27,6 @@ import { RevenueChart, SERIES_COLOR } from "../finance/RevenueChart";
 import { useAdminQuery } from "../hooks";
 import { formatIsoDate } from "../lib/dates";
 
-const PAYMENT_LABEL = { pix: "Pix", card: "Cartão" } as const;
 const MAX_ENTRIES = 30;
 
 const countLabel = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -94,7 +94,7 @@ function viewOf(entry: Entry): EntryView {
     case "order":
       return {
         title: `Pedido ${entry.order.code}`,
-        detail: `Site · ${entry.order.customer.name} · ${PAYMENT_LABEL[entry.order.paymentMethod]}`,
+        detail: `Site · ${entry.order.customer.name} · ${PAYMENT_PLAN_LABEL[entry.order.paymentMethod]}`,
         editPath: null,
       };
     case "revenue":
