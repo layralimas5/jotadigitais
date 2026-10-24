@@ -273,6 +273,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
           status: "pending",
           checkoutUrl: null,
           paidAt: null,
+          card: null,
         })),
       };
       state.orders.push(created);
@@ -323,6 +324,9 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       if (!order || !part || part.method !== method || part.status !== "pending") return;
       part.status = "paid";
       part.paidAt = new Date().toISOString();
+      if (method === "card") {
+        part.card = { transactionNsu: `DEMO-${part.id.slice(-6)}`, installments: 1, paidAmount: part.amount, receiptUrl: null };
+      }
       if (order.status === "awaiting_payment" && order.payments.every((payment) => payment.status === "paid")) {
         order.status = "paid";
         const account = state.accounts.find((item) => item.id === order.accountId);

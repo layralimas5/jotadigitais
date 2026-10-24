@@ -65,6 +65,33 @@ const PART_STATUS_TONE: Record<OrderPayment["status"], string> = {
   canceled: "text-mist",
 };
 
+/** Dados para achar a venda na InfinitePay e provar o pagamento se o cliente contestar no cartão. */
+function PaymentProof({ payment }: { payment: OrderPayment }) {
+  const { card } = payment;
+  const details = [
+    payment.paidAt ? `Pago em ${dateTime.format(new Date(payment.paidAt))}` : null,
+    card ? `Transação ${card.transactionNsu}` : null,
+    card?.installments ? `${card.installments}x` : null,
+    card?.paidAmount && card.paidAmount !== payment.amount ? `Cobrado ${formatBRL(card.paidAmount)} (com juros)` : null,
+    payment.method === "pix" && !card ? "Confirmado por você no Nubank" : null,
+  ].filter(Boolean);
+  if (details.length === 0 && !card?.receiptUrl) return null;
+  return (
+    <p className="flex w-full flex-wrap gap-x-3 gap-y-1 pl-6 text-xs text-mist">
+      {details.map((detail) => (
+        <span key={detail} className="tabular-nums">
+          {detail}
+        </span>
+      ))}
+      {card?.receiptUrl && (
+        <a href={card.receiptUrl} target="_blank" rel="noreferrer" className="text-electric-soft hover:underline">
+          Comprovante
+        </a>
+      )}
+    </p>
+  );
+}
+
 interface PaymentPartsProps {
   order: Order;
   busy: boolean;
@@ -90,6 +117,7 @@ function PaymentParts({ order, busy, onConfirmPix }: PaymentPartsProps) {
               Confirmar Pix recebido
             </Button>
           )}
+          {payment.status === "paid" && <PaymentProof payment={payment} />}
         </li>
       ))}
     </ul>

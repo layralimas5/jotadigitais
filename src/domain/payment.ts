@@ -30,6 +30,16 @@ export interface OrderPayment {
   /** Link do checkout da InfinitePay, criado quando o cliente vai pagar o cartão. */
   checkoutUrl: string | null;
   paidAt: string | null;
+  /** Comprovação do cartão, só no painel (a página pública do pedido não recebe): prova a venda numa contestação. */
+  card: CardReceipt | null;
+}
+
+export interface CardReceipt {
+  /** Número da transação na InfinitePay (transaction_nsu). */
+  transactionNsu: string;
+  installments: number | null;
+  paidAmount: Cents | null;
+  receiptUrl: string | null;
 }
 
 /** Nenhuma parte da divisão pode ser menor que isso: cobrança de centavos não compensa a taxa. */

@@ -159,12 +159,18 @@ const orderRowSchema = z.object({
         status: z.enum(PAYMENT_PART_STATUSES),
         checkout_url: z.string().nullable(),
         paid_at: z.string().nullable(),
+        // Só o painel lê estes: a página pública do pedido (public_order_json) não devolve.
+        transaction_nsu: z.string().nullish(),
+        installments: z.number().nullish(),
+        paid_amount_cents: z.number().nullish(),
+        receipt_url: z.string().nullish(),
       }),
     )
     .nullish(),
 });
 
-const ORDER_PAYMENT_COLUMNS = "id, position, method, amount_cents, status, checkout_url, paid_at";
+const ORDER_PAYMENT_COLUMNS =
+  "id, position, method, amount_cents, status, checkout_url, paid_at, transaction_nsu, installments, paid_amount_cents, receipt_url";
 
 export const ORDER_COLUMNS =
   // O CPF/CNPJ fica cifrado no banco; customer_document_plain devolve o número aberto só para administrador.
@@ -206,6 +212,14 @@ export function toOrder(raw: unknown): Order {
         status: payment.status,
         checkoutUrl: payment.checkout_url,
         paidAt: payment.paid_at,
+        card: payment.transaction_nsu
+          ? {
+              transactionNsu: payment.transaction_nsu,
+              installments: payment.installments ?? null,
+              paidAmount: payment.paid_amount_cents ?? null,
+              receiptUrl: payment.receipt_url ?? null,
+            }
+          : null,
       }))
       .sort((a, b) => a.position - b.position),
   };
