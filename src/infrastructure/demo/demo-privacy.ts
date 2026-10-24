@@ -124,6 +124,8 @@ function anonymizeOrders(state: DemoState, orders: Order[]): number {
       instagram: null,
       city: null,
       state: null,
+      source: null,
+      referredBy: null,
     };
   }
   for (const consent of state.consents ?? []) {

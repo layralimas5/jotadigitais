@@ -1,5 +1,6 @@
 import { Pencil, UserCheck } from "lucide-react";
 import { formatDocument } from "@/domain/brazil";
+import { LEAD_SOURCE_LABEL } from "@/domain/lead";
 import type { CheckoutValues } from "@/ui/hooks/useCheckoutForm";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -7,6 +8,12 @@ const onlyDigits = (value: string) => value.replace(/\D/g, "");
 function formatBirthDate(iso: string): string {
   const [year, month, day] = iso.split("-");
   return day && month && year ? `${day}/${month}/${year}` : iso;
+}
+
+function sourceLabel({ source, referredBy }: CheckoutValues): string {
+  if (!source) return "";
+  if (source === "referral") return `Indicação de ${referredBy.trim()}`;
+  return LEAD_SOURCE_LABEL[source];
 }
 
 /** Ficha já conferida, no topo do passo de pagamento, com atalho para corrigir. */
@@ -18,6 +25,7 @@ export function CheckoutProfileReview({ values, onEdit }: { values: CheckoutValu
     { label: "E-mail", value: values.email.trim().toLowerCase() },
     { label: "WhatsApp", value: values.whatsapp },
     { label: "Cidade", value: `${values.city.trim()} / ${values.state}` },
+    { label: "Como conheceu", value: sourceLabel(values) },
   ];
   return (
     <section aria-labelledby="ficha-title" className="rounded-3xl border border-line bg-surface/60 p-5">

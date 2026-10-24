@@ -299,16 +299,21 @@ export function listPartners(deps: AdminDeps): Promise<Partner[]> {
 }
 
 export async function listPartnerSummaries(deps: AdminDeps): Promise<PartnerSummary[]> {
-  const [partners, accounts, orders] = await Promise.all([deps.partners.listAll(), deps.accounts.listAll(), deps.orders.listAll()]);
-  return summarizePartners(partners, accounts, orders);
+  const [partners, accounts, orders, records, revenues] = await Promise.all([
+    deps.partners.listAll(),
+    deps.accounts.listAll(),
+    deps.orders.listAll(),
+    deps.customers.listAll(),
+    deps.revenues.listAll(),
+  ]);
+  return summarizePartners(partners, accounts, orders, groupCustomers(orders, records, revenues));
 }
 
-/** Parceiro com as contas e vendas dele; nulo quando não existe. */
+/** Parceiro com as contas, vendas e indicações dele; nulo quando não existe. */
 export async function findPartnerSummary(deps: AdminDeps, id: string): Promise<PartnerSummary | null> {
-  const partner = await deps.partners.findById(id);
-  if (!partner) return null;
-  const [accounts, orders] = await Promise.all([deps.accounts.listAll(), deps.orders.listAll()]);
-  return summarizePartners([partner], accounts, orders)[0] ?? null;
+  // A indicação é ligada comparando o nome com todos os parceiros, então o resumo sai da lista inteira.
+  const summaries = await listPartnerSummaries(deps);
+  return summaries.find((summary) => summary.partner.id === id) ?? null;
 }
 
 export function savePartner(deps: AdminDeps, id: string | null, raw: unknown): Promise<Partner> {

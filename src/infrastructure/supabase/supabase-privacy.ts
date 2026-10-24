@@ -48,6 +48,8 @@ const subjectSchema = z.object({
       city: z.string().nullable(),
       state: z.enum(BRAZIL_STATES).nullable(),
       source: z.enum(LEAD_SOURCES).nullable(),
+      // Meus dados ainda não devolve quem indicou: o nome é de outra pessoa, não do titular.
+      referred_by: z.string().nullish(),
       interest: z.enum(PLATFORMS).nullable(),
       notes: z.string().nullable(),
       created_at: timestamp,
@@ -83,6 +85,7 @@ function toSubjectData(raw: unknown): SubjectData {
       city: customer.city,
       state: customer.state,
       source: customer.source,
+      referredBy: customer.referred_by ?? null,
       interest: customer.interest,
       notes: customer.notes,
       createdAt: customer.created_at,

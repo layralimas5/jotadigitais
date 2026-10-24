@@ -22,6 +22,8 @@ export interface CustomerRecordData {
   state: BrazilState | null;
   /** Por onde o cliente chegou até a loja. */
   source: LeadSource | null;
+  /** Quem indicou, quando `source` é indicação. */
+  referredBy: string | null;
   /** Rede em que ele tem interesse em comprar conta. */
   interest: Platform | null;
   notes: string | null;
@@ -42,6 +44,8 @@ export interface CustomerSheet {
   instagram: string | null;
   city: string | null;
   state: BrazilState | null;
+  source: LeadSource | null;
+  referredBy: string | null;
 }
 
 /**
@@ -80,17 +84,28 @@ export const customerKeyOf = (email: string) => email.trim().toLowerCase();
 export const recordKeyOf = (record: Pick<CustomerRecord, "id" | "email">) =>
   record.email ? customerKeyOf(record.email) : `id:${record.id}`;
 
-const EMPTY_SHEET: CustomerSheet = { document: null, birthDate: null, instagram: null, city: null, state: null };
+const EMPTY_SHEET: CustomerSheet = {
+  document: null,
+  birthDate: null,
+  instagram: null,
+  city: null,
+  state: null,
+  source: null,
+  referredBy: null,
+};
 
 function sheetOf(record: CustomerRecord | null, orders: readonly Order[]): CustomerSheet {
   if (record) {
-    const { document, birthDate, instagram, city, state } = record;
-    return { document, birthDate, instagram, city, state };
+    const { document, birthDate, instagram, city, state, source, referredBy } = record;
+    return { document, birthDate, instagram, city, state, source, referredBy };
   }
   const withSheet = orders.find((order) => order.customer.document);
-  if (!withSheet) return EMPTY_SHEET;
+  // Pedido de antes do campo "como conheceu" não tem origem: vale a do pedido mais recente que tiver.
+  const withSource = orders.find((order) => order.customer.source);
+  const origin = { source: withSource?.customer.source ?? null, referredBy: withSource?.customer.referredBy ?? null };
+  if (!withSheet) return { ...EMPTY_SHEET, ...origin };
   const { document, birthDate, instagram, city, state } = withSheet.customer;
-  return { document, birthDate, instagram, city, state };
+  return { document, birthDate, instagram, city, state, ...origin };
 }
 
 const latestDate = (dates: readonly (string | null | undefined)[]) =>

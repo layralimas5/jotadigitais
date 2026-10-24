@@ -1,8 +1,15 @@
 import { useState, type FormEvent } from "react";
 import type { z } from "zod";
 import { checkoutProfileSchema, checkoutSchema, type CheckoutData, type CheckoutInput } from "@/application/schemas";
+import type { LeadSource } from "@/domain/lead";
 
-export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "instagram"> & { acceptedTerms: boolean; instagram: string };
+export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "instagram" | "source" | "referredBy"> & {
+  acceptedTerms: boolean;
+  instagram: string;
+  /** Vazio até a pessoa escolher. */
+  source: LeadSource | "";
+  referredBy: string;
+};
 export type CheckoutField = keyof CheckoutValues;
 type FieldErrors = Partial<Record<CheckoutField, string>>;
 
@@ -19,6 +26,8 @@ const INITIAL_VALUES: CheckoutValues = {
   instagram: "",
   city: "",
   state: "" as CheckoutValues["state"],
+  source: "",
+  referredBy: "",
   paymentMethod: "pix",
   acceptedTerms: false,
 };
@@ -33,6 +42,8 @@ const PROFILE_FIELDS: CheckoutField[] = [
   "instagram",
   "city",
   "state",
+  "source",
+  "referredBy",
 ];
 const PAYMENT_FIELDS: CheckoutField[] = ["paymentMethod", "acceptedTerms"];
 

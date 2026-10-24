@@ -7,6 +7,7 @@ import { maskDocumentInput } from "@/domain/brazil";
 import { BRAZIL_STATES, recordKeyOf, type CustomerRecord } from "@/domain/customer";
 import { LEAD_SOURCES, LEAD_SOURCE_LABEL } from "@/domain/lead";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
+import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
@@ -27,11 +28,12 @@ interface CustomerFormValues {
   city: string;
   state: string;
   source: string;
+  referredBy: string;
   interest: string;
   notes: string;
 }
 
-const FIELD_ORDER = ["name", "document", "birthDate", "email", "whatsapp", "instagram", "city", "state", "source", "notes"] as const;
+const FIELD_ORDER = ["name", "document", "birthDate", "email", "whatsapp", "instagram", "city", "state", "source", "referredBy", "notes"] as const;
 
 const STATE_OPTIONS = [{ value: "", label: "UF" }, ...BRAZIL_STATES.map((state) => ({ value: state, label: state }))];
 const SOURCE_OPTIONS = [{ value: "", label: "Escolha" }, ...LEAD_SOURCES.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] }))];
@@ -47,6 +49,7 @@ const emptyForm = (): CustomerFormValues => ({
   city: "",
   state: "",
   source: "",
+  referredBy: "",
   interest: "",
   notes: "",
 });
@@ -62,6 +65,7 @@ const fromRecord = (record: CustomerRecord): CustomerFormValues => ({
   city: record.city ?? "",
   state: record.state ?? "",
   source: record.source ?? "",
+  referredBy: record.referredBy ?? "",
   interest: record.interest ?? "",
   notes: record.notes ?? "",
 });
@@ -252,6 +256,19 @@ function CustomerEditor({ record, prefill }: { record: CustomerRecord | null; pr
                 error={errors.interest}
               />
             </div>
+            {values.source === "referral" && (
+              <TextField
+                label="Quem indicou"
+                name="referredBy"
+                autoCapitalize="words"
+                maxLength={REFERRED_BY_MAX_LENGTH}
+                placeholder="Nome ou @ de quem indicou"
+                hint="Com o nome de um parceiro, a indicação aparece na aba Parceiros."
+                value={values.referredBy}
+                onChange={(event) => update({ referredBy: event.target.value })}
+                error={errors.referredBy}
+              />
+            )}
             <TextAreaField
               label="Anotações (opcional)"
               name="notes"
