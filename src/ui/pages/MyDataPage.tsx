@@ -50,7 +50,7 @@ export default function MyDataPage() {
             <div className="space-y-12">
               <div className="flex flex-col gap-3 rounded-3xl border border-line bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <p className="text-sm text-mist">
-                  Dados ligados a <span className="font-semibold break-all text-white">{state.data.email}</span>
+                  Dados ligados a <span className="font-semibold break-all text-white">{state.data.contact}</span>
                 </p>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button onClick={() => downloadJson(`meus-dados-jota-digitais-${state.data.generatedAt.slice(0, 10)}.json`, state.data)}>

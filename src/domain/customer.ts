@@ -81,8 +81,15 @@ const isPurchase = (order: Order) => order.status === "paid" || order.status ===
 
 export const customerKeyOf = (email: string) => email.trim().toLowerCase();
 
-export const recordKeyOf = (record: Pick<CustomerRecord, "id" | "email">) =>
-  record.email ? customerKeyOf(record.email) : `id:${record.id}`;
+const whatsappKeyOf = (whatsapp: string) => `wa:${whatsapp.replace(/\D/g, "")}`;
+
+/** O e-mail identifica o cliente; sem ele (checkout atual), vale o WhatsApp. */
+const contactKeyOf = ({ email, whatsapp }: { email: string | null; whatsapp: string | null }) =>
+  email ? customerKeyOf(email) : whatsapp ? whatsappKeyOf(whatsapp) : null;
+
+export const recordKeyOf = (record: Pick<CustomerRecord, "id" | "email" | "whatsapp">) => contactKeyOf(record) ?? `id:${record.id}`;
+
+export const orderCustomerKeyOf = (order: Pick<Order, "code" | "customer">) => contactKeyOf(order.customer) ?? `pedido:${order.code}`;
 
 const EMPTY_SHEET: CustomerSheet = {
   document: null,
@@ -151,7 +158,7 @@ export function groupCustomers(
 ): CustomerSummary[] {
   const ordersByKey = new Map<string, Order[]>();
   for (const order of orders) {
-    const key = customerKeyOf(order.customer.email);
+    const key = orderCustomerKeyOf(order);
     ordersByKey.set(key, [...(ordersByKey.get(key) ?? []), order]);
   }
   const recordsByKey = new Map(records.map((record) => [recordKeyOf(record), record]));

@@ -67,13 +67,13 @@ export interface OrderRepository {
 }
 
 /**
- * Meus dados: o titular prova que é dono de um pedido (e-mail + código).
- * Os dois métodos devolvem nulo quando e-mail e código não batem, e falham com
+ * Meus dados: o titular prova que é dono de um pedido (e-mail ou WhatsApp + código).
+ * Os dois métodos devolvem nulo quando contato e código não batem, e falham com
  * `TooManyPrivacyAttemptsError` quando há tentativas demais.
  */
 export interface PrivacyService {
-  lookup(email: string, orderCode: string): Promise<SubjectData | null>;
-  request(email: string, orderCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null>;
+  lookup(contact: string, orderCode: string): Promise<SubjectData | null>;
+  request(contact: string, orderCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null>;
 }
 
 /** Parâmetros que a InfinitePay põe no endereço de volta, depois do pagamento no cartão. */
@@ -262,7 +262,7 @@ export interface AdminEmailAccountRepository {
 export interface AdminPrivacyRepository {
   listRequests(): Promise<DataRequest[]>;
   answer(id: string, answer: DataRequestAnswer): Promise<void>;
-  anonymizeSubject(email: string): Promise<AnonymizationResult>;
+  anonymizeSubject(contact: string): Promise<AnonymizationResult>;
   applyRetention(): Promise<RetentionResult>;
 }
 

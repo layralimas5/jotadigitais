@@ -96,14 +96,13 @@ export interface SiteContent {
   faq: TitleBlock & { items: FaqEntry[] };
   finalCta: { titleLine1: string; titleLine2: string; button: string };
   footer: { tagline: string; slogan: string; disclaimer: string };
-  whatsapp: { teaserTitle: string; teaserText: string };
 }
 
 export const DEFAULT_SITE_CONTENT: SiteContent = {
   seo: {
     title: "Jota Digitais | Contas de TikTok com TikTok Shop liberado",
     description:
-      "Contas brasileiras de TikTok com a Central de Criadores do TikTok Shop já ativa. Escolha, pague no Pix ou em até 12x e receba o acesso no seu e-mail.",
+      "Contas brasileiras de TikTok com a Central de Criadores do TikTok Shop já ativa. Escolha, pague no Pix ou em até 12x e receba o acesso no seu WhatsApp.",
   },
   hero: {
     badge: "Central de Criadores do TikTok Shop já liberada",
@@ -116,7 +115,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     proofPoints: [
       { text: "Seguidores reais e brasileiros", icon: "auto" },
       { text: "Pix ou até 12x no cartão", icon: "auto" },
-      { text: "Acesso entregue no seu e-mail", icon: "auto" },
+      { text: "Acesso entregue no seu WhatsApp", icon: "auto" },
     ],
     phoneName: "Sua Loja Aqui",
     phoneHandle: "@sualoja.aqui",
@@ -170,8 +169,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
         text: "À vista no Pix ou parcelado em até 12x. A conta fica reservada para você.",
       },
       {
-        title: "Receba o acesso por e-mail",
-        text: "Com o pagamento confirmado, login e senha chegam no e-mail que você informou.",
+        title: "Receba o acesso no WhatsApp",
+        text: "Com o pagamento confirmado, login e senha chegam no WhatsApp que você informou.",
       },
       {
         title: "Deixe com a sua cara",
@@ -236,7 +235,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       },
       {
         question: "Como recebo a conta?",
-        answer: "Assim que o pagamento é confirmado, enviamos login, senha e o passo a passo para o e-mail informado na compra.",
+        answer: "Assim que o pagamento é confirmado, enviamos login, senha e o passo a passo para o WhatsApp informado na compra.",
         tiktokOnly: false,
       },
       {
@@ -255,10 +254,6 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     tagline: "Contas de TikTok, Instagram, YouTube e Facebook conferidas e prontas para você usar.",
     slogan: "Jesus é o caminho, a verdade e a vida.",
     disclaimer: "Não somos afiliados, patrocinados ou endossados pelo TikTok ou pela ByteDance.",
-  },
-  whatsapp: {
-    teaserTitle: "Deseja falar com o Jota?",
-    teaserText: "Respondo pelo WhatsApp.",
   },
 };
 

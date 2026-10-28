@@ -52,7 +52,7 @@ const card = "rounded-2xl border border-line bg-surface/60 p-4 sm:p-5";
 export function SubjectDataView({ data }: { data: SubjectData }) {
   return (
     <div className="space-y-10">
-      <Group id="dados-pedidos" title="Pedidos e ficha de compra" empty={data.orders.length ? null : "Nenhum pedido ligado a este e-mail."}>
+      <Group id="dados-pedidos" title="Pedidos e ficha de compra" empty={data.orders.length ? null : "Nenhum pedido ligado a este contato."}>
         {data.orders.map((order) => (
           <article key={order.code} className={card}>
             <p className="flex flex-wrap items-baseline justify-between gap-2">
@@ -80,7 +80,7 @@ export function SubjectDataView({ data }: { data: SubjectData }) {
         ))}
       </Group>
 
-      <Group id="dados-cadastro" title="Cadastro feito pelo atendimento" empty={data.customers.length ? null : "Não há cadastro manual com este e-mail."}>
+      <Group id="dados-cadastro" title="Cadastro feito pelo atendimento" empty={data.customers.length ? null : "Não há cadastro manual com este contato."}>
         {data.customers.map((customer) => (
           <article key={customer.createdAt} className={card}>
             <Fields

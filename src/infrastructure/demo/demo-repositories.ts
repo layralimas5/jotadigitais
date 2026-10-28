@@ -80,7 +80,7 @@ function newOrderNotification(order: Order): StoredNotification {
   };
 }
 
-const MAX_OPEN_ORDERS_PER_EMAIL = 2;
+const MAX_OPEN_ORDERS_PER_CUSTOMER = 2;
 const MINUTE_MS = 60_000;
 
 function withEffectiveStatus(account: Account): Account {
@@ -236,11 +236,15 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
     await simulateLatency();
     const order = this.db.write((state) => {
       const now = Date.now();
-      const email = input.customer.email.toLowerCase();
+      const email = input.customer.email?.toLowerCase() ?? null;
+      const { whatsapp, document } = input.customer;
       const open = state.orders.filter(
-        (item) => item.customer.email === email && item.status === "awaiting_payment" && new Date(item.expiresAt).getTime() > now,
+        (item) =>
+          item.status === "awaiting_payment" &&
+          new Date(item.expiresAt).getTime() > now &&
+          ((email !== null && item.customer.email === email) || item.customer.whatsapp === whatsapp || item.customer.document === document),
       );
-      if (open.length >= MAX_OPEN_ORDERS_PER_EMAIL) throw new TooManyOpenOrdersError();
+      if (open.length >= MAX_OPEN_ORDERS_PER_CUSTOMER) throw new TooManyOpenOrdersError();
 
       const account = state.accounts.find((item) => item.id === input.accountId);
       if (!account) throw new AccountNotFoundError(input.accountId);
@@ -382,7 +386,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       ...order,
       customer: {
         name: name.split(" ")[0] ?? name,
-        email: maskEmail(email),
+        email: email ? maskEmail(email) : null,
         whatsapp: null,
         document: null,
         birthDate: null,

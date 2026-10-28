@@ -81,7 +81,7 @@ function CustomerIdentity({ customer }: { customer: CustomerSummary }) {
           </Link>
           <OriginBadge origin={customer.origin} />
         </div>
-        <p className="truncate text-xs text-mist">{customer.email ?? customer.instagram ?? "Sem e-mail"}</p>
+        <p className="truncate text-xs text-mist">{customer.email ?? customer.whatsapp ?? customer.instagram ?? "Sem contato"}</p>
       </div>
     </div>
   );

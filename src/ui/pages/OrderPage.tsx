@@ -35,8 +35,8 @@ function NextSteps({ order }: { order: Order }) {
     },
     {
       icon: Inbox,
-      title: "Acesso no seu e-mail",
-      text: `Login, senha e o passo a passo vão para ${order.customer.email}. Confira também o spam.`,
+      title: "Acesso no seu WhatsApp",
+      text: "Login, senha e o passo a passo chegam no WhatsApp que você informou na compra.",
     },
     {
       icon: Sparkles,
@@ -155,7 +155,7 @@ export default function OrderPage() {
           (order.error instanceof OrderNotFoundError ? (
             <EmptyState
               title="Pedido não encontrado"
-              description="Confira o código do pedido no e-mail de confirmação."
+              description="Confira o código do pedido na mensagem que você recebeu no WhatsApp."
               action={<ButtonLink to="/">Ir para o início</ButtonLink>}
             />
           ) : (

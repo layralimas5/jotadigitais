@@ -7,17 +7,17 @@ interface AccessFormProps {
   pending: boolean;
   error: string | null;
   fieldErrors: Record<string, string>;
-  onSubmit: (access: { email: string; orderCode: string }) => void;
+  onSubmit: (access: { contact: string; orderCode: string }) => void;
 }
 
-/** O titular prova que o pedido é dele com o e-mail usado na compra e o código JD-XXXXXX. */
+/** O titular prova que o pedido é dele com o WhatsApp (ou o e-mail, em pedidos antigos) e o código JD-XXXXXX. */
 export function AccessForm({ pending, error, fieldErrors, onSubmit }: AccessFormProps) {
-  const [email, setEmail] = useState("");
+  const [contact, setContact] = useState("");
   const [orderCode, setOrderCode] = useState("");
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    onSubmit({ email, orderCode });
+    onSubmit({ contact, orderCode });
   };
 
   return (
@@ -25,17 +25,17 @@ export function AccessForm({ pending, error, fieldErrors, onSubmit }: AccessForm
       <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-white">
         <LockKeyhole aria-hidden className="size-5 text-electric" /> Confirme que os dados são seus
       </h2>
-      <p className="mt-1.5 text-sm text-mist">Use o e-mail da compra e o código do pedido, que está no e-mail de confirmação.</p>
+      <p className="mt-1.5 text-sm text-mist">Use o WhatsApp da compra (ou o e-mail, se o pedido é antigo) e o código do pedido, que aparece na página do pedido.</p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <TextField
-          label="E-mail da compra"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          error={fieldErrors.email}
+          label="WhatsApp ou e-mail da compra"
+          name="contact"
+          autoComplete="tel"
+          autoCapitalize="none"
+          placeholder="(11) 91234-5678"
+          value={contact}
+          onChange={(event) => setContact(event.target.value)}
+          error={fieldErrors.contact}
           required
         />
         <TextField

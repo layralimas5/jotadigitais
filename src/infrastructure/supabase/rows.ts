@@ -131,7 +131,7 @@ const orderRowSchema = z.object({
   account_name: z.string(),
   account_platform: z.enum(PLATFORMS),
   customer_name: z.string(),
-  customer_email: z.string(),
+  customer_email: z.string().nullable(),
   customer_whatsapp: z.string().nullable(),
   // Ficha do checkout: só o painel lê; a página pública do pedido e os pedidos antigos vêm sem ela.
   customer_document: z.string().nullish(),

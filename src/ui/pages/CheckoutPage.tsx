@@ -1,5 +1,4 @@
-import { ArrowLeft, ArrowRight, Lock, Mail } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { ArrowLeft, Lock, MessageCircle } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
 import { formatCount, isPurchasable, type Account } from "@/domain/account";
@@ -16,8 +15,6 @@ import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
 import { CheckoutProfileFields } from "@/ui/sections/checkout/CheckoutProfileFields";
-import { CheckoutProfileReview } from "@/ui/sections/checkout/CheckoutProfileReview";
-import { CheckoutSteps } from "@/ui/sections/checkout/CheckoutSteps";
 
 function OrderSummary({ account }: { account: Account }) {
   return (
@@ -46,7 +43,7 @@ function OrderSummary({ account }: { account: Account }) {
         </div>
         <div className="flex justify-between text-mist">
           <dt>Entrega</dt>
-          <dd>Por e-mail</dd>
+          <dd>Pelo WhatsApp</dd>
         </div>
         <div className="flex items-baseline justify-between border-t border-line pt-4">
           <dt className="font-semibold text-white">Total</dt>
@@ -55,8 +52,8 @@ function OrderSummary({ account }: { account: Account }) {
       </dl>
 
       <p className="mt-6 flex items-start gap-2 text-xs leading-relaxed text-mist">
-        <Mail aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
-        Com o pagamento confirmado, login, senha e o passo a passo chegam no seu e-mail.
+        <MessageCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
+        Com o pagamento confirmado, login, senha e o passo a passo chegam no seu WhatsApp.
       </p>
     </aside>
   );
@@ -66,69 +63,40 @@ function CheckoutForm({ account }: { account: Account }) {
   const navigate = useNavigate();
   const placeOrder = usePlaceOrder();
   const submitting = placeOrder.state.status === "submitting";
-  const headingRef = useRef<HTMLDivElement>(null);
 
   const onValid = async (data: CheckoutData) => {
     const placed = await placeOrder.submit(account.id, data);
     if (placed) navigate(`/pedido/${placed.order.code}`, { replace: true });
   };
-  const { values, errors, step, setField, handleSubmit, editProfile } = useCheckoutForm(account.price, onValid);
+  const { values, errors, setField, handleSubmit } = useCheckoutForm(account.price, onValid);
   const pixEnabled = acceptsPix(useStoreSettings());
-
-  const firstRender = useRef(true);
-
-  // A cada troca de passo (não ao abrir a página), leva o foco e a tela para o começo do formulário.
-  useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false;
-      return;
-    }
-    headingRef.current?.focus({ preventScroll: true });
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    headingRef.current?.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" });
-  }, [step]);
 
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10" aria-busy={submitting}>
-      <div ref={headingRef} tabIndex={-1} className="scroll-mt-28 focus:outline-none">
-        <CheckoutSteps current={step} />
-      </div>
+      <CheckoutProfileFields values={values} errors={errors} setField={setField} />
+      <CheckoutPaymentStep total={account.price} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
 
-      {step === "profile" ? (
-        <>
-          <CheckoutProfileFields values={values} errors={errors} setField={setField} />
-          <Button type="submit" size="lg" className="w-full">
-            Continuar para o pagamento <ArrowRight aria-hidden className="size-4" />
-          </Button>
-        </>
-      ) : (
-        <>
-          <CheckoutProfileReview values={values} onEdit={editProfile} />
-          <CheckoutPaymentStep total={account.price} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
-
-          {placeOrder.state.status === "error" && (
-            <p role="alert" className="rounded-2xl border border-alert/30 bg-alert/[0.07] p-4 text-sm text-white">
-              {placeOrder.state.message}
-            </p>
-          )}
-
-          <div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-              {submitting ? (
-                <>
-                  <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
-                  Registrando pedido…
-                </>
-              ) : (
-                <>
-                  <Lock aria-hidden className="size-4" /> Finalizar compra · {formatBRL(account.price)}
-                </>
-              )}
-            </Button>
-            <p className="mt-3 text-center text-xs text-mist">Seus dados são usados só para entregar a conta e dar suporte.</p>
-          </div>
-        </>
+      {placeOrder.state.status === "error" && (
+        <p role="alert" className="rounded-2xl border border-alert/30 bg-alert/[0.07] p-4 text-sm text-white">
+          {placeOrder.state.message}
+        </p>
       )}
+
+      <div>
+        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+          {submitting ? (
+            <>
+              <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
+              Registrando pedido…
+            </>
+          ) : (
+            <>
+              <Lock aria-hidden className="size-4" /> Finalizar compra · {formatBRL(account.price)}
+            </>
+          )}
+        </Button>
+        <p className="mt-3 text-center text-xs text-mist">Seus dados são usados só para entregar a conta e dar suporte.</p>
+      </div>
     </form>
   );
 }

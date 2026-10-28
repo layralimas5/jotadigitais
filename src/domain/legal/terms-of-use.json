@@ -1,7 +1,7 @@
 {
   "slug": "terms",
-  "version": "1.0.0",
-  "effectiveDate": "2026-10-21",
+  "version": "1.1.0",
+  "effectiveDate": "2026-10-28",
   "title": "Termos de Uso",
   "summary": "Estas são as regras para usar o site da {{brand}} e comprar uma conta. Elas incluem as condições de compra, entrega, garantia e reembolso. Leia com calma: ao marcar o aceite no checkout, você concorda com elas.",
   "sections": [
@@ -17,7 +17,7 @@
       "id": "servico",
       "title": "2. O que a {{brand}} faz e o que não faz",
       "blocks": [
-        { "type": "p", "text": "A {{brand}} vende contas de redes sociais já criadas (TikTok, Instagram, YouTube e Facebook). Cada página de conta mostra a rede, os números públicos e o status informado, como a Central de Criadores do TikTok Shop liberada. Depois do pagamento, enviamos login, senha e instruções para o e-mail do pedido e ajudamos na troca de nome, @ e foto." },
+        { "type": "p", "text": "A {{brand}} vende contas de redes sociais já criadas (TikTok, Instagram, YouTube e Facebook). Cada página de conta mostra a rede, os números públicos e o status informado, como a Central de Criadores do TikTok Shop liberada. Depois do pagamento, enviamos login, senha e instruções pelo WhatsApp do pedido e ajudamos na troca de nome, @ e foto." },
         { "type": "p", "text": "A {{brand}} não:" },
         {
           "type": "list",
@@ -35,11 +35,11 @@
       "id": "cadastro",
       "title": "3. Dados do pedido e conta recebida",
       "blocks": [
-        { "type": "p", "text": "O site não tem cadastro com senha para compradores. O seu pedido é identificado pelo e-mail e pelo código JD-XXXXXX. Você se compromete a:" },
+        { "type": "p", "text": "O site não tem cadastro com senha para compradores. O seu pedido é identificado pelo WhatsApp e pelo código JD-XXXXXX. Você se compromete a:" },
         {
           "type": "list",
           "items": [
-            "informar dados verdadeiros, completos e seus no checkout, incluindo CPF ou CNPJ e data de nascimento;",
+            "informar dados verdadeiros, completos e seus no checkout, incluindo CPF ou CNPJ, e declarar a sua idade com verdade;",
             "manter em sigilo o código do pedido e, depois da entrega, o login e a senha recebidos;",
             "trocar a senha, o e-mail e o telefone da conta assim que receber o acesso, seguindo as nossas instruções;",
             "responder por tudo o que for feito na conta depois da entrega, inclusive o conteúdo publicado e o cumprimento das regras da plataforma;",
@@ -60,7 +60,7 @@
             { "term": "Formas de pagamento", "text": "Pix à vista ou cartão de crédito em até 12 vezes, com os juros da operadora no parcelado. O pagamento é processado por {{paymentProvider}}." },
             { "term": "Reserva", "text": "Ao concluir o pedido, a conta fica reservada para você por 2 horas. Sem pagamento nesse prazo, o pedido é cancelado e a conta volta para a vitrine." },
             { "term": "Sem renovação automática", "text": "Cada compra é avulsa. Não há assinatura, mensalidade nem cobrança recorrente." },
-            { "term": "Entrega", "text": "Com o pagamento confirmado, enviamos login, senha e o passo a passo para o e-mail do pedido. Confira também a caixa de spam." },
+            { "term": "Entrega", "text": "Com o pagamento confirmado, enviamos login, senha e o passo a passo pelo WhatsApp do pedido." },
             { "term": "Garantia", "text": "Você tem {{guaranteeDays}} dias a partir da entrega para relatar problema de acesso ou de status anunciado. Se a conta não corresponder ao anúncio, oferecemos outra conta equivalente ou o reembolso integral, à sua escolha." },
             { "term": "Direito de arrependimento", "text": "Como a compra é feita pela internet, você pode desistir em até 7 dias a partir do recebimento do acesso, sem precisar explicar o motivo (art. 49 do Código de Defesa do Consumidor). Para isso, devolva o acesso à conta sem alterações que impeçam a revenda, como exclusão de conteúdo ou violação das regras da plataforma." },
             { "term": "Como é o reembolso", "text": "O valor pago é devolvido integralmente, pelo mesmo meio de pagamento, em até 7 dias úteis depois da devolução do acesso. No cartão, o estorno pode aparecer em até duas faturas, conforme a operadora." }
@@ -129,8 +129,8 @@
       "id": "suspensao",
       "title": "10. Cancelamento de pedido e bloqueio",
       "blocks": [
-        { "type": "p", "text": "Podemos recusar ou cancelar um pedido, com devolução integral do que foi pago, quando houver indício de fraude, dados falsos, compra por menor de 18 anos ou violação destes Termos. Avisamos pelo e-mail do pedido, com o motivo, em até 2 dias úteis, salvo quando o aviso atrapalhar a apuração de fraude." },
-        { "type": "p", "text": "Em caso de violação grave, como fraude ou ataque ao site, podemos bloquear novas compras do mesmo e-mail ou documento. Mesmo assim, você continua podendo ver e baixar os seus dados em [Meus dados](/meus-dados) e exercer todos os direitos da LGPD." }
+        { "type": "p", "text": "Podemos recusar ou cancelar um pedido, com devolução integral do que foi pago, quando houver indício de fraude, dados falsos, compra por menor de 18 anos ou violação destes Termos. Avisamos pelo WhatsApp do pedido, com o motivo, em até 2 dias úteis, salvo quando o aviso atrapalhar a apuração de fraude." },
+        { "type": "p", "text": "Em caso de violação grave, como fraude ou ataque ao site, podemos bloquear novas compras do mesmo WhatsApp, e-mail ou documento. Mesmo assim, você continua podendo ver e baixar os seus dados em [Meus dados](/meus-dados) e exercer todos os direitos da LGPD." }
       ]
     },
     {
@@ -162,5 +162,8 @@
       ]
     }
   ],
-  "history": [{ "version": "1.0.0", "date": "2026-10-21", "summary": "Primeira versão. Substitui os antigos Termos de compra e garantia." }]
+  "history": [
+    { "version": "1.1.0", "date": "2026-10-28", "summary": "Checkout mais curto: sem e-mail e sem data de nascimento. O acesso e os avisos do pedido chegam pelo WhatsApp, e a maioridade é declarada no aceite." },
+    { "version": "1.0.0", "date": "2026-10-21", "summary": "Primeira versão. Substitui os antigos Termos de compra e garantia." }
+  ]
 }

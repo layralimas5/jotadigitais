@@ -66,7 +66,7 @@ interface PaymentRow {
     status: string;
     expires_at: string;
     customer_name: string;
-    customer_email: string;
+    customer_email: string | null;
     customer_whatsapp: string | null;
     account_handle: string;
   };
@@ -102,7 +102,11 @@ async function createCheckout(service: SupabaseClient, body: Record<string, unkn
       items: [{ quantity: 1, price: data.amount_cents, description: `Conta ${order.account_handle} - pedido ${order.code}` }],
       redirect_url: `${env("SITE_URL")}/pedido/${order.code}`,
       webhook_url: `${env("SUPABASE_URL")}/functions/v1/infinitepay?action=webhook`,
-      customer: { name: order.customer_name, email: order.customer_email, phone_number: phoneOf(order.customer_whatsapp) },
+      customer: {
+        name: order.customer_name,
+        ...(order.customer_email ? { email: order.customer_email } : {}),
+        phone_number: phoneOf(order.customer_whatsapp),
+      },
     }),
   });
   if (!response.ok) {

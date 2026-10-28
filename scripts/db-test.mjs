@@ -227,7 +227,7 @@ async function main() {
   check(await rejects(() => placeYoutube("", "52998224725", "1990-05-10", "Natal", "RN"), /invalid_whatsapp/), "checkout exige WhatsApp");
   check(await rejects(() => placeYoutube("11912345678", "12345678900", "1990-05-10", "Natal", "RN"), /invalid_document/), "servidor recusa CPF com dígito errado");
   check(await rejects(() => placeYoutube("11912345678", "11222333000181", "2015-01-01", "Natal", "RN"), /invalid_birth_date/), "menor de 18 anos não compra");
-  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "", "RN"), /invalid_city/), "checkout exige cidade");
+  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "X", "RN"), /invalid_city/), "cidade informada com uma letra só é recusada");
   check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "Natal", "XX"), /invalid_state/), "checkout exige UF válida");
   check(
     await rejects(
@@ -697,6 +697,7 @@ async function main() {
   await emailVaultChecks();
   await referralChecks();
   await splitPaymentChecks();
+  await checkoutWithoutEmailChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1183,6 +1184,80 @@ async function splitPaymentChecks() {
 
   const lookup = await as("anon", null, () => db.query(`select public.get_order($1) as data`, [split.code]));
   check(lookup.rows[0].data.payments.every((part) => part.status === "paid"), "página do pedido mostra as duas partes pagas");
+}
+
+async function checkoutWithoutEmailChecks() {
+  console.log("\ncheckout sem e-mail");
+  const buyer = { email: null, whatsapp: "(84) 99876-5432", document: cpfFrom("518273640") };
+  const placed = (await placeWithPlan(await newAccount("sem-email"), buyer, "pix", null)).rows[0].data;
+  check(placed.code?.startsWith("JD-") && placed.customer_email === null, "pedido sem e-mail é aceito e a página pública não inventa e-mail");
+  const stored = await db.query(`select customer_email, customer_whatsapp from public.orders where code = $1`, [placed.code]);
+  check(stored.rows[0].customer_email === null && stored.rows[0].customer_whatsapp === "84998765432", "pedido guarda só o WhatsApp");
+  check(
+    await rejects(async () => placeWithPlan(await newAccount("email-ruim"), { ...buyer, email: "sem-arroba" }, "pix", null), /invalid_email/),
+    "e-mail informado continua conferido",
+  );
+  await placeWithPlan(await newAccount("sem-email-2"), buyer, "pix", null);
+  check(
+    await rejects(async () => placeWithPlan(await newAccount("sem-email-3"), buyer, "pix", null), /too_many_open_orders/),
+    "teto de pedidos abertos vale pelo WhatsApp mesmo sem e-mail",
+  );
+
+  const leanAccount = await newAccount("ficha-enxuta");
+  const minorAccount = await newAccount("ficha-menor");
+  const lean = (
+    await as("anon", null, () =>
+      db.query(
+        `select public.place_order($1, 'Joana Enxuta', null, '84933332222', $2, null, null, null, null, 'card', ${CONSENT}, 'tiktok', null, null) as data`,
+        [leanAccount, cpfFrom("612398745")],
+      ),
+    )
+  ).rows[0].data;
+  const leanRow = await db.query(`select customer_birth_date, customer_city, customer_state, customer_instagram from public.orders where code = $1`, [lean.code]);
+  check(
+    Object.values(leanRow.rows[0]).every((value) => value === null),
+    "pedido só com nome, WhatsApp, CPF e origem é aceito, sem nascimento, cidade, estado e Instagram",
+  );
+  check(
+    await rejects(
+      async () =>
+        as("anon", null, () =>
+          db.query(
+            `select public.place_order($1, 'Menor Teste', null, '84922221111', $2, (current_date - interval '15 years')::date, null, null, null, 'card', ${CONSENT}, 'tiktok', null, null)`,
+            [minorAccount, cpfFrom("731598246")],
+          ),
+        ),
+      /invalid_birth_date/,
+    ),
+    "nascimento informado de menor de 18 continua recusado",
+  );
+
+  const byWhatsapp = (await as("anon", null, () => db.query(`select public.privacy_lookup('(84) 99876-5432', $1) as data`, [placed.code]))).rows[0].data;
+  check(byWhatsapp?.contact === "84998765432" && byWhatsapp.orders.length === 2, "Meus dados abre com o WhatsApp da compra");
+  const wrongPhone = (await as("anon", null, () => db.query(`select public.privacy_lookup('84911112222', $1) as data`, [placed.code]))).rows[0].data;
+  check(wrongPhone === null, "WhatsApp de outra pessoa não abre o pedido");
+  const empty = (await as("anon", null, () => db.query(`select public.privacy_lookup('', $1) as data`, [placed.code]))).rows[0].data;
+  check(empty === null, "contato vazio não abre o pedido");
+
+  const opened = (await as("anon", null, () => db.query(`select public.privacy_request('84998765432', $1, 'access', null) as data`, [placed.code]))).rows[0].data;
+  const request = await db.query(`select email, whatsapp from public.data_requests where protocol = $1`, [opened.protocol]);
+  check(request.rows[0].email === null && request.rows[0].whatsapp === "84998765432", "solicitação guarda o WhatsApp de quem entrou");
+
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.orders set status = 'canceled' where customer_whatsapp = '84998765432'`));
+  const anonymized = (await as("authenticated", ADMIN_ID, () => db.query(`select public.anonymize_data_subject('84998765432') as data`))).rows[0].data;
+  check(anonymized.anonymized_orders === 2 && anonymized.kept_orders === 0, "anonimização acha o titular pelo WhatsApp");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.anonymize_data_subject('123')`)), /invalid_contact/),
+    "anonimização recusa contato inválido",
+  );
+
+  await db.exec(`
+    insert into public.orders (code, account_handle, account_name, account_platform, customer_name, customer_whatsapp, payment_method, total_cents, status, expires_at, created_at)
+    values ('JD-SEMMAI', '@velha2', 'Velha', 'tiktok', 'Rita Antiga', '84955554444', 'pix', 1000, 'canceled', now() - interval '7 months', now() - interval '7 months');
+  `);
+  await as("authenticated", ADMIN_ID, () => db.query(`select public.apply_retention_policy()`));
+  const retained = await db.query(`select customer_name from public.orders where code = 'JD-SEMMAI'`);
+  check(retained.rows[0].customer_name === "Titular anonimizado", "retenção também anonimiza pedido antigo sem e-mail");
 }
 
 async function emailVaultChecks() {

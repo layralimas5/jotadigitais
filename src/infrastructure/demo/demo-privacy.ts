@@ -14,11 +14,13 @@ import {
   type OpenedDataRequest,
   type RetentionResult,
   type SubjectData,
+  contactOf,
+  matchesContact,
 } from "@/domain/privacy";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 import { MAX_NOTIFICATIONS, notificationsOf } from "./demo-repositories";
 
-// Mesmas regras das funções privacy_*, anonymize_* e run_retention_policy de supabase/migrations/20261026120000_lgpd.sql.
+// Mesmas regras das funções privacy_*, anonymize_* e run_retention_policy de supabase/migrations/20261031120000_checkout_without_email.sql.
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -28,55 +30,55 @@ const MAX_OPEN_REQUESTS = 5;
 const daysAgo = (days: number) => Date.now() - days * DAY_MS;
 const olderThan = (iso: string, days: number) => new Date(iso).getTime() < daysAgo(days);
 
-function registerAttempt(state: DemoState, email: string): void {
+function registerAttempt(state: DemoState, contact: string): void {
   const attempts = (state.privacyAttempts ??= {});
-  const recent = (attempts[email] ?? []).filter((at) => new Date(at).getTime() > Date.now() - HOUR_MS);
+  const recent = (attempts[contact] ?? []).filter((at) => new Date(at).getTime() > Date.now() - HOUR_MS);
   if (recent.length >= MAX_ATTEMPTS_PER_HOUR) throw new TooManyPrivacyAttemptsError();
-  attempts[email] = [...recent, new Date().toISOString()];
+  attempts[contact] = [...recent, new Date().toISOString()];
 }
 
-const ownsOrder = (state: DemoState, email: string, code: string) =>
-  state.orders.some((order) => order.code === code && order.customer.email === email);
+const ownsOrder = (state: DemoState, contact: string, code: string) =>
+  state.orders.some((order) => order.code === code && matchesContact(order.customer, contact));
 
-const clean = (email: string, code: string) => ({ email: email.trim().toLowerCase(), code: code.trim().toUpperCase() });
+const clean = (contact: string, code: string) => ({ contact: contact.trim().toLowerCase(), code: code.trim().toUpperCase() });
 
-function subjectDataOf(state: DemoState, email: string): SubjectData {
-  const orders = state.orders.filter((order) => order.customer.email === email);
+function subjectDataOf(state: DemoState, contact: string): SubjectData {
+  const orders = state.orders.filter((order) => matchesContact(order.customer, contact));
   const codes = new Set(orders.map((order) => order.code));
   return {
-    email,
+    contact,
     generatedAt: new Date().toISOString(),
     orders: [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     customers: (state.customers ?? [])
-      .filter((customer) => customer.email?.toLowerCase() === email)
+      .filter((customer) => matchesContact(customer, contact))
       .map(({ id: _id, ...customer }) => customer),
     consents: (state.consents ?? []).filter((consent) => codes.has(consent.orderCode)),
     requests: (state.dataRequests ?? [])
-      .filter((request) => request.email === email)
-      .map(({ id: _id, email: _email, orderCode: _orderCode, ...request }) => request),
+      .filter((request) => matchesContact(request, contact))
+      .map(({ id: _id, email: _email, whatsapp: _whatsapp, orderCode: _orderCode, ...request }) => request),
   };
 }
 
 export class DemoPrivacyService implements PrivacyService {
   constructor(private readonly db: DemoDatabase) {}
 
-  async lookup(rawEmail: string, rawCode: string): Promise<SubjectData | null> {
+  async lookup(rawContact: string, rawCode: string): Promise<SubjectData | null> {
     await simulateLatency();
-    const { email, code } = clean(rawEmail, rawCode);
+    const { contact, code } = clean(rawContact, rawCode);
     return this.db.write((state) => {
-      registerAttempt(state, email);
-      return ownsOrder(state, email, code) ? subjectDataOf(state, email) : null;
+      registerAttempt(state, contact);
+      return ownsOrder(state, contact, code) ? subjectDataOf(state, contact) : null;
     });
   }
 
-  async request(rawEmail: string, rawCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null> {
+  async request(rawContact: string, rawCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null> {
     await simulateLatency();
-    const { email, code } = clean(rawEmail, rawCode);
+    const { contact, code } = clean(rawContact, rawCode);
     return this.db.write((state) => {
-      registerAttempt(state, email);
-      if (!ownsOrder(state, email, code)) return null;
+      registerAttempt(state, contact);
+      if (!ownsOrder(state, contact, code)) return null;
       const requests = (state.dataRequests ??= []);
-      if (requests.filter((item) => item.email === email && item.status === "open").length >= MAX_OPEN_REQUESTS) {
+      if (requests.filter((item) => matchesContact(item, contact) && item.status === "open").length >= MAX_OPEN_REQUESTS) {
         throw new TooManyOpenDataRequestsError();
       }
       const now = new Date();
@@ -84,7 +86,7 @@ export class DemoPrivacyService implements PrivacyService {
         id: newId("lgpd"),
         protocol: generateProtocol(),
         kind,
-        email,
+        ...contactOf(contact),
         orderCode: code,
         details,
         status: "open",
@@ -161,15 +163,16 @@ export class DemoPrivacyRepository implements AdminPrivacyRepository {
     });
   }
 
-  async anonymizeSubject(email: string): Promise<AnonymizationResult> {
+  async anonymizeSubject(contact: string): Promise<AnonymizationResult> {
     await simulateLatency();
     return this.db.write((state) => {
-      const owned = state.orders.filter((order) => order.customer.email === email);
-      const anonymizedOrders = anonymizeOrders(state, owned.filter(isUnpaidDead));
-      const kept = state.orders.filter((order) => order.customer.email === email);
+      const owned = state.orders.filter((order) => matchesContact(order.customer, contact));
+      const removable = owned.filter(isUnpaidDead);
+      const anonymizedOrders = anonymizeOrders(state, removable);
+      const kept = owned.filter((order) => !removable.includes(order));
       for (const order of kept) order.customer.instagram = null;
       const before = state.customers?.length ?? 0;
-      state.customers = (state.customers ?? []).filter((customer) => customer.email?.toLowerCase() !== email);
+      state.customers = (state.customers ?? []).filter((customer) => !matchesContact(customer, contact));
       return { anonymizedOrders, keptOrders: kept.length, deletedCustomers: before - state.customers.length };
     });
   }
