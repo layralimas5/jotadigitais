@@ -3,6 +3,7 @@ import { useCookieConsent } from "@/ui/components/cookies/CookieConsentProvider"
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { Logo } from "../Logo";
+import { WhatsAppGlyph } from "../whatsapp/WhatsAppGlyph";
 import { editable } from "@/ui/lib/site-preview";
 
 function InstagramGlyph() {
@@ -105,9 +106,9 @@ export function Footer() {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-sm text-mist transition-colors hover:text-white"
+                  className="inline-flex items-center gap-2 text-sm text-mist transition-colors hover:text-white"
                 >
-                  Suporte no WhatsApp
+                  <WhatsAppGlyph className="size-4 shrink-0" /> <span className="whitespace-nowrap">Suporte no WhatsApp</span>
                 </a>
               </li>
             )}
