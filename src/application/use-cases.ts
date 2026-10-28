@@ -88,6 +88,7 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
     },
     paymentMethod: data.paymentMethod,
     firstPartCents: split ? data.firstPartCents : null,
+    installments: data.paymentMethod === "card" ? data.installments : null,
     consents: await currentLegalConsents(),
   });
   return { order };

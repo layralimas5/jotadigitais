@@ -9,7 +9,7 @@ import { checkSplit, type PaymentPlan } from "@/domain/payment";
 export type PaymentChoice = "pix" | "card" | "split";
 export type SplitKind = Extract<PaymentPlan, "two_cards" | "card_pix">;
 
-export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "source" | "referredBy" | "paymentMethod" | "firstPartCents"> & {
+export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "source" | "referredBy" | "paymentMethod" | "firstPartCents" | "installments"> & {
   acceptedTerms: boolean;
   /** Vazio até a pessoa escolher. */
   source: LeadSource | "";
@@ -19,6 +19,8 @@ export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "source" | "r
   splitKind: SplitKind;
   /** Valor do primeiro cartão, como a pessoa digitou ("185,00"). */
   firstPart: string;
+  /** Parcelas do cartão único, como vem do select ("6"); vazio até a pessoa escolher. */
+  installments: string;
 };
 export type CheckoutField = keyof CheckoutValues;
 type FieldErrors = Partial<Record<CheckoutField, string>>;
@@ -32,11 +34,12 @@ const INITIAL_VALUES: CheckoutValues = {
   paymentChoice: "",
   splitKind: "two_cards",
   firstPart: "",
+  installments: "",
   acceptedTerms: false,
 };
 
 /** Ordem dos campos na tela: o foco vai para o primeiro com erro. */
-const FIELD_ORDER: CheckoutField[] = ["name", "whatsapp", "document", "source", "referredBy", "paymentChoice", "firstPart", "acceptedTerms"];
+const FIELD_ORDER: CheckoutField[] = ["name", "whatsapp", "document", "source", "referredBy", "paymentChoice", "installments", "firstPart", "acceptedTerms"];
 
 export const planOf = (values: Pick<CheckoutValues, "paymentChoice" | "splitKind">): PaymentPlan | null =>
   values.paymentChoice === "split" ? values.splitKind : values.paymentChoice || null;
@@ -67,6 +70,7 @@ function validate(values: CheckoutValues, total: Cents): { data: CheckoutData | 
     ...values,
     paymentMethod: planOf(values),
     firstPartCents: Number.isNaN(firstPartCents) ? null : firstPartCents,
+    installments: values.paymentChoice === "card" && values.installments ? Number(values.installments) : null,
   });
   const errors: FieldErrors = result.success ? {} : errorsOf(result.error);
   // O schema fala em paymentMethod; na tela, o campo é a escolha (Pix, cartão ou dividir).

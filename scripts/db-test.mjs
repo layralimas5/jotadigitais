@@ -698,6 +698,7 @@ async function main() {
   await referralChecks();
   await splitPaymentChecks();
   await checkoutWithoutEmailChecks();
+  await cardInstallmentChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1258,6 +1259,45 @@ async function checkoutWithoutEmailChecks() {
   await as("authenticated", ADMIN_ID, () => db.query(`select public.apply_retention_policy()`));
   const retained = await db.query(`select customer_name from public.orders where code = 'JD-SEMMAI'`);
   check(retained.rows[0].customer_name === "Titular anonimizado", "retenção também anonimiza pedido antigo sem e-mail");
+}
+
+function placeWithInstallments(accountId, buyer, plan, firstPartCents, installments) {
+  return as("anon", null, () =>
+    db.query(
+      `select public.place_order($1, 'Cliente Parcelado', null, $2, $3, null, null, null, null, $4, ${CONSENT}, 'instagram', null, $5, 120, $6) as data`,
+      [accountId, buyer.whatsapp, buyer.document, plan, firstPartCents, installments],
+    ),
+  );
+}
+
+async function cardInstallmentChecks() {
+  console.log("\nparcelas do cartão");
+  const buyer = (n) => ({ whatsapp: `8494440000${n}`, document: cpfFrom(`7${n}${n}3332220`.slice(0, 9)) });
+
+  const card = (await placeWithInstallments(await newAccount("parcela-6x"), buyer(1), "card", null, 6)).rows[0].data;
+  check(card.payments.length === 1 && card.payments[0].requested_installments === 6, "cartão grava as parcelas escolhidas e a página do pedido mostra");
+  check(
+    await rejects(async () => placeWithInstallments(await newAccount("parcela-13x"), buyer(2), "card", null, 13), /invalid_installments/),
+    "mais de 12 parcelas é recusado",
+  );
+  check(
+    await rejects(async () => placeWithInstallments(await newAccount("parcela-zero"), buyer(3), "card", null, 0), /invalid_installments/),
+    "zero parcelas é recusado",
+  );
+  check(
+    await rejects(async () => placeWithInstallments(await newAccount("parcela-vazia"), buyer(4), "card", null, null), /invalid_installments/),
+    "cartão sem parcelas é recusado na versão nova do checkout",
+  );
+  check(
+    await rejects(async () => placeWithInstallments(await newAccount("parcela-pix"), buyer(5), "pix", null, 3), /invalid_installments/),
+    "Pix com parcelas é recusado",
+  );
+  check(
+    await rejects(async () => placeWithInstallments(await newAccount("parcela-dividido"), buyer(6), "two_cards", 15000, 3), /invalid_installments/),
+    "pagamento dividido não recebe parcelas",
+  );
+  const legacy = (await placeWithPlan(await newAccount("parcela-site-antigo"), { email: null, ...buyer(7) }, "card", null)).rows[0].data;
+  check(legacy.payments[0].requested_installments === null, "site antigo, sem o campo, continua fechando pedido no cartão");
 }
 
 async function emailVaultChecks() {

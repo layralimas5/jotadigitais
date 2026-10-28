@@ -85,12 +85,16 @@ function PixPayment({ order, payment }: { order: Order; payment: OrderPayment })
   );
 }
 
+const installmentsLabel = (count: number) => (count === 1 ? "pagamento à vista (1x)" : `${count}x`);
+
 function CardPayment({ order, payment }: { order: Order; payment: OrderPayment }) {
   const checkout = useCardCheckout();
   return (
     <div className="space-y-3 text-left">
       <p className="text-sm text-fog">
-        Você vai para o checkout seguro da InfinitePay, escolhe as parcelas (até 12x) e volta para cá depois de pagar.
+        {payment.requestedInstallments
+          ? `Você vai para o checkout seguro da InfinitePay. Lá, escolha ${installmentsLabel(payment.requestedInstallments)}, como no pedido, e volte para cá depois de pagar.`
+          : "Você vai para o checkout seguro da InfinitePay, escolhe as parcelas (até 12x) e volta para cá depois de pagar."}
       </p>
       <Button
         type="button"

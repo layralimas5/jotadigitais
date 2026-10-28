@@ -310,6 +310,7 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_referred_by: input.customer.referredBy,
       p_first_part_cents: input.firstPartCents,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
+      p_installments: input.installments,
     });
     if (error) failFromOrderRpc(error);
     return toOrder(data);

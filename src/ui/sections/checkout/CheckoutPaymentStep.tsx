@@ -2,7 +2,7 @@ import { CreditCard, QrCode, Split } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatBRL, parseMoneyToCents, type Cents } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
-import { ChoiceCard, TextField } from "@/ui/components/form/Fields";
+import { ChoiceCard, SelectInput, TextField } from "@/ui/components/form/Fields";
 import type { CheckoutField, CheckoutValues, SplitKind } from "@/ui/hooks/useCheckoutForm";
 import { cn } from "@/ui/lib/cn";
 
@@ -19,6 +19,30 @@ const SPLIT_KINDS: readonly { kind: SplitKind; label: string; needsPix: boolean 
   { kind: "two_cards", label: "Dois cartões", needsPix: false },
   { kind: "card_pix", label: "Cartão + Pix", needsPix: true },
 ];
+
+/** O valor de cada parcela com juros só a InfinitePay calcula: aqui aparece o total só no 1x. */
+const installmentOptions = (total: Cents) => [
+  { value: "", label: "Escolha" },
+  ...Array.from({ length: MAX_CARD_INSTALLMENTS }, (_, index) => {
+    const count = index + 1;
+    return { value: String(count), label: count === 1 ? `1x de ${formatBRL(total)} (à vista)` : `${count}x (com juros da operadora)` };
+  }),
+];
+
+function InstallmentsField({ total, values, errors, setField }: CheckoutPaymentStepProps) {
+  return (
+    <SelectInput
+      className="mt-4"
+      label="Em quantas vezes?"
+      name="installments"
+      hint="O valor de cada parcela aparece na tela de pagamento da InfinitePay. Lá, escolha o mesmo número de vezes."
+      options={installmentOptions(total)}
+      value={values.installments}
+      onChange={(event) => setField("installments", event.target.value)}
+      error={errors.installments}
+    />
+  );
+}
 
 function SplitFields({ total, pixEnabled, values, errors, setField }: CheckoutPaymentStepProps) {
   const kinds = SPLIT_KINDS.filter((option) => pixEnabled || !option.needsPix);
@@ -124,6 +148,7 @@ export function CheckoutPaymentStep(props: CheckoutPaymentStepProps) {
             {errors.paymentChoice}
           </p>
         )}
+        {values.paymentChoice === "card" && <InstallmentsField {...props} />}
         {values.paymentChoice === "split" && <SplitFields {...props} />}
       </fieldset>
 

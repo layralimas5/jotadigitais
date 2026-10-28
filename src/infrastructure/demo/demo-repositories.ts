@@ -277,6 +277,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
           status: "pending",
           checkoutUrl: null,
           paidAt: null,
+          requestedInstallments: part.method === "card" ? input.installments : null,
           card: null,
         })),
       };

@@ -56,6 +56,8 @@ export interface NewOrder {
   paymentMethod: PaymentMethod;
   /** Valor do primeiro cartão quando o pagamento é dividido; o resto vai na segunda parte. */
   firstPartCents: number | null;
+  /** Parcelas escolhidas no cartão único; nas outras formas, null. */
+  installments: number | null;
   /** Termos de Uso e Política de Privacidade aceitos no checkout; o banco grava como prova. */
   consents: LegalConsent[];
 }

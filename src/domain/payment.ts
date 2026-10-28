@@ -30,6 +30,8 @@ export interface OrderPayment {
   /** Link do checkout da InfinitePay, criado quando o cliente vai pagar o cartão. */
   checkoutUrl: string | null;
   paidAt: string | null;
+  /** Parcelas que o cliente escolheu no checkout (só no cartão único). Na InfinitePay ele escolhe de novo. */
+  requestedInstallments: number | null;
   /** Comprovação do cartão, só no painel (a página pública do pedido não recebe): prova a venda numa contestação. */
   card: CardReceipt | null;
 }

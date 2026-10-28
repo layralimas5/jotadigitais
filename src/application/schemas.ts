@@ -5,6 +5,7 @@ import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLoca
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
+import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
@@ -109,11 +110,17 @@ export const checkoutSchema = z
     paymentMethod: z.enum(PAYMENT_PLANS, { message: "Escolha a forma de pagamento." }),
     /** Só no pagamento dividido. O limite contra o total é conferido no caso de uso, que conhece o preço. */
     firstPartCents: z.number({ message: "Informe quanto vai no primeiro cartão." }).int().positive().nullable(),
+    /** Só no cartão único. */
+    installments: z.number().int().min(1).max(MAX_CARD_INSTALLMENTS).nullable(),
     acceptedTerms: z.literal(true, {
       message: "Para continuar, aceite os Termos de Uso e a Política de Privacidade e confirme que tem 18 anos ou mais.",
     }),
   })
-  .refine(referralNamed, REFERRAL_UNNAMED);
+  .refine(referralNamed, REFERRAL_UNNAMED)
+  .refine((data) => data.paymentMethod !== "card" || data.installments !== null, {
+    path: ["installments"],
+    message: "Escolha em quantas vezes quer pagar.",
+  });
 
 export type CheckoutInput = z.input<typeof checkoutSchema>;
 export type CheckoutData = z.output<typeof checkoutSchema>;

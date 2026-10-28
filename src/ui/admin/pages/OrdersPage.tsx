@@ -71,6 +71,9 @@ function PaymentProof({ payment }: { payment: OrderPayment }) {
   const details = [
     payment.paidAt ? `Pago em ${dateTime.format(new Date(payment.paidAt))}` : null,
     card ? `Transação ${card.transactionNsu}` : null,
+    payment.requestedInstallments && payment.requestedInstallments !== card?.installments
+      ? `Escolheu ${payment.requestedInstallments}x no site`
+      : null,
     card?.installments ? `${card.installments}x` : null,
     card?.paidAmount && card.paidAmount !== payment.amount ? `Cobrado ${formatBRL(card.paidAmount)} (com juros)` : null,
     payment.method === "pix" && !card ? "Confirmado por você no Nubank" : null,
