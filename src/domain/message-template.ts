@@ -56,7 +56,7 @@ export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplates = {
   payment_confirmed:
     "Oi, {nome}! Pagamento do pedido {pedido} confirmado. Já estou separando o acesso da conta {conta} para você.",
   order_delivered:
-    "Pronto, {nome}! A conta {conta} foi entregue no seu e-mail (pedido {pedido}). Qualquer dúvida na troca de nome, @ ou foto, me chama aqui.",
+    "Pronto, {nome}! A conta {conta} é sua (pedido {pedido}). Login, senha e o passo a passo seguem abaixo. Qualquer dúvida na troca de nome, @ ou foto, me chama aqui.",
   crm_follow_up: "Oi, {nome}! Aqui é da {loja}. Passando para saber se você ainda procura uma conta. Chegaram opções novas.",
   customer_hello: "Olá, {nome}! Aqui é da {loja}.",
   account_offer: [
