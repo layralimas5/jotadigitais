@@ -1,5 +1,6 @@
--- Checkout sem e-mail: o acesso da conta vai pelo WhatsApp, que passa a identificar quem comprou.
--- Pedidos antigos continuam com e-mail; Meus dados aceita o e-mail ou o WhatsApp da compra.
+-- Checkout enxuto: a ficha fica em nome, WhatsApp, CPF/CNPJ e como conheceu a loja.
+-- O acesso da conta vai pelo WhatsApp, que passa a identificar quem comprou; a maioridade é declarada no aceite.
+-- Pedidos antigos continuam com e-mail, nascimento e cidade; Meus dados aceita o e-mail ou o WhatsApp da compra.
 
 alter table public.orders alter column customer_email drop not null;
 
@@ -7,7 +8,7 @@ alter table public.orders alter column customer_email drop not null;
 -- 1. Checkout
 -- ---------------------------------------------------------------------------
 
--- Mesma etapa interna do security_hardening: o e-mail vira opcional e só é conferido quando vier.
+-- Mesma etapa interna do security_hardening: e-mail, nascimento, cidade e estado viram opcionais e só são conferidos quando vierem.
 create or replace function public.create_order(
   p_account_id uuid,
   p_name text,
@@ -34,8 +35,8 @@ declare
   clean_whatsapp text := regexp_replace(coalesce(p_whatsapp, ''), '\D', '', 'g');
   clean_document text := regexp_replace(coalesce(p_document, ''), '\D', '', 'g');
   clean_instagram text := nullif(btrim(coalesce(p_instagram, '')), '');
-  clean_city text := btrim(coalesce(p_city, ''));
-  clean_state text := upper(btrim(coalesce(p_state, '')));
+  clean_city text := nullif(btrim(coalesce(p_city, '')), '');
+  clean_state text := nullif(upper(btrim(coalesce(p_state, ''))), '');
   document_hash text;
   open_orders integer;
   attempt integer := 0;
@@ -52,8 +53,8 @@ begin
   if not public.is_valid_document(clean_document) then
     raise exception 'invalid_document' using errcode = 'P0001';
   end if;
-  -- Compra só para maiores de 18 anos (termos de compra).
-  if p_birth_date is null or p_birth_date < date '1900-01-01' or p_birth_date > (current_date - interval '18 years')::date then
+  -- O checkout atual não pede nascimento (a maioridade é declarada no aceite); quando vier, vale a regra dos 18 anos.
+  if p_birth_date is not null and (p_birth_date < date '1900-01-01' or p_birth_date > (current_date - interval '18 years')::date) then
     raise exception 'invalid_birth_date' using errcode = 'P0001';
   end if;
   if clean_instagram is not null and left(clean_instagram, 1) <> '@' then
@@ -62,10 +63,10 @@ begin
   if clean_instagram is not null and clean_instagram !~ '^@[A-Za-z0-9._]{1,30}$' then
     raise exception 'invalid_instagram' using errcode = 'P0001';
   end if;
-  if char_length(clean_city) < 2 or char_length(clean_city) > 60 then
+  if clean_city is not null and char_length(clean_city) not between 2 and 60 then
     raise exception 'invalid_city' using errcode = 'P0001';
   end if;
-  if clean_state not in (
+  if clean_state is not null and clean_state not in (
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA',
     'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
   ) then
@@ -392,9 +393,9 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 4. Termos e Política 1.1.0: entrega e avisos pelo WhatsApp (node scripts/legal-hashes.mjs)
+-- 4. Termos e Política 1.1.0: checkout enxuto, entrega pelo WhatsApp e maioridade declarada (node scripts/legal-hashes.mjs)
 -- ---------------------------------------------------------------------------
 
 insert into public.legal_documents (slug, version, sha256) values
-  ('terms', '1.1.0', 'cdc59e8d3ecf95e0abf9e56119160a725b552ca799846b7ee5da009caf3a2f02'),
-  ('privacy', '1.1.0', '02281f9691f790e5f9d96abe339108f792075f0ea9aeae3642c55211dd78ae1a');
+  ('terms', '1.1.0', '76e78fc11ebe39f511c367871943101ec8bc3c59ffdf61a1c39314eb69d9715b'),
+  ('privacy', '1.1.0', '6f6ec3b9562f5de2408127adae8ec1e894f0b65a19a8bb0117d1a094a92139fc');

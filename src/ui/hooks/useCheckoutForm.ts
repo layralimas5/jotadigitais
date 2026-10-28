@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type { z } from "zod";
-import { checkoutProfileSchema, checkoutSchema, fieldErrorsOf, type CheckoutData, type CheckoutInput } from "@/application/schemas";
+import { checkoutSchema, fieldErrorsOf, type CheckoutData, type CheckoutInput } from "@/application/schemas";
 import type { LeadSource } from "@/domain/lead";
 import { formatCentsInput, parseMoneyToCents, type Cents } from "@/domain/money";
 import { checkSplit, type PaymentPlan } from "@/domain/payment";
@@ -9,12 +9,8 @@ import { checkSplit, type PaymentPlan } from "@/domain/payment";
 export type PaymentChoice = "pix" | "card" | "split";
 export type SplitKind = Extract<PaymentPlan, "two_cards" | "card_pix">;
 
-export type CheckoutValues = Omit<
-  CheckoutInput,
-  "acceptedTerms" | "instagram" | "source" | "referredBy" | "paymentMethod" | "firstPartCents"
-> & {
+export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "source" | "referredBy" | "paymentMethod" | "firstPartCents"> & {
   acceptedTerms: boolean;
-  instagram: string;
   /** Vazio até a pessoa escolher. */
   source: LeadSource | "";
   referredBy: string;
@@ -27,17 +23,10 @@ export type CheckoutValues = Omit<
 export type CheckoutField = keyof CheckoutValues;
 type FieldErrors = Partial<Record<CheckoutField, string>>;
 
-/** Passo 1 é a ficha completa; o pagamento só aparece com ela válida. */
-export type CheckoutStep = "profile" | "payment";
-
 const INITIAL_VALUES: CheckoutValues = {
   name: "",
-  document: "",
-  birthDate: "",
   whatsapp: "",
-  instagram: "",
-  city: "",
-  state: "" as CheckoutValues["state"],
+  document: "",
   source: "",
   referredBy: "",
   paymentChoice: "",
@@ -46,18 +35,8 @@ const INITIAL_VALUES: CheckoutValues = {
   acceptedTerms: false,
 };
 
-const PROFILE_FIELDS: CheckoutField[] = [
-  "name",
-  "document",
-  "birthDate",
-  "whatsapp",
-  "instagram",
-  "city",
-  "state",
-  "source",
-  "referredBy",
-];
-const PAYMENT_FIELDS: CheckoutField[] = ["paymentChoice", "firstPart", "acceptedTerms"];
+/** Ordem dos campos na tela: o foco vai para o primeiro com erro. */
+const FIELD_ORDER: CheckoutField[] = ["name", "whatsapp", "document", "source", "referredBy", "paymentChoice", "firstPart", "acceptedTerms"];
 
 export const planOf = (values: Pick<CheckoutValues, "paymentChoice" | "splitKind">): PaymentPlan | null =>
   values.paymentChoice === "split" ? values.splitKind : values.paymentChoice || null;
@@ -81,12 +60,7 @@ function errorsOf(error: z.ZodError): FieldErrors {
   return fieldErrors;
 }
 
-function validateProfile(values: CheckoutValues): FieldErrors {
-  const result = checkoutProfileSchema.safeParse(values);
-  return result.success ? {} : errorsOf(result.error);
-}
-
-function validateAll(values: CheckoutValues, total: Cents): { data: CheckoutData | null; errors: FieldErrors } {
+function validate(values: CheckoutValues, total: Cents): { data: CheckoutData | null; errors: FieldErrors } {
   const split = values.paymentChoice === "split";
   const firstPartCents = split ? parseMoneyToCents(values.firstPart) : null;
   const result = checkoutSchema.safeParse({
@@ -105,65 +79,30 @@ function validateAll(values: CheckoutValues, total: Cents): { data: CheckoutData
   return result.success && !errors.firstPart ? { data: result.data, errors } : { data: null, errors };
 }
 
-function focusFirst(form: HTMLFormElement, fields: readonly CheckoutField[], errors: FieldErrors) {
-  const first = fields.find((field) => errors[field]);
-  if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
-}
-
-/**
- * Checkout em dois passos com validação zod: a ficha é conferida antes do pagamento,
- * e depois do primeiro erro cada campo é revalidado enquanto a pessoa corrige.
- */
+/** Checkout numa tela só com validação zod; depois da primeira tentativa, cada campo é revalidado enquanto a pessoa corrige. */
 export function useCheckoutForm(total: Cents, onValid: (data: CheckoutData) => void) {
   const [values, setValues] = useState<CheckoutValues>(() => ({ ...INITIAL_VALUES, firstPart: halfOf(total) }));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitted, setSubmitted] = useState(false);
-  const [step, setStep] = useState<CheckoutStep>("profile");
-
-  const revalidate = (next: CheckoutValues) => (step === "profile" ? validateProfile(next) : validateAll(next, total).errors);
 
   const setField = <K extends CheckoutField>(field: K, value: CheckoutValues[K]) => {
     const next = { ...values, [field]: value };
     setValues(next);
-    if (submitted) setErrors(revalidate(next));
+    if (submitted) setErrors(validate(next, total).errors);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
-    const form = event.currentTarget;
-
-    if (step === "profile") {
-      const profileErrors = validateProfile(values);
-      setErrors(profileErrors);
-      if (Object.keys(profileErrors).length > 0) {
-        focusFirst(form, PROFILE_FIELDS, profileErrors);
-        return;
-      }
-      setSubmitted(false);
-      setStep("payment");
-      return;
-    }
-
-    const result = validateAll(values, total);
+    const result = validate(values, total);
     setErrors(result.errors);
     if (result.data) {
       onValid(result.data);
       return;
     }
-    // A ficha já passou, mas se algo mudou por fora volta para ela.
-    if (PROFILE_FIELDS.some((field) => result.errors[field])) {
-      setStep("profile");
-      return;
-    }
-    focusFirst(form, PAYMENT_FIELDS, result.errors);
+    const first = FIELD_ORDER.find((field) => result.errors[field]);
+    if (first) event.currentTarget.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
   };
 
-  const editProfile = () => {
-    setErrors({});
-    setSubmitted(false);
-    setStep("profile");
-  };
-
-  return { values, errors, step, setField, handleSubmit, editProfile };
+  return { values, errors, setField, handleSubmit };
 }

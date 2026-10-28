@@ -28,7 +28,7 @@ export const DATA_REQUEST_KIND_VIEW: Record<DataRequestKind, { label: string; de
   sharing_info: { label: "Saber com quem meus dados são compartilhados", description: "Lista das empresas e órgãos que recebem os seus dados." },
   consent_info: { label: "Saber o que acontece se eu não consentir", description: "Explicamos as consequências de negar o consentimento." },
   consent_revocation: { label: "Revogar um consentimento", description: "Retira uma autorização dada antes." },
-  automated_review: { label: "Revisar decisão automática", description: "Uma pessoa revisa uma decisão tomada só pelo sistema, como o bloqueio por idade." },
+  automated_review: { label: "Revisar decisão automática", description: "Uma pessoa revisa uma decisão tomada só pelo sistema." },
   objection: { label: "Me opor a um tratamento", description: "Para usos baseados no legítimo interesse, como anotações de atendimento." },
 };
 

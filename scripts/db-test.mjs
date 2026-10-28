@@ -227,7 +227,7 @@ async function main() {
   check(await rejects(() => placeYoutube("", "52998224725", "1990-05-10", "Natal", "RN"), /invalid_whatsapp/), "checkout exige WhatsApp");
   check(await rejects(() => placeYoutube("11912345678", "12345678900", "1990-05-10", "Natal", "RN"), /invalid_document/), "servidor recusa CPF com dígito errado");
   check(await rejects(() => placeYoutube("11912345678", "11222333000181", "2015-01-01", "Natal", "RN"), /invalid_birth_date/), "menor de 18 anos não compra");
-  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "", "RN"), /invalid_city/), "checkout exige cidade");
+  check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "X", "RN"), /invalid_city/), "cidade informada com uma letra só é recusada");
   check(await rejects(() => placeYoutube("11912345678", "11222333000181", "1990-05-10", "Natal", "XX"), /invalid_state/), "checkout exige UF válida");
   check(
     await rejects(
@@ -1201,6 +1201,35 @@ async function checkoutWithoutEmailChecks() {
   check(
     await rejects(async () => placeWithPlan(await newAccount("sem-email-3"), buyer, "pix", null), /too_many_open_orders/),
     "teto de pedidos abertos vale pelo WhatsApp mesmo sem e-mail",
+  );
+
+  const leanAccount = await newAccount("ficha-enxuta");
+  const minorAccount = await newAccount("ficha-menor");
+  const lean = (
+    await as("anon", null, () =>
+      db.query(
+        `select public.place_order($1, 'Joana Enxuta', null, '84933332222', $2, null, null, null, null, 'card', ${CONSENT}, 'tiktok', null, null) as data`,
+        [leanAccount, cpfFrom("612398745")],
+      ),
+    )
+  ).rows[0].data;
+  const leanRow = await db.query(`select customer_birth_date, customer_city, customer_state, customer_instagram from public.orders where code = $1`, [lean.code]);
+  check(
+    Object.values(leanRow.rows[0]).every((value) => value === null),
+    "pedido só com nome, WhatsApp, CPF e origem é aceito, sem nascimento, cidade, estado e Instagram",
+  );
+  check(
+    await rejects(
+      async () =>
+        as("anon", null, () =>
+          db.query(
+            `select public.place_order($1, 'Menor Teste', null, '84922221111', $2, (current_date - interval '15 years')::date, null, null, null, 'card', ${CONSENT}, 'tiktok', null, null)`,
+            [minorAccount, cpfFrom("731598246")],
+          ),
+        ),
+      /invalid_birth_date/,
+    ),
+    "nascimento informado de menor de 18 continua recusado",
   );
 
   const byWhatsapp = (await as("anon", null, () => db.query(`select public.privacy_lookup('(84) 99876-5432', $1) as data`, [placed.code]))).rows[0].data;

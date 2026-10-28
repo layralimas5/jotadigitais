@@ -39,7 +39,7 @@
         {
           "type": "list",
           "items": [
-            "informar dados verdadeiros, completos e seus no checkout, incluindo CPF ou CNPJ e data de nascimento;",
+            "informar dados verdadeiros, completos e seus no checkout, incluindo CPF ou CNPJ, e declarar a sua idade com verdade;",
             "manter em sigilo o código do pedido e, depois da entrega, o login e a senha recebidos;",
             "trocar a senha, o e-mail e o telefone da conta assim que receber o acesso, seguindo as nossas instruções;",
             "responder por tudo o que for feito na conta depois da entrega, inclusive o conteúdo publicado e o cumprimento das regras da plataforma;",
@@ -163,7 +163,7 @@
     }
   ],
   "history": [
-    { "version": "1.1.0", "date": "2026-10-28", "summary": "A compra não pede mais e-mail: o acesso e os avisos do pedido chegam pelo WhatsApp." },
+    { "version": "1.1.0", "date": "2026-10-28", "summary": "Checkout mais curto: sem e-mail e sem data de nascimento. O acesso e os avisos do pedido chegam pelo WhatsApp, e a maioridade é declarada no aceite." },
     { "version": "1.0.0", "date": "2026-10-21", "summary": "Primeira versão. Substitui os antigos Termos de compra e garantia." }
   ]
 }

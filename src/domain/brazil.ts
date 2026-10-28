@@ -66,5 +66,4 @@ export function ageOn(birthDate: string, today: string): number {
   return year - birthYear - (hadBirthday ? 0 : 1);
 }
 
-export const MIN_BUYER_AGE = 18;
 export const OLDEST_BIRTH_DATE = "1900-01-01";

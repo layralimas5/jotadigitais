@@ -43,7 +43,7 @@
         {
           "type": "defs",
           "items": [
-            { "term": "Quando você compra uma conta", "text": "Nome completo, WhatsApp, CPF ou CNPJ, data de nascimento, cidade e estado, e o seu @ do Instagram, se você quiser informar. Também guardamos a conta escolhida, o valor, a forma de pagamento escolhida (Pix ou cartão) e a situação do pedido." },
+            { "term": "Quando você compra uma conta", "text": "Nome completo, WhatsApp, CPF ou CNPJ, como você conheceu a loja e, se for indicação, quem indicou. Também guardamos a conta escolhida, o valor, a forma de pagamento escolhida (Pix ou cartão) e a situação do pedido." },
             { "term": "Prova do seu aceite", "text": "Quando você aceita estes documentos no checkout, registramos a versão aceita, a impressão digital do texto (hash SHA-256), a data e a hora, o endereço IP e o navegador usado." },
             { "term": "Quando você fala com a gente", "text": "Se você nos chama no WhatsApp ou no Instagram, podemos anotar o seu nome, WhatsApp, @ do Instagram, o tipo de conta que procura, o orçamento informado, observações da conversa e a data combinada para retorno." },
             { "term": "Parceiros e fornecedores", "text": "De quem fornece contas para a loja, guardamos nome, WhatsApp, @ do Instagram, percentual de comissão e observações." },
@@ -65,8 +65,8 @@
           "type": "defs",
           "items": [
             { "term": "Vender e entregar a conta", "text": "Nome e WhatsApp servem para registrar o pedido, reservar a conta, confirmar o pagamento, enviar o login e a senha e prestar suporte." },
-            { "term": "Emitir nota fiscal", "text": "CPF ou CNPJ, nome, cidade e estado são exigidos para a nota fiscal de serviço." },
-            { "term": "Confirmar a maioridade", "text": "A data de nascimento confirma que quem compra tem 18 anos ou mais e pode assinar o contrato." },
+            { "term": "Emitir nota fiscal", "text": "CPF ou CNPJ e nome são usados na nota fiscal de serviço." },
+            { "term": "Confirmar a maioridade", "text": "No checkout você declara ter 18 anos ou mais, condição para assinar o contrato." },
             { "term": "Evitar fraude", "text": "O CPF e o WhatsApp ajudam a barrar pedidos falsos que travam o estoque. O sistema não deixa o mesmo WhatsApp ou CPF segurar mais de dois pedidos sem pagamento." },
             { "term": "Cumprir a garantia", "text": "O pedido e a data de entrega mostram se a garantia está valendo e permitem trocar a conta ou devolver o dinheiro." },
             { "term": "Responder e acompanhar contatos", "text": "Os dados de quem conversa com a gente servem para dar retorno no dia combinado. O lembrete pode ir para a agenda do Google de quem atende." },
@@ -75,7 +75,7 @@
             { "term": "Divulgar resultados", "text": "Prints de clientes só são publicados com autorização de quem aparece neles." }
           ]
         },
-        { "type": "p", "text": "Não vendemos os seus dados, não fazemos perfil de comportamento para publicidade e não tomamos decisões só por meio de máquina que afetem os seus interesses. A única regra automática do site é a que barra a compra de quem informa idade abaixo de 18 anos, e você pode pedir revisão dela." }
+        { "type": "p", "text": "Não vendemos os seus dados, não fazemos perfil de comportamento para publicidade e não tomamos decisões só por meio de máquina que afetem os seus interesses." }
       ]
     },
     {
@@ -109,7 +109,7 @@
             { "term": "WhatsApp e Instagram (Meta)", "text": "Quando você clica para conversar, a conversa acontece na plataforma da Meta, que trata os dados como controladora. [WhatsApp](https://www.whatsapp.com/legal/privacy-policy) e [Instagram](https://privacycenter.instagram.com/policy)" },
             { "term": "TikTok, Instagram e YouTube", "text": "Para cadastrar uma conta à venda, o sistema consulta a página pública do perfil. Nenhum dado de cliente é enviado nessa consulta. [TikTok](https://www.tiktok.com/legal/page/row/privacy-policy/pt-BR) e [YouTube](https://policies.google.com/privacy)" },
             { "term": "Empresa de pagamento", "text": "{{paymentProvider}} recebe nome, WhatsApp, CPF ou CNPJ e valor para processar o Pix ou o cartão." },
-            { "term": "Emissor de nota fiscal", "text": "{{invoiceProvider}} recebe nome, CPF ou CNPJ, cidade, estado e valor para emitir a nota." },
+            { "term": "Emissor de nota fiscal", "text": "{{invoiceProvider}} recebe nome, CPF ou CNPJ e valor para emitir a nota." },
             { "term": "Autoridades", "text": "Órgãos públicos e a Justiça, quando houver ordem legal ou para defender os nossos direitos." }
           ]
         }
@@ -225,7 +225,7 @@
       "id": "menores",
       "title": "13. Crianças e adolescentes",
       "blocks": [
-        { "type": "p", "text": "A loja é só para maiores de 18 anos. O checkout pede a data de nascimento e o sistema recusa a compra de quem tem menos de 18 anos." },
+        { "type": "p", "text": "A loja é só para maiores de 18 anos. No checkout, quem compra declara ter 18 anos ou mais. Se descobrirmos uma compra feita por menor, o pedido é cancelado e o valor devolvido." },
         { "type": "p", "text": "Não coletamos de propósito dados de menores. Se descobrirmos que recebemos dados de uma criança (até 12 anos incompletos) sem o consentimento específico de um dos pais ou responsável, ou de um adolescente fora do que a lei permite, apagamos esses dados, sempre no melhor interesse da criança ou do adolescente (art. 14 da LGPD e Estatuto da Criança e do Adolescente). Pais ou responsáveis podem pedir isso pelo canal da seção 10." }
       ]
     },
@@ -268,7 +268,7 @@
     }
   ],
   "history": [
-    { "version": "1.1.0", "date": "2026-10-28", "summary": "A compra não pede mais e-mail: o WhatsApp identifica o pedido e recebe o acesso." },
+    { "version": "1.1.0", "date": "2026-10-28", "summary": "Checkout mais curto: sem e-mail, data de nascimento, cidade, estado e Instagram. O WhatsApp identifica o pedido e recebe o acesso, e a maioridade é declarada no aceite." },
     { "version": "1.0.0", "date": "2026-10-21", "summary": "Primeira versão." }
   ]
 }

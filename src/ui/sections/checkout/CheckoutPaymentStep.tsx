@@ -147,7 +147,7 @@ export function CheckoutPaymentStep(props: CheckoutPaymentStepProps) {
             <Link to="/politica-de-privacidade" target="_blank" className="text-electric-soft underline underline-offset-4">
               Política de Privacidade<span className="sr-only"> (abre em outra aba)</span>
             </Link>
-            , incluindo as condições de entrega, garantia e reembolso.
+            , incluindo as condições de entrega, garantia e reembolso, e declaro ter 18 anos ou mais.
           </span>
         </label>
         {errors.acceptedTerms && (
