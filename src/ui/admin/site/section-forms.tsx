@@ -222,17 +222,6 @@ const FooterForm: Form<"footer"> = (props) => {
   );
 };
 
-const WhatsappForm: Form<"whatsapp"> = (props) => {
-  const copy = copyFieldsFor("whatsapp", props);
-  return (
-    <>
-      {copy("teaserTitle", "Convite: título", 40)}
-      {copy("teaserText", "Convite: texto", 50)}
-      <p className="text-xs text-mist">O balão aparece perto do botão do WhatsApp alguns segundos depois de a pessoa entrar no site.</p>
-    </>
-  );
-};
-
 const SeoForm: Form<"seo"> = (props) => {
   const copy = copyFieldsFor("seo", props);
   return (
@@ -266,6 +255,5 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({ key: "faq", title: "Dúvidas", description: "Perguntas frequentes da home e das contas", path: "/", anchor: "duvidas-title", Form: FaqForm }),
   define({ key: "finalCta", title: "Chamada final", description: "O bloco antes do rodapé", path: "/", anchor: "cta-title", Form: FinalCtaForm }),
   define({ key: "footer", title: "Rodapé", description: "Frases e aviso legal", path: "/", anchor: "rodape", Form: FooterForm }),
-  define({ key: "whatsapp", title: "Convite do WhatsApp", description: "Balão ao lado do botão flutuante", path: "/", anchor: "rodape", Form: WhatsappForm }),
   define({ key: "seo", title: "Google e aba do navegador", description: "Título e descrição da página inicial", path: "/", anchor: "hero-title", Form: SeoForm }),
 ];
