@@ -188,7 +188,7 @@ function SiteOrders({ customer }: { customer: CustomerSummary }) {
   if (customer.orders.length === 0) {
     return (
       <p className={emptyBox}>
-        Nenhum pedido pelo site ainda. Quando comprar com o e-mail {customer.email ?? "cadastrado"}, o pedido aparece aqui.
+        Nenhum pedido pelo site ainda. Quando comprar com o WhatsApp {customer.whatsapp ?? "cadastrado"}, o pedido aparece aqui.
       </p>
     );
   }

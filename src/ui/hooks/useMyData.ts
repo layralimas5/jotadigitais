@@ -15,11 +15,11 @@ type MyDataState =
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : "Algo deu errado. Tente de novo.");
 const fieldErrorsOf = (error: unknown) => (error instanceof ValidationError ? error.fieldErrors : {});
 
-/** Meus dados: entrar com e-mail + código do pedido, ver tudo e abrir solicitações. Nada fica salvo no navegador. */
+/** Meus dados: entrar com WhatsApp ou e-mail + código do pedido, ver tudo e abrir solicitações. Nada fica salvo no navegador. */
 export function useMyData() {
   const [state, setState] = useState<MyDataState>({ status: "idle" });
 
-  const enter = useCallback(async (raw: { email: string; orderCode: string }) => {
+  const enter = useCallback(async (raw: { contact: string; orderCode: string }) => {
     setState({ status: "loading" });
     try {
       const { access, data } = await lookupMyData(store, raw);
@@ -35,7 +35,7 @@ export function useMyData() {
   /** Abre a solicitação e recarrega os dados para ela aparecer na lista. */
   const request = useCallback(
     async (raw: { kind: string; details: string }): Promise<OpenedDataRequest> => {
-      if (state.status !== "ready") throw new Error("Entre com o e-mail e o código do pedido primeiro.");
+      if (state.status !== "ready") throw new Error("Entre com o WhatsApp ou e-mail e o código do pedido primeiro.");
       const opened = await openDataRequest(store, state.access, raw);
       const { data } = await lookupMyData(store, state.access);
       setState({ status: "ready", access: state.access, data });

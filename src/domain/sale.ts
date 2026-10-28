@@ -47,11 +47,12 @@ export function orderStageOf(order: Order, guaranteeDays: number, now: Date = ne
   return warrantyOf(order, guaranteeDays, now).active ? "delivered" : "finalized";
 }
 
-/** Busca por código do pedido, cliente (nome ou e-mail) ou conta. */
+/** Busca por código do pedido, cliente (nome, e-mail ou WhatsApp) ou conta. */
 export function matchesOrderQuery(order: Order, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  return [order.code, order.customer.name, order.customer.email, order.accountHandle, order.accountName].some((field) =>
-    field.toLowerCase().includes(needle),
+  const { name, email, whatsapp } = order.customer;
+  return [order.code, name, email, whatsapp, order.accountHandle, order.accountName].some((field) =>
+    field?.toLowerCase().includes(needle),
   );
 }

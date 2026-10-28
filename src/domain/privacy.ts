@@ -45,7 +45,9 @@ export interface DataRequest {
   id: string;
   protocol: string;
   kind: DataRequestKind;
-  email: string;
+  /** Quem entrou com o e-mail tem `email`; quem entrou com o WhatsApp, `whatsapp`. */
+  email: string | null;
+  whatsapp: string | null;
   orderCode: string | null;
   details: string | null;
   status: DataRequestStatus;
@@ -57,7 +59,7 @@ export interface DataRequest {
 }
 
 /** Solicitação como o titular vê em Meus dados (sem id interno). */
-export type OwnDataRequest = Omit<DataRequest, "id" | "email" | "orderCode">;
+export type OwnDataRequest = Omit<DataRequest, "id" | "email" | "whatsapp" | "orderCode">;
 
 export interface ConsentRecord {
   orderCode: string;
@@ -69,9 +71,10 @@ export interface ConsentRecord {
   userAgent: string | null;
 }
 
-/** Tudo o que a loja guarda ligado ao e-mail do titular. Também é o arquivo da portabilidade. */
+/** Tudo o que a loja guarda ligado ao contato do titular. Também é o arquivo da portabilidade. */
 export interface SubjectData {
-  email: string;
+  /** E-mail ou WhatsApp (só dígitos) usado para entrar. */
+  contact: string;
   generatedAt: string;
   orders: Order[];
   customers: (CustomerRecordData & { createdAt: string })[];
@@ -118,4 +121,16 @@ export function generateProtocol(random: () => number = Math.random): string {
 /** Mesmo texto do `anonymize_orders` no banco. */
 export const ANONYMIZED_NAME = "Titular anonimizado";
 export const anonymizedEmail = (orderCode: string) => `anonimo.${orderCode.toLowerCase()}@anonimizado.invalid`;
-export const isAnonymizedEmail = (email: string) => email.endsWith("@anonimizado.invalid");
+export const isAnonymizedEmail = (email: string | null) => email?.endsWith("@anonimizado.invalid") ?? false;
+
+/** Contato do titular: e-mail (tem @) ou WhatsApp só com dígitos, como `parse_contact` no banco. */
+export const isEmailContact = (contact: string) => contact.includes("@");
+
+export const contactOf = (contact: string) =>
+  isEmailContact(contact) ? { email: contact, whatsapp: null } : { email: null, whatsapp: contact };
+
+export function matchesContact(subject: { email: string | null; whatsapp: string | null }, contact: string): boolean {
+  return isEmailContact(contact)
+    ? subject.email?.toLowerCase() === contact
+    : (subject.whatsapp ?? "").replace(/\D/g, "") === contact;
+}

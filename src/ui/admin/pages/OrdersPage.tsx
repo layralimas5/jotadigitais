@@ -165,9 +165,11 @@ function OrderCard({ order, guaranteeDays, templates, busy, onAction, onConfirmP
           <dt className="text-xs text-mist">Cliente</dt>
           <dd className="mt-0.5 font-medium text-white">{order.customer.name}</dd>
           <dd className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-            <a href={`mailto:${order.customer.email}`} className="inline-flex items-center gap-1 text-electric-soft hover:underline">
-              <Mail aria-hidden className="size-3.5" /> {order.customer.email}
-            </a>
+            {order.customer.email && (
+              <a href={`mailto:${order.customer.email}`} className="inline-flex items-center gap-1 text-electric-soft hover:underline">
+                <Mail aria-hidden className="size-3.5" /> {order.customer.email}
+              </a>
+            )}
             {whatsapp && (
               <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-300 hover:underline">
                 <MessageCircle aria-hidden className="size-3.5" /> WhatsApp

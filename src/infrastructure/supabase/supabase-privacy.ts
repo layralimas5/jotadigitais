@@ -34,7 +34,7 @@ const ownRequestSchema = z.object({
 });
 
 const subjectSchema = z.object({
-  email: z.string(),
+  contact: z.string(),
   generated_at: timestamp,
   orders: z.array(z.unknown()),
   customers: z.array(
@@ -72,7 +72,7 @@ const subjectSchema = z.object({
 function toSubjectData(raw: unknown): SubjectData {
   const row = subjectSchema.parse(raw);
   return {
-    email: row.email,
+    contact: row.contact,
     generatedAt: row.generated_at,
     orders: row.orders.map(toOrder),
     customers: row.customers.map((customer) => ({
@@ -114,19 +114,19 @@ function toSubjectData(raw: unknown): SubjectData {
 
 const openedSchema = z.object({ protocol: z.string(), due_at: timestamp });
 
-/** Meus dados pelas funções `privacy_lookup` e `privacy_request`, que conferem e-mail e código no banco. */
+/** Meus dados pelas funções `privacy_lookup` e `privacy_request`, que conferem contato e código no banco. */
 export class SupabasePrivacyService implements PrivacyService {
   constructor(private readonly client: SupabaseClient) {}
 
-  async lookup(email: string, orderCode: string): Promise<SubjectData | null> {
-    const { data, error } = await this.client.rpc("privacy_lookup", { p_email: email, p_code: orderCode });
+  async lookup(contact: string, orderCode: string): Promise<SubjectData | null> {
+    const { data, error } = await this.client.rpc("privacy_lookup", { p_contact: contact, p_code: orderCode });
     if (error) failFromRpc(error);
     return data ? toSubjectData(data) : null;
   }
 
-  async request(email: string, orderCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null> {
+  async request(contact: string, orderCode: string, kind: DataRequestKind, details: string | null): Promise<OpenedDataRequest | null> {
     const { data, error } = await this.client.rpc("privacy_request", {
-      p_email: email,
+      p_contact: contact,
       p_code: orderCode,
       p_kind: kind,
       p_details: details,
@@ -138,9 +138,9 @@ export class SupabasePrivacyService implements PrivacyService {
   }
 }
 
-const REQUEST_COLUMNS = "id, protocol, kind, email, order_code, details, status, response, created_at, due_at, resolved_at";
+const REQUEST_COLUMNS = "id, protocol, kind, email, whatsapp, order_code, details, status, response, created_at, due_at, resolved_at";
 
-const requestRowSchema = ownRequestSchema.extend({ id: z.string(), email: z.string(), order_code: z.string().nullable() });
+const requestRowSchema = ownRequestSchema.extend({ id: z.string(), email: z.string().nullable(), whatsapp: z.string().nullable(), order_code: z.string().nullable() });
 
 function toDataRequest(raw: unknown): DataRequest {
   const row = requestRowSchema.parse(raw);
@@ -149,6 +149,7 @@ function toDataRequest(raw: unknown): DataRequest {
     protocol: row.protocol,
     kind: row.kind,
     email: row.email,
+    whatsapp: row.whatsapp,
     orderCode: row.order_code,
     details: row.details,
     status: row.status,
@@ -183,8 +184,8 @@ export class SupabasePrivacyRepository implements AdminPrivacyRepository {
     if (error) fail(error);
   }
 
-  async anonymizeSubject(email: string): Promise<AnonymizationResult> {
-    const { data, error } = await this.client.rpc("anonymize_data_subject", { p_email: email });
+  async anonymizeSubject(contact: string): Promise<AnonymizationResult> {
+    const { data, error } = await this.client.rpc("anonymize_data_subject", { p_contact: contact });
     if (error) fail(error);
     const result = anonymizationSchema.parse(data);
     return { anonymizedOrders: result.anonymized_orders, keptOrders: result.kept_orders, deletedCustomers: result.deleted_customers };

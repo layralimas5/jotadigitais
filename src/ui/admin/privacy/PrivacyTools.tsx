@@ -78,13 +78,11 @@ export function PrivacyTools({ email, onEmailChange, onDone }: PrivacyToolsProps
     <div className="grid gap-4 lg:grid-cols-2">
       <FormSection
         title="Anonimizar um titular"
-        description="Para pedidos de eliminação. Pedido cancelado ou não pago perde todos os dados pessoais; pedido pago ou entregue fica 5 anos pela nota fiscal, só sem o Instagram; o cadastro manual com o e-mail é apagado."
+        description="Para pedidos de eliminação. Pedido cancelado ou não pago perde todos os dados pessoais; pedido pago ou entregue fica 5 anos pela nota fiscal, só sem o Instagram; o cadastro manual com o mesmo e-mail ou WhatsApp é apagado."
       >
         <form id="anonimizar" noValidate onSubmit={askAnonymize} className="space-y-4">
           <TextField
-            label="E-mail do titular"
-            type="email"
-            inputMode="email"
+            label="E-mail ou WhatsApp do titular"
             value={email}
             onChange={(event) => onEmailChange(event.target.value)}
           />

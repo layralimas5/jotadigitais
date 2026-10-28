@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { loadFinalizedSales } from "@/application/admin-use-cases";
 import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
-import { customerKeyOf } from "@/domain/customer";
+import { orderCustomerKeyOf } from "@/domain/customer";
 import { rangeOf, toLocalIsoDate, type DateRange, type PeriodPreset } from "@/domain/finance";
 import type { MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
@@ -40,7 +40,7 @@ const SITUATIONS: readonly { id: Situation; label: string }[] = [
 ];
 
 function SaleCard({ order, guaranteeDays, templates }: { order: Order; guaranteeDays: number; templates: MessageTemplates }) {
-  const customerPath = `/admin/clientes/${encodeURIComponent(customerKeyOf(order.customer.email))}`;
+  const customerPath = `/admin/clientes/${encodeURIComponent(orderCustomerKeyOf(order))}`;
   return (
     <li className="rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">

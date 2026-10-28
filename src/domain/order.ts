@@ -19,7 +19,8 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
  */
 export interface Customer {
   name: string;
-  email: string;
+  /** Pedidos de antes do checkout sem e-mail. Os novos chegam sem. */
+  email: string | null;
   whatsapp: string | null;
   /** CPF ou CNPJ, só números. */
   document: string | null;

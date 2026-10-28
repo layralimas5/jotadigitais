@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { DataSubjectNotFoundError } from "@/domain/errors";
 import type {
   AnonymizationResult,
@@ -8,17 +7,17 @@ import type {
   SubjectData,
 } from "@/domain/privacy";
 import type { AdminDeps } from "./admin-use-cases";
-import { dataRequestAnswerSchema, dataRequestSchema, parseOrThrow, privacyAccessSchema, type PrivacyAccess } from "./schemas";
+import { contactField, dataRequestAnswerSchema, dataRequestSchema, parseOrThrow, privacyAccessSchema, type PrivacyAccess } from "./schemas";
 import type { UseCaseDeps } from "./use-cases";
 
 // ---------------------------------------------------------------------------
 // Meus dados (site)
 // ---------------------------------------------------------------------------
 
-/** Confere e-mail e código do pedido e devolve tudo o que a loja guarda sobre o titular. */
+/** Confere contato e código do pedido e devolve tudo o que a loja guarda sobre o titular. */
 export async function lookupMyData(deps: Pick<UseCaseDeps, "privacy">, raw: unknown): Promise<{ access: PrivacyAccess; data: SubjectData }> {
   const access = parseOrThrow(privacyAccessSchema, raw);
-  const data = await deps.privacy.lookup(access.email, access.orderCode);
+  const data = await deps.privacy.lookup(access.contact, access.orderCode);
   if (!data) throw new DataSubjectNotFoundError();
   return { access, data };
 }
@@ -29,7 +28,7 @@ export async function openDataRequest(
   raw: unknown,
 ): Promise<OpenedDataRequest> {
   const request = parseOrThrow(dataRequestSchema, raw);
-  const opened = await deps.privacy.request(access.email, access.orderCode, request.kind, request.details);
+  const opened = await deps.privacy.request(access.contact, access.orderCode, request.kind, request.details);
   if (!opened) throw new DataSubjectNotFoundError();
   return opened;
 }
@@ -51,10 +50,8 @@ export function answerDataRequest(deps: AdminDeps, id: string, raw: unknown): Pr
   return deps.privacy.answer(id, parseOrThrow(dataRequestAnswerSchema, raw));
 }
 
-const subjectEmailSchema = z.string().trim().toLowerCase().pipe(z.email("E-mail inválido."));
-
-export function anonymizeDataSubject(deps: AdminDeps, email: string): Promise<AnonymizationResult> {
-  return deps.privacy.anonymizeSubject(parseOrThrow(subjectEmailSchema, email));
+export function anonymizeDataSubject(deps: AdminDeps, contact: string): Promise<AnonymizationResult> {
+  return deps.privacy.anonymizeSubject(parseOrThrow(contactField, contact));
 }
 
 export function applyRetentionPolicy(deps: AdminDeps): Promise<RetentionResult> {

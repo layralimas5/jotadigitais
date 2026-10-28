@@ -99,8 +99,6 @@ const checkoutProfileShape = {
   name: z.string().trim().min(3, "Informe seu nome completo.").max(120, "Nome muito longo."),
   document: requiredDocument,
   birthDate: birthDateField(MIN_BUYER_AGE),
-  email: requiredEmail,
-  emailConfirmation: z.string().trim().toLowerCase(),
   whatsapp: requiredWhatsapp,
   instagram: optionalInstagram,
   city: cityField,
@@ -109,13 +107,9 @@ const checkoutProfileShape = {
   referredBy: referredByField,
 };
 
-const emailsMatch = (data: { email: string; emailConfirmation: string }) => data.email === data.emailConfirmation;
-const EMAILS_MISMATCH = { path: ["emailConfirmation"], message: "Os e-mails não conferem." };
-
 /** Primeiro passo do checkout: a ficha completa, conferida antes de mostrar o pagamento. */
 export const checkoutProfileSchema = z
   .object(checkoutProfileShape)
-  .refine(emailsMatch, EMAILS_MISMATCH)
   .refine(referralNamed, REFERRAL_UNNAMED);
 
 export const checkoutSchema = z
@@ -126,7 +120,6 @@ export const checkoutSchema = z
     firstPartCents: z.number({ message: "Informe quanto vai no primeiro cartão." }).int().positive().nullable(),
     acceptedTerms: z.literal(true, { message: "Para continuar, aceite os Termos de Uso e a Política de Privacidade." }),
   })
-  .refine(emailsMatch, EMAILS_MISMATCH)
   .refine(referralNamed, REFERRAL_UNNAMED);
 
 export type CheckoutInput = z.input<typeof checkoutSchema>;
@@ -579,7 +572,6 @@ export const siteContentSchema = z.object({
   }),
   finalCta: z.object({ titleLine1: copy(50), titleLine2: z.string().trim().max(50, "Use no máximo 50 caracteres."), button: copy(32) }),
   footer: z.object({ tagline: copy(160), slogan: z.string().trim().max(120, "Use no máximo 120 caracteres."), disclaimer: copy(200) }),
-  whatsapp: z.object({ teaserTitle: copy(40), teaserText: copy(50) }),
 });
 
 // ---------------------------------------------------------------------------
@@ -618,8 +610,18 @@ const orderCodeField = z
   .toUpperCase()
   .regex(/^JD-[A-Z0-9]{6}$/, "Use o código do pedido no formato JD-XXXXXX.");
 
+/** E-mail (pedidos antigos) ou WhatsApp da compra, já no formato que o banco compara. */
+export const contactField = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .transform((value) => (value.includes("@") ? value : value.replace(/\D/g, "")))
+  .refine((value) => (value.includes("@") ? z.email().safeParse(value).success : /^\d{10,13}$/.test(value)), {
+    message: "Informe o WhatsApp ou o e-mail usado na compra.",
+  });
+
 /** Quem entra em Meus dados prova que é dono de um pedido. */
-export const privacyAccessSchema = z.object({ email: requiredEmail, orderCode: orderCodeField });
+export const privacyAccessSchema = z.object({ contact: contactField, orderCode: orderCodeField });
 export type PrivacyAccess = z.output<typeof privacyAccessSchema>;
 
 export const dataRequestSchema = z

@@ -20,7 +20,7 @@ const ANONYMIZING_KINDS: readonly DataRequest["kind"][] = ["anonymization", "con
 interface RequestCardProps {
   request: DataRequest;
   onChanged: () => void;
-  onAnonymize: (email: string) => void;
+  onAnonymize: (contact: string) => void;
 }
 
 export function RequestCard({ request, onChanged, onAnonymize }: RequestCardProps) {
@@ -56,12 +56,18 @@ export function RequestCard({ request, onChanged, onAnonymize }: RequestCardProp
         <div className="min-w-0">
           <dt className="text-xs text-mist">Titular</dt>
           <dd className="truncate">
-            <a
-              href={`mailto:${request.email}?subject=${encodeURIComponent(`Sua solicitação ${request.protocol}`)}`}
-              className="text-electric-soft hover:underline"
-            >
-              {request.email}
-            </a>
+            {request.email ? (
+              <a
+                href={`mailto:${request.email}?subject=${encodeURIComponent(`Sua solicitação ${request.protocol}`)}`}
+                className="text-electric-soft hover:underline"
+              >
+                {request.email}
+              </a>
+            ) : (
+              <a href={`https://wa.me/55${request.whatsapp}`} target="_blank" rel="noreferrer" className="text-emerald-300 hover:underline">
+                WhatsApp {request.whatsapp}
+              </a>
+            )}
           </dd>
         </div>
         <div>
@@ -85,7 +91,7 @@ export function RequestCard({ request, onChanged, onAnonymize }: RequestCardProp
         <div className="mt-5 space-y-3">
           <TextAreaField
             label="Resposta ao titular"
-            hint="Fica registrada e aparece para a pessoa em Meus dados. Mande também por e-mail."
+            hint="Fica registrada e aparece para a pessoa em Meus dados. Mande também pelo contato dela."
             rows={3}
             maxLength={2000}
             value={response}
@@ -100,7 +106,7 @@ export function RequestCard({ request, onChanged, onAnonymize }: RequestCardProp
               Recusar com motivo
             </Button>
             {ANONYMIZING_KINDS.includes(request.kind) && (
-              <Button variant="ghost" onClick={() => onAnonymize(request.email)}>
+              <Button variant="ghost" onClick={() => onAnonymize(request.email ?? request.whatsapp ?? "")}>
                 Anonimizar este titular
               </Button>
             )}

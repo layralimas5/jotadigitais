@@ -76,7 +76,7 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
     accountId: account.id,
     customer: {
       name: data.name,
-      email: data.email,
+      email: null,
       whatsapp: data.whatsapp,
       document: data.document,
       birthDate: data.birthDate,

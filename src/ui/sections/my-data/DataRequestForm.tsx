@@ -109,7 +109,7 @@ export function DataRequestForm({ onSubmit }: DataRequestFormProps) {
           <CircleCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-emerald-300" />
           <span>
             Solicitação aberta com o protocolo <strong className="font-mono">{state.opened.protocol}</strong>. Respondemos até{" "}
-            {formatDay(state.opened.dueAt)} pelo e-mail da compra.
+            {formatDay(state.opened.dueAt)} pelo contato da compra.
           </span>
         </p>
       )}

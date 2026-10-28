@@ -62,35 +62,6 @@ export function CheckoutProfileFields({ values, errors, setField }: CheckoutProf
       </div>
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
         <TextField
-          label="E-mail"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          value={values.email}
-          onChange={(event) => setField("email", event.target.value)}
-          error={errors.email}
-          hint="É aqui que você recebe o acesso."
-        />
-        <TextField
-          label="Confirme o e-mail"
-          name="emailConfirmation"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          value={values.emailConfirmation}
-          onChange={(event) => setField("emailConfirmation", event.target.value)}
-          error={errors.emailConfirmation}
-        />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
-        <TextField
           label="WhatsApp"
           name="whatsapp"
           type="tel"
@@ -100,7 +71,7 @@ export function CheckoutProfileFields({ values, errors, setField }: CheckoutProf
           value={values.whatsapp}
           onChange={(event) => setField("whatsapp", formatWhatsapp(event.target.value))}
           error={errors.whatsapp}
-          hint="Para o suporte falar com você."
+          hint="É por aqui que você recebe o acesso da conta."
         />
         <TextField
           label="Instagram (opcional)"

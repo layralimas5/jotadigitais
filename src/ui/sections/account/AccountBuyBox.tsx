@@ -1,4 +1,4 @@
-import { CreditCard, LifeBuoy, Mail, MessageCircle, QrCode, ShieldCheck } from "lucide-react";
+import { CreditCard, LifeBuoy, MessageCircle, QrCode, ShieldCheck } from "lucide-react";
 import type { Ref } from "react";
 import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
@@ -10,8 +10,8 @@ import { guaranteeText } from "@/ui/lib/account-presenter";
 function perksOf(account: Account, guaranteeDays: number) {
   return [
     {
-      icon: Mail,
-      title: "Entrega por e-mail",
+      icon: MessageCircle,
+      title: "Entrega pelo WhatsApp",
       text: "Login, senha e passo a passo logo após a confirmação do pagamento.",
     },
     {

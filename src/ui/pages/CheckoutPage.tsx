@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Lock, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Lock, MessageCircle } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
@@ -46,7 +46,7 @@ function OrderSummary({ account }: { account: Account }) {
         </div>
         <div className="flex justify-between text-mist">
           <dt>Entrega</dt>
-          <dd>Por e-mail</dd>
+          <dd>Pelo WhatsApp</dd>
         </div>
         <div className="flex items-baseline justify-between border-t border-line pt-4">
           <dt className="font-semibold text-white">Total</dt>
@@ -55,8 +55,8 @@ function OrderSummary({ account }: { account: Account }) {
       </dl>
 
       <p className="mt-6 flex items-start gap-2 text-xs leading-relaxed text-mist">
-        <Mail aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
-        Com o pagamento confirmado, login, senha e o passo a passo chegam no seu e-mail.
+        <MessageCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
+        Com o pagamento confirmado, login, senha e o passo a passo chegam no seu WhatsApp.
       </p>
     </aside>
   );

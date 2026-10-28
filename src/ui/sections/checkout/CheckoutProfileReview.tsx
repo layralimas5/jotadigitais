@@ -22,7 +22,6 @@ export function CheckoutProfileReview({ values, onEdit }: { values: CheckoutValu
     { label: "Nome", value: values.name },
     { label: "CPF/CNPJ", value: formatDocument(onlyDigits(values.document)) },
     { label: "Nascimento", value: formatBirthDate(values.birthDate) },
-    { label: "E-mail", value: values.email.trim().toLowerCase() },
     { label: "WhatsApp", value: values.whatsapp },
     { label: "Cidade", value: `${values.city.trim()} / ${values.state}` },
     { label: "Como conheceu", value: sourceLabel(values) },
