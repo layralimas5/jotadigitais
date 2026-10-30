@@ -45,13 +45,13 @@ function NextSteps({ order }: { order: Order }) {
     },
   ];
   return (
-    <ol className="mt-10 space-y-4 text-left">
+    <ol className="mt-10 grid gap-3 text-left sm:grid-cols-3">
       {steps.map(({ icon: Icon, title, text }) => (
-        <li key={title} className="flex gap-4 rounded-2xl border border-line bg-surface/70 p-5">
-          <Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
+        <li key={title} className="flex gap-3 rounded-2xl border border-line bg-surface/70 p-4 sm:flex-col sm:gap-2">
+          <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-electric sm:mt-0" />
           <div>
-            <p className="font-semibold text-white">{title}</p>
-            <p className="mt-1 text-sm text-mist">{text}</p>
+            <p className="text-sm font-semibold text-white">{title}</p>
+            <p className="mt-1 text-xs leading-snug text-mist">{text}</p>
           </div>
         </li>
       ))}
@@ -99,7 +99,7 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
 
       <OrderPayments order={order} onPaid={onPaid} />
 
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-3xl">
         <NextSteps order={order} />
       </div>
 
