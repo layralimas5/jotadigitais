@@ -100,7 +100,7 @@ function SplitFields({ total, pixEnabled, values, errors, setField }: CheckoutPa
   );
 }
 
-/** Forma de pagamento: Pix (Nubank), cartão (InfinitePay) ou dividido em duas partes. */
+/** Forma de pagamento: Pix (C6 Bank), cartão (InfinitePay) ou dividido em duas partes. */
 export function CheckoutPaymentStep(props: CheckoutPaymentStepProps) {
   const { total, pixEnabled, values, errors, setField } = props;
   const choose = (choice: CheckoutValues["paymentChoice"]) => setField("paymentChoice", choice);

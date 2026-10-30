@@ -5,7 +5,7 @@ export interface StoreSettings {
   /** Sempre com @ na frente. */
   instagramHandle: string;
   guaranteeDays: number;
-  /** Chave Pix da conta Nubank que recebe. Sem ela o checkout não oferece Pix. */
+  /** Chave Pix da conta C6 que recebe. Sem ela o checkout não oferece Pix. */
   pixKey: string | null;
   /** Nome que aparece para o cliente no app do banco ao pagar (até 25 caracteres). */
   pixReceiverName: string | null;

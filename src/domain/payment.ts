@@ -2,7 +2,7 @@ import type { Cents } from "./money";
 
 /**
  * Como o cliente escolheu pagar o pedido. Os dois últimos dividem o total em duas partes,
- * cada uma cobrada separada: cartão pela InfinitePay e Pix pelo C6 Bank (ou, sem o C6, na chave Nubank do Jota).
+ * cada uma cobrada separada: cartão pela InfinitePay e Pix pelo C6 Bank (ou, sem resposta do C6, num QR Code estático da chave).
  */
 export const PAYMENT_PLANS = ["pix", "card", "two_cards", "card_pix"] as const;
 export type PaymentPlan = (typeof PAYMENT_PLANS)[number];
@@ -34,7 +34,7 @@ export interface OrderPayment {
   requestedInstallments: number | null;
   /** Comprovação do cartão, só no painel (a página pública do pedido não recebe): prova a venda numa contestação. */
   card: CardReceipt | null;
-  /** Copia e cola da cobrança Pix do C6, enquanto a parte espera pagamento. Sem ele, o site usa a chave Nubank. */
+  /** Copia e cola da cobrança Pix do C6, enquanto a parte espera pagamento. Sem ele, o site usa o QR Code estático da chave. */
   pixCode: string | null;
   /** Pix confirmado sozinho pelo C6, só no painel. Pix confirmado à mão pelo Jota não tem. */
   pix: PixReceipt | null;

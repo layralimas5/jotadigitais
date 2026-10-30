@@ -266,7 +266,7 @@ Deno.serve(async (request) => {
   } catch (error) {
     console.error(error);
     if (action === "webhook") return json({ retry: true }, 500);
-    // Sem certificado ou com o C6 fora do ar, o site volta para o QR Code estático da chave Nubank.
+    // Sem certificado ou com o C6 fora do ar, o site volta para o QR Code estático da chave.
     const gatewayDown = error instanceof GatewayError || (error instanceof Error && error.message.startsWith("Segredo"));
     return failWith(gatewayDown ? "gateway" : "server");
   }

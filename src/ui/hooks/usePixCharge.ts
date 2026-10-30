@@ -12,7 +12,7 @@ export type PixCharge = { status: "loading" } | { status: "ready"; c6Code: strin
 
 /**
  * Cobrança Pix do C6 para uma parte do pedido. `c6Code` null quer dizer que o C6 não respondeu:
- * a tela usa o QR Code da chave Nubank e o Jota confirma no painel.
+ * a tela usa o QR Code estático da chave e o Jota confirma no painel.
  */
 export function usePixCharge(orderCode: string, payment: Pick<OrderPayment, "id" | "pixCode">, onPaid: () => void): PixCharge {
   const [charge, setCharge] = useState<PixCharge>(() =>

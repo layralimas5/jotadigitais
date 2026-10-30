@@ -95,7 +95,7 @@ export interface PaymentGateway {
   confirmCardReturn(payment: CardPaymentReturn): Promise<boolean>;
   /**
    * Copia e cola da cobrança Pix no C6 (reaproveita a já criada). Null quando o C6 não está disponível:
-   * aí o site mostra o QR Code da chave Nubank e o Jota confirma à mão.
+   * aí o site mostra o QR Code estático da chave e o Jota confirma à mão.
    */
   pixChargeCode(orderCode: string, paymentId: string): Promise<string | null>;
   /** Consulta a cobrança Pix no C6 e marca a parte como paga se o Pix caiu. Devolve se ficou paga. */
@@ -197,7 +197,7 @@ export interface AdminTestimonialRepository {
 export interface AdminOrderRepository {
   listAll(): Promise<Order[]>;
   updateStatus(code: string, status: OrderStatus): Promise<void>;
-  /** O Jota viu o Pix cair no Nubank. Com todas as partes pagas, o pedido vira "pago". */
+  /** O Jota viu o Pix cair na conta. Com todas as partes pagas, o pedido vira "pago". */
   confirmPixPayment(paymentId: string): Promise<void>;
 }
 
