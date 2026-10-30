@@ -13,8 +13,8 @@
   confere a cada 5 s; nos dois casos a função consulta `GET /v2/pix/cob/{txid}` e só marca pago com a cobrança
   `CONCLUIDA` e o valor inteiro recebido (`confirm_c6_pix_payment`). O painel mostra "Pago via Pix (C6)" com o
   ID do Pix (endToEndId). O webhook da chave é cadastrado sozinho na primeira cobrança.
-- **Pix de reserva (Nubank)**: se o C6 não responder (sem certificado, fora do ar), o site volta ao QR Code
-  estático abaixo e o Jota confirma à mão. O Nubank PJ não tem API. O site gera o código copia e cola (BR Code estático com valor e
+- **Pix de reserva**: se o C6 não responder (sem certificado, fora do ar), o site volta ao QR Code
+  estático e o Jota confirma à mão. O site gera o código copia e cola (BR Code estático com valor e
   o código do pedido como txid) a partir da chave salva em `store_settings`. O Jota confirma em
   Pedidos > "Confirmar Pix recebido".
 - Pedido marcado como pago à mão em Pedidos dá as partes como pagas; cancelado fecha as abertas.

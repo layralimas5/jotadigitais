@@ -106,7 +106,7 @@ interface PaymentPartsProps {
 
 /**
  * Partes do pagamento: cartão confirma sozinho pela InfinitePay e Pix pelo C6. Pix sem cobrança no C6 (QR Code
- * da chave Nubank) o Jota confirma ao ver o dinheiro na conta; o botão fica também para o C6, se o aviso atrasar.
+ * estático da chave) o Jota confirma ao ver o dinheiro na conta; o botão fica também para o C6, se o aviso atrasar.
  */
 function PaymentParts({ order, busy, onConfirmPix }: PaymentPartsProps) {
   if (order.payments.length === 0) return null;
@@ -391,7 +391,7 @@ export default function OrdersPage() {
         title="O Pix caiu na conta?"
         description={
           <>
-            Confira no app do {pixToConfirm?.payment.pixCode ? "C6" : "Nubank"} um Pix de{" "}
+            Confira no app do C6 um Pix de{" "}
             <strong className="text-white">{pixToConfirm ? formatBRL(pixToConfirm.payment.amount) : ""}</strong> com o código{" "}
             <strong className="text-white">{pixToConfirm?.order.code}</strong> na descrição antes de confirmar.
           </>

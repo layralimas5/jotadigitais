@@ -183,8 +183,8 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
         </FormSection>
 
         <FormSection
-          title="Pix (Nubank)"
-          description="O checkout gera o QR Code com o valor e o código do pedido. Sem os três campos, o Pix some das formas de pagamento."
+          title="Pix (C6 Bank)"
+          description="O Pix é cobrado pelo C6 e confirmado sozinho. Se o C6 não responder, o checkout usa estes dados para gerar o QR Code. Sem os três campos, o Pix some das formas de pagamento."
         >
           <TextField
             label="Chave Pix"
@@ -197,7 +197,7 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
             value={form.pixKey}
             onChange={(event) => update({ pixKey: event.target.value })}
             error={errors.pixKey}
-            hint="Exatamente como está no app do Nubank. Celular vai com +55 e DDD."
+            hint="A chave cadastrada na conta C6, exatamente como está no app. Celular vai com +55 e DDD."
           />
           <div className="grid gap-4 xl:grid-cols-2">
             <TextField

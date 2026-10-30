@@ -56,7 +56,7 @@ function PixPayment({ order, payment, onPaid }: PartProps) {
   const settings = useStoreSettings();
   const charge = usePixCharge(order.code, payment, onPaid);
   const c6Code = charge.status === "ready" ? charge.c6Code : null;
-  const nubankCode = useMemo(
+  const staticCode = useMemo(
     () =>
       acceptsPix(settings)
         ? buildPixCode({
@@ -77,7 +77,7 @@ function PixPayment({ order, payment, onPaid }: PartProps) {
       </p>
     );
   }
-  const code = c6Code ?? nubankCode;
+  const code = c6Code ?? staticCode;
   if (!code) {
     return <p className="text-sm text-mist">O Pix ainda não está disponível. Fale com o suporte para receber a chave.</p>;
   }

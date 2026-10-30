@@ -58,7 +58,7 @@ export class SupabasePaymentGateway implements PaymentGateway {
       body: { action: "charge", code: orderCode, paymentId },
     });
     if (error) {
-      // C6 fora do ar ou ainda sem certificado: o site cai para o QR Code da chave Nubank.
+      // C6 fora do ar ou ainda sem certificado: o site cai para o QR Code estático da chave.
       console.error("Cobrança Pix do C6 indisponível", (await errorCodeOf(error)) ?? error);
       return null;
     }

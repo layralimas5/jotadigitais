@@ -3,8 +3,8 @@ import type { DemoOrderRepository } from "./demo-repositories";
 
 /**
  * Modo demonstração: sem InfinitePay, "pagar no cartão" aprova na hora e volta para a página do pedido,
- * para dar para ver o fluxo inteiro (parte paga, pedido pago) sem cobrar ninguém. Sem C6, o Pix usa a chave
- * Nubank e é confirmado no painel.
+ * para dar para ver o fluxo inteiro (parte paga, pedido pago) sem cobrar ninguém. Sem C6, o Pix usa o QR Code
+ * estático da chave e é confirmado no painel.
  */
 export class DemoPaymentGateway implements PaymentGateway {
   constructor(private readonly orders: DemoOrderRepository) {}

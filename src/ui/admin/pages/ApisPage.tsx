@@ -45,10 +45,10 @@ const INTEGRATIONS: readonly StaticIntegration[] = [
     title: "Pagamento (InfinitePay e Pix C6)",
     description:
       "Pix, cartão ou dividido em dois (dois cartões ou cartão + Pix). Cartão pela InfinitePay e Pix pelo C6 Bank, os dois confirmados sozinhos.",
-    tone: "soon",
-    status: "Falta ligar",
-    next: "O Pix automático do C6 entra quando o certificado do C6 for instalado. Até lá, o Pix usa a chave de Site > Contato e você confirma em Pedidos.",
-    action: { to: "/admin/site", label: "Cadastrar chave Pix" },
+    tone: "working",
+    status: "Funcionando",
+    next: "Cartão e Pix confirmam sozinhos. Se o C6 não responder, o Pix usa a chave de Site > Contato e você confirma em Pedidos.",
+    action: { to: "/admin/site", label: "Ver dados do Pix" },
   },
   {
     id: "ai",

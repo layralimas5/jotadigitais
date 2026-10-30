@@ -2,7 +2,7 @@ import type { Cents } from "./money";
 
 /**
  * Código Pix "copia e cola" (BR Code estático com valor), o mesmo que o app do banco gera em "Cobrar".
- * O Nubank PJ não tem API de cobrança: o código leva a chave do Jota, o valor e o número do pedido,
+ * Reserva para quando o C6 não responde: o código leva a chave do Jota, o valor e o número do pedido,
  * e o recebimento é confirmado por ele no painel.
  * Padrão: Manual de Padrões para Iniciação do Pix (BCB), campos EMV-MPM.
  */
