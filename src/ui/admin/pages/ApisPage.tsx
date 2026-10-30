@@ -42,12 +42,12 @@ const INTEGRATIONS: readonly StaticIntegration[] = [
   {
     id: "payments",
     icon: <CreditCard className="size-6 text-amber-300" />,
-    title: "Pagamento (InfinitePay e Pix Nubank)",
+    title: "Pagamento (InfinitePay e Pix C6)",
     description:
-      "Pix, cartão ou dividido em dois (dois cartões ou cartão + Pix). Cartão pela InfinitePay, confirmado sozinho; Pix com QR Code da sua chave Nubank.",
+      "Pix, cartão ou dividido em dois (dois cartões ou cartão + Pix). Cartão pela InfinitePay e Pix pelo C6 Bank, os dois confirmados sozinhos.",
     tone: "soon",
     status: "Falta ligar",
-    next: "Cadastre a chave Pix em Site > Contato e mande a InfiniteTag para a Lay ligar o cartão. O Pix você confirma em Pedidos quando cair no Nubank.",
+    next: "O Pix automático do C6 entra quando o certificado do C6 for instalado. Até lá, o Pix usa a chave de Site > Contato e você confirma em Pedidos.",
     action: { to: "/admin/site", label: "Cadastrar chave Pix" },
   },
   {

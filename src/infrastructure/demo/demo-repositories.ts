@@ -279,6 +279,8 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
           paidAt: null,
           requestedInstallments: part.method === "card" ? input.installments : null,
           card: null,
+          pixCode: null,
+          pix: null,
         })),
       };
       state.orders.push(created);

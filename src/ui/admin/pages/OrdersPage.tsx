@@ -65,9 +65,9 @@ const PART_STATUS_TONE: Record<OrderPayment["status"], string> = {
   canceled: "text-mist",
 };
 
-/** Dados para achar a venda na InfinitePay e provar o pagamento se o cliente contestar no cartão. */
+/** Dados para achar a venda na InfinitePay ou no extrato do C6 e provar o pagamento se o cliente contestar. */
 function PaymentProof({ payment }: { payment: OrderPayment }) {
-  const { card } = payment;
+  const { card, pix } = payment;
   const details = [
     payment.paidAt ? `Pago em ${dateTime.format(new Date(payment.paidAt))}` : null,
     card ? `Transação ${card.transactionNsu}` : null,
@@ -76,7 +76,10 @@ function PaymentProof({ payment }: { payment: OrderPayment }) {
       : null,
     card?.installments ? `${card.installments}x` : null,
     card?.paidAmount && card.paidAmount !== payment.amount ? `Cobrado ${formatBRL(card.paidAmount)} (com juros)` : null,
-    payment.method === "pix" && !card ? "Confirmado por você no Nubank" : null,
+    pix ? "Pago via Pix (C6, confirmado sozinho)" : null,
+    pix ? `ID do Pix ${pix.endToEndId}` : null,
+    pix?.paidAmount && pix.paidAmount !== payment.amount ? `Recebido ${formatBRL(pix.paidAmount)}` : null,
+    payment.method === "pix" && !pix ? "Confirmado por você" : null,
   ].filter(Boolean);
   if (details.length === 0 && !card?.receiptUrl) return null;
   return (
@@ -101,7 +104,10 @@ interface PaymentPartsProps {
   onConfirmPix: (order: Order, payment: OrderPayment) => void;
 }
 
-/** Partes do pagamento: cartão confirma sozinho pela InfinitePay; Pix o Jota confirma ao ver o dinheiro no Nubank. */
+/**
+ * Partes do pagamento: cartão confirma sozinho pela InfinitePay e Pix pelo C6. Pix sem cobrança no C6 (QR Code
+ * da chave Nubank) o Jota confirma ao ver o dinheiro na conta; o botão fica também para o C6, se o aviso atrasar.
+ */
 function PaymentParts({ order, busy, onConfirmPix }: PaymentPartsProps) {
   if (order.payments.length === 0) return null;
   return (
@@ -113,7 +119,9 @@ function PaymentParts({ order, busy, onConfirmPix }: PaymentPartsProps) {
             {paymentPartLabel(payment, order.payments)}
             <span className="text-white tabular-nums">{formatBRL(payment.amount)}</span>
             <span className={cn("text-xs font-semibold", PART_STATUS_TONE[payment.status])}>· {PART_STATUS_LABEL[payment.status]}</span>
-            {payment.method === "card" && payment.status === "pending" && <span className="text-xs text-mist">(confirma sozinho)</span>}
+            {payment.status === "pending" && (payment.method === "card" || payment.pixCode) && (
+              <span className="text-xs text-mist">(confirma sozinho)</span>
+            )}
           </span>
           {payment.method === "pix" && payment.status === "pending" && order.status === "awaiting_payment" && (
             <Button variant="secondary" disabled={busy} onClick={() => onConfirmPix(order, payment)} className="h-9 px-4 text-xs">
@@ -383,7 +391,7 @@ export default function OrdersPage() {
         title="O Pix caiu na conta?"
         description={
           <>
-            Confira no app do Nubank um Pix de{" "}
+            Confira no app do {pixToConfirm?.payment.pixCode ? "C6" : "Nubank"} um Pix de{" "}
             <strong className="text-white">{pixToConfirm ? formatBRL(pixToConfirm.payment.amount) : ""}</strong> com o código{" "}
             <strong className="text-white">{pixToConfirm?.order.code}</strong> na descrição antes de confirmar.
           </>

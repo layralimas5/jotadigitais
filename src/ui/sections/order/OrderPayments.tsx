@@ -8,6 +8,7 @@ import { buildPixCode } from "@/domain/pix";
 import { acceptsPix } from "@/domain/store-settings";
 import { Button } from "@/ui/components/Button";
 import { useCardCheckout } from "@/ui/hooks/useCardCheckout";
+import { usePixCharge } from "@/ui/hooks/usePixCharge";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { cn } from "@/ui/lib/cn";
 
@@ -45,9 +46,17 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
-function PixPayment({ order, payment }: { order: Order; payment: OrderPayment }) {
+interface PartProps {
+  order: Order;
+  payment: OrderPayment;
+  onPaid: () => void;
+}
+
+function PixPayment({ order, payment, onPaid }: PartProps) {
   const settings = useStoreSettings();
-  const code = useMemo(
+  const charge = usePixCharge(order.code, payment, onPaid);
+  const c6Code = charge.status === "ready" ? charge.c6Code : null;
+  const nubankCode = useMemo(
     () =>
       acceptsPix(settings)
         ? buildPixCode({
@@ -61,6 +70,14 @@ function PixPayment({ order, payment }: { order: Order; payment: OrderPayment })
     [settings, payment.amount, order.code],
   );
 
+  if (charge.status === "loading") {
+    return (
+      <p role="status" className="text-sm text-mist">
+        Gerando o QR Code do Pix…
+      </p>
+    );
+  }
+  const code = c6Code ?? nubankCode;
   if (!code) {
     return <p className="text-sm text-mist">O Pix ainda não está disponível. Fale com o suporte para receber a chave.</p>;
   }
@@ -78,7 +95,9 @@ function PixPayment({ order, payment }: { order: Order; payment: OrderPayment })
         <p className="rounded-xl border border-line bg-ink/60 p-3 font-mono text-[0.7rem] break-all text-mist select-all">{code}</p>
         <CopyButton value={code} />
         <p className="text-xs text-mist">
-          Assim que o Pix cair, o Jota confirma e esta página atualiza sozinha. Recebedor: {settings.pixReceiverName}.
+          {c6Code
+            ? "A confirmação é automática: assim que o Pix cair, esta página mostra o pagamento como pago."
+            : `Assim que o Pix cair, o Jota confirma e esta página atualiza sozinha. Recebedor: ${settings.pixReceiverName}.`}
         </p>
       </div>
     </div>
@@ -114,7 +133,7 @@ function CardPayment({ order, payment }: { order: Order; payment: OrderPayment }
   );
 }
 
-function PaymentPart({ order, payment }: { order: Order; payment: OrderPayment }) {
+function PaymentPart({ order, payment, onPaid }: PartProps) {
   const canPay = order.status === "awaiting_payment" && payment.status === "pending";
   const Icon = payment.method === "pix" ? QrCode : CreditCard;
   return (
@@ -131,7 +150,11 @@ function PaymentPart({ order, payment }: { order: Order; payment: OrderPayment }
       </div>
       {canPay && (
         <div className="mt-4 border-t border-line pt-4">
-          {payment.method === "pix" ? <PixPayment order={order} payment={payment} /> : <CardPayment order={order} payment={payment} />}
+          {payment.method === "pix" ? (
+            <PixPayment order={order} payment={payment} onPaid={onPaid} />
+          ) : (
+            <CardPayment order={order} payment={payment} />
+          )}
         </div>
       )}
     </li>
@@ -139,7 +162,7 @@ function PaymentPart({ order, payment }: { order: Order; payment: OrderPayment }
 }
 
 /** Cobranças do pedido: cada parte com o jeito de pagar e a situação. */
-export function OrderPayments({ order }: { order: Order }) {
+export function OrderPayments({ order, onPaid }: { order: Order; onPaid: () => void }) {
   if (order.payments.length === 0) return null;
   const pending = order.payments.filter((payment) => payment.status === "pending").length;
   return (
@@ -152,7 +175,7 @@ export function OrderPayments({ order }: { order: Order }) {
       )}
       <ul className="mt-4 space-y-3">
         {order.payments.map((payment) => (
-          <PaymentPart key={payment.id} order={order} payment={payment} />
+          <PaymentPart key={payment.id} order={order} payment={payment} onPaid={onPaid} />
         ))}
       </ul>
     </section>

@@ -17,13 +17,13 @@ import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 import { OrderPayments } from "@/ui/sections/order/OrderPayments";
 
 const CONFIRMATION_TEXT: Record<PaymentPlan, string> = {
-  pix: "O Jota confirma o Pix assim que ele cai na conta.",
+  pix: "O Pix é confirmado assim que cai na conta.",
   card: "No cartão, a confirmação é automática assim que a InfinitePay aprova.",
   two_cards: "Cada cartão é confirmado automaticamente assim que é aprovado.",
-  card_pix: "O cartão é confirmado na hora; o Pix, assim que cai na conta do Jota.",
+  card_pix: "O cartão é confirmado na hora; o Pix, assim que cai na conta.",
 };
 
-/** Enquanto espera pagamento, a página confere de novo sozinha (o Pix é confirmado pelo Jota no painel). */
+/** Enquanto espera pagamento, a página confere de novo sozinha (pega também o Pix confirmado pelo Jota no painel). */
 const REFRESH_MS = 20_000;
 
 function NextSteps({ order }: { order: Order }) {
@@ -59,7 +59,7 @@ function NextSteps({ order }: { order: Order }) {
   );
 }
 
-function OrderConfirmation({ order }: { order: Order }) {
+function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void }) {
   const reduceMotion = useReducedMotion();
   const { whatsappUrl } = useStoreSettings();
   useDocumentMeta(`Pedido ${order.code}`);
@@ -97,7 +97,7 @@ function OrderConfirmation({ order }: { order: Order }) {
         </div>
       </dl>
 
-      <OrderPayments order={order} />
+      <OrderPayments order={order} onPaid={onPaid} />
 
       <div className="mx-auto max-w-md">
         <NextSteps order={order} />
@@ -161,7 +161,7 @@ export default function OrderPage() {
           ) : (
             <ErrorState message={order.error.message} onRetry={order.retry} />
           ))}
-        {order.status === "success" && <OrderConfirmation order={order.data} />}
+        {order.status === "success" && <OrderConfirmation order={order.data} onPaid={retry} />}
       </div>
     </div>
   );

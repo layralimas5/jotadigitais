@@ -87,12 +87,19 @@ export interface CardPaymentReturn {
   receiptUrl: string | null;
 }
 
-/** Cobrança no cartão (InfinitePay). O Pix não passa por aqui: o código sai da chave do Jota, no próprio site. */
+/** Cobrança no cartão (InfinitePay) e no Pix (C6 Bank). */
 export interface PaymentGateway {
   /** Link do checkout de cartão para uma parte do pedido; reaproveita o link já criado. */
   cardCheckoutUrl(orderCode: string, paymentId: string): Promise<string>;
   /** Volta do checkout: confere na InfinitePay e marca a parte como paga. Devolve se ficou paga. */
   confirmCardReturn(payment: CardPaymentReturn): Promise<boolean>;
+  /**
+   * Copia e cola da cobrança Pix no C6 (reaproveita a já criada). Null quando o C6 não está disponível:
+   * aí o site mostra o QR Code da chave Nubank e o Jota confirma à mão.
+   */
+  pixChargeCode(orderCode: string, paymentId: string): Promise<string | null>;
+  /** Consulta a cobrança Pix no C6 e marca a parte como paga se o Pix caiu. Devolve se ficou paga. */
+  checkPixPayment(orderCode: string, paymentId: string): Promise<boolean>;
 }
 
 export interface StoreSettingsRepository {

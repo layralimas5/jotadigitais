@@ -699,6 +699,7 @@ async function main() {
   await splitPaymentChecks();
   await checkoutWithoutEmailChecks();
   await cardInstallmentChecks();
+  await c6PixChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1298,6 +1299,53 @@ async function cardInstallmentChecks() {
   );
   const legacy = (await placeWithPlan(await newAccount("parcela-site-antigo"), { email: null, ...buyer(7) }, "card", null)).rows[0].data;
   check(legacy.payments[0].requested_installments === null, "site antigo, sem o campo, continua fechando pedido no cartão");
+}
+
+async function c6PixChecks() {
+  console.log("\nPix automático do C6");
+  const buyer = (n) => ({ email: null, whatsapp: `1195557000${n}`, document: cpfFrom(`6${n}${n}888222`.slice(0, 9)) });
+  const placed = (await placeWithPlan(await newAccount("pix-c6"), buyer(1), "pix", null)).rows[0].data;
+  const part = placed.payments[0];
+  const txid = part.id.replaceAll("-", "");
+  const charge = (id, code) =>
+    db.query(`update public.order_payments set provider = 'c6', pix_txid = $2, pix_copy_paste = $3 where id = $1`, [id, txid, code]);
+  const confirm = (id, tx, cents) => db.query(`select public.confirm_c6_pix_payment($1, $2, 'E1234567820261030ABCDEF', $3) as ok`, [id, tx, cents]);
+
+  await charge(part.id, "00020101021226...copia-e-cola");
+  const pending = await as("anon", null, () => db.query(`select public.get_order($1) as data`, [placed.code]));
+  check(pending.rows[0].data.payments[0].pix_code === "00020101021226...copia-e-cola", "página do pedido recebe o copia e cola do C6");
+  check(!("pix_end_to_end_id" in pending.rows[0].data.payments[0]), "página pública não mostra o ID do Pix");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.confirm_c6_pix_payment($1, $2, 'E1', 37000)`, [part.id, txid])), /permission denied/),
+    "visitante não confirma Pix",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.confirm_c6_pix_payment($1, $2, 'E1', 37000)`, [part.id, txid])), /permission denied/),
+    "só a Edge Function confirma o Pix do C6",
+  );
+  check((await confirm(part.id, "outrotxid0000000000000000000000", 37000)).rows[0].ok === false, "Pix de outra cobrança não paga esta parte");
+  check((await confirm(part.id, txid, 36999)).rows[0].ok === false, "Pix com valor menor não conta como pago");
+  const paid = await confirm(part.id, txid, 37000);
+  const repeated = await confirm(part.id, txid, 37000);
+  check(paid.rows[0].ok && repeated.rows[0].ok, "Pix conferido no C6 é aceito e repetir o aviso não muda nada");
+  const stored = await db.query(
+    `select p.status, p.provider, p.pix_end_to_end_id, p.paid_amount_cents, p.paid_at is not null as stamped, o.status as order_status
+     from public.order_payments p join public.orders o on o.id = p.order_id where p.id = $1`,
+    [part.id],
+  );
+  const row = stored.rows[0];
+  check(row.status === "paid" && row.provider === "c6" && row.stamped && row.paid_amount_cents === 37000, "parte fica paga via Pix C6 com data e valor");
+  check(row.pix_end_to_end_id === "E1234567820261030ABCDEF", "ID do Pix fica gravado para o painel");
+  check(row.order_status === "paid", "Pix pago fecha o pedido como pago");
+  const after = await as("anon", null, () => db.query(`select public.get_order($1) as data`, [placed.code]));
+  check(after.rows[0].data.payments[0].pix_code === null, "pago, o copia e cola sai da página do pedido");
+
+  const card = (await placeWithPlan(await newAccount("pix-c6-cartao"), buyer(2), "card_pix", 15000)).rows[0].data;
+  check((await confirm(card.payments[0].id, txid, 15000)).rows[0].ok === false, "confirmação de Pix não paga a parte do cartão");
+  check(
+    await rejects(() => db.query(`update public.order_payments set pix_txid = 'curto' where id = $1`, [card.payments[1].id]), /check constraint/),
+    "txid fora do padrão do Bacen é recusado",
+  );
 }
 
 async function emailVaultChecks() {

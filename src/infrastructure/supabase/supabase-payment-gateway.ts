@@ -2,6 +2,7 @@ import { FunctionsHttpError, type SupabaseClient } from "@supabase/supabase-js";
 import type { CardPaymentReturn, PaymentGateway } from "@/application/ports";
 
 const FUNCTION = "infinitepay";
+const PIX_FUNCTION = "c6-pix";
 
 /** Mensagem para o cliente a partir do código de erro da Edge Function infinitepay. */
 const ERROR_MESSAGE: Record<string, string> = {
@@ -22,7 +23,7 @@ async function errorCodeOf(error: unknown): Promise<string | null> {
   }
 }
 
-/** Cartão pela InfinitePay, sempre pela Edge Function: o navegador nunca fala direto com a API. */
+/** Cartão pela InfinitePay e Pix pelo C6, sempre pelas Edge Functions: o navegador nunca fala direto com as APIs. */
 export class SupabasePaymentGateway implements PaymentGateway {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -47,6 +48,29 @@ export class SupabasePaymentGateway implements PaymentGateway {
       // 402: a InfinitePay ainda não deu como pago. O webhook confirma depois, sem o cliente fazer nada.
       if ((await errorCodeOf(error)) === "not_paid") return false;
       console.error("Falha ao conferir o pagamento no cartão", error);
+      return false;
+    }
+    return data?.paid === true;
+  }
+
+  async pixChargeCode(orderCode: string, paymentId: string): Promise<string | null> {
+    const { data, error } = await this.client.functions.invoke<{ pixCode?: string }>(PIX_FUNCTION, {
+      body: { action: "charge", code: orderCode, paymentId },
+    });
+    if (error) {
+      // C6 fora do ar ou ainda sem certificado: o site cai para o QR Code da chave Nubank.
+      console.error("Cobrança Pix do C6 indisponível", (await errorCodeOf(error)) ?? error);
+      return null;
+    }
+    return data?.pixCode ?? null;
+  }
+
+  async checkPixPayment(orderCode: string, paymentId: string): Promise<boolean> {
+    const { data, error } = await this.client.functions.invoke<{ paid?: boolean }>(PIX_FUNCTION, {
+      body: { action: "check", code: orderCode, paymentId },
+    });
+    if (error) {
+      console.error("Falha ao conferir o Pix no C6", (await errorCodeOf(error)) ?? error);
       return false;
     }
     return data?.paid === true;
