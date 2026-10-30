@@ -103,6 +103,14 @@ export function confirmCardReturn(deps: UseCaseDeps, payment: CardPaymentReturn)
   return deps.payments.confirmCardReturn(payment);
 }
 
+export function startPixPayment(deps: UseCaseDeps, orderCode: string, paymentId: string): Promise<string | null> {
+  return deps.payments.pixChargeCode(orderCode, paymentId);
+}
+
+export function checkPixPayment(deps: UseCaseDeps, orderCode: string, paymentId: string): Promise<boolean> {
+  return deps.payments.checkPixPayment(orderCode, paymentId);
+}
+
 export async function getOrder(deps: UseCaseDeps, code: string): Promise<Order> {
   const order = await deps.orders.findByCode(code);
   if (!order) throw new OrderNotFoundError(code);

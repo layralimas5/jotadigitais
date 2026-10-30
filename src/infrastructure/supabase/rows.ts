@@ -160,18 +160,20 @@ const orderRowSchema = z.object({
         checkout_url: z.string().nullable(),
         paid_at: z.string().nullable(),
         requested_installments: z.number().nullish(),
+        pix_code: z.string().nullish(),
         // Só o painel lê estes: a página pública do pedido (public_order_json) não devolve.
         transaction_nsu: z.string().nullish(),
         installments: z.number().nullish(),
         paid_amount_cents: z.number().nullish(),
         receipt_url: z.string().nullish(),
+        pix_end_to_end_id: z.string().nullish(),
       }),
     )
     .nullish(),
 });
 
 const ORDER_PAYMENT_COLUMNS =
-  "id, position, method, amount_cents, status, checkout_url, paid_at, requested_installments, transaction_nsu, installments, paid_amount_cents, receipt_url";
+  "id, position, method, amount_cents, status, checkout_url, paid_at, requested_installments, transaction_nsu, installments, paid_amount_cents, receipt_url, pix_code:pix_copy_paste, pix_end_to_end_id";
 
 export const ORDER_COLUMNS =
   // O CPF/CNPJ fica cifrado no banco; customer_document_plain devolve o número aberto só para administrador.
@@ -221,6 +223,10 @@ export function toOrder(raw: unknown): Order {
               paidAmount: payment.paid_amount_cents ?? null,
               receiptUrl: payment.receipt_url ?? null,
             }
+          : null,
+        pixCode: payment.status === "pending" ? (payment.pix_code ?? null) : null,
+        pix: payment.pix_end_to_end_id
+          ? { endToEndId: payment.pix_end_to_end_id, paidAmount: payment.paid_amount_cents ?? null }
           : null,
       }))
       .sort((a, b) => a.position - b.position),
