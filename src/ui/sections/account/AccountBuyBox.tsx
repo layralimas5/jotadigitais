@@ -4,33 +4,37 @@ import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink, buttonClasses } from "@/ui/components/Button";
+import type { SiteContent } from "@/domain/site-content";
+import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
-import { guaranteeText } from "@/ui/lib/account-presenter";
+import { editable } from "@/ui/lib/site-preview";
 
-function perksOf(account: Account, guaranteeDays: number) {
+type AccountPageCopy = SiteContent["accountPage"];
+
+/** Os três cards da caixa de compra. Garantia e suporte têm um texto para TikTok e outro para as demais redes. */
+function perksOf(account: Account, copy: AccountPageCopy) {
+  const variant = account.platform === "tiktok" ? "tiktok" : "other";
   return [
-    {
-      icon: MessageCircle,
-      title: "Entrega pelo WhatsApp",
-      text: "Login, senha e passo a passo logo após a confirmação do pagamento.",
-    },
+    { icon: MessageCircle, ...copy.perkDelivery, path: "accountPage.perkDelivery.text", titlePath: "accountPage.perkDelivery.title" },
     {
       icon: ShieldCheck,
-      title: `${guaranteeDays} dias de garantia`,
-      text: guaranteeText(account),
+      title: copy.perkGuarantee.title,
+      text: copy.perkGuarantee[variant],
+      titlePath: "accountPage.perkGuarantee.title",
+      path: `accountPage.perkGuarantee.${variant}`,
     },
     {
       icon: LifeBuoy,
-      title: "Suporte na troca",
-      text:
-        account.platform === "tiktok"
-          ? "Ajudamos a trocar nome, @, foto e a fazer a primeira afiliação."
-          : "Ajudamos a trocar nome, @, foto e a deixar a conta com a sua cara.",
+      title: copy.perkSupport.title,
+      text: copy.perkSupport[variant],
+      titlePath: "accountPage.perkSupport.title",
+      path: `accountPage.perkSupport.${variant}`,
     },
   ];
 }
 
 function Availability({ account }: { account: Account }) {
+  const { accountPage } = useSiteContent();
   if (isPurchasable(account)) {
     return (
       <p className="flex items-center gap-2 text-sm text-fog">
@@ -38,13 +42,16 @@ function Availability({ account }: { account: Account }) {
           <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/70" />
           <span className="relative size-2 rounded-full bg-emerald-400" />
         </span>
-        Disponível. Unidade única: quando alguém compra, ela sai da vitrine.
+        <span {...editable("accountPage.available")}>{accountPage.available}</span>
       </p>
     );
   }
   return (
-    <p className="rounded-2xl border border-line bg-white/[0.03] p-4 text-center text-sm text-fog">
-      {account.status === "reserved" ? "Esta conta está reservada por outro cliente." : "Esta conta já foi vendida."}
+    <p
+      {...editable(account.status === "reserved" ? "accountPage.reserved" : "accountPage.sold")}
+      className="rounded-2xl border border-line bg-white/[0.03] p-4 text-center text-sm text-fog"
+    >
+      {account.status === "reserved" ? accountPage.reserved : accountPage.sold}
     </p>
   );
 }
@@ -74,20 +81,28 @@ interface AccountBuyBoxProps {
 
 export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
   const available = isPurchasable(account);
-  const { guaranteeDays } = useStoreSettings();
+  const { accountPage } = useSiteContent();
+  const fill = useFillTokens();
   return (
     <div className="rounded-3xl border border-line bg-surface p-6 md:p-7">
-      <p className="text-sm text-mist">Valor da conta</p>
+      <p {...editable("accountPage.priceLabel")} className="text-sm text-mist">
+        {accountPage.priceLabel}
+      </p>
       <p className="mt-1 font-display text-4xl font-bold tracking-tight text-white tabular-nums md:text-5xl">
         {formatBRL(account.price)}
       </p>
       <ul className="mt-3 space-y-1.5 text-sm text-fog">
         <li className="flex items-center gap-2">
-          <QrCode aria-hidden className="size-4 text-electric" /> À vista no Pix
+          <QrCode aria-hidden className="size-4 text-electric" /> <span {...editable("accountPage.pixLine")}>{accountPage.pixLine}</span>
         </li>
-        <li className="flex items-center gap-2">
-          <CreditCard aria-hidden className="size-4 text-electric" /> Ou em até {MAX_CARD_INSTALLMENTS}x no cartão
-          <span className="text-mist">(juros da operadora)</span>
+        <li className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <CreditCard aria-hidden className="size-4 text-electric" />
+          <span {...editable("accountPage.cardLine")}>{accountPage.cardLine.replaceAll("{parcelas}", String(MAX_CARD_INSTALLMENTS))}</span>
+          {accountPage.cardNote && (
+            <span {...editable("accountPage.cardNote")} className="text-mist">
+              {accountPage.cardNote}
+            </span>
+          )}
         </li>
       </ul>
 
@@ -97,26 +112,30 @@ export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
 
       <div ref={ctaRef} className="mt-5 space-y-3">
         {available ? (
-          <ButtonLink to={`/checkout/${account.slug}`} size="lg" className="w-full">
-            Comprar esta conta
+          <ButtonLink to={`/checkout/${account.slug}`} size="lg" className="w-full" {...editable("accountPage.buyButton")}>
+            {accountPage.buyButton}
           </ButtonLink>
         ) : (
-          <ButtonLink to="/contas" size="lg" className="w-full">
-            Ver outras contas
+          <ButtonLink to="/contas" size="lg" className="w-full" {...editable("accountPage.otherButton")}>
+            {accountPage.otherButton}
           </ButtonLink>
         )}
         <SupportLink account={account} />
       </div>
 
       <ul className="mt-6 space-y-4 border-t border-line pt-6">
-        {perksOf(account, guaranteeDays).map(({ icon: Icon, title, text }) => (
-          <li key={title} className="flex gap-3">
+        {perksOf(account, accountPage).map(({ icon: Icon, title, text, titlePath, path }) => (
+          <li key={titlePath} className="flex gap-3">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-electric/10 text-electric">
               <Icon aria-hidden className="size-4" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-white">{title}</p>
-              <p className="mt-0.5 text-xs leading-relaxed text-mist">{text}</p>
+              <p {...editable(titlePath)} className="text-sm font-semibold text-white">
+                {fill(title)}
+              </p>
+              <p {...editable(path)} className="mt-0.5 text-xs leading-relaxed text-mist">
+                {fill(text)}
+              </p>
             </div>
           </li>
         ))}

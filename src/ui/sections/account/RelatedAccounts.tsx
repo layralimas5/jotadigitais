@@ -3,7 +3,9 @@ import type { Account } from "@/domain/account";
 import { ButtonLink } from "@/ui/components/Button";
 import { AccountCard } from "@/ui/components/account/AccountCard";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useAccounts } from "@/ui/hooks/useStore";
+import { editable } from "@/ui/lib/site-preview";
 
 const RELATED_COUNT = 3;
 
@@ -17,6 +19,7 @@ function pickRelated(current: Account, accounts: Account[]): Account[] {
 
 export function RelatedAccounts({ account }: { account: Account }) {
   const accounts = useAccounts({ onlyAvailable: true, sort: "recent" });
+  const { accountPage } = useSiteContent();
   if (accounts.status !== "success") return null;
 
   const related = pickRelated(account, accounts.data);
@@ -25,8 +28,8 @@ export function RelatedAccounts({ account }: { account: Account }) {
   return (
     <section aria-labelledby="parecidas-title">
       <div className="flex items-end justify-between gap-4">
-        <h2 id="parecidas-title" className="font-display text-xl font-semibold text-white md:text-2xl">
-          Você também pode gostar
+        <h2 id="parecidas-title" {...editable("accountPage.relatedTitle")} className="font-display text-xl font-semibold text-white md:text-2xl">
+          {accountPage.relatedTitle}
         </h2>
         <ButtonLink to="/contas" variant="ghost" className="hidden sm:inline-flex">
           Ver todas <ArrowRight aria-hidden className="size-4" />
