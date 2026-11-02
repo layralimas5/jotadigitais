@@ -141,7 +141,7 @@ export function ProfileImport({ url, syncedAt, error, onUrlChange, onImported }:
           onChange={(event) => onUrlChange(event.target.value)}
           onKeyDown={onKeyDown}
           error={error}
-          hint="TikTok, Instagram ou YouTube. Os números, o nome e a foto vêm direto do perfil público."
+          hint="TikTok, Instagram ou YouTube. Os números, o nome e a foto vêm direto do perfil público, e o site mostra um botão para o cliente abrir a conta."
         />
         <Button type="button" variant="secondary" size="lg" className="shrink-0 sm:mt-7" disabled={!canFetch} onClick={() => void run()}>
           {lookup.pending ? (

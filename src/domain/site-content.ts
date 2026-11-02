@@ -119,6 +119,8 @@ export interface SiteContent {
   };
   /** Página de cada conta (/contas/...): a vitrine de venda. */
   accountPage: {
+    /** Botão para o perfil real da conta, quando ela tem o link cadastrado. {rede} vira TikTok, Instagram... */
+    profileLink: string;
     priceLabel: string;
     pixLine: string;
     /** {parcelas} vira o máximo de parcelas no cartão. */
@@ -323,6 +325,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     ],
   },
   accountPage: {
+    profileLink: "Ver a conta no {rede}",
     priceLabel: "Valor da conta",
     pixLine: "À vista no Pix",
     cardLine: "Ou em até {parcelas}x no cartão",

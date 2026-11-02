@@ -582,6 +582,7 @@ export const siteContentSchema = z.object({
     steps: z.tuple([textCard, textCard]),
   }),
   accountPage: z.object({
+    profileLink: copy(40),
     priceLabel: copy(40),
     pixLine: copy(60),
     cardLine: copy(60),
