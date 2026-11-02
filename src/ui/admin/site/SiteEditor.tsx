@@ -71,6 +71,8 @@ interface PreviewPaneProps {
 
 function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlightPath, onEdit }: PreviewPaneProps) {
   const path = section?.path ?? "/";
+  // O pedido da prévia é de exemplo: fora do editor ele não existe, então não há site publicado para abrir.
+  const isHome = path === "/";
   return (
     <div className="flex h-[calc(100dvh-13rem)] min-h-[28rem] flex-col rounded-3xl border border-line bg-surface/60 p-2.5 lg:h-[calc(100dvh-7.5rem)]">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1.5 pb-2.5">
@@ -78,7 +80,7 @@ function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlight
           <MousePointerClick aria-hidden className="size-3.5 shrink-0 text-electric" />
           <span className="truncate">
             Clique em qualquer texto ou imagem para editar ·{" "}
-            <span className="text-fog">Página inicial</span>
+            <span className="text-fog">{isHome ? "Página inicial" : "Página do pedido (exemplo)"}</span>
           </span>
         </p>
         <div className="flex items-center gap-1.5">
@@ -97,6 +99,7 @@ function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlight
             ))}
           </div>
           <a
+            hidden={!isHome}
             href={path}
             target="_blank"
             rel="noreferrer"

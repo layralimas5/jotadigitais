@@ -572,6 +572,14 @@ export const siteContentSchema = z.object({
   }),
   finalCta: z.object({ titleLine1: copy(50), titleLine2: z.string().trim().max(50, "Use no máximo 50 caracteres."), button: copy(32) }),
   footer: z.object({ tagline: copy(160), slogan: z.string().trim().max(120, "Use no máximo 120 caracteres."), disclaimer: copy(200) }),
+  orderPage: z.object({
+    titleAwaiting: copy(60),
+    titlePaid: copy(60),
+    reserved: copy(120),
+    paymentStepTitle: copy(60),
+    paymentStepText: z.object({ pix: copy(220), card: copy(220), two_cards: copy(220), card_pix: copy(220) }),
+    steps: z.tuple([textCard, textCard]),
+  }),
 });
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
+import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import type { SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
+import { PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { ProofPointsField } from "./ProofPointsField";
@@ -222,6 +224,47 @@ const FooterForm: Form<"footer"> = (props) => {
   );
 };
 
+const OrderPageForm: Form<"orderPage"> = (props) => {
+  const copy = copyFieldsFor("orderPage", props);
+  const { value, onChange, errors } = props;
+  const updateStep = (index: number, patch: Partial<TextCard>) =>
+    onChange({ ...value, steps: value.steps.map((step, position) => (position === index ? { ...step, ...patch } : step)) as typeof value.steps });
+  return (
+    <>
+      <p className="text-xs text-mist">Use {"{nome}"} para o primeiro nome do cliente e {"{conta}"} para o @ da conta comprada.</p>
+      {copy("titleAwaiting", "Título antes de pagar", 60)}
+      {copy("titlePaid", "Título com o pagamento confirmado", 60)}
+      {copy("reserved", "Frase abaixo do título", 120)}
+      <fieldset className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+        <legend className="sr-only">Card 1</legend>
+        <p aria-hidden className="text-xs font-semibold text-mist">Card 1</p>
+        {copy("paymentStepTitle", "Título", 60)}
+        {PAYMENT_PLANS.map((plan) => (
+          <CopyField
+            key={plan}
+            label={`Texto quando paga com ${PAYMENT_PLAN_LABEL[plan]}`}
+            path={`orderPage.paymentStepText.${plan}`}
+            value={value.paymentStepText[plan]}
+            max={220}
+            multiline
+            errors={errors}
+            onChange={(text) => onChange({ ...value, paymentStepText: { ...value.paymentStepText, [plan]: text } })}
+          />
+        ))}
+      </fieldset>
+      {value.steps.map((step, index) => (
+        <fieldset key={index} className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+          <legend className="sr-only">{`Card ${index + 2}`}</legend>
+          <p aria-hidden className="text-xs font-semibold text-mist">{`Card ${index + 2}`}</p>
+          <CopyField label="Título" path={`orderPage.steps.${index}.title`} value={step.title} max={60} errors={errors} onChange={(title) => updateStep(index, { title })} />
+          <CopyField label="Texto" path={`orderPage.steps.${index}.text`} value={step.text} max={220} multiline errors={errors} onChange={(text) => updateStep(index, { text })} />
+        </fieldset>
+      ))}
+      <p className="text-xs text-mist">A prévia mostra um pedido de exemplo já pago.</p>
+    </>
+  );
+};
+
 const SeoForm: Form<"seo"> = (props) => {
   const copy = copyFieldsFor("seo", props);
   return (
@@ -237,7 +280,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/";
+  path: "/" | typeof PREVIEW_ORDER_PATH;
   anchor: string;
   Form: Form<K>;
 }
@@ -255,5 +298,13 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({ key: "faq", title: "Dúvidas", description: "Perguntas frequentes da home e das contas", path: "/", anchor: "duvidas-title", Form: FaqForm }),
   define({ key: "finalCta", title: "Chamada final", description: "O bloco antes do rodapé", path: "/", anchor: "cta-title", Form: FinalCtaForm }),
   define({ key: "footer", title: "Rodapé", description: "Frases e aviso legal", path: "/", anchor: "rodape", Form: FooterForm }),
+  define({
+    key: "orderPage",
+    title: "Página do pedido",
+    description: "Pedido recebido e pagamento confirmado",
+    path: PREVIEW_ORDER_PATH,
+    anchor: "pedido-title",
+    Form: OrderPageForm,
+  }),
   define({ key: "seo", title: "Google e aba do navegador", description: "Título e descrição da página inicial", path: "/", anchor: "hero-title", Form: SeoForm }),
 ];

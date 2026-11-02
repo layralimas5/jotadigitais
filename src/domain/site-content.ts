@@ -3,7 +3,10 @@
  * O padrão abaixo é o texto original: vale até a primeira edição e para qualquer campo que faltar no que foi salvo.
  *
  * Marcadores trocados na hora de mostrar: {dias} (garantia), {instagram} e {seguidores_shop}.
+ * Na página do pedido também valem {nome} (primeiro nome do cliente) e {conta} (o @ comprado).
  */
+
+import type { PaymentPlan } from "./payment";
 
 export interface TitleBlock {
   eyebrow: string;
@@ -96,6 +99,16 @@ export interface SiteContent {
   faq: TitleBlock & { items: FaqEntry[] };
   finalCta: { titleLine1: string; titleLine2: string; button: string };
   footer: { tagline: string; slogan: string; disclaimer: string };
+  /** Página que o cliente vê depois de fechar o pedido, antes e depois de pagar. */
+  orderPage: {
+    titleAwaiting: string;
+    titlePaid: string;
+    reserved: string;
+    /** Primeiro card: o título é um só, o texto muda com a forma de pagamento escolhida. */
+    paymentStepTitle: string;
+    paymentStepText: Record<PaymentPlan, string>;
+    steps: [TextCard, TextCard];
+  };
 }
 
 export const DEFAULT_SITE_CONTENT: SiteContent = {
@@ -254,6 +267,25 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     tagline: "Contas de TikTok, Instagram, YouTube e Facebook conferidas e prontas para você usar.",
     slogan: "Jesus é o caminho, a verdade e a vida.",
     disclaimer: "Não somos afiliados, patrocinados ou endossados pelo TikTok ou pela ByteDance.",
+  },
+  orderPage: {
+    titleAwaiting: "Pedido recebido, {nome}!",
+    titlePaid: "Pagamento confirmado, {nome}!",
+    reserved: "A conta {conta} está reservada para você.",
+    paymentStepTitle: "Confirmação do pagamento",
+    paymentStepText: {
+      pix: "O Pix é confirmado assim que cai na conta.",
+      card: "No cartão, a confirmação é automática assim que a InfinitePay aprova.",
+      two_cards: "Cada cartão é confirmado automaticamente assim que é aprovado.",
+      card_pix: "O cartão é confirmado na hora; o Pix, assim que cai na conta.",
+    },
+    steps: [
+      {
+        title: "Acesso no seu WhatsApp",
+        text: "Login, senha e o passo a passo chegam no WhatsApp que você informou na compra.",
+      },
+      { title: "Deixe a conta com a sua cara", text: "Troque nome, @ e foto e afilie seus primeiros produtos na vitrine." },
+    ],
   },
 };
 
