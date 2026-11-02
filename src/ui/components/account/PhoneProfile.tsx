@@ -13,14 +13,31 @@ import {
   Store,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { formatCount, type Account } from "@/domain/account";
+import { EMPTY_MOCKUP, formatCount, type Account, type AccountMockup } from "@/domain/account";
 import { profileStats } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import type { DistributivePick } from "@/shared/types";
 import { AccountAvatar, gradientFor } from "./AccountAvatar";
 
-/** Só o que a prévia desenha. O hero usa um perfil inventado, sem preço nem status. */
-export type ProfilePreview = DistributivePick<Account, "id" | "platform" | "displayName" | "handle" | "followers" | "stats">;
+/** Só o que a prévia desenha. O hero usa um perfil inventado, sem preço, status, foto nem mockup. */
+export type ProfilePreview = DistributivePick<Account, "id" | "platform" | "displayName" | "handle" | "followers" | "stats"> & {
+  avatarUrl?: string | null;
+  mockup?: AccountMockup;
+};
+
+const mockupOf = (preview: ProfilePreview): AccountMockup => preview.mockup ?? EMPTY_MOCKUP;
+
+/** Foto escolhida pelo Jota para o mockup; sem ela, o degradê de sempre. */
+function MockupImage({ src, seed, className }: { src: string | undefined; seed: string; className?: string }) {
+  if (src) return <img src={src} alt="" loading="lazy" decoding="async" className={cn("object-cover", className)} />;
+  return <span className={cn("bg-gradient-to-br", gradientFor(seed), className)} />;
+}
+
+function Bio({ preview, className }: { preview: ProfilePreview; className?: string }) {
+  const { bio } = mockupOf(preview);
+  if (!bio) return null;
+  return <p className={cn("text-[0.6rem] leading-snug whitespace-pre-line text-zinc-700", className)}>{bio}</p>;
+}
 
 function Stats({ preview, className, compact = false }: { preview: ProfilePreview; className?: string; compact?: boolean }) {
   return (
@@ -73,6 +90,7 @@ function TikTokBody({ preview }: { preview: Extract<ProfilePreview, { platform: 
         <p className="mt-2 text-[0.7rem] text-zinc-600">{preview.handle}</p>
       </div>
       <Stats preview={preview} className="mt-3 px-6" />
+      <Bio preview={preview} className="mt-2 px-6 text-center" />
       <div className="mt-3 flex justify-center gap-1.5 px-4">
         <Pill>Editar perfil</Pill>
         <Pill>
@@ -119,6 +137,7 @@ function InstagramBody({ preview }: { preview: Extract<ProfilePreview, { platfor
         <Stats preview={preview} className="min-w-0 flex-1" compact />
       </div>
       <p className="mt-2 px-4 text-[0.68rem] font-semibold text-zinc-900">{preview.displayName}</p>
+      <Bio preview={preview} className="mt-0.5 px-4" />
       <div className="mt-3 grid grid-cols-2 gap-1.5 px-4">
         <Pill>Editar perfil</Pill>
         <Pill>Compartilhar perfil</Pill>
@@ -136,9 +155,11 @@ function InstagramBody({ preview }: { preview: Extract<ProfilePreview, { platfor
       </div>
       <div className="grid grid-cols-3 gap-0.5 pb-4">
         {Array.from({ length: 9 }, (_, index) => (
-          <span
+          <MockupImage
             key={index}
-            className={cn("aspect-square bg-gradient-to-br", gradientFor(`${preview.id}-${index}`), index % 2 ? "opacity-70" : "opacity-90")}
+            src={mockupOf(preview).posts[index]}
+            seed={`${preview.id}-${index}`}
+            className={cn("aspect-square w-full", !mockupOf(preview).posts[index] && (index % 2 ? "opacity-70" : "opacity-90"))}
           />
         ))}
       </div>
@@ -156,7 +177,7 @@ function YouTubeBody({ preview }: { preview: Extract<ProfilePreview, { platform:
           <Search className="size-3.5" />
         </span>
       </div>
-      <div className={cn("mx-3 mt-3 h-14 rounded-xl bg-gradient-to-br", gradientFor(preview.id))} />
+      <MockupImage src={mockupOf(preview).coverUrl ?? undefined} seed={preview.id} className="mx-3 mt-3 block h-14 w-[calc(100%-1.5rem)] rounded-xl" />
       <div className="mt-3 flex items-center gap-3 px-4">
         <AccountAvatar account={preview} className="size-14 text-base ring-2 ring-white" />
         <div className="min-w-0">
@@ -179,7 +200,7 @@ function YouTubeBody({ preview }: { preview: Extract<ProfilePreview, { platform:
         />
         {[0, 1].map((index) => (
           <div key={index} className="flex gap-2">
-            <span className={cn("h-10 w-16 shrink-0 rounded-md bg-gradient-to-br", gradientFor(`${preview.id}-v${index}`))} />
+            <MockupImage src={mockupOf(preview).posts[index]} seed={`${preview.id}-v${index}`} className="h-10 w-16 shrink-0 rounded-md" />
             <span className="flex-1 space-y-1 pt-1">
               <span className="block h-1.5 w-full rounded bg-zinc-200" />
               <span className="block h-1.5 w-2/3 rounded bg-zinc-200" />
@@ -194,13 +215,14 @@ function YouTubeBody({ preview }: { preview: Extract<ProfilePreview, { platform:
 function FacebookBody({ preview }: { preview: Extract<ProfilePreview, { platform: "facebook" }> }) {
   return (
     <>
-      <div className={cn("mt-3 h-20 bg-gradient-to-br", gradientFor(preview.id))} />
+      <MockupImage src={mockupOf(preview).coverUrl ?? undefined} seed={preview.id} className="mt-3 block h-20 w-full" />
       <div className="-mt-8 px-4">
         <AccountAvatar account={preview} className="size-16 text-base ring-4 ring-white" />
         <p className="mt-1.5 text-[0.85rem] font-bold text-zinc-900">{preview.displayName}</p>
         <p className="text-[0.6rem] text-zinc-500">
           {formatCount(preview.stats.likes)} curtidas · {formatCount(preview.followers)} seguidores
         </p>
+        <Bio preview={preview} className="mt-1" />
       </div>
       <div className="mt-3 grid grid-cols-2 gap-1.5 px-4">
         <Pill accent="bg-[#0866ff] text-white">Painel profissional</Pill>
@@ -215,7 +237,7 @@ function FacebookBody({ preview }: { preview: Extract<ProfilePreview, { platform
         />
         <div className="rounded-xl bg-zinc-50 p-2.5">
           <span className="block h-1.5 w-3/4 rounded bg-zinc-200" />
-          <span className={cn("mt-2 block h-16 rounded-lg bg-gradient-to-br", gradientFor(`${preview.id}-post`))} />
+          <MockupImage src={mockupOf(preview).posts[0]} seed={`${preview.id}-post`} className="mt-2 block h-16 w-full rounded-lg" />
         </div>
       </div>
     </>

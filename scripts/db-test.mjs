@@ -700,6 +700,7 @@ async function main() {
   await checkoutWithoutEmailChecks();
   await cardInstallmentChecks();
   await c6PixChecks();
+  await accountMockupChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1299,6 +1300,25 @@ async function cardInstallmentChecks() {
   );
   const legacy = (await placeWithPlan(await newAccount("parcela-site-antigo"), { email: null, ...buyer(7) }, "card", null)).rows[0].data;
   check(legacy.payments[0].requested_installments === null, "site antigo, sem o campo, continua fechando pedido no cartão");
+}
+
+async function accountMockupChecks() {
+  console.log("\nmockup da conta");
+  const accountId = await newAccount("mockup");
+  const fresh = await as("anon", null, () => db.query(`select mockup from public.accounts where id = $1`, [accountId]));
+  check(JSON.stringify(fresh.rows[0]?.mockup) === "{}", "conta nova nasce com o mockup vazio e a vitrine lê a coluna");
+  const mockup = { bio: "Moda e achadinhos", coverUrl: null, posts: ["https://exemplo.com/1.webp"] };
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set mockup = $2 where id = $1`, [accountId, mockup]));
+  const saved = await as("anon", null, () => db.query(`select mockup from public.accounts where id = $1`, [accountId]));
+  check(saved.rows[0]?.mockup?.bio === "Moda e achadinhos", "administrador grava o mockup e a vitrine vê");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`update public.accounts set mockup = '{}' where id = $1`, [accountId])), /permission denied/),
+    "visitante não grava o mockup",
+  );
+  check(
+    await rejects(() => db.query(`update public.accounts set mockup = '[]' where id = $1`, [accountId]), /check constraint/),
+    "mockup fora do formato de objeto é recusado",
+  );
 }
 
 async function c6PixChecks() {

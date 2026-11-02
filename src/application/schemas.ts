@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACCOUNT_STATUSES } from "@/domain/account";
+import { ACCOUNT_STATUSES, EMPTY_MOCKUP, MAX_MOCKUP_POSTS } from "@/domain/account";
 import { BRAZIL_STATES, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/domain/brazil";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
@@ -151,6 +151,15 @@ const optionalImageUrl = z
   .transform((value) => value || null)
   .refine((value) => value === null || fitsImageLimit(value), IMAGE_TOO_LONG);
 
+/** Mockup salvo antes de existir um campo fica com o padrão daquele campo. */
+export const accountMockupSchema = z
+  .object({
+    bio: z.string().trim().max(150, "Use no máximo 150 caracteres.").nullable().default(null).transform((value) => value || null),
+    coverUrl: optionalImageUrl,
+    posts: z.array(imageUrl).max(MAX_MOCKUP_POSTS, `Use no máximo ${MAX_MOCKUP_POSTS} fotos.`).default([]),
+  })
+  .default(EMPTY_MOCKUP);
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -222,6 +231,7 @@ export const accountBaseSchema = z.object({
     .transform((value) => value || null)
     .refine((value) => value === null || /^https:\/\/[^\s]+$/.test(value), "Use o link completo, começando com https://."),
   statsSyncedAt: z.iso.datetime({ offset: true }).nullable().default(null),
+  mockup: accountMockupSchema,
 });
 
 export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);

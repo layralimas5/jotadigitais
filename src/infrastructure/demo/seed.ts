@@ -1,12 +1,12 @@
-import type { Account } from "@/domain/account";
+import { EMPTY_MOCKUP, type Account } from "@/domain/account";
 import type { StoredNotification } from "@/domain/notification";
 import type { Testimonial } from "@/domain/testimonial";
 import type { DistributiveOmit } from "@/shared/types";
 
-type SeedAccount = DistributiveOmit<Account, "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId" | "profileUrl" | "statsSyncedAt">;
+type SeedAccount = DistributiveOmit<Account, "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId" | "profileUrl" | "statsSyncedAt" | "mockup">;
 
 function account(seed: SeedAccount): Account {
-  return { description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, profileUrl: null, statsSyncedAt: null, ...seed };
+  return { description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, profileUrl: null, statsSyncedAt: null, mockup: EMPTY_MOCKUP, ...seed };
 }
 
 /** Estoque de demonstração com perfis fictícios. Só aparece quando o Supabase não está configurado. */
