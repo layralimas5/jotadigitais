@@ -1,16 +1,19 @@
-import { Check, Copy, MessageCircle, X } from "lucide-react";
+import { Check, Copy, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { siteConfig } from "@/app/config";
-import { listLeads } from "@/application/admin-use-cases";
+import { findAccountBuyer, listLeads } from "@/application/admin-use-cases";
 import type { Account } from "@/domain/account";
 import { offerValuesOf } from "@/domain/account-offer";
 import { isOpenLead, type Lead } from "@/domain/lead";
 import { fillTemplate } from "@/domain/message-template";
+import type { Order, OrderStatus } from "@/domain/order";
 import { Button, buttonClasses } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { SelectField, TextAreaField } from "../components/FormControls";
+import { cn } from "@/ui/lib/cn";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
-import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
+import { buyerMessage } from "../lib/messages";
+import { firstNameOf, formatPhone, whatsappChatUrl } from "../lib/whatsapp";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
 const isValidPhone = (digits: string) => digits === "" || (digits.length >= 10 && digits.length <= 13);
@@ -25,18 +28,63 @@ function whatsappLink(phone: string, text: string): string {
   return phone ? whatsappChatUrl(phone, text) : `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
-function useOfferMessage(account: Account, name: string) {
+/** Para quem comprou vão as orientações do pedido; para os outros, a oferta da conta. */
+type MessageMode = "buyer" | "offer";
+
+const BUYER_STATUS_LABEL: Record<Exclude<OrderStatus, "canceled">, string> = {
+  awaiting_payment: "aguardando pagamento",
+  paid: "pago, falta entregar",
+  delivered: "entregue",
+};
+
+const MODE_OPTIONS: readonly (readonly [MessageMode, string])[] = [
+  ["buyer", "Orientações ao comprador"],
+  ["offer", "Oferecer a conta"],
+];
+
+function useShareMessage(account: Account, name: string, mode: MessageMode, buyer: Order | null) {
   const templates = useMessageTemplates();
-  const generated = useMemo(
-    () =>
-      fillTemplate(
-        templates.account_offer,
-        offerValuesOf(account, { recipientName: name ? firstNameOf(name) : GREETING_FALLBACK, siteUrl: siteConfig.url, storeName: siteConfig.name }),
-      ),
-    [templates.account_offer, account, name],
-  );
+  const generated = useMemo(() => {
+    if (mode === "buyer" && buyer) return buyerMessage(templates, buyer);
+    return fillTemplate(
+      templates.account_offer,
+      offerValuesOf(account, { recipientName: name ? firstNameOf(name) : GREETING_FALLBACK, siteUrl: siteConfig.url, storeName: siteConfig.name }),
+    );
+  }, [templates, account, name, mode, buyer]);
   const [edited, setEdited] = useState<string | null>(null);
   return { message: edited ?? generated, edit: setEdited, reset: () => setEdited(null), isEdited: edited !== null };
+}
+
+function BuyerSummary({ buyer, mode, onModeChange }: { buyer: Order; mode: MessageMode; onModeChange: (mode: MessageMode) => void }) {
+  const status = buyer.status === "canceled" ? null : BUYER_STATUS_LABEL[buyer.status];
+  return (
+    <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.06] p-4">
+      <p className="flex items-center gap-2 text-sm font-semibold text-white">
+        <ShoppingBag aria-hidden className="size-4 text-emerald-300" /> Comprada por {buyer.customer.name}
+      </p>
+      <p className="mt-1 text-xs text-mist">
+        Pedido <span className="font-mono text-fog">{buyer.code}</span>
+        {status && ` · ${status}`}
+      </p>
+      <div role="radiogroup" aria-label="Que mensagem enviar" className="mt-3 inline-flex rounded-full border border-line bg-ink/60 p-1 text-xs">
+        {MODE_OPTIONS.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={mode === value}
+            onClick={() => onModeChange(value)}
+            className={cn(
+              "rounded-full px-3 py-1.5",
+              mode === value ? "bg-white/[0.1] font-semibold text-white" : "text-mist hover:text-white",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function LeadPicker({ onPick }: { onPick: (lead: Lead) => void }) {
@@ -57,12 +105,21 @@ function LeadPicker({ onPick }: { onPick: (lead: Lead) => void }) {
   );
 }
 
-function ShareForm({ account, onClose }: { account: Account; onClose: () => void }) {
+interface ShareFormProps {
+  account: Account;
+  /** Pedido de quem comprou a conta pelo site: nome, WhatsApp e mensagem já vêm dele. */
+  buyer: Order | null;
+  onClose: () => void;
+}
+
+function ShareForm({ account, buyer, onClose }: ShareFormProps) {
   const titleId = useId();
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [name, setName] = useState(buyer?.customer.name ?? "");
+  const [phone, setPhone] = useState(buyer?.customer.whatsapp ? formatPhone(buyer.customer.whatsapp) : "");
+  const [mode, setMode] = useState<MessageMode>(buyer ? "buyer" : "offer");
   const [copied, setCopied] = useState(false);
-  const offer = useOfferMessage(account, name);
+  const offer = useShareMessage(account, name, mode, buyer);
+  const buyerMode = mode === "buyer" && buyer !== null;
   const digits = onlyDigits(phone);
   const phoneError = isValidPhone(digits) ? undefined : "Número inválido. Use DDD + número, ex.: 11 91234-5678.";
 
@@ -86,7 +143,7 @@ function ShareForm({ account, onClose }: { account: Account; onClose: () => void
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 id={titleId} className="font-display text-lg font-semibold">
-            Enviar pelo WhatsApp
+            {buyerMode ? "Enviar ao comprador" : "Enviar pelo WhatsApp"}
           </h2>
           <p className="mt-1 text-sm text-mist">
             {account.displayName} <span className="text-fog">{account.handle}</span>
@@ -98,12 +155,24 @@ function ShareForm({ account, onClose }: { account: Account; onClose: () => void
       </div>
 
       <div className="mt-5 space-y-4">
-        <LeadPicker
-          onPick={(lead) => {
-            setName(lead.name);
-            setPhone(lead.whatsapp ?? "");
-          }}
-        />
+        {buyer && (
+          <BuyerSummary
+            buyer={buyer}
+            mode={mode}
+            onModeChange={(next) => {
+              setMode(next);
+              offer.reset();
+            }}
+          />
+        )}
+        {!buyerMode && (
+          <LeadPicker
+            onPick={(lead) => {
+              setName(lead.name);
+              setPhone(lead.whatsapp ?? "");
+            }}
+          />
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Nome de quem recebe" name="recipientName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} />
           <TextField
@@ -124,7 +193,7 @@ function ShareForm({ account, onClose }: { account: Account; onClose: () => void
           rows={9}
           value={offer.message}
           onChange={(event) => offer.edit(event.target.value)}
-          hint="O texto padrão fica em Automação, no modelo “Oferecer conta”."
+          hint={`O texto padrão fica em Automação, no modelo “${messageModelOf(mode, buyer)}”.`}
         />
         {offer.isEdited && (
           <button type="button" onClick={offer.reset} className="text-xs text-electric-soft underline-offset-4 hover:underline">
@@ -156,7 +225,26 @@ function ShareForm({ account, onClose }: { account: Account; onClose: () => void
   );
 }
 
-/** Janela para mandar os dados da conta para quem quer comprar. `<dialog>` nativo: Esc fecha e o foco volta. */
+function messageModelOf(mode: MessageMode, buyer: Order | null): string {
+  if (mode === "offer" || !buyer) return "Oferecer conta";
+  return buyer.status === "awaiting_payment" ? "Pedido recebido" : "Conta entregue";
+}
+
+/** Busca quem comprou a conta antes de montar o formulário, para ele já abrir preenchido. */
+function ShareContent({ account, onClose }: { account: Account; onClose: () => void }) {
+  const buyer = useAdminQuery((deps) => findAccountBuyer(deps, account.id), `account-buyer:${account.id}`);
+  if (buyer.status === "loading") {
+    return (
+      <p role="status" className="py-10 text-center text-sm text-mist">
+        Carregando…
+      </p>
+    );
+  }
+  if (buyer.status === "error") console.error("Não foi possível buscar o comprador da conta", buyer.error);
+  return <ShareForm account={account} buyer={buyer.status === "success" ? buyer.data : null} onClose={onClose} />;
+}
+
+/** Janela para mandar os dados da conta para quem quer comprar ou orientar quem já comprou. `<dialog>` nativo: Esc fecha e o foco volta. */
 export function ShareAccountDialog({ account, onClose }: { account: Account | null; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
 
@@ -174,7 +262,7 @@ export function ShareAccountDialog({ account, onClose }: { account: Account | nu
       aria-label="Enviar conta pelo WhatsApp"
       className="m-auto max-h-[calc(100dvh-2rem)] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto rounded-3xl border border-line-strong bg-surface p-6 text-white backdrop:bg-black/70 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-sm:open:animate-[sheet-up_0.25s_var(--ease-out-expo)]"
     >
-      {account && <ShareForm key={account.id} account={account} onClose={onClose} />}
+      {account && <ShareContent key={account.id} account={account} onClose={onClose} />}
     </dialog>
   );
 }

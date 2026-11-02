@@ -13,7 +13,19 @@ const ORDER_TEMPLATE: Record<OrderStatus, MessageTemplateKey> = {
 
 /** Mensagem do WhatsApp para o pedido, conforme a etapa em que ele está. */
 export function orderMessage(templates: MessageTemplates, order: Order): string {
-  return fillTemplate(templates[ORDER_TEMPLATE[order.status]], {
+  return fillOrderTemplate(templates[ORDER_TEMPLATE[order.status]], order);
+}
+
+/**
+ * Orientações para quem comprou a conta: pago ou entregue já recebe o modelo "Conta entregue"
+ * (login, senha e passo a passo); reservado ainda sem pagamento recebe "Pedido recebido".
+ */
+export function buyerMessage(templates: MessageTemplates, order: Order): string {
+  return fillOrderTemplate(templates[order.status === "awaiting_payment" ? "order_received" : "order_delivered"], order);
+}
+
+function fillOrderTemplate(body: string, order: Order): string {
+  return fillTemplate(body, {
     nome: firstNameOf(order.customer.name),
     pedido: order.code,
     conta: order.accountHandle,
