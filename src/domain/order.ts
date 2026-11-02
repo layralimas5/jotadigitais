@@ -75,6 +75,15 @@ export function isReservationExpired(order: Pick<Order, "status" | "expiresAt">,
   return order.status === "awaiting_payment" && new Date(order.expiresAt).getTime() <= now.getTime();
 }
 
+/** Quem comprou a conta: o pedido mais recente dela que não foi cancelado. */
+export function buyerOrderOf(orders: readonly Order[], accountId: string): Order | null {
+  return (
+    orders
+      .filter((order) => order.accountId === accountId && order.status !== "canceled")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
+  );
+}
+
 export function generateOrderCode(random: () => number = Math.random): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const chars = Array.from({ length: 6 }, () => alphabet[Math.floor(random() * alphabet.length)]);

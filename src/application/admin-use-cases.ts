@@ -7,7 +7,7 @@ import { CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/err
 import type { Expense, Revenue } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
-import { canTransition, type Order, type OrderStatus } from "@/domain/order";
+import { buyerOrderOf, canTransition, type Order, type OrderStatus } from "@/domain/order";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import { finalizedSales } from "@/domain/sale";
@@ -141,6 +141,11 @@ export function reorderTestimonials(deps: AdminDeps, ids: readonly string[]): Pr
 
 export function listOrders(deps: AdminDeps): Promise<Order[]> {
   return deps.orders.listAll();
+}
+
+/** Pedido de quem comprou a conta (ou reservou e ainda vai pagar). Null quando ninguém comprou. */
+export async function findAccountBuyer(deps: AdminDeps, accountId: string): Promise<Order | null> {
+  return buyerOrderOf(await deps.orders.listAll(), accountId);
 }
 
 export async function changeOrderStatus(deps: AdminDeps, order: Order, status: OrderStatus): Promise<void> {
