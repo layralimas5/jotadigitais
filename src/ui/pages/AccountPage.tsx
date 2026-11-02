@@ -1,5 +1,5 @@
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import { useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 import { siteConfig } from "@/app/config";
@@ -77,6 +77,26 @@ function ProductJsonLd({ account }: { account: Account }) {
   return <script type="application/ld+json">{JSON.stringify(data)}</script>;
 }
 
+/** Abre o perfil real da conta na rede, para o cliente conferir antes de comprar. */
+function ProfileLink({ account }: { account: Account }) {
+  const { accountPage } = useSiteContent();
+  if (!account.profileUrl) return null;
+  const label = accountPage.profileLink.replaceAll("{rede}", PLATFORM_LABEL[account.platform]);
+  return (
+    <a
+      href={account.profileUrl}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      {...editable("accountPage.profileLink")}
+      className="inline-flex items-center gap-1.5 rounded-full border border-line-strong bg-white/[0.03] px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:border-electric/50 hover:bg-electric/10"
+    >
+      {label}
+      <ExternalLink aria-hidden className="size-3.5 text-electric" />
+      <span className="sr-only">(abre em outra aba)</span>
+    </a>
+  );
+}
+
 function AccountHeader({ account }: { account: Account }) {
   return (
     <>
@@ -90,7 +110,10 @@ function AccountHeader({ account }: { account: Account }) {
         {account.displayName}
         <VerifiedBadge className="size-7" label={verifiedLabel(account)} />
       </h1>
-      <p className="mt-2 text-lg text-mist">{account.handle}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="text-lg text-mist">{account.handle}</p>
+        <ProfileLink account={account} />
+      </div>
 
       <dl className="mt-8 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60">
         {profileStats(account).map((stat) => (

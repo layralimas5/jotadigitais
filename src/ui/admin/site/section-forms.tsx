@@ -302,6 +302,10 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
     <>
       <p className="text-xs text-mist">Vale para a página de todas as contas. Descrição, números e fotos de cada uma ficam na aba Contas.</p>
 
+      {copy("profileLink", "Botão para ver a conta na rede", 40, {
+        hint: "Aparece abaixo do @ quando a conta tem o link cadastrado na aba Contas. Use {rede} para TikTok, Instagram...",
+      })}
+
       <GroupTitle>Caixa de compra</GroupTitle>
       {copy("priceLabel", "Acima do preço", 40)}
       {copy("pixLine", "Linha do Pix", 60)}
