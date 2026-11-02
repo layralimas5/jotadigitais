@@ -223,41 +223,27 @@ export function descriptionOf(account: Account): string[] {
   return [intro, platformParagraph(account)];
 }
 
-export function includedOf(account: Account): string[] {
-  const common = ["Troca livre de nome, @ e foto", "Login e senha entregues por e-mail"];
+/** Itens que dependem dos dados da conta (monetização, conta profissional, página ou perfil): entram sozinhos. */
+function automaticIncluded(account: Account): string[] {
   switch (account.platform) {
     case "tiktok":
-      return [
-        "Central de Criadores do TikTok Shop ativa",
-        ...(account.stats.monetized ? ["Monetização ativa"] : []),
-        "Seguidores reais e brasileiros",
-        "Sem documentos vinculados",
-        ...common,
-      ];
+      return account.stats.monetized ? ["Monetização ativa"] : [];
     case "instagram":
       return [
         ...(account.stats.professional ? ["Conta profissional com estatísticas"] : []),
         ...(account.stats.monetized ? ["Monetização ativa"] : []),
-        ...common,
-        "E-mail da conta trocado para o seu",
       ];
     case "youtube":
-      return [
-        "Acesso de proprietário ao canal",
-        ...(account.stats.monetized ? ["Programa de Parcerias ativo"] : []),
-        ...common,
-      ];
+      return account.stats.monetized ? ["Programa de Parcerias ativo"] : [];
     case "facebook":
       return [
         account.stats.kind === "page" ? "Acesso de administrador total à página" : "Acesso completo ao perfil",
         ...(account.stats.monetized ? ["Monetização ativa"] : []),
-        ...common,
       ];
   }
 }
 
-export function guaranteeText(account: Pick<Account, "platform">): string {
-  return account.platform === "tiktok"
-    ? "Shop inativo na entrega? Você recebe outra conta ou o dinheiro de volta."
-    : "Conta diferente do anunciado na entrega? Você recebe outra ou o dinheiro de volta.";
+/** "O que está incluso": os itens automáticos da conta e depois os da rede, editados na aba Site. */
+export function includedOf(account: Account, fixedByPlatform: Record<Account["platform"], string[]>): string[] {
+  return [...automaticIncluded(account), ...fixedByPlatform[account.platform]];
 }

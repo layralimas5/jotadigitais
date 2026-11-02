@@ -516,6 +516,7 @@ const copyList = (min: number, max: number, itemMax: number) =>
     .max(max, `Use no máximo ${max}.`);
 
 const textCard = z.object({ title: copy(60), text: copy(220) });
+const platformCard = z.object({ title: copy(60), tiktok: copy(220), other: copy(220) });
 
 const siteImage = z.object({
   url: z.string().min(1, "Envie a imagem.").refine(fitsImageLimit, IMAGE_TOO_LONG),
@@ -579,6 +580,34 @@ export const siteContentSchema = z.object({
     paymentStepTitle: copy(60),
     paymentStepText: z.object({ pix: copy(220), card: copy(220), two_cards: copy(220), card_pix: copy(220) }),
     steps: z.tuple([textCard, textCard]),
+  }),
+  accountPage: z.object({
+    priceLabel: copy(40),
+    pixLine: copy(60),
+    cardLine: copy(60),
+    cardNote: z.string().trim().max(60, "Use no máximo 60 caracteres."),
+    available: copy(140),
+    reserved: copy(140),
+    sold: copy(140),
+    buyButton: copy(32),
+    otherButton: copy(32),
+    perkDelivery: textCard,
+    perkGuarantee: platformCard,
+    perkSupport: platformCard,
+    aboutTitle: copy(60),
+    nicheNote: z.string().trim().max(240, "Use no máximo 240 caracteres."),
+    specsTitle: copy(60),
+    includedTitle: copy(60),
+    included: z.object({
+      tiktok: copyList(1, 10, 90),
+      instagram: copyList(1, 10, 90),
+      youtube: copyList(1, 10, 90),
+      facebook: copyList(1, 10, 90),
+    }),
+    deliveryTitle: copy(60),
+    deliverySteps: z.tuple([textCard, textCard, textCard, textCard]).nullable(),
+    faqTitle: copy(60),
+    relatedTitle: copy(60),
   }),
 });
 

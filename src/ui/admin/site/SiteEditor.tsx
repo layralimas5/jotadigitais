@@ -4,6 +4,7 @@ import { useBlocker } from "react-router-dom";
 import type { SiteContent, SiteSectionKey } from "@/domain/site-content";
 import { Button } from "@/ui/components/Button";
 import { cn } from "@/ui/lib/cn";
+import { PREVIEW_ACCOUNT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { MobileActionBar } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterChips } from "../components/FilterChips";
@@ -11,6 +12,12 @@ import { useToast } from "../toast";
 import { SITE_SECTIONS, type SiteSectionDefinition } from "./section-forms";
 import { SitePreview, type PreviewDevice } from "./SitePreview";
 import { useSiteDraft, type SiteDraft } from "./useSiteDraft";
+
+const PREVIEW_PAGE_LABEL: Record<SiteSectionDefinition["path"], string> = {
+  "/": "Página inicial",
+  [PREVIEW_ACCOUNT_PATH]: "Página da conta (primeira do estoque)",
+  [PREVIEW_ORDER_PATH]: "Página do pedido (exemplo)",
+};
 
 interface SectionPanelProps {
   section: SiteSectionDefinition;
@@ -45,7 +52,12 @@ function SectionPanel({ section, open, onToggle, draft }: SectionPanelProps) {
       </h3>
       {open && (
         <div id={panelId} className="space-y-4 border-t border-line px-4 pt-4 pb-5">
-          <Form value={draft.draft[key]} onChange={(value: SiteContent[SiteSectionKey]) => draft.setSection(key, value)} errors={draft.errors} />
+          <Form
+            value={draft.draft[key]}
+            content={draft.draft}
+            onChange={(value: SiteContent[SiteSectionKey]) => draft.setSection(key, value)}
+            errors={draft.errors}
+          />
           <button
             type="button"
             onClick={() => draft.resetSection(key)}
@@ -71,7 +83,7 @@ interface PreviewPaneProps {
 
 function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlightPath, onEdit }: PreviewPaneProps) {
   const path = section?.path ?? "/";
-  // O pedido da prévia é de exemplo: fora do editor ele não existe, então não há site publicado para abrir.
+  // Conta e pedido da prévia são de exemplo: fora do editor não existem, então não há página publicada para abrir.
   const isHome = path === "/";
   return (
     <div className="flex h-[calc(100dvh-13rem)] min-h-[28rem] flex-col rounded-3xl border border-line bg-surface/60 p-2.5 lg:h-[calc(100dvh-7.5rem)]">
@@ -80,7 +92,7 @@ function PreviewPane({ draft, section, scrollTarget, device, onDevice, highlight
           <MousePointerClick aria-hidden className="size-3.5 shrink-0 text-electric" />
           <span className="truncate">
             Clique em qualquer texto ou imagem para editar ·{" "}
-            <span className="text-fog">{isHome ? "Página inicial" : "Página do pedido (exemplo)"}</span>
+            <span className="text-fog">{PREVIEW_PAGE_LABEL[path]}</span>
           </span>
         </p>
         <div className="flex items-center gap-1.5">

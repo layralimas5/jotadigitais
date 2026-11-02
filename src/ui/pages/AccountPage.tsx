@@ -12,9 +12,11 @@ import { AccountBadgePill, NicheTag, PlatformTag, StatusBadge } from "@/ui/compo
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
-import { useAccount } from "@/ui/hooks/useStore";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
+import { useAccount, useAccounts } from "@/ui/hooks/useStore";
 import { accountBadge, audienceLabel, profileStats, verifiedLabel } from "@/ui/lib/account-presenter";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
+import { editable, IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { AccountBuyBox } from "@/ui/sections/account/AccountBuyBox";
 import {
   AccountDelivery,
@@ -104,10 +106,11 @@ function AccountHeader({ account }: { account: Account }) {
 
 function AccountFaq({ account }: { account: Account }) {
   const items = useFaqItems().filter((item) => !item.tiktokOnly || account.platform === "tiktok");
+  const { accountPage } = useSiteContent();
   return (
     <section aria-labelledby="faq-conta-title">
-      <h2 id="faq-conta-title" className="font-display text-xl font-semibold text-white md:text-2xl">
-        Dúvidas sobre a compra
+      <h2 id="faq-conta-title" {...editable("accountPage.faqTitle")} className="font-display text-xl font-semibold text-white md:text-2xl">
+        {accountPage.faqTitle}
       </h2>
       <div className="mt-2 border-t border-line">
         {items.map((item, index) => (
@@ -188,6 +191,29 @@ function DetailSkeleton() {
 
 export default function AccountPage() {
   const { slug = "" } = useParams();
+  if (IS_SITE_PREVIEW && slug === PREVIEW_ACCOUNT_SLUG) return <AccountPreview />;
+  return <LiveAccountPage slug={slug} />;
+}
+
+/** Prévia da aba Site: a página da primeira conta do estoque, com o rascunho dos textos. */
+function AccountPreview() {
+  const accounts = useAccounts({});
+  const first = accounts.status === "success" ? accounts.data[0] : undefined;
+  return (
+    <div className="relative pt-24 pb-28 md:pt-32 lg:pb-24">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        {accounts.status === "loading" && <DetailSkeleton />}
+        {accounts.status === "success" && !first && (
+          <EmptyState title="Nenhuma conta no estoque" description="Cadastre uma conta em Contas para ver esta página." />
+        )}
+        {accounts.status === "error" && <ErrorState message={accounts.error.message} onRetry={accounts.retry} />}
+        {first && <AccountDetail account={first} />}
+      </div>
+    </div>
+  );
+}
+
+function LiveAccountPage({ slug }: { slug: string }) {
   const account = useAccount(slug);
 
   return (

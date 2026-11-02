@@ -1,13 +1,16 @@
 import type { ComponentType } from "react";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
-import type { SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
-import { PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
+import type { PlatformCard, SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
+import { PREVIEW_ACCOUNT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { ProofPointsField } from "./ProofPointsField";
 
 interface SectionFormProps<K extends SiteSectionKey> {
   value: SiteContent[K];
+  /** O rascunho inteiro, para uma seção partir do texto de outra. */
+  content: SiteContent;
   onChange: (value: SiteContent[K]) => void;
   errors: FieldErrors;
 }
@@ -131,7 +134,7 @@ const HowItWorksForm: Form<"howItWorks"> = (props) => {
       {copy("eyebrow", "Chamada pequena", 40)}
       {copy("title", "Título", 90)}
       <FourCards path="howItWorks.steps" itemLabel="Passo" cards={value.steps} errors={errors} onChange={(steps) => onChange({ ...value, steps })} />
-      <p className="text-xs text-mist">Os passos também aparecem em “Como você recebe”, na página de cada conta.</p>
+      <p className="text-xs text-mist">Os passos também aparecem em “Como você recebe”, na página de cada conta, enquanto ela usar os passos daqui.</p>
     </>
   );
 };
@@ -265,6 +268,111 @@ const OrderPageForm: Form<"orderPage"> = (props) => {
   );
 };
 
+function PlatformCardField({
+  path,
+  label,
+  card,
+  onChange,
+  errors,
+}: {
+  path: string;
+  label: string;
+  card: PlatformCard;
+  onChange: (card: PlatformCard) => void;
+  errors: FieldErrors;
+}) {
+  return (
+    <fieldset className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+      <legend className="sr-only">{label}</legend>
+      <p aria-hidden className="text-xs font-semibold text-mist">{label}</p>
+      <CopyField label="Título" path={`${path}.title`} value={card.title} max={60} errors={errors} onChange={(title) => onChange({ ...card, title })} />
+      <CopyField label="Texto em contas de TikTok" path={`${path}.tiktok`} value={card.tiktok} max={220} multiline errors={errors} onChange={(tiktok) => onChange({ ...card, tiktok })} />
+      <CopyField label="Texto nas outras redes" path={`${path}.other`} value={card.other} max={220} multiline errors={errors} onChange={(other) => onChange({ ...card, other })} />
+    </fieldset>
+  );
+}
+
+const GroupTitle = ({ children }: { children: string }) => <p className="border-t border-line pt-4 text-xs font-semibold text-mist">{children}</p>;
+
+const AccountPageForm: Form<"accountPage"> = (props) => {
+  const copy = copyFieldsFor("accountPage", props);
+  const { value, onChange, errors, content } = props;
+  const ownSteps = value.deliverySteps !== null;
+  return (
+    <>
+      <p className="text-xs text-mist">Vale para a página de todas as contas. Descrição, números e fotos de cada uma ficam na aba Contas.</p>
+
+      <GroupTitle>Caixa de compra</GroupTitle>
+      {copy("priceLabel", "Acima do preço", 40)}
+      {copy("pixLine", "Linha do Pix", 60)}
+      {copy("cardLine", "Linha do cartão", 60, { hint: "Use {parcelas} para o número máximo de parcelas." })}
+      {copy("cardNote", "Observação do cartão", 60, { hint: "Opcional." })}
+      {copy("available", "Conta disponível", 140, { multiline: true })}
+      {copy("reserved", "Conta reservada por outro cliente", 140)}
+      {copy("sold", "Conta vendida", 140)}
+      {copy("buyButton", "Botão de comprar", 32)}
+      {copy("otherButton", "Botão quando não está à venda", 32)}
+      <fieldset className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+        <legend className="sr-only">Card de entrega</legend>
+        <p aria-hidden className="text-xs font-semibold text-mist">Card de entrega</p>
+        <CopyField label="Título" path="accountPage.perkDelivery.title" value={value.perkDelivery.title} max={60} errors={errors} onChange={(title) => onChange({ ...value, perkDelivery: { ...value.perkDelivery, title } })} />
+        <CopyField label="Texto" path="accountPage.perkDelivery.text" value={value.perkDelivery.text} max={220} multiline errors={errors} onChange={(text) => onChange({ ...value, perkDelivery: { ...value.perkDelivery, text } })} />
+      </fieldset>
+      <PlatformCardField path="accountPage.perkGuarantee" label="Card de garantia" card={value.perkGuarantee} errors={errors} onChange={(perkGuarantee) => onChange({ ...value, perkGuarantee })} />
+      <PlatformCardField path="accountPage.perkSupport" label="Card de suporte" card={value.perkSupport} errors={errors} onChange={(perkSupport) => onChange({ ...value, perkSupport })} />
+      <p className="text-xs text-mist">{TOKEN_HINT}</p>
+
+      <GroupTitle>Sobre e ficha técnica</GroupTitle>
+      {copy("aboutTitle", "Título de “Sobre esta conta”", 60)}
+      {copy("nicheNote", "Aviso abaixo da descrição (contas com nicho)", 240, { multiline: true, hint: "Opcional." })}
+      {copy("specsTitle", "Título da ficha técnica", 60)}
+
+      <GroupTitle>O que está incluso</GroupTitle>
+      {copy("includedTitle", "Título", 60)}
+      <p className="text-xs text-mist">
+        Monetização ativa, conta profissional e o tipo de acesso do Facebook entram sozinhos, pelos dados de cada conta. Abaixo, os itens fixos de cada rede.
+      </p>
+      {PLATFORMS.map((platform) => (
+        <CopyListField
+          key={platform}
+          label={`Itens em contas de ${PLATFORM_LABEL[platform]}`}
+          path={`accountPage.included.${platform}`}
+          items={value.included[platform]}
+          itemMax={90}
+          min={1}
+          max={10}
+          addLabel="Adicionar item"
+          errors={errors}
+          onChange={(items) => onChange({ ...value, included: { ...value.included, [platform]: items } })}
+        />
+      ))}
+
+      <GroupTitle>Como você recebe</GroupTitle>
+      {copy("deliveryTitle", "Título", 60)}
+      <ToggleField
+        label="Usar os passos de Como funciona"
+        description="Ligado, esta parte mostra os mesmos quatro passos da página inicial. Desligue para escrever passos só para a página da conta."
+        checked={!ownSteps}
+        onChange={(shared) => onChange({ ...value, deliverySteps: shared ? null : structuredClone(content.howItWorks.steps) })}
+      />
+      {value.deliverySteps && (
+        <FourCards
+          path="accountPage.deliverySteps"
+          itemLabel="Passo"
+          cards={value.deliverySteps}
+          errors={errors}
+          onChange={(deliverySteps) => onChange({ ...value, deliverySteps })}
+        />
+      )}
+
+      <GroupTitle>Fim da página</GroupTitle>
+      {copy("faqTitle", "Título das dúvidas", 60, { hint: "As perguntas são as mesmas da seção Dúvidas." })}
+      {copy("relatedTitle", "Título das contas parecidas", 60)}
+      <p className="text-xs text-mist">A prévia mostra a primeira conta do estoque.</p>
+    </>
+  );
+};
+
 const SeoForm: Form<"seo"> = (props) => {
   const copy = copyFieldsFor("seo", props);
   return (
@@ -280,7 +388,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/" | typeof PREVIEW_ORDER_PATH;
+  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH;
   anchor: string;
   Form: Form<K>;
 }
@@ -298,6 +406,14 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({ key: "faq", title: "Dúvidas", description: "Perguntas frequentes da home e das contas", path: "/", anchor: "duvidas-title", Form: FaqForm }),
   define({ key: "finalCta", title: "Chamada final", description: "O bloco antes do rodapé", path: "/", anchor: "cta-title", Form: FinalCtaForm }),
   define({ key: "footer", title: "Rodapé", description: "Frases e aviso legal", path: "/", anchor: "rodape", Form: FooterForm }),
+  define({
+    key: "accountPage",
+    title: "Página da conta",
+    description: "Caixa de compra, o que está incluso e como você recebe",
+    path: PREVIEW_ACCOUNT_PATH,
+    anchor: "incluso-title",
+    Form: AccountPageForm,
+  }),
   define({
     key: "orderPage",
     title: "Página do pedido",

@@ -55,6 +55,10 @@ export const previewUrl = (path: string) => `${path}${path.includes("?") ? "&" :
 export const PREVIEW_ORDER_CODE = "JD-EXEMPLO";
 export const PREVIEW_ORDER_PATH = `/pedido/${PREVIEW_ORDER_CODE}`;
 
+/** Na prévia, esta página de conta mostra a primeira conta do estoque. */
+export const PREVIEW_ACCOUNT_SLUG = "exemplo-da-previa";
+export const PREVIEW_ACCOUNT_PATH = `/contas/${PREVIEW_ACCOUNT_SLUG}`;
+
 /** Atributo que liga um elemento do site ao campo do editor que o controla. */
 export const EDIT_ATTRIBUTE = "data-edit";
 

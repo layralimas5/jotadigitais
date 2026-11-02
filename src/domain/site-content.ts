@@ -7,6 +7,7 @@
  */
 
 import type { PaymentPlan } from "./payment";
+import type { Platform } from "./platform";
 
 export interface TitleBlock {
   eyebrow: string;
@@ -17,6 +18,13 @@ export interface TitleBlock {
 export interface TextCard {
   title: string;
   text: string;
+}
+
+/** Card com um texto para conta de TikTok e outro para as demais redes. */
+export interface PlatformCard {
+  title: string;
+  tiktok: string;
+  other: string;
 }
 
 export interface SiteImage {
@@ -108,6 +116,33 @@ export interface SiteContent {
     paymentStepTitle: string;
     paymentStepText: Record<PaymentPlan, string>;
     steps: [TextCard, TextCard];
+  };
+  /** Página de cada conta (/contas/...): a vitrine de venda. */
+  accountPage: {
+    priceLabel: string;
+    pixLine: string;
+    /** {parcelas} vira o máximo de parcelas no cartão. */
+    cardLine: string;
+    cardNote: string;
+    available: string;
+    reserved: string;
+    sold: string;
+    buyButton: string;
+    otherButton: string;
+    perkDelivery: TextCard;
+    perkGuarantee: PlatformCard;
+    perkSupport: PlatformCard;
+    aboutTitle: string;
+    nicheNote: string;
+    specsTitle: string;
+    includedTitle: string;
+    /** Itens fixos de cada rede. Monetização, conta profissional e afins entram sozinhos, pelos dados da conta. */
+    included: Record<Platform, string[]>;
+    deliveryTitle: string;
+    /** Null: usa os quatro passos de Como funciona. */
+    deliverySteps: [TextCard, TextCard, TextCard, TextCard] | null;
+    faqTitle: string;
+    relatedTitle: string;
   };
 }
 
@@ -286,6 +321,48 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       },
       { title: "Deixe a conta com a sua cara", text: "Troque nome, @ e foto e afilie seus primeiros produtos na vitrine." },
     ],
+  },
+  accountPage: {
+    priceLabel: "Valor da conta",
+    pixLine: "À vista no Pix",
+    cardLine: "Ou em até {parcelas}x no cartão",
+    cardNote: "(juros da operadora)",
+    available: "Disponível. Unidade única: quando alguém compra, ela sai da vitrine.",
+    reserved: "Esta conta está reservada por outro cliente.",
+    sold: "Esta conta já foi vendida.",
+    buyButton: "Comprar esta conta",
+    otherButton: "Ver outras contas",
+    perkDelivery: { title: "Entrega pelo WhatsApp", text: "Login, senha e passo a passo logo após a confirmação do pagamento." },
+    perkGuarantee: {
+      title: "{dias} dias de garantia",
+      tiktok: "Shop inativo na entrega? Você recebe outra conta ou o dinheiro de volta.",
+      other: "Conta diferente do anunciado na entrega? Você recebe outra ou o dinheiro de volta.",
+    },
+    perkSupport: {
+      title: "Suporte na troca",
+      tiktok: "Ajudamos a trocar nome, @, foto e a fazer a primeira afiliação.",
+      other: "Ajudamos a trocar nome, @, foto e a deixar a conta com a sua cara.",
+    },
+    aboutTitle: "Sobre esta conta",
+    nicheNote: "O nicho é só o conteúdo de hoje. Você pode mudar o tipo de publicação e o público que quer atingir.",
+    specsTitle: "Ficha técnica",
+    includedTitle: "O que está incluso",
+    included: {
+      tiktok: [
+        "Central de Criadores do TikTok Shop ativa",
+        "Seguidores reais e brasileiros",
+        "Sem documentos vinculados",
+        "Troca livre de nome, @ e foto",
+        "Login e senha entregues pelo WhatsApp",
+      ],
+      instagram: ["Troca livre de nome, @ e foto", "Login e senha entregues pelo WhatsApp", "E-mail da conta trocado para o seu"],
+      youtube: ["Acesso de proprietário ao canal", "Troca livre de nome, @ e foto", "Login e senha entregues pelo WhatsApp"],
+      facebook: ["Troca livre de nome, @ e foto", "Login e senha entregues pelo WhatsApp"],
+    },
+    deliveryTitle: "Como você recebe",
+    deliverySteps: null,
+    faqTitle: "Dúvidas sobre a compra",
+    relatedTitle: "Você também pode gostar",
   },
 };
 
