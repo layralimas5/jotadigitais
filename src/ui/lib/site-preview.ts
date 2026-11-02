@@ -51,6 +51,10 @@ export const IS_SITE_PREVIEW =
 
 export const previewUrl = (path: string) => `${path}${path.includes("?") ? "&" : "?"}${PREVIEW_PARAM}=1`;
 
+/** Pedido de exemplo que a prévia da aba Site mostra (já pago): não existe no banco. */
+export const PREVIEW_ORDER_CODE = "JD-EXEMPLO";
+export const PREVIEW_ORDER_PATH = `/pedido/${PREVIEW_ORDER_CODE}`;
+
 /** Atributo que liga um elemento do site ao campo do editor que o controla. */
 export const EDIT_ATTRIBUTE = "data-edit";
 
