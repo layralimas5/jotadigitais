@@ -2,11 +2,12 @@ import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAccount, findAccount, listPartners, saveAccount } from "@/application/admin-use-cases";
-import { ACCOUNT_STATUSES, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
+import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { AccountCard } from "@/ui/components/account/AccountCard";
+import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -171,6 +172,68 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
   }
 }
 
+/** Quantas fotos de post cada mockup mostra. */
+const MOCKUP_POSTS_BY_PLATFORM: Record<Platform, { count: number; label: string; hint: string }> = {
+  instagram: { count: MAX_MOCKUP_POSTS, label: "Fotos da grade", hint: "Até 9 fotos de posts, na ordem da grade (da esquerda para a direita)." },
+  tiktok: { count: 0, label: "", hint: "" },
+  youtube: { count: 2, label: "Capas de vídeo", hint: "Até 2 capas de vídeos do canal." },
+  facebook: { count: 1, label: "Foto de um post", hint: "A foto que aparece no post de exemplo." },
+};
+
+const firstErrorOf = (errors: AccountFormErrors, prefix: string) =>
+  errors[prefix] ?? Object.entries(errors).find(([key]) => key.startsWith(`${prefix}.`))?.[1];
+
+interface MockupSectionProps {
+  values: AccountFormValues;
+  errors: AccountFormErrors;
+  set: SetField;
+}
+
+/** Enfeites do mockup do celular. Nome, @, foto de perfil e números vêm dos campos de cima. */
+function MockupSection({ values, errors, set }: MockupSectionProps) {
+  const posts = MOCKUP_POSTS_BY_PLATFORM[values.platform];
+  const hasCover = values.platform === "youtube" || values.platform === "facebook";
+  return (
+    <FormSection
+      title="Mockup do celular (opcional)"
+      description="O celular da página da conta. Nome, @, foto de perfil e números saem dos campos acima; aqui ficam a bio e as fotos. A prévia ao lado mostra o resultado."
+    >
+      <TextAreaField
+        label="Bio"
+        name="mockup.bio"
+        rows={3}
+        maxLength={150}
+        value={values.mockupBio}
+        onChange={(event) => set("mockupBio", event.target.value)}
+        error={errors["mockup.bio"]}
+        hint="Até 150 caracteres. Vazia, o mockup fica sem bio."
+      />
+      {hasCover && (
+        <GalleryField
+          label={values.platform === "youtube" ? "Capa do canal" : "Capa da página"}
+          folder="accounts"
+          images={values.mockupCoverUrl ? [values.mockupCoverUrl] : []}
+          max={1}
+          onChange={(images) => set("mockupCoverUrl", images[0] ?? "")}
+          error={errors["mockup.coverUrl"]}
+          hint="Uma imagem larga. Sem capa, o mockup usa um degradê."
+        />
+      )}
+      {posts.count > 0 && (
+        <GalleryField
+          label={posts.label}
+          folder="accounts"
+          images={values.mockupPosts}
+          max={posts.count}
+          onChange={(images) => set("mockupPosts", images)}
+          error={firstErrorOf(errors, "mockup.posts")}
+          hint={posts.hint}
+        />
+      )}
+    </FormSection>
+  );
+}
+
 function LivePreview({ values, accountId }: { values: AccountFormValues; accountId: string }) {
   const preview = previewAccountOf(values, accountId);
   if (!preview) {
@@ -186,6 +249,10 @@ function LivePreview({ values, accountId }: { values: AccountFormValues; account
         <AccountCard account={preview} />
       </div>
       <p className="mt-2 text-xs text-mist">Atualiza enquanto você preenche. Campos vazios aparecem com um exemplo.</p>
+      <p className="mt-6 text-sm font-medium text-fog">Mockup na página da conta</p>
+      <div className="pointer-events-none mt-3 flex justify-center">
+        <PhoneProfile account={preview} />
+      </div>
     </div>
   );
 }
@@ -377,6 +444,8 @@ function AccountEditor({ account }: { account: Account | null }) {
               hint={`Até ${MAX_IMAGES} prints. São reduzidos e convertidos automaticamente.`}
             />
           </FormSection>
+
+          <MockupSection values={values} errors={errors} set={set} />
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-24">

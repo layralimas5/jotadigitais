@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { accountBaseSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
-import { ACCOUNT_STATUSES, effectiveStatus, type Account, type AccountData } from "@/domain/account";
+import { accountBaseSchema, accountMockupSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
+import { ACCOUNT_STATUSES, effectiveStatus, EMPTY_MOCKUP, type Account, type AccountData } from "@/domain/account";
 import { BRAZIL_STATES } from "@/domain/brazil";
 import { LEAD_SOURCES } from "@/domain/lead";
 import { ORDER_STATUSES, PAYMENT_METHODS, type Order } from "@/domain/order";
@@ -30,11 +30,12 @@ const accountRowSchema = z.object({
   partner_id: z.string().nullish(),
   profile_url: z.string().nullable(),
   stats_synced_at: z.string().nullish(),
+  mockup: z.unknown(),
 });
 
 /** O que a chave anon pode ler de uma conta: sem o parceiro que a forneceu. */
 export const PUBLIC_ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url";
+  "id, slug, platform, display_name, handle, niche, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup";
 
 export const ACCOUNT_COLUMNS = `${PUBLIC_ACCOUNT_COLUMNS}, partner_id, stats_synced_at`;
 
@@ -55,6 +56,8 @@ export function toAccount(raw: unknown): Account {
     partnerId: row.partner_id ?? null,
     profileUrl: row.profile_url,
     statsSyncedAt: row.stats_synced_at ? new Date(row.stats_synced_at).toISOString() : null,
+    // Mockup com algum campo fora do formato não derruba a página: volta ao mockup vazio.
+    mockup: accountMockupSchema.catch(EMPTY_MOCKUP).parse(row.mockup ?? undefined),
   });
   const platformStats = platformStatsSchema.parse({ platform: row.platform, stats: row.stats });
   return { ...base, ...platformStats, id: row.id, reservedUntil: row.reserved_until };
@@ -78,6 +81,7 @@ export function toAccountRow(data: AccountData) {
     partner_id: data.partnerId,
     profile_url: data.profileUrl,
     stats_synced_at: data.statsSyncedAt,
+    mockup: data.mockup,
   };
 }
 

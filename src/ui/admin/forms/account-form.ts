@@ -37,6 +37,9 @@ export interface AccountFormValues {
   partnerId: string;
   profileUrl: string;
   statsSyncedAt: string | null;
+  mockupBio: string;
+  mockupCoverUrl: string;
+  mockupPosts: string[];
 }
 
 export type AccountFormErrors = Record<string, string>;
@@ -70,6 +73,9 @@ export function emptyAccountForm(): AccountFormValues {
     partnerId: "",
     profileUrl: "",
     statsSyncedAt: null,
+    mockupBio: "",
+    mockupCoverUrl: "",
+    mockupPosts: [],
   };
 }
 
@@ -102,6 +108,10 @@ export function fromAccount(account: Account): AccountFormValues {
     partnerId: account.partnerId ?? "",
     profileUrl: account.profileUrl ?? "",
     statsSyncedAt: account.statsSyncedAt ?? null,
+    // Conta salva antes do mockup existir (ou do modo demonstração antigo) não tem o campo.
+    mockupBio: account.mockup?.bio ?? "",
+    mockupCoverUrl: account.mockup?.coverUrl ?? "",
+    mockupPosts: account.mockup?.posts ?? [],
   };
   switch (account.platform) {
     case "tiktok":
@@ -179,6 +189,7 @@ export function toRawAccount(values: AccountFormValues) {
     partnerId: values.partnerId || null,
     profileUrl: values.profileUrl || null,
     statsSyncedAt: values.statsSyncedAt,
+    mockup: { bio: values.mockupBio || null, coverUrl: values.mockupCoverUrl || null, posts: values.mockupPosts },
   };
 }
 
@@ -237,6 +248,9 @@ const PREVIEW_FALLBACK: Record<string, Partial<AccountFormValues>> = {
   images: { images: [] },
   listedAt: { listedAt: today() },
   profileUrl: { profileUrl: "" },
+  "mockup.bio": { mockupBio: "" },
+  "mockup.coverUrl": { mockupCoverUrl: "" },
+  "mockup.posts": { mockupPosts: [] },
   "stats.likes": { likes: "0" },
   "stats.following": { following: "0" },
   "stats.posts": { posts: "0" },
@@ -260,7 +274,7 @@ export function previewAccountOf(values: AccountFormValues, id: string): Account
       return { ...result.data, id, reservedUntil: null, price: Number.isNaN(price) ? 0 : price };
     }
     for (const key of Object.keys(result.errors)) {
-      const fallback = PREVIEW_FALLBACK[key.startsWith("images.") ? "images" : key];
+      const fallback = PREVIEW_FALLBACK[key.startsWith("images.") ? "images" : key.startsWith("mockup.posts") ? "mockup.posts" : key];
       if (!fallback) return null;
       draft = { ...draft, ...fallback };
     }
@@ -286,6 +300,9 @@ export const ACCOUNT_FIELD_ORDER = [
   "listedAt",
   "description",
   "images",
+  "mockup.bio",
+  "mockup.coverUrl",
+  "mockup.posts",
 ] as const;
 
 export function useAccountForm(initial: AccountFormValues) {

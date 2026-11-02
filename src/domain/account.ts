@@ -76,7 +76,22 @@ export interface AccountBase {
   profileUrl: string | null;
   /** Quando os números foram puxados da rede pela última vez. */
   statsSyncedAt: string | null;
+  /** O que o Jota escolhe para enfeitar o mockup do celular na página da conta. */
+  mockup: AccountMockup;
 }
+
+/** Fotos de posts que cabem no mockup: a grade do Instagram tem 9. */
+export const MAX_MOCKUP_POSTS = 9;
+
+export interface AccountMockup {
+  bio: string | null;
+  /** Capa do canal (YouTube) ou da página (Facebook). */
+  coverUrl: string | null;
+  /** Grade do Instagram, capas de vídeo do YouTube, foto do post do Facebook. */
+  posts: string[];
+}
+
+export const EMPTY_MOCKUP: AccountMockup = { bio: null, coverUrl: null, posts: [] };
 
 /** Dados que o administrador preenche. */
 export type AccountData = AccountBase & PlatformStats;
