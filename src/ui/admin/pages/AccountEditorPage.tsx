@@ -175,7 +175,7 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
 /** Quantas fotos de post cada mockup mostra. */
 const MOCKUP_POSTS_BY_PLATFORM: Record<Platform, { count: number; label: string; hint: string }> = {
   instagram: { count: MAX_MOCKUP_POSTS, label: "Fotos da grade", hint: "Até 9 fotos de posts, na ordem da grade (da esquerda para a direita)." },
-  tiktok: { count: 0, label: "", hint: "" },
+  tiktok: { count: 3, label: "Capas de vídeo", hint: "Até 3 capas dos vídeos mais recentes. Sem capas, o mockup mostra a vitrine do TikTok Shop." },
   youtube: { count: 2, label: "Capas de vídeo", hint: "Até 2 capas de vídeos do canal." },
   facebook: { count: 1, label: "Foto de um post", hint: "A foto que aparece no post de exemplo." },
 };
@@ -196,7 +196,7 @@ function MockupSection({ values, errors, set }: MockupSectionProps) {
   return (
     <FormSection
       title="Mockup do celular (opcional)"
-      description="O celular da página da conta. Nome, @, foto de perfil e números saem dos campos acima; aqui ficam a bio e as fotos. A prévia ao lado mostra o resultado."
+      description="O celular da página da conta. Nome, @, foto de perfil e números saem dos campos acima; aqui ficam a bio e as fotos. O Puxar dados preenche o que a rede mostrar, e a prévia ao lado mostra o resultado."
     >
       <TextAreaField
         label="Bio"
@@ -350,14 +350,14 @@ function AccountEditor({ account }: { account: Account | null }) {
 
       <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
         <div className="space-y-5">
-          <FormSection title="Puxar dados da rede" description="Cole o link do perfil e o sistema preenche nome, @, foto e números.">
+          <FormSection title="Puxar dados da rede" description="Cole o link do perfil e o sistema preenche nome, @, foto, números, bio e as fotos do mockup.">
             <ProfileImport
               url={values.profileUrl}
               syncedAt={values.statsSyncedAt}
               error={errors.profileUrl}
               onUrlChange={(url) => set("profileUrl", url)}
-              onImported={({ profile, avatarUrl }) => {
-                form.replace(applyProfileLookup(values, profile, avatarUrl));
+              onImported={({ profile, images }) => {
+                form.replace(applyProfileLookup(values, profile, images));
                 toast.show(`Dados de ${profile.handle} puxados. Revise e salve.`);
               }}
             />

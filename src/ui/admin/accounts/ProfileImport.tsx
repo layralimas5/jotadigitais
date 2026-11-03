@@ -2,7 +2,7 @@ import { AlertTriangle, DownloadCloud, ExternalLink, RefreshCw, Sparkles } from 
 import { useState, type KeyboardEvent } from "react";
 import { lookupAccountProfile, uploadImage, type AdminDeps } from "@/application/admin-use-cases";
 import { formatCount } from "@/domain/account";
-import { insightsOf, type ProfileLookup } from "@/domain/profile-lookup";
+import { insightsOf, type ProfileLookup, type StoredProfileImages } from "@/domain/profile-lookup";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
@@ -13,26 +13,35 @@ import { prepareImage } from "../lib/prepare-image";
 
 export interface ImportedProfile {
   profile: ProfileLookup;
-  /** Foto já enviada para o nosso armazenamento; nula se a rede não entregou foto. */
-  avatarUrl: string | null;
+  /** Imagens já enviadas para o nosso armazenamento; a que não subir fica de fora. */
+  images: StoredProfileImages;
 }
 
-/** A foto vem da rede como data URL: passa pelo mesmo tratamento (WebP, tamanho) das fotos enviadas à mão. */
-async function storeAvatar(deps: AdminDeps, dataUrl: string | null): Promise<string | null> {
+/** A imagem vem da rede como data URL: passa pelo mesmo tratamento (WebP, tamanho) das fotos enviadas à mão. */
+async function storeImage(deps: AdminDeps, dataUrl: string | null, name: string): Promise<string | null> {
   if (!dataUrl) return null;
   try {
     const blob = await (await fetch(dataUrl)).blob();
-    const prepared = await prepareImage(new File([blob], "perfil", { type: blob.type }));
+    const prepared = await prepareImage(new File([blob], name, { type: blob.type }));
     return (await uploadImage(deps, prepared, "accounts")).url;
   } catch (error) {
-    console.error("Foto do perfil não foi salva", error);
+    console.error(`Imagem "${name}" não foi salva`, error);
     return null;
   }
 }
 
+async function storeImages(deps: AdminDeps, profile: ProfileLookup): Promise<StoredProfileImages> {
+  const [avatarUrl, coverUrl, ...postUrls] = await Promise.all([
+    storeImage(deps, profile.avatarDataUrl, "perfil"),
+    storeImage(deps, profile.coverDataUrl, "capa"),
+    ...profile.postDataUrls.map((dataUrl, index) => storeImage(deps, dataUrl, `post-${index + 1}`)),
+  ]);
+  return { avatarUrl: avatarUrl ?? null, coverUrl: coverUrl ?? null, postUrls: postUrls.filter((url): url is string => url !== null) };
+}
+
 async function importProfile(deps: AdminDeps, url: string): Promise<ImportedProfile> {
   const profile = await lookupAccountProfile(deps, url);
-  return { profile, avatarUrl: await storeAvatar(deps, profile.avatarDataUrl) };
+  return { profile, images: await storeImages(deps, profile) };
 }
 
 function notesOf(profile: ProfileLookup): string[] {
@@ -40,6 +49,7 @@ function notesOf(profile: ProfileLookup): string[] {
   if (profile.approximate) notes.push("A rede mostra alguns números arredondados. Confira o valor exato no app antes de salvar.");
   if (profile.platform === "youtube") notes.push("Horas de exibição e monetização não são públicas: preencha pelo YouTube Studio.");
   else notes.push("Monetização não aparece no perfil público: marque à mão se a conta já recebe.");
+  if (profile.platform === "instagram") notes.push("As fotos da grade do Instagram não vêm na busca: envie no mockup do celular.");
   return notes;
 }
 
@@ -141,7 +151,7 @@ export function ProfileImport({ url, syncedAt, error, onUrlChange, onImported }:
           onChange={(event) => onUrlChange(event.target.value)}
           onKeyDown={onKeyDown}
           error={error}
-          hint="TikTok, Instagram ou YouTube. Os números, o nome e a foto vêm direto do perfil público, e o site mostra um botão para o cliente abrir a conta."
+          hint="TikTok, Instagram ou YouTube. Números, nome, foto, bio e as capas das últimas publicações vêm direto do perfil público, e o site mostra um botão para o cliente abrir a conta."
         />
         <Button type="button" variant="secondary" size="lg" className="shrink-0 sm:mt-7" disabled={!canFetch} onClick={() => void run()}>
           {lookup.pending ? (

@@ -1,9 +1,11 @@
 import { FunctionsHttpError, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { ProfileLookupService } from "@/application/ports";
+import { MAX_MOCKUP_POSTS } from "@/domain/account";
 import { PROFILE_LOOKUP_ERRORS, ProfileLookupError, type ProfileLookup } from "@/domain/profile-lookup";
 
 const count = z.number().int().nonnegative();
+const imageDataUrl = z.string().startsWith("data:image/");
 
 /** A resposta vem de fora (função do servidor lendo a rede): tudo é validado antes de chegar na tela. */
 const profileLookupSchema = z.object({
@@ -21,7 +23,10 @@ const profileLookupSchema = z.object({
   professional: z.boolean().nullable(),
   verified: z.boolean().nullable(),
   bio: z.string().nullable(),
-  avatarDataUrl: z.string().startsWith("data:image/").nullable(),
+  avatarDataUrl: imageDataUrl.nullable(),
+  // A função publicada antes das fotos não manda estes dois campos.
+  coverDataUrl: imageDataUrl.nullable().default(null),
+  postDataUrls: z.array(imageDataUrl).max(MAX_MOCKUP_POSTS).default([]),
   fetchedAt: z.string(),
 });
 

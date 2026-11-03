@@ -77,7 +77,30 @@ function FeatureRow({ icon, title, subtitle, iconClassName }: { icon: ReactNode;
   );
 }
 
+/** Com capas de vídeo, a aba de vídeos fica ativa; sem elas, a vitrine do TikTok Shop. */
+function TikTokVideos({ preview }: { preview: Extract<ProfilePreview, { platform: "tiktok" }> }) {
+  const covers = mockupOf(preview).posts;
+  return (
+    <div className="space-y-2 px-0.5 pt-0.5 pb-5">
+      <div className="grid grid-cols-3 gap-0.5">
+        {[0, 1, 2].map((index) => (
+          <MockupImage key={index} src={covers[index]} seed={`${preview.id}-v${index}`} className="block aspect-[3/4] w-full" />
+        ))}
+      </div>
+      <div className="px-2.5">
+        <FeatureRow
+          icon={<ShoppingBag className="size-3.5" />}
+          iconClassName="bg-[#fe2c55]"
+          title="TikTok Shop para criadores"
+          subtitle="Acesso liberado"
+        />
+      </div>
+    </div>
+  );
+}
+
 function TikTokBody({ preview }: { preview: Extract<ProfilePreview, { platform: "tiktok" }> }) {
+  const activeTab = mockupOf(preview).posts.length > 0 ? 0 : 1;
   return (
     <>
       <div className="flex items-center justify-between px-4 pt-6">
@@ -99,26 +122,30 @@ function TikTokBody({ preview }: { preview: Extract<ProfilePreview, { platform: 
       </div>
       <div className="mt-4 grid grid-cols-4 border-b border-zinc-200 text-zinc-400">
         {[Menu, ShoppingBag, Lock, Bookmark].map((Icon, index) => (
-          <span key={index} className={cn("flex justify-center pb-2", index === 1 && "border-b-2 border-zinc-900 text-zinc-900")}>
+          <span key={index} className={cn("flex justify-center pb-2", index === activeTab && "border-b-2 border-zinc-900 text-zinc-900")}>
             <Icon className="size-3.5" />
           </span>
         ))}
       </div>
-      <div className="space-y-2 px-3 pt-3 pb-5">
-        <FeatureRow
-          icon={<ShoppingBag className="size-3.5" />}
-          iconClassName="bg-[#fe2c55]"
-          title="TikTok Shop para criadores"
-          subtitle="Acesso liberado"
-        />
-        <div className="rounded-xl bg-zinc-50 p-3 text-center">
-          <p className="text-[0.66rem] font-bold text-zinc-900">Ganhe com a vitrine</p>
-          <p className="mt-0.5 text-[0.55rem] leading-snug text-zinc-500">Adicione produtos e ganhe comissão a cada venda.</p>
-          <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#fe2c55] px-3 py-1 text-[0.58rem] font-semibold text-white">
-            <Heart className="size-2.5" /> Adicionar produtos
-          </span>
+      {activeTab === 0 ? (
+        <TikTokVideos preview={preview} />
+      ) : (
+        <div className="space-y-2 px-3 pt-3 pb-5">
+          <FeatureRow
+            icon={<ShoppingBag className="size-3.5" />}
+            iconClassName="bg-[#fe2c55]"
+            title="TikTok Shop para criadores"
+            subtitle="Acesso liberado"
+          />
+          <div className="rounded-xl bg-zinc-50 p-3 text-center">
+            <p className="text-[0.66rem] font-bold text-zinc-900">Ganhe com a vitrine</p>
+            <p className="mt-0.5 text-[0.55rem] leading-snug text-zinc-500">Adicione produtos e ganhe comissão a cada venda.</p>
+            <span className="mt-2 inline-flex items-center gap-1 rounded-md bg-[#fe2c55] px-3 py-1 text-[0.58rem] font-semibold text-white">
+              <Heart className="size-2.5" /> Adicionar produtos
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }
