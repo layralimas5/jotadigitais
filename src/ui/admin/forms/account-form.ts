@@ -3,7 +3,7 @@ import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
 import { slugify, type Account, type AccountData, type AccountStatus, type FacebookKind } from "@/domain/account";
 import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
-import type { ProfileLookup } from "@/domain/profile-lookup";
+import type { ProfileLookup, StoredProfileImages } from "@/domain/profile-lookup";
 
 /**
  * Estado do formulário: números como texto (o que a pessoa digita) e os campos de todas as redes juntos,
@@ -199,7 +199,13 @@ const formatOptional = (value: number | null, current: string) => (value === nul
  * Preenche o formulário com o que veio da rede. Números e nomes são trocados; o que a rede não mostra
  * (preço, status, horas de exibição, monetização) fica como estava para o Jota completar.
  */
-export function applyProfileLookup(values: AccountFormValues, profile: ProfileLookup, avatarUrl: string | null): AccountFormValues {
+/** Mesmo limite do campo Bio do mockup. */
+const MOCKUP_BIO_MAX = 150;
+
+const clampBio = (bio: string) => (bio.length > MOCKUP_BIO_MAX ? `${bio.slice(0, MOCKUP_BIO_MAX - 1).trimEnd()}…` : bio);
+
+/** O que a rede não entregou mantém o que já estava na ficha. */
+export function applyProfileLookup(values: AccountFormValues, profile: ProfileLookup, images: StoredProfileImages): AccountFormValues {
   const next: AccountFormValues = {
     ...values,
     platform: profile.platform,
@@ -212,7 +218,10 @@ export function applyProfileLookup(values: AccountFormValues, profile: ProfileLo
     videos: formatOptional(profile.videos, values.videos),
     views: formatOptional(profile.views, values.views),
     professional: profile.platform === "instagram" && profile.professional !== null ? profile.professional : values.professional,
-    avatarUrl: avatarUrl ?? values.avatarUrl,
+    avatarUrl: images.avatarUrl ?? values.avatarUrl,
+    mockupBio: profile.bio ? clampBio(profile.bio.trim()) : values.mockupBio,
+    mockupCoverUrl: images.coverUrl ?? values.mockupCoverUrl,
+    mockupPosts: images.postUrls.length > 0 ? images.postUrls : values.mockupPosts,
     profileUrl: profile.profileUrl,
     statsSyncedAt: profile.fetchedAt,
   };

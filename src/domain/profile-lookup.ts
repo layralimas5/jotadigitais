@@ -18,7 +18,18 @@ export interface ProfileLookup {
   verified: boolean | null;
   bio: string | null;
   avatarDataUrl: string | null;
+  /** Capa do canal (YouTube). */
+  coverDataUrl: string | null;
+  /** Capas das publicações mais recentes, da mais nova para a mais antiga. */
+  postDataUrls: string[];
   fetchedAt: string;
+}
+
+/** As imagens da busca depois de enviadas para o nosso armazenamento. */
+export interface StoredProfileImages {
+  avatarUrl: string | null;
+  coverUrl: string | null;
+  postUrls: string[];
 }
 
 export const PROFILE_LOOKUP_ERRORS = ["invalid_url", "unsupported", "not_found", "blocked", "failed", "unavailable"] as const;

@@ -23,6 +23,10 @@ export interface ProfileLookup {
   bio: string | null;
   /** Foto de perfil já baixada, porque o link da rede expira em poucas horas. */
   avatarDataUrl: string | null;
+  /** Capa do canal (YouTube), também já baixada. */
+  coverDataUrl: string | null;
+  /** Capas das publicações mais recentes, da mais nova para a mais antiga. */
+  postDataUrls: string[];
   fetchedAt: string;
 }
 
@@ -50,7 +54,10 @@ const DESKTOP_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
 
 const TIMEOUT_MS = 12_000;
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+/** Quantas capas cabem no mockup de cada rede. */
+const RECENT_POSTS = { tiktok: 3, youtube: 2 } as const;
+const EMBED_ATTEMPTS = 3;
 
 interface ProfileTarget {
   platform: LookupPlatform;
@@ -141,22 +148,38 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** Baixa a foto do perfil e devolve como data URL. Sem foto não é erro: a ficha só fica sem ela. */
-async function fetchAvatar(url: string | null): Promise<string | null> {
+/** Baixa uma imagem e devolve como data URL. Sem imagem não é erro: a ficha só fica sem ela. */
+async function fetchImage(url: string | null): Promise<string | null> {
   if (!url) return null;
   try {
     const response = await get(url);
     const type = response.headers.get("content-type") ?? "";
     if (!response.ok || !type.startsWith("image/")) return null;
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > MAX_AVATAR_BYTES) return null;
+    if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) return null;
     return `data:${type.split(";")[0]};base64,${toBase64(bytes)}`;
   } catch {
     return null;
   }
 }
 
-const empty = { following: null, likes: null, posts: null, videos: null, views: null, professional: null, verified: null, bio: null };
+async function fetchImages(urls: string[]): Promise<string[]> {
+  const images = await Promise.all(urls.map(fetchImage));
+  return images.filter((image): image is string => image !== null);
+}
+
+const empty = {
+  following: null,
+  likes: null,
+  posts: null,
+  videos: null,
+  views: null,
+  professional: null,
+  verified: null,
+  bio: null,
+  coverDataUrl: null,
+  postDataUrls: [],
+};
 
 // ---------------------------------------------------------------------------
 // TikTok: a página do perfil traz um JSON com os números exatos
@@ -187,6 +210,38 @@ function tiktokHandleOf(url: URL): string | undefined {
   return TIKTOK_RESERVED_PATHS.has(first.toLowerCase()) ? undefined : first;
 }
 
+interface TikTokEmbedVideo {
+  coverUrl?: string;
+  originCoverUrl?: string;
+}
+
+/**
+ * O perfil não traz os vídeos (eles chegam depois, por uma API assinada); a página de incorporação
+ * oficial do perfil traz. Se ela falhar, a ficha só fica sem as capas.
+ */
+async function tiktokEmbedState(handle: string): Promise<string | null> {
+  for (let attempt = 1; attempt <= EMBED_ATTEMPTS; attempt++) {
+    // Sob carga a página responde 429, 503 ou "overload-protect triggered"; na tentativa seguinte costuma vir inteira.
+    const html = await getText(`https://www.tiktok.com/embed/@${encodeURIComponent(handle)}`, { "User-Agent": DESKTOP_USER_AGENT }).catch(() => "");
+    const json = html.match(/<script id="__FRONTITY_CONNECT_STATE__"[^>]*>([\s\S]*?)<\/script>/)?.[1];
+    if (json) return json;
+    if (attempt < EMBED_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
+  }
+  return null;
+}
+
+async function tiktokRecentCovers(handle: string): Promise<string[]> {
+  try {
+    const json = await tiktokEmbedState(handle);
+    if (!json) return [];
+    const videos: TikTokEmbedVideo[] | undefined = JSON.parse(json)?.source?.data?.[`/embed/@${handle}`]?.videoList;
+    const covers = (videos ?? []).map((video) => video.originCoverUrl ?? video.coverUrl).filter((cover): cover is string => Boolean(cover));
+    return fetchImages(covers.slice(0, RECENT_POSTS.tiktok));
+  } catch {
+    return [];
+  }
+}
+
 async function lookupTikTok(url: URL): Promise<ProfileLookup> {
   const handle = tiktokHandleOf(url);
   if (!handle) throw new LookupError("invalid_url");
@@ -202,6 +257,7 @@ async function lookupTikTok(url: URL): Promise<ProfileLookup> {
   if (!info?.user?.uniqueId || !info.stats) throw new LookupError("not_found");
   const { user, stats } = info;
   const text = info.statsV2 ?? {};
+  const [avatarDataUrl, postDataUrls] = await Promise.all([fetchImage(user.avatarLarger ?? null), tiktokRecentCovers(user.uniqueId ?? handle)]);
   return {
     ...empty,
     platform: "tiktok",
@@ -216,7 +272,8 @@ async function lookupTikTok(url: URL): Promise<ProfileLookup> {
     verified: user.verified ?? null,
     professional: user.commerceUserInfo?.commerceUser ?? null,
     bio: user.signature || null,
-    avatarDataUrl: await fetchAvatar(user.avatarLarger ?? null),
+    avatarDataUrl,
+    postDataUrls,
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -259,7 +316,7 @@ async function instagramFromApi(username: string): Promise<ProfileLookup | null>
     professional: user.is_professional_account ?? null,
     verified: user.is_verified ?? null,
     bio: user.biography || null,
-    avatarDataUrl: await fetchAvatar(user.profile_pic_url_hd ?? null),
+    avatarDataUrl: await fetchImage(user.profile_pic_url_hd ?? null),
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -283,7 +340,7 @@ async function instagramFromPage(username: string): Promise<ProfileLookup> {
     approximate: Boolean(followers?.approximate || following?.approximate || posts?.approximate),
     following: following?.value ?? null,
     posts: posts?.value ?? null,
-    avatarDataUrl: await fetchAvatar(metaContent(html, "og:image")),
+    avatarDataUrl: await fetchImage(metaContent(html, "og:image")),
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -308,6 +365,32 @@ function channelPath(url: URL): string {
 
 const textField = (html: string, field: string) => html.match(new RegExp(`"${field}":"([^"]+)"`))?.[1] ?? null;
 
+/** Texto tirado de dentro de um JSON da página: desfaz os escapes (& e afins). */
+function unescapeJson(text: string): string | null {
+  try {
+    return JSON.parse(`"${text}"`) as string;
+  } catch {
+    return null;
+  }
+}
+
+function youtubeBannerUrl(html: string): string | null {
+  const url = html.match(/"imageBannerViewModel":\{"image":\{"sources":\[\{"url":"([^"]+)"/)?.[1];
+  return url ? unescapeJson(url) : null;
+}
+
+/** O feed RSS público do canal lista os vídeos mais recentes; a miniatura 16:9 sai do id do vídeo. */
+async function youtubeRecentThumbnails(channelId: string | null): Promise<string[]> {
+  if (!channelId) return [];
+  try {
+    const feed = await getText(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`);
+    const ids = [...feed.matchAll(/<yt:videoId>([\w-]+)<\/yt:videoId>/g)].flatMap((match) => (match[1] ? [match[1]] : []));
+    return fetchImages(ids.slice(0, RECENT_POSTS.youtube).map((id) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`));
+  } catch {
+    return [];
+  }
+}
+
 async function lookupYouTube(url: URL): Promise<ProfileLookup> {
   const path = channelPath(url);
   const html = await getText(`https://www.youtube.com${path}/about?hl=en&gl=US`, { "User-Agent": DESKTOP_USER_AGENT });
@@ -318,6 +401,11 @@ async function lookupYouTube(url: URL): Promise<ProfileLookup> {
   const videos = textField(html, "videoCountText");
   const canonical = textField(html, "canonicalChannelUrl") ?? `https://www.youtube.com${path}`;
   const handle = canonical.match(/\/(@[^/?#"]+)/)?.[1] ?? (path.startsWith("/@") ? path.slice(1) : `@${path.split("/").pop() ?? ""}`);
+  const [avatarDataUrl, coverDataUrl, postDataUrls] = await Promise.all([
+    fetchImage(metaContent(html, "og:image")),
+    fetchImage(youtubeBannerUrl(html)),
+    youtubeRecentThumbnails(textField(html, "externalId")),
+  ]);
   return {
     ...empty,
     platform: "youtube",
@@ -329,7 +417,9 @@ async function lookupYouTube(url: URL): Promise<ProfileLookup> {
     views: views ? (parseCount(views)?.value ?? null) : null,
     videos: videos ? (parseCount(videos)?.value ?? null) : null,
     bio: metaContent(html, "og:description"),
-    avatarDataUrl: await fetchAvatar(metaContent(html, "og:image")),
+    avatarDataUrl,
+    coverDataUrl,
+    postDataUrls,
     fetchedAt: new Date().toISOString(),
   };
 }
