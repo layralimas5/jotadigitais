@@ -140,6 +140,11 @@ export function isPurchasable(account: Pick<Account, "status">): boolean {
   return account.status === "available";
 }
 
+/** Conta vendida sai da vitrine; a página dela continua no ar para quem tem o link (o comprador, por exemplo). */
+export function isListedInStore(account: Pick<Account, "status">): boolean {
+  return account.status !== "sold";
+}
+
 const compact = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat("pt-BR");
 
