@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: "/#como-funciona", label: "Como funciona" },
   { to: "/#garantia", label: "Garantia" },
   { to: "/#duvidas", label: "Dúvidas" },
+  { to: "/seja-parceiro", label: "Seja parceiro" },
 ] as const;
 
 function useScrolled(threshold = 12) {

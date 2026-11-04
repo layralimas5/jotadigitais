@@ -117,6 +117,16 @@ export interface SiteContent {
     paymentStepText: Record<PaymentPlan, string>;
     steps: [TextCard, TextCard];
   };
+  /** Página /seja-parceiro: explica a parceria e leva ao WhatsApp do Jota com a mensagem pronta. */
+  partnerPage: TitleBlock & {
+    steps: [TextCard, TextCard, TextCard];
+    perksTitle: string;
+    perks: string[];
+    ctaTitle: string;
+    ctaText: string;
+    button: string;
+    whatsappMessage: string;
+  };
   /** Página de cada conta (/contas/...): a vitrine de venda. */
   accountPage: {
     /** Botão para o perfil real da conta, quando ela tem o link cadastrado. {rede} vira TikTok, Instagram... */
@@ -323,6 +333,37 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       },
       { title: "Deixe a conta com a sua cara", text: "Troque nome, @ e foto e afilie seus primeiros produtos na vitrine." },
     ],
+  },
+  partnerPage: {
+    eyebrow: "Seja parceiro",
+    title: "Você tem as contas. A gente vende.",
+    description:
+      "Tem contas de TikTok, Instagram, YouTube ou Facebook? A Jota Digitais anuncia, atende o cliente e entrega. Você recebe a sua parte de cada venda no Pix.",
+    steps: [
+      {
+        title: "Chame no WhatsApp",
+        text: "Conte quais contas você tem, de qual rede e com quantos seguidores. A gente responde e combina a sua parte.",
+      },
+      {
+        title: "A gente anuncia e vende",
+        text: "Suas contas entram na vitrine do site com fotos e números. Atendimento, pagamento e entrega ficam com a gente.",
+      },
+      {
+        title: "Você recebe no Pix",
+        text: "Quando a venda é finalizada, depois do prazo de garantia do comprador, a sua parte vai para a sua chave Pix.",
+      },
+    ],
+    perksTitle: "Por que ser parceiro",
+    perks: [
+      "Atendimento, pagamento e entrega por nossa conta",
+      "Suas contas na vitrine com fotos e números",
+      "Garantia para quem compra, o que ajuda a vender",
+      "Repasse no Pix, venda por venda",
+    ],
+    ctaTitle: "Quer ser parceiro?",
+    ctaText: "Chame o Jota no WhatsApp. A mensagem já vai pronta, é só enviar.",
+    button: "Quero ser parceiro",
+    whatsappMessage: "Olá, Jota! Vim pelo site e quero ser parceiro da Jota Digitais. Tenho contas para vender.",
   },
   accountPage: {
     profileLink: "Ver a conta no {rede}",

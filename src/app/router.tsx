@@ -9,6 +9,7 @@ const CheckoutPage = lazy(() => import("@/ui/pages/CheckoutPage"));
 const OrderPage = lazy(() => import("@/ui/pages/OrderPage"));
 const LegalDocumentPage = lazy(() => import("@/ui/pages/LegalDocumentPage"));
 const MyDataPage = lazy(() => import("@/ui/pages/MyDataPage"));
+const PartnerPage = lazy(() => import("@/ui/pages/PartnerPage"));
 const NotFoundPage = lazy(() => import("@/ui/pages/NotFoundPage"));
 
 // Painel em pedaços separados: quem visita a loja não baixa nada dele.
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
       { path: "termos-de-uso", element: <LegalDocumentPage slug="terms" /> },
       { path: "politica-de-privacidade", element: <LegalDocumentPage slug="privacy" /> },
       { path: "meus-dados", element: <MyDataPage /> },
+      { path: "seja-parceiro", element: <PartnerPage /> },
       // Endereço antigo dos "Termos de compra e garantia", que agora fazem parte dos Termos de Uso.
       { path: "termos", element: <Navigate to="/termos-de-uso" replace /> },
       { path: "*", element: <NotFoundPage /> },
