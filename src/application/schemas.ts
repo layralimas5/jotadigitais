@@ -591,6 +591,13 @@ export const siteContentSchema = z.object({
     paymentStepText: z.object({ pix: copy(220), card: copy(220), two_cards: copy(220), card_pix: copy(220) }),
     steps: z.tuple([textCard, textCard]),
   }),
+  checkoutPage: z.object({
+    sourceQuestion: copy(80),
+    sources: z
+      .array(z.enum(LEAD_SOURCES))
+      .min(1, "Deixe pelo menos uma opção ligada.")
+      .refine((sources) => new Set(sources).size === sources.length, "Opção repetida."),
+  }),
   partnerPage: z.object({
     ...titleBlock,
     steps: z.tuple([textCard, textCard, textCard]),

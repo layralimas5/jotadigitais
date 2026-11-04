@@ -10,11 +10,12 @@ import { AccountBadgePill, PlatformTag } from "@/ui/components/account/AccountBa
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useCheckoutForm } from "@/ui/hooks/useCheckoutForm";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
-import { useAccount, usePlaceOrder } from "@/ui/hooks/useStore";
+import { useAccount, useAccounts, usePlaceOrder } from "@/ui/hooks/useStore";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
+import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
-import { CheckoutProfileFields } from "@/ui/sections/checkout/CheckoutProfileFields";
+import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
 
 function OrderSummary({ account }: { account: Account }) {
   return (
@@ -59,16 +60,19 @@ function OrderSummary({ account }: { account: Account }) {
   );
 }
 
-function CheckoutForm({ account }: { account: Account }) {
+/** Na prévia da aba Site, o formulário só mostra: finalizar não registra pedido. */
+function CheckoutForm({ account, preview = false }: { account: Account; preview?: boolean }) {
   const navigate = useNavigate();
   const placeOrder = usePlaceOrder();
   const submitting = placeOrder.state.status === "submitting";
+  const { defaultSource } = useCheckoutSources();
 
   const onValid = async (data: CheckoutData) => {
+    if (preview) return;
     const placed = await placeOrder.submit(account.id, data);
     if (placed) navigate(`/pedido/${placed.order.code}`, { replace: true });
   };
-  const { values, errors, setField, handleSubmit } = useCheckoutForm(account.price, onValid);
+  const { values, errors, setField, handleSubmit } = useCheckoutForm(account.price, onValid, defaultSource);
   const pixEnabled = acceptsPix(useStoreSettings());
 
   return (
@@ -83,7 +87,7 @@ function CheckoutForm({ account }: { account: Account }) {
       )}
 
       <div>
-        <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+        <Button type="submit" size="lg" className="w-full" disabled={submitting || preview}>
           {submitting ? (
             <>
               <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
@@ -101,9 +105,9 @@ function CheckoutForm({ account }: { account: Account }) {
   );
 }
 
-function CheckoutContent({ account }: { account: Account }) {
+function CheckoutContent({ account, preview = false }: { account: Account; preview?: boolean }) {
   useDocumentMeta(`Checkout ${account.handle}`);
-  if (!isPurchasable(account)) {
+  if (!preview && !isPurchasable(account)) {
     return (
       <EmptyState
         title="Esta conta não está mais disponível"
@@ -114,7 +118,7 @@ function CheckoutContent({ account }: { account: Account }) {
   }
   return (
     <div className="grid grid-cols-1 gap-8 sm:gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
-      <CheckoutForm account={account} />
+      <CheckoutForm account={account} preview={preview} />
       <div className="order-first lg:order-none">
         <OrderSummary account={account} />
       </div>
@@ -122,9 +126,45 @@ function CheckoutContent({ account }: { account: Account }) {
   );
 }
 
+function CheckoutSkeleton() {
+  return (
+    <div aria-busy="true" className="grid grid-cols-1 gap-10 lg:grid-cols-[1.35fr_1fr]">
+      <div className="h-[32rem] animate-pulse rounded-3xl bg-white/[0.04]" />
+      <div className="h-80 animate-pulse rounded-3xl bg-white/[0.04]" />
+    </div>
+  );
+}
+
+function LiveCheckout({ slug }: { slug: string }) {
+  const account = useAccount(slug);
+  return (
+    <>
+      {account.status === "loading" && <CheckoutSkeleton />}
+      {account.status === "error" && <ErrorState message={account.error.message} onRetry={account.retry} />}
+      {account.status === "success" && <CheckoutContent account={account.data} />}
+    </>
+  );
+}
+
+/** Prévia da aba Site: checkout da primeira conta da vitrine, sem registrar pedido. */
+function CheckoutPreview() {
+  const accounts = useAccounts({});
+  const first = accounts.status === "success" ? accounts.data[0] : undefined;
+  return (
+    <>
+      {accounts.status === "loading" && <CheckoutSkeleton />}
+      {accounts.status === "error" && <ErrorState message={accounts.error.message} onRetry={accounts.retry} />}
+      {accounts.status === "success" && !first && (
+        <EmptyState title="Nenhuma conta no estoque" description="Cadastre uma conta em Contas para ver o checkout." />
+      )}
+      {first && <CheckoutContent account={first} preview />}
+    </>
+  );
+}
+
 export default function CheckoutPage() {
   const { slug = "" } = useParams();
-  const account = useAccount(slug);
+  const preview = IS_SITE_PREVIEW && slug === PREVIEW_ACCOUNT_SLUG;
 
   return (
     <div className="relative pt-24 pb-24 md:pt-32">
@@ -139,14 +179,7 @@ export default function CheckoutPage() {
           Finalizar compra
         </h1>
         <div className="mt-10">
-          {account.status === "loading" && (
-            <div aria-busy="true" className="grid grid-cols-1 gap-10 lg:grid-cols-[1.35fr_1fr]">
-              <div className="h-[32rem] animate-pulse rounded-3xl bg-white/[0.04]" />
-              <div className="h-80 animate-pulse rounded-3xl bg-white/[0.04]" />
-            </div>
-          )}
-          {account.status === "error" && <ErrorState message={account.error.message} onRetry={account.retry} />}
-          {account.status === "success" && <CheckoutContent account={account.data} />}
+          {preview ? <CheckoutPreview /> : <LiveCheckout slug={slug} />}
         </div>
       </div>
     </div>

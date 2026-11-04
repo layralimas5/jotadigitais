@@ -4,7 +4,7 @@ import { useBlocker } from "react-router-dom";
 import type { SiteContent, SiteSectionKey } from "@/domain/site-content";
 import { Button } from "@/ui/components/Button";
 import { cn } from "@/ui/lib/cn";
-import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { MobileActionBar } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterChips } from "../components/FilterChips";
@@ -16,6 +16,7 @@ import { useSiteDraft, type SiteDraft } from "./useSiteDraft";
 const PREVIEW_PAGE_LABEL: Record<SiteSectionDefinition["path"], string> = {
   "/": "Página inicial",
   [PREVIEW_ACCOUNT_PATH]: "Página da conta (primeira do estoque)",
+  [PREVIEW_CHECKOUT_PATH]: "Checkout (primeira conta da vitrine)",
   [PREVIEW_ORDER_PATH]: "Página do pedido (exemplo)",
   [PARTNER_PATH]: "Página Seja parceiro",
 };

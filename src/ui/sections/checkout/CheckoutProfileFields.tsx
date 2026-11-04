@@ -1,15 +1,19 @@
 import { maskDocumentInput } from "@/domain/brazil";
-import { LEAD_SOURCE_LABEL, type LeadSource } from "@/domain/lead";
+import { LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { SelectInput, TextField } from "@/ui/components/form/Fields";
-import { formatWhatsapp, type CheckoutField, type CheckoutValues } from "@/ui/hooks/useCheckoutForm";
+import { formatWhatsapp, sourceOf, type CheckoutField, type CheckoutValues } from "@/ui/hooks/useCheckoutForm";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 
-/** Ordem pensada para quem compra: redes primeiro, indicação e "outro" no fim. */
-const CHECKOUT_SOURCES: readonly LeadSource[] = ["instagram", "tiktok", "youtube", "google", "whatsapp", "referral", "other"];
+/** Opções ligadas no painel (aba Site). Com uma só, ela já vem marcada e o "Escolha" some. */
+export function useCheckoutSources() {
+  const sources = orderCheckoutSources(useSiteContent().checkoutPage.sources);
+  return { sources, defaultSource: sources.length === 1 ? (sources[0] ?? null) : null };
+}
 
-const SOURCE_OPTIONS = [
-  { value: "", label: "Escolha" },
-  ...CHECKOUT_SOURCES.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] })),
+const optionsOf = (sources: readonly LeadSource[]) => [
+  ...(sources.length === 1 ? [] : [{ value: "", label: "Escolha" }]),
+  ...sources.map((source) => ({ value: source, label: LEAD_SOURCE_LABEL[source] })),
 ];
 
 interface CheckoutProfileFieldsProps {
@@ -20,8 +24,11 @@ interface CheckoutProfileFieldsProps {
 
 /** O mínimo para entregar e dar garantia: nome, WhatsApp, CPF/CNPJ e como conheceu a loja. */
 export function CheckoutProfileFields({ values, errors, setField }: CheckoutProfileFieldsProps) {
+  const { sourceQuestion } = useSiteContent().checkoutPage;
+  const { sources, defaultSource } = useCheckoutSources();
+  const source = sourceOf(values, defaultSource);
   return (
-    <fieldset className="space-y-4 sm:space-y-5">
+    <fieldset id="checkout-origem" className="space-y-4 sm:space-y-5">
       <legend className="font-display text-lg font-semibold text-white">Seus dados</legend>
       <TextField
         label="Nome completo"
@@ -60,14 +67,14 @@ export function CheckoutProfileFields({ values, errors, setField }: CheckoutProf
       </div>
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
         <SelectInput
-          label="Como você conheceu a Jota Digitais?"
+          label={sourceQuestion}
           name="source"
-          options={SOURCE_OPTIONS}
-          value={values.source}
+          options={optionsOf(sources)}
+          value={source}
           onChange={(event) => setField("source", event.target.value as CheckoutValues["source"])}
           error={errors.source}
         />
-        {values.source === "referral" && (
+        {source === "referral" && (
           <TextField
             label="Quem indicou?"
             name="referredBy"

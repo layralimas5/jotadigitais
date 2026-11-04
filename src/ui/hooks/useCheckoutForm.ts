@@ -63,11 +63,16 @@ function errorsOf(error: z.ZodError): FieldErrors {
   return fieldErrors;
 }
 
-function validate(values: CheckoutValues, total: Cents): { data: CheckoutData | null; errors: FieldErrors } {
+/** Com uma opção só de origem, ela vale mesmo sem a pessoa mexer no campo. */
+export const sourceOf = (values: Pick<CheckoutValues, "source">, defaultSource: LeadSource | null): LeadSource | "" =>
+  values.source || defaultSource || "";
+
+function validate(values: CheckoutValues, total: Cents, defaultSource: LeadSource | null): { data: CheckoutData | null; errors: FieldErrors } {
   const split = values.paymentChoice === "split";
   const firstPartCents = split ? parseMoneyToCents(values.firstPart) : null;
   const result = checkoutSchema.safeParse({
     ...values,
+    source: sourceOf(values, defaultSource),
     paymentMethod: planOf(values),
     firstPartCents: Number.isNaN(firstPartCents) ? null : firstPartCents,
     installments: values.paymentChoice === "card" && values.installments ? Number(values.installments) : null,
@@ -84,7 +89,7 @@ function validate(values: CheckoutValues, total: Cents): { data: CheckoutData | 
 }
 
 /** Checkout numa tela só com validação zod; depois da primeira tentativa, cada campo é revalidado enquanto a pessoa corrige. */
-export function useCheckoutForm(total: Cents, onValid: (data: CheckoutData) => void) {
+export function useCheckoutForm(total: Cents, onValid: (data: CheckoutData) => void, defaultSource: LeadSource | null = null) {
   const [values, setValues] = useState<CheckoutValues>(() => ({ ...INITIAL_VALUES, firstPart: halfOf(total) }));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitted, setSubmitted] = useState(false);
@@ -92,13 +97,13 @@ export function useCheckoutForm(total: Cents, onValid: (data: CheckoutData) => v
   const setField = <K extends CheckoutField>(field: K, value: CheckoutValues[K]) => {
     const next = { ...values, [field]: value };
     setValues(next);
-    if (submitted) setErrors(validate(next, total).errors);
+    if (submitted) setErrors(validate(next, total, defaultSource).errors);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitted(true);
-    const result = validate(values, total);
+    const result = validate(values, total, defaultSource);
     setErrors(result.errors);
     if (result.data) {
       onValid(result.data);

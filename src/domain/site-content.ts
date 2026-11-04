@@ -6,6 +6,7 @@
  * Na página do pedido também valem {nome} (primeiro nome do cliente) e {conta} (o @ comprado).
  */
 
+import type { LeadSource } from "./lead";
 import type { PaymentPlan } from "./payment";
 import type { Platform } from "./platform";
 
@@ -116,6 +117,12 @@ export interface SiteContent {
     paymentStepTitle: string;
     paymentStepText: Record<PaymentPlan, string>;
     steps: [TextCard, TextCard];
+  };
+  /** Ficha do cliente no checkout: a pergunta de origem e as opções que aparecem nela. */
+  checkoutPage: {
+    sourceQuestion: string;
+    /** Com uma opção só, ela já vem marcada. */
+    sources: LeadSource[];
   };
   /** Página /seja-parceiro: explica a parceria e leva ao WhatsApp do Jota com a mensagem pronta. */
   partnerPage: TitleBlock & {
@@ -333,6 +340,10 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       },
       { title: "Deixe a conta com a sua cara", text: "Troque nome, @ e foto e afilie seus primeiros produtos na vitrine." },
     ],
+  },
+  checkoutPage: {
+    sourceQuestion: "Como você conheceu a Jota Digitais?",
+    sources: ["referral"],
   },
   partnerPage: {
     eyebrow: "Seja parceiro",

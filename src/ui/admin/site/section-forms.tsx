@@ -1,8 +1,9 @@
 import type { ComponentType } from "react";
+import { CHECKOUT_SOURCE_ORDER, LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
 import type { PlatformCard, SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
-import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { ProofPointsField } from "./ProofPointsField";
@@ -227,6 +228,37 @@ const FooterForm: Form<"footer"> = (props) => {
   );
 };
 
+const CheckoutPageForm: Form<"checkoutPage"> = (props) => {
+  const copy = copyFieldsFor("checkoutPage", props);
+  const { value, onChange, errors } = props;
+  const toggle = (source: LeadSource, on: boolean) =>
+    onChange({ ...value, sources: orderCheckoutSources(on ? [...value.sources, source] : value.sources.filter((item) => item !== source)) });
+  const sourcesError = errors["checkoutPage.sources"];
+  return (
+    <>
+      {copy("sourceQuestion", "Pergunta de origem", 80)}
+      <fieldset className="space-y-2">
+        <legend className="mb-2 text-xs font-semibold text-mist">Opções que o cliente pode escolher</legend>
+        {CHECKOUT_SOURCE_ORDER.map((source) => (
+          <ToggleField
+            key={source}
+            label={LEAD_SOURCE_LABEL[source]}
+            description={source === "referral" ? "Pede o nome de quem indicou e liga a venda ao parceiro." : undefined}
+            checked={value.sources.includes(source)}
+            onChange={(on) => toggle(source, on)}
+          />
+        ))}
+      </fieldset>
+      {sourcesError && (
+        <p role="alert" className="text-xs text-alert">
+          {sourcesError}
+        </p>
+      )}
+      <p className="text-xs text-mist">Com uma opção só, ela já vem marcada para o cliente. Na prévia, o botão de finalizar não registra pedido.</p>
+    </>
+  );
+};
+
 const OrderPageForm: Form<"orderPage"> = (props) => {
   const copy = copyFieldsFor("orderPage", props);
   const { value, onChange, errors } = props;
@@ -439,7 +471,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PARTNER_PATH;
+  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PREVIEW_CHECKOUT_PATH | typeof PARTNER_PATH;
   anchor: string;
   Form: Form<K>;
 }
@@ -464,6 +496,14 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
     path: PREVIEW_ACCOUNT_PATH,
     anchor: "incluso-title",
     Form: AccountPageForm,
+  }),
+  define({
+    key: "checkoutPage",
+    title: "Checkout",
+    description: "Como o cliente conta de onde veio",
+    path: PREVIEW_CHECKOUT_PATH,
+    anchor: "checkout-origem",
+    Form: CheckoutPageForm,
   }),
   define({
     key: "orderPage",

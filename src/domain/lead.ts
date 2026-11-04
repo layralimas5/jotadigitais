@@ -25,6 +25,13 @@ export const LEAD_SOURCE_LABEL: Record<LeadSource, string> = {
   other: "Outro",
 };
 
+/** Ordem das opções no checkout: redes primeiro, indicação e "outro" no fim. */
+export const CHECKOUT_SOURCE_ORDER: readonly LeadSource[] = ["instagram", "tiktok", "youtube", "google", "whatsapp", "referral", "other"];
+
+/** Opções ligadas no painel, sempre na ordem do checkout e sem repetir. */
+export const orderCheckoutSources = (enabled: readonly LeadSource[]): LeadSource[] =>
+  CHECKOUT_SOURCE_ORDER.filter((source) => enabled.includes(source));
+
 /** Pessoa interessada em comprar uma conta, acompanhada pelo Jota até fechar ou desistir. */
 export interface LeadData {
   name: string;
