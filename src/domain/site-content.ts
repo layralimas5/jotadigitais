@@ -154,6 +154,8 @@ export interface SiteContent {
     aboutTitle: string;
     nicheNote: string;
     specsTitle: string;
+    /** Linhas iguais em toda conta de cada rede, entre os números e a data do anúncio. */
+    fixedSpecs: Record<Platform, { label: string; value: string }[]>;
     includedTitle: string;
     /** Itens fixos de cada rede. Monetização, conta profissional e afins entram sozinhos, pelos dados da conta. */
     included: Record<Platform, string[]>;
@@ -401,6 +403,17 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     aboutTitle: "Sobre esta conta",
     nicheNote: "O nicho é só o conteúdo de hoje. Você pode mudar o tipo de publicação e o público que quer atingir.",
     specsTitle: "Ficha técnica",
+    fixedSpecs: {
+      tiktok: [
+        { label: "Central de Criadores", value: "Ativa" },
+        { label: "Origem dos seguidores", value: "Brasil" },
+        { label: "Documentos vinculados", value: "Nenhum" },
+        { label: "Troca de nome, @ e foto", value: "Liberada" },
+      ],
+      instagram: [{ label: "Troca de nome, @ e foto", value: "Liberada" }],
+      youtube: [{ label: "Troca de nome, @ e foto", value: "Liberada" }],
+      facebook: [{ label: "Troca de nome, @ e foto", value: "Liberada" }],
+    },
     includedTitle: "O que está incluso",
     included: {
       tiktok: [

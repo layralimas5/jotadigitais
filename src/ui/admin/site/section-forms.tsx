@@ -332,7 +332,7 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
   const ownSteps = value.deliverySteps !== null;
   return (
     <>
-      <p className="text-xs text-mist">Vale para a página de todas as contas. Descrição, números e fotos de cada uma ficam na aba Contas.</p>
+      <p className="text-xs text-mist">Vale para a página de todas as contas. O texto de “Sobre esta conta”, os números e as fotos de cada uma ficam na aba Contas.</p>
 
       {copy("profileLink", "Botão para ver a conta na rede", 40, {
         hint: "Aparece abaixo do @ quando a conta tem o link cadastrado na aba Contas. Use {rede} para TikTok, Instagram...",
@@ -362,6 +362,30 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
       {copy("aboutTitle", "Título de “Sobre esta conta”", 60)}
       {copy("nicheNote", "Aviso abaixo da descrição (contas com nicho)", 240, { multiline: true, hint: "Opcional." })}
       {copy("specsTitle", "Título da ficha técnica", 60)}
+      <p className="text-xs text-mist">
+        Rede, nicho, números, monetização e data do anúncio vêm de cada conta, na aba Contas. Abaixo, as linhas fixas de cada rede, que entram depois dos números.
+      </p>
+      {PLATFORMS.map((platform) => (
+        <Repeater
+          key={platform}
+          legend={`Linhas fixas em contas de ${PLATFORM_LABEL[platform]}`}
+          path={`accountPage.fixedSpecs.${platform}`}
+          items={value.fixedSpecs[platform]}
+          onChange={(specs) => onChange({ ...value, fixedSpecs: { ...value.fixedSpecs, [platform]: specs } })}
+          errors={errors}
+          min={0}
+          max={8}
+          addLabel="Adicionar linha"
+          itemLabel={(index) => `Linha ${index + 1}`}
+          empty={() => ({ label: "", value: "" })}
+          render={(item, update, itemPath) => (
+            <div className="space-y-3">
+              <CopyField label="Nome" path={`${itemPath}.label`} value={item.label} max={40} errors={errors} onChange={(label) => update({ label })} />
+              <CopyField label="Valor" path={`${itemPath}.value`} value={item.value} max={60} errors={errors} onChange={(next) => update({ value: next })} />
+            </div>
+          )}
+        />
+      ))}
 
       <GroupTitle>O que está incluso</GroupTitle>
       {copy("includedTitle", "Título", 60)}

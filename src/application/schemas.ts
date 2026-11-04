@@ -533,6 +533,7 @@ const siteImage = z.object({
   alt: copy(240),
 });
 
+const fixedSpecList = z.array(z.object({ label: copy(40), value: copy(60) })).max(8, "Use no máximo 8 linhas.");
 const titleBlock = { eyebrow: copy(40), title: copy(90), description: copy(240) };
 
 /** Prova salva antes de existir a escolha de ícone era só o texto: vira texto com ícone automático. */
@@ -625,6 +626,12 @@ export const siteContentSchema = z.object({
     aboutTitle: copy(60),
     nicheNote: z.string().trim().max(240, "Use no máximo 240 caracteres."),
     specsTitle: copy(60),
+    fixedSpecs: z.object({
+      tiktok: fixedSpecList,
+      instagram: fixedSpecList,
+      youtube: fixedSpecList,
+      facebook: fixedSpecList,
+    }),
     includedTitle: copy(60),
     included: z.object({
       tiktok: copyList(1, 10, 90),
