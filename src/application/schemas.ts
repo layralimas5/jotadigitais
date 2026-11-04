@@ -591,6 +591,16 @@ export const siteContentSchema = z.object({
     paymentStepText: z.object({ pix: copy(220), card: copy(220), two_cards: copy(220), card_pix: copy(220) }),
     steps: z.tuple([textCard, textCard]),
   }),
+  partnerPage: z.object({
+    ...titleBlock,
+    steps: z.tuple([textCard, textCard, textCard]),
+    perksTitle: copy(60),
+    perks: copyList(1, 6, 90),
+    ctaTitle: copy(60),
+    ctaText: copy(220),
+    button: copy(32),
+    whatsappMessage: copy(300),
+  }),
   accountPage: z.object({
     profileLink: copy(40),
     priceLabel: copy(40),

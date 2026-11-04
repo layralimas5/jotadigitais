@@ -2,7 +2,7 @@ import type { ComponentType } from "react";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
 import type { PlatformCard, SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
-import { PREVIEW_ACCOUNT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { ProofPointsField } from "./ProofPointsField";
@@ -377,6 +377,53 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
   );
 };
 
+const PartnerPageForm: Form<"partnerPage"> = (props) => {
+  const copy = copyFieldsFor("partnerPage", props);
+  const { value, onChange, errors } = props;
+  const updateStep = (index: number, patch: Partial<TextCard>) =>
+    onChange({ ...value, steps: value.steps.map((step, position) => (position === index ? { ...step, ...patch } : step)) as typeof value.steps });
+  return (
+    <>
+      {copy("eyebrow", "Chamada pequena", 40)}
+      {copy("title", "Título", 90)}
+      {copy("description", "Texto de apoio", 240, { multiline: true })}
+
+      <GroupTitle>Como funciona</GroupTitle>
+      {value.steps.map((step, index) => (
+        <fieldset key={index} className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+          <legend className="sr-only">{`Passo ${index + 1}`}</legend>
+          <p aria-hidden className="text-xs font-semibold text-mist">{`Passo ${index + 1}`}</p>
+          <CopyField label="Título" path={`partnerPage.steps.${index}.title`} value={step.title} max={60} errors={errors} onChange={(title) => updateStep(index, { title })} />
+          <CopyField label="Texto" path={`partnerPage.steps.${index}.text`} value={step.text} max={220} multiline errors={errors} onChange={(text) => updateStep(index, { text })} />
+        </fieldset>
+      ))}
+
+      <GroupTitle>Vantagens</GroupTitle>
+      {copy("perksTitle", "Título", 60)}
+      <CopyListField
+        label="Itens"
+        path="partnerPage.perks"
+        items={value.perks}
+        itemMax={90}
+        min={1}
+        max={6}
+        addLabel="Adicionar vantagem"
+        errors={errors}
+        onChange={(perks) => onChange({ ...value, perks })}
+      />
+
+      <GroupTitle>Chamada para o WhatsApp</GroupTitle>
+      {copy("ctaTitle", "Título", 60)}
+      {copy("ctaText", "Texto", 220, { multiline: true })}
+      {copy("button", "Botão", 32)}
+      {copy("whatsappMessage", "Mensagem que já vai escrita no WhatsApp", 300, {
+        multiline: true,
+        hint: "O número é o do WhatsApp do suporte (Contato e garantia). Sem número, o botão some.",
+      })}
+    </>
+  );
+};
+
 const SeoForm: Form<"seo"> = (props) => {
   const copy = copyFieldsFor("seo", props);
   return (
@@ -392,7 +439,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH;
+  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PARTNER_PATH;
   anchor: string;
   Form: Form<K>;
 }
@@ -425,6 +472,14 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
     path: PREVIEW_ORDER_PATH,
     anchor: "pedido-title",
     Form: OrderPageForm,
+  }),
+  define({
+    key: "partnerPage",
+    title: "Seja parceiro",
+    description: "Página que explica a parceria e leva ao WhatsApp",
+    path: PARTNER_PATH,
+    anchor: "parceiro-title",
+    Form: PartnerPageForm,
   }),
   define({ key: "seo", title: "Google e aba do navegador", description: "Título e descrição da página inicial", path: "/", anchor: "hero-title", Form: SeoForm }),
 ];

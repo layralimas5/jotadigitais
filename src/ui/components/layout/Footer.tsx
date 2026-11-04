@@ -20,6 +20,7 @@ const LINKS = [
   { to: "/contas", label: "Contas disponíveis" },
   { to: "/#como-funciona", label: "Como funciona" },
   { to: "/#garantia", label: "Garantia" },
+  { to: "/seja-parceiro", label: "Seja parceiro" },
 ] as const;
 
 const LEGAL_LINKS = [

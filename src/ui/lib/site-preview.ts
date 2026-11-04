@@ -59,6 +59,8 @@ export const PREVIEW_ORDER_PATH = `/pedido/${PREVIEW_ORDER_CODE}`;
 export const PREVIEW_ACCOUNT_SLUG = "exemplo-da-previa";
 export const PREVIEW_ACCOUNT_PATH = `/contas/${PREVIEW_ACCOUNT_SLUG}`;
 
+export const PARTNER_PATH = "/seja-parceiro";
+
 /** Atributo que liga um elemento do site ao campo do editor que o controla. */
 export const EDIT_ATTRIBUTE = "data-edit";
 
