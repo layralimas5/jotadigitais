@@ -40,7 +40,7 @@ export function AccountSpecs({ account }: { account: Account }) {
   return (
     <DetailBlock id="ficha-title" title={accountPage.specsTitle} titlePath="accountPage.specsTitle">
       <dl className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface/60">
-        {specsOf(account).map(({ label, value }) => (
+        {specsOf(account, accountPage.fixedSpecs).map(({ label, value }) => (
           <div key={label} className="grid gap-1 px-5 py-3.5 sm:grid-cols-[13rem_1fr] sm:gap-4">
             <dt className="text-sm text-mist">{label}</dt>
             <dd className="text-sm font-medium text-white tabular-nums">{value}</dd>

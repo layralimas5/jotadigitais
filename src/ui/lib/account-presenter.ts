@@ -142,10 +142,7 @@ function platformSpecs(account: Account): Spec[] {
               ? "Ativo, com todos os produtos liberados"
               : `Piloto (completo a partir de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores, faltam ${number.format(followersToFullShop(account))})`,
         },
-        { label: "Central de Criadores", value: "Ativa" },
         { label: "Monetização", value: account.stats.monetized ? "Ativa" : "Não ativa" },
-        { label: "Origem dos seguidores", value: "Brasil" },
-        { label: "Documentos vinculados", value: "Nenhum" },
       ];
     case "instagram":
       return [
@@ -184,12 +181,13 @@ function platformSpecs(account: Account): Spec[] {
   }
 }
 
-export function specsOf(account: Account): Spec[] {
+/** Rede, nicho e números saem de cada conta; as linhas fixas vêm da aba Site. */
+export function specsOf(account: Account, fixedSpecs: Record<Account["platform"], readonly Spec[]>): Spec[] {
   return [
     { label: "Rede", value: PLATFORM_LABEL[account.platform] },
     ...(account.niche ? [{ label: "Nicho atual", value: account.niche }] : []),
     ...platformSpecs(account),
-    { label: "Troca de nome, @ e foto", value: "Liberada" },
+    ...fixedSpecs[account.platform],
     { label: "Anunciada em", value: date.format(new Date(account.listedAt)) },
   ];
 }
@@ -216,11 +214,18 @@ function platformParagraph(account: Account): string {
   }
 }
 
+/** Texto que o site monta com os dados da conta quando o Jota não escreveu um próprio. */
+export function automaticDescriptionOf(account: Account): string {
+  const intro = `Conta de ${PLATFORM_LABEL[account.platform]}${account.niche ? ` de ${account.niche.toLowerCase()}` : ""} com ${number.format(account.followers)} ${audienceLabel(account).toLowerCase()}. Depois da compra você troca nome, @ e foto e começa a publicar.`;
+  return `${intro}\n\n${platformParagraph(account)}`;
+}
+
+/** "Sobre esta conta" em parágrafos: o texto escrito no painel ou o automático. Linha em branco separa parágrafos. */
 export function descriptionOf(account: Account): string[] {
-  const intro =
-    account.description ??
-    `Conta de ${PLATFORM_LABEL[account.platform]}${account.niche ? ` de ${account.niche.toLowerCase()}` : ""} com ${number.format(account.followers)} ${audienceLabel(account).toLowerCase()}. Depois da compra você troca nome, @ e foto e começa a publicar.`;
-  return [intro, platformParagraph(account)];
+  return (account.description ?? automaticDescriptionOf(account))
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
 }
 
 /** Itens que dependem dos dados da conta (monetização, conta profissional, página ou perfil): entram sozinhos. */

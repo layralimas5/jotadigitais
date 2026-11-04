@@ -12,6 +12,7 @@ import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { AccountPageSection } from "../accounts/AccountPageSection";
 import { ProfileImport } from "../accounts/ProfileImport";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -421,17 +422,10 @@ function AccountEditor({ account }: { account: Account | null }) {
               <SelectField label="Status" name="status" value={values.status} options={STATUS_OPTIONS} onChange={(event) => set("status", event.target.value as AccountStatus)} />
               <TextField label="Anunciada em" name="listedAt" type="date" value={values.listedAt} onChange={(event) => set("listedAt", event.target.value)} error={errors.listedAt} />
             </div>
-            <TextAreaField
-              label="Descrição (opcional)"
-              name="description"
-              value={values.description}
-              onChange={(event) => set("description", event.target.value)}
-              error={errors.description}
-              hint="Se ficar vazio, o site monta um texto com os números da conta."
-              maxLength={2000}
-            />
             <PartnerSelect value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
+
+          <AccountPageSection values={values} errors={errors} set={set} accountId={account?.id ?? "preview"} />
 
           <FormSection title="Prints da conta (opcional)" description="Aparecem na galeria da página da conta. Desfoque dados pessoais antes de enviar.">
             <GalleryField
