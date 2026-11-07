@@ -14,7 +14,8 @@ import type { SupportLabel, SupportTicket } from "@/domain/support-ticket";
 import type { Testimonial } from "@/domain/testimonial";
 import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
 
-const STORAGE_KEY = "jota:demo-db";
+/** Banco do modo demonstração. O ambiente de teste do painel usa outra chave, para nada se misturar. */
+export const DEMO_STORAGE_KEY = "jota:demo-db";
 const SCHEMA_VERSION = 2;
 
 export interface DemoState {
@@ -78,9 +79,11 @@ export class StorageFullError extends Error {
  * O painel e o site leem a mesma chave, então o que o admin salva aparece na vitrine na hora.
  */
 export class DemoDatabase {
+  constructor(private readonly storageKey: string = DEMO_STORAGE_KEY) {}
+
   read(): DemoState {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw = window.localStorage.getItem(this.storageKey);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
         if (isDemoState(parsed)) return parsed;
@@ -96,7 +99,7 @@ export class DemoDatabase {
     const state = this.read();
     const result = mutate(state);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.setItem(this.storageKey, JSON.stringify(state));
     } catch (error) {
       if (error instanceof DOMException && error.name === "QuotaExceededError") throw new StorageFullError();
       throw error;

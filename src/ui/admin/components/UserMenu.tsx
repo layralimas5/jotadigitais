@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, Eye, EyeOff, LogOut, Settings, ShieldUser } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, FlaskConical, LogOut, Settings, ShieldUser } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
@@ -114,21 +114,47 @@ export function UserMenu() {
               <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>
                 <Settings aria-hidden className="size-4" /> Configurações
               </Link>
-              {role === "developer" && (
+              {role === "developer" && preview.asJota && (
                 <button
                   role="menuitem"
                   tabIndex={-1}
                   type="button"
                   onClick={() => {
                     close();
-                    if (preview.previewing) preview.exit();
-                    else preview.enter();
+                    preview.exit();
                   }}
                   className={itemClass}
                 >
-                  {preview.previewing ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
-                  {preview.previewing ? "Voltar ao meu painel" : "Ver como o Jota"}
+                  <EyeOff aria-hidden className="size-4" /> Voltar ao meu painel
                 </button>
+              )}
+              {role === "developer" && !preview.asJota && (
+                <>
+                  <button
+                    role="menuitem"
+                    tabIndex={-1}
+                    type="button"
+                    onClick={() => {
+                      close();
+                      preview.enter();
+                    }}
+                    className={itemClass}
+                  >
+                    <Eye aria-hidden className="size-4" /> Ver como o Jota
+                  </button>
+                  <button
+                    role="menuitem"
+                    tabIndex={-1}
+                    type="button"
+                    onClick={() => {
+                      close();
+                      preview.enterSandbox();
+                    }}
+                    className={itemClass}
+                  >
+                    <FlaskConical aria-hidden className="size-4" /> Testar como o Jota
+                  </button>
+                </>
               )}
               {viewRole === "admin" && (
                 <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
