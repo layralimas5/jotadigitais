@@ -1,7 +1,7 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SupportTicketRepository } from "@/application/ports";
-import { SupportLabelNameTakenError, SupportTicketNotFoundError } from "@/domain/errors";
+import { SupportApprovalError, SupportLabelNameTakenError, SupportTicketNotFoundError } from "@/domain/errors";
 import {
   SUPPORT_AREAS,
   SUPPORT_KINDS,
@@ -188,6 +188,13 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     const { data, error } = await this.client.from("support_tickets").update({ status }).eq("id", ticketId).select("id").maybeSingle();
     if (error) fail(error);
     if (!data) throw new SupportTicketNotFoundError();
+  }
+
+  async approve(ticketId: string): Promise<void> {
+    const { error } = await this.client.rpc("approve_support_ticket", { p_ticket_id: ticketId });
+    if (!error) return;
+    if (error.code === "P0002") throw new SupportApprovalError("Este chamado não está mais aguardando você. Atualize a página.");
+    fail(error);
   }
 
   async listLabels(): Promise<SupportLabel[]> {

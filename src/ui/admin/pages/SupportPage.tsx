@@ -11,6 +11,7 @@ import {
   inPeriod,
   isPendingTicket,
   needsActionFrom,
+  wasApprovedByAdmin,
   SUPPORT_KIND_LABEL,
   SUPPORT_KINDS,
   SUPPORT_PERIOD_LABEL,
@@ -39,7 +40,9 @@ import { LabelManager } from "../support/LabelManager";
 import { LabelPicker } from "../support/LabelPicker";
 import { PRIORITY_TONE } from "../support/priority-tone";
 import { StatusPicker } from "../support/StatusPicker";
+import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import {
+  ApprovedByAdminBadge,
   authorNameOf,
   KIND_ICON,
   NeedsYouBadge,
@@ -242,6 +245,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
             </span>
             <SupportAreaBadge area={ticket.area} />
             {needsActionFrom(ticket, role) && <NeedsYouBadge />}
+            {wasApprovedByAdmin(ticket) && <ApprovedByAdminBadge />}
           </div>
           <h2 className="mt-1.5 truncate font-semibold text-white">
             <Link to={`/admin/suporte/${ticket.id}`} className="hover:text-electric-soft">
@@ -261,6 +265,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
               </span>
             )}
           </p>
+          <ApproveTicketButton ticket={ticket} role={role} onApproved={onChanged} className="mt-3 h-9 px-4" />
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:contents">
           <div>

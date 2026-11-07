@@ -8,6 +8,7 @@ import {
   canChangeSupportStatus,
   canManageSupportLabels,
   timelineOf,
+  wasApprovedByAdmin,
   type SupportLabel,
   type SupportStatusEvent,
   SUPPORT_STATUS_LABEL,
@@ -28,11 +29,13 @@ import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery, useMutation, usePolling } from "../hooks";
 import { formatDate, formatRelative } from "../lib/dates";
 import { useViewRole } from "../admin-view";
+import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import { AttachmentGallery } from "../support/AttachmentGallery";
 import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
 import { LabelPicker } from "../support/LabelPicker";
 import { statusEventText } from "../support/TicketProgress";
 import {
+  ApprovedByAdminBadge,
   authorNameOf,
   STATUS_TONE,
   SupportAreaBadge,
@@ -132,13 +135,19 @@ function StatusControl({ ticket, role, onChanged }: { ticket: SupportTicket; rol
   );
 }
 
-/** Para o Jota: deixa claro quando a bola está com ele. */
-function WaitingNotice() {
+/** Para o Jota: deixa claro quando a bola está com ele e deixa aprovar dali mesmo. */
+function WaitingNotice({ ticket, role, onApproved }: { ticket: SupportTicket; role: AdminRole; onApproved: () => void }) {
   return (
-    <p role="status" className="flex items-start gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.08] px-4 py-3 text-sm text-amber-100">
-      <Hourglass aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-300" />
-      A Layra está esperando você analisar ou responder. Quando você responder, o chamado volta para a fila dela.
-    </p>
+    <section
+      role="status"
+      className="flex flex-col gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.08] px-4 py-3 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="flex items-start gap-3">
+        <Hourglass aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-300" />
+        A Layra está esperando você analisar. Se estiver tudo certo, aprove e finalize; se faltar algo, responda abaixo e o chamado volta para a fila dela.
+      </p>
+      <ApproveTicketButton ticket={ticket} role={role} onApproved={onApproved} className="shrink-0" />
+    </section>
   );
 }
 
@@ -229,6 +238,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
       <header>
         <div className="flex flex-wrap items-center gap-2">
           <SupportStatusBadge status={ticket.status} />
+          {wasApprovedByAdmin(ticket) && <ApprovedByAdminBadge />}
           <SupportPriorityBadge priority={ticket.priority} />
           <SupportKindBadge kind={ticket.kind} />
           <SupportAreaBadge area={ticket.area} />
@@ -257,7 +267,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
           {labels.length === 0 && <span className="text-xs text-mist">Crie etiquetas no botão “Etiquetas” da lista do Suporte.</span>}
         </section>
       )}
-      {role === "admin" && ticket.status === "waiting" && <WaitingNotice />}
+      {role === "admin" && ticket.status === "waiting" && <WaitingNotice ticket={ticket} role={role} onApproved={reload} />}
 
       <section aria-labelledby="conversa">
         <h2 id="conversa" className="mb-3 text-xs font-semibold tracking-[0.16em] text-mist uppercase">

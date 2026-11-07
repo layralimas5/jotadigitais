@@ -127,6 +127,17 @@ export interface SupportTicket extends SupportTicketData {
 /** Só quem mantém o sistema muda a situação; o banco reabre sozinho quando o Jota responde. */
 export const canChangeSupportStatus = (role: AdminRole): boolean => role === "developer";
 
+/** O Jota aprova e finaliza o que está esperando por ele. */
+export const canApproveSupportTicket = (ticket: Pick<SupportTicket, "status">, role: AdminRole): boolean =>
+  role === "admin" && ticket.status === "waiting";
+
+/** Finalizado pelo próprio Jota, aprovando o que estava esperando por ele. */
+export function wasApprovedByAdmin(ticket: Pick<SupportTicket, "status" | "events">): boolean {
+  if (ticket.status !== "done") return false;
+  const last = ticket.events.at(-1);
+  return last?.to === "done" && last.author?.role === "admin";
+}
+
 export const isPendingTicket = (ticket: SupportTicket): boolean => ticket.status !== "done";
 
 /** Quem escreveu por último na conversa (o próprio chamado conta como a primeira mensagem). */

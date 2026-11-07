@@ -192,6 +192,13 @@ export class SupportStatusForbiddenError extends Error {
   }
 }
 
+export class SupportApprovalError extends Error {
+  constructor(message = "Só dá para aprovar chamado que está aguardando o Jota.") {
+    super(message);
+    this.name = "SupportApprovalError";
+  }
+}
+
 export class PreviewReadOnlyError extends Error {
   constructor() {
     super("Modo visualização: aqui você vê o painel como o Jota, mas nada é salvo. Volte para o seu painel para mexer.");
