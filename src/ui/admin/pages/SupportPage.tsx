@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { listSupportLabels, listSupportTickets } from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
 import {
+  canChangeSupportStatus,
   canManageSupportLabels,
   inPeriod,
   isPendingTicket,
@@ -34,6 +35,7 @@ import { LABEL_TONE } from "../support/label-tone";
 import { LabelManager } from "../support/LabelManager";
 import { LabelPicker } from "../support/LabelPicker";
 import { PRIORITY_TONE } from "../support/priority-tone";
+import { StatusPicker } from "../support/StatusPicker";
 import {
   authorNameOf,
   KIND_ICON,
@@ -221,7 +223,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
 
   return (
     <li className={cn("rounded-2xl border bg-surface/60 transition-colors", ticket.status === "in_progress" ? "border-electric/40" : "border-line", expanded && "bg-surface")}>
-      <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7.5rem_9rem_14rem_2.5rem] lg:items-center lg:gap-4">
+      <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7.5rem_11.5rem_13rem_2.5rem] lg:items-center lg:gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 text-xs text-mist">
@@ -253,8 +255,12 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
           <div>
             <SupportPriorityBadge priority={ticket.priority} />
           </div>
-          <div>
-            <SupportStatusBadge status={ticket.status} />
+          <div className={canChangeSupportStatus(role) ? "min-w-40 flex-1 lg:min-w-0" : undefined}>
+            {canChangeSupportStatus(role) ? (
+              <StatusPicker ticketId={ticket.id} ticketTitle={ticket.title} status={ticket.status} role={role} onChanged={onChanged} />
+            ) : (
+              <SupportStatusBadge status={ticket.status} />
+            )}
           </div>
           <div className="min-w-44 flex-1 lg:min-w-0">
             <LabelCell ticket={ticket} role={role} labels={labels} onChanged={onChanged} />
@@ -296,7 +302,7 @@ function ListHeader() {
   return (
     <div
       aria-hidden
-      className="hidden px-4 text-xs font-medium text-mist lg:grid lg:grid-cols-[minmax(0,1fr)_7.5rem_9rem_14rem_2.5rem] lg:gap-4"
+      className="hidden px-4 text-xs font-medium text-mist lg:grid lg:grid-cols-[minmax(0,1fr)_7.5rem_11.5rem_13rem_2.5rem] lg:gap-4"
     >
       <span>Chamado</span>
       <span>Prioridade</span>

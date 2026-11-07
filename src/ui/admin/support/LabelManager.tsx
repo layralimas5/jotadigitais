@@ -179,6 +179,9 @@ export function LabelManager({ labels, role, onChanged }: LabelManagerProps) {
               Etiquetas do suporte
             </h2>
             <p className="mt-1 text-sm text-mist">Crie as suas e escolha uma em cada chamado. O Jota vê, mas não muda.</p>
+            <p className="mt-1 text-xs text-mist">
+              A etiqueta é só uma marcação. Quem tira o chamado de “Em aberto” é a <strong className="text-fog">Situação</strong> (Finalizado).
+            </p>
           </div>
           <button type="button" onClick={() => setOpen(false)} aria-label="Fechar" className="rounded-full p-1.5 text-mist hover:bg-white/[0.06] hover:text-white">
             <X aria-hidden className="size-5" />
