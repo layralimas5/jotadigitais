@@ -5,6 +5,7 @@ import { createAdminUser } from "@/application/admin-use-cases";
 import { fieldErrorsOf, newAdminUserSchema, PASSWORD_RULE_HINT } from "@/application/schemas";
 import type { NewAdminUser } from "@/domain/admin-user";
 import { TextField } from "@/ui/components/form/Fields";
+import { PasswordField } from "@/ui/components/form/PasswordField";
 import { FormSection, PageHeader } from "../components/AdminUi";
 import { FormFooter } from "../components/FormFooter";
 import { useMutation } from "../hooks";
@@ -95,10 +96,9 @@ export default function UserEditorPage({ backPath = "/admin/usuarios" }: UserEdi
             onChange={(event) => update({ email: event.target.value })}
             error={errors.email}
           />
-          <TextField
+          <PasswordField
             label="Senha provisória"
             name="password"
-            type="password"
             autoComplete="new-password"
             value={values.password}
             onChange={(event) => update({ password: event.target.value })}

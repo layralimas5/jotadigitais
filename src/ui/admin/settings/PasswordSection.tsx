@@ -5,7 +5,7 @@ import type { AdminSession } from "@/application/ports";
 import { PASSWORD_RULE_HINT, ValidationError, type ChangePasswordInput } from "@/application/schemas";
 import { WrongCurrentPasswordError } from "@/domain/errors";
 import { Button } from "@/ui/components/Button";
-import { TextField } from "@/ui/components/form/Fields";
+import { PasswordField } from "@/ui/components/form/PasswordField";
 import { FormSection, InlineError } from "../components/AdminUi";
 import { useMutation } from "../hooks";
 import { useToast } from "../toast";
@@ -45,10 +45,9 @@ export function PasswordSection({ session }: { session: AdminSession }) {
     >
       <form id="senha" noValidate onSubmit={onSubmit} aria-busy={change.pending} className="space-y-4">
         {!recoveringPassword && (
-          <TextField
+          <PasswordField
             label="Senha atual"
             name="currentPassword"
-            type="password"
             autoComplete="current-password"
             value={values.currentPassword}
             onChange={(event) => setValues({ ...values, currentPassword: event.target.value })}
@@ -57,20 +56,18 @@ export function PasswordSection({ session }: { session: AdminSession }) {
           />
         )}
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField
+          <PasswordField
             label="Nova senha"
             name="password"
-            type="password"
             autoComplete="new-password"
             autoFocus={recoveringPassword}
             value={values.password}
             onChange={(event) => setValues({ ...values, password: event.target.value })}
             error={fieldErrors.password}
           />
-          <TextField
+          <PasswordField
             label="Repita a nova senha"
             name="confirmation"
-            type="password"
             autoComplete="new-password"
             value={values.confirmation}
             onChange={(event) => setValues({ ...values, confirmation: event.target.value })}

@@ -33,6 +33,7 @@ const EDITOR_ROUTES = [
   "/admin/usuarios/novo",
   "/admin/suporte/novo",
   "/admin/acessos/novo",
+  "/admin/acessos/:id",
 ];
 
 /** Editores largos (prévia ao lado): também têm barra própria no celular, mas usam a largura toda. */
@@ -46,7 +47,6 @@ const FORM_ROUTES = [
   "/admin/apis",
   "/admin/configuracoes",
   "/admin/suporte/:id",
-  "/admin/acessos",
 ];
 
 /** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */
