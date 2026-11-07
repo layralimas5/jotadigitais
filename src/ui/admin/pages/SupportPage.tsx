@@ -10,20 +10,28 @@ import {
   canManageSupportLabels,
   inPeriod,
   isPendingTicket,
+  matchesAge,
+  orderTickets,
   needsActionFrom,
   wasApprovedByAdmin,
+  SUPPORT_AGE_LABEL,
+  SUPPORT_AGES,
   SUPPORT_KIND_LABEL,
   SUPPORT_KINDS,
   SUPPORT_PERIOD_LABEL,
   SUPPORT_PERIODS,
   SUPPORT_PRIORITIES,
   SUPPORT_PRIORITY_LABEL,
+  SUPPORT_SORT_LABEL,
+  SUPPORT_SORTS,
   SUPPORT_STATUS_LABEL,
   SUPPORT_STATUS_ORDER,
+  type SupportAge,
   type SupportKind,
   type SupportLabel,
   type SupportPeriod,
   type SupportPriority,
+  type SupportSort,
   type SupportStatus,
   type SupportTicket,
 } from "@/domain/support-ticket";
@@ -39,6 +47,7 @@ import { LABEL_TONE } from "../support/label-tone";
 import { LabelManager } from "../support/LabelManager";
 import { LabelPicker } from "../support/LabelPicker";
 import { PRIORITY_TONE } from "../support/priority-tone";
+import { QueueAgeBadge } from "../support/QueueAgeBadge";
 import { StatusPicker } from "../support/StatusPicker";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import {
@@ -61,6 +70,8 @@ type PriorityFilter = SupportPriority | "all";
 type LabelFilter = string;
 
 interface Filters {
+  sort: SupportSort;
+  age: SupportAge;
   period: SupportPeriod;
   status: StatusFilter;
   kind: KindFilter;
@@ -68,7 +79,7 @@ interface Filters {
   label: LabelFilter;
 }
 
-const DEFAULT_FILTERS: Filters = { period: "all", status: "active", kind: "all", priority: "all", label: "all" };
+const DEFAULT_FILTERS: Filters = { sort: "priority", age: "all", period: "all", status: "active", kind: "all", priority: "all", label: "all" };
 
 const NEW_TICKET_PATH = "/admin/suporte/novo";
 
@@ -109,6 +120,7 @@ const DESCRIPTION: Record<AdminRole, string> = {
 
 function matchesFilters(ticket: SupportTicket, filters: Filters, role: AdminRole): boolean {
   return (
+    matchesAge(ticket, filters.age) &&
     inPeriod(ticket, filters.period) &&
     STATUS_FILTERS[filters.status](ticket, role) &&
     (filters.kind === "all" || ticket.kind === filters.kind) &&
@@ -139,9 +151,24 @@ function FilterBar({ filters, onChange, tickets, labels, role }: FilterBarProps)
 
   return (
     <section aria-label="Filtros dos chamados" className="rounded-3xl border border-line bg-surface/40 p-3 sm:p-4">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         <FilterSelect
-          label="Período"
+          label="Ordenar"
+          value={filters.sort}
+          onChange={(value) => set("sort", value)}
+          options={SUPPORT_SORTS.map((value) => ({ value, label: SUPPORT_SORT_LABEL[value] }))}
+        />
+        <FilterSelect
+          label="Tempo na fila"
+          value={filters.age}
+          onChange={(value) => set("age", value)}
+          options={SUPPORT_AGES.map((value) => ({
+            value,
+            label: value === "all" ? SUPPORT_AGE_LABEL[value] : withCount(SUPPORT_AGE_LABEL[value], countWith({ age: value })),
+          }))}
+        />
+        <FilterSelect
+          label="Última movimentação"
           value={filters.period}
           onChange={(value) => set("period", value)}
           options={SUPPORT_PERIODS.map((value) => ({ value, label: SUPPORT_PERIOD_LABEL[value] }))}
@@ -178,7 +205,7 @@ function FilterBar({ filters, onChange, tickets, labels, role }: FilterBarProps)
           label="Etiqueta"
           value={filters.label}
           onChange={(value) => set("label", value)}
-          className="col-span-2 sm:col-span-1"
+          className="col-span-2 sm:col-span-1 lg:col-span-2 2xl:col-span-1"
           options={[
             { value: "all", label: "Todas as etiquetas" },
             { value: "none", label: withCount("Sem etiqueta", countWith({ label: "none" })), dotClassName: "border border-white/30" },
@@ -253,6 +280,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
             </Link>
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mist">
+            <QueueAgeBadge ticket={ticket} />
             <span>
               {authorNameOf(ticket.author)} · mexido {formatRelative(ticket.updatedAt)}
             </span>
@@ -352,7 +380,7 @@ const STATUS_GROUP: Record<SupportStatus, StatusGroupCopy> = {
   },
   open: {
     icon: ListTodo,
-    hint: { admin: "Na fila da Layra, do mais urgente para o menos.", developer: "Na sua fila, do mais urgente para o menos." },
+    hint: { admin: "Na fila da Layra.", developer: "Na sua fila. Use Ordenar para ver primeiro o que espera há mais tempo." },
     tone: "text-pink",
   },
   done: {
@@ -417,7 +445,10 @@ export default function SupportPage() {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(openedTicketId ? [openedTicketId] : []));
   const data = tickets.status === "success" ? tickets.data : null;
   const labelList = labels.status === "success" ? labels.data : [];
-  const visible = useMemo(() => (data ? data.filter((ticket) => matchesFilters(ticket, filters, role)) : []), [data, filters, role]);
+  const visible = useMemo(
+    () => (data ? orderTickets(data.filter((ticket) => matchesFilters(ticket, filters, role)), filters.sort) : []),
+    [data, filters, role],
+  );
 
   const toggle = (id: string) =>
     setExpanded((current) => {
@@ -466,7 +497,7 @@ export default function SupportPage() {
           {visible.length === 0 ? (
             <EmptyState
               title="Nenhum chamado com esses filtros"
-              description="Troque o período, a situação ou a prioridade para ver os outros."
+              description="Troque o tempo na fila, a situação ou a prioridade para ver os outros."
               action={
                 <Button variant="secondary" onClick={() => setFilters(DEFAULT_FILTERS)}>
                   <FilterX aria-hidden className="size-4" /> Limpar filtros

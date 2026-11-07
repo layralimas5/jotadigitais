@@ -235,18 +235,18 @@ export function timelineOf(ticket: Pick<SupportTicket, "replies" | "events">): S
 }
 
 // ---------------------------------------------------------------------------
-// Filtro por período: pela última movimentação do chamado.
+// Filtro por última movimentação do chamado (resposta ou troca de situação).
 // ---------------------------------------------------------------------------
 
 export const SUPPORT_PERIODS = ["all", "today", "7d", "30d", "90d"] as const;
 export type SupportPeriod = (typeof SUPPORT_PERIODS)[number];
 
 export const SUPPORT_PERIOD_LABEL: Record<SupportPeriod, string> = {
-  all: "Qualquer data",
-  today: "Hoje",
-  "7d": "Últimos 7 dias",
-  "30d": "Últimos 30 dias",
-  "90d": "Últimos 90 dias",
+  all: "Mexido em qualquer data",
+  today: "Mexido hoje",
+  "7d": "Mexido nos últimos 7 dias",
+  "30d": "Mexido nos últimos 30 dias",
+  "90d": "Mexido nos últimos 90 dias",
 };
 
 const PERIOD_DAYS: Record<Exclude<SupportPeriod, "all" | "today">, number> = { "7d": 7, "30d": 30, "90d": 90 };
@@ -256,4 +256,73 @@ export function inPeriod(ticket: Pick<SupportTicket, "updatedAt">, period: Suppo
   const updated = new Date(ticket.updatedAt);
   if (period === "today") return updated.toDateString() === now.toDateString();
   return now.getTime() - updated.getTime() <= PERIOD_DAYS[period] * 24 * 60 * 60 * 1000;
+}
+
+// ---------------------------------------------------------------------------
+// Tempo na fila: contado desde a abertura do chamado, para atacar primeiro o que espera há mais tempo.
+// ---------------------------------------------------------------------------
+
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+export const SUPPORT_AGES = ["all", "1d", "over3d", "over7d", "over30d"] as const;
+export type SupportAge = (typeof SUPPORT_AGES)[number];
+
+export const SUPPORT_AGE_LABEL: Record<SupportAge, string> = {
+  all: "Qualquer tempo na fila",
+  "1d": "Abertos nas últimas 24 h",
+  over3d: "Há mais de 3 dias",
+  over7d: "Há mais de 7 dias",
+  over30d: "Há mais de 30 dias",
+};
+
+/** Quanto tempo o chamado ficou (ou está) aberto: até agora, ou até ser finalizado. */
+export function queueTimeMs(ticket: Pick<SupportTicket, "createdAt" | "resolvedAt" | "status">, now: Date = new Date()): number {
+  const end = ticket.status === "done" && ticket.resolvedAt ? new Date(ticket.resolvedAt) : now;
+  return Math.max(0, end.getTime() - new Date(ticket.createdAt).getTime());
+}
+
+const AGE_TEST: Record<SupportAge, (ms: number) => boolean> = {
+  all: () => true,
+  "1d": (ms) => ms <= DAY_MS,
+  over3d: (ms) => ms > 3 * DAY_MS,
+  over7d: (ms) => ms > 7 * DAY_MS,
+  over30d: (ms) => ms > 30 * DAY_MS,
+};
+
+export const matchesAge = (ticket: Pick<SupportTicket, "createdAt" | "resolvedAt" | "status">, age: SupportAge, now: Date = new Date()): boolean =>
+  AGE_TEST[age](queueTimeMs(ticket, now));
+
+/** Cor do tempo: até 2 dias está em dia, até 7 pede atenção, depois disso está atrasado. */
+export type QueueAgeTone = "fresh" | "aging" | "late";
+
+export function queueAgeTone(ms: number): QueueAgeTone {
+  if (ms < 2 * DAY_MS) return "fresh";
+  if (ms < 7 * DAY_MS) return "aging";
+  return "late";
+}
+
+/** "menos de 1 h", "5 h", "1 dia", "12 dias". */
+export function formatQueueTime(ms: number): string {
+  if (ms < HOUR_MS) return "menos de 1 h";
+  if (ms < DAY_MS) return `${Math.floor(ms / HOUR_MS)} h`;
+  const days = Math.floor(ms / DAY_MS);
+  return days === 1 ? "1 dia" : `${days} dias`;
+}
+
+export const SUPPORT_SORTS = ["priority", "oldest", "newest"] as const;
+export type SupportSort = (typeof SUPPORT_SORTS)[number];
+
+export const SUPPORT_SORT_LABEL: Record<SupportSort, string> = {
+  priority: "Mais urgentes primeiro",
+  oldest: "Há mais tempo na fila",
+  newest: "Abertos mais recentes",
+};
+
+/** Mantém a separação por situação; dentro dela, ordena pela urgência (padrão) ou pela data de abertura. */
+export function orderTickets(tickets: readonly SupportTicket[], sort: SupportSort): SupportTicket[] {
+  if (sort === "priority") return sortTickets(tickets);
+  const byAge = (a: SupportTicket, b: SupportTicket) =>
+    sort === "oldest" ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt);
+  return [...tickets].sort((a, b) => statusWeight(a.status) - statusWeight(b.status) || byAge(a, b));
 }
