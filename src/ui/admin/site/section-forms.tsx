@@ -2,10 +2,11 @@ import type { ComponentType } from "react";
 import { CHECKOUT_SOURCE_ORDER, LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
-import type { PlatformCard, SiteContent, SiteSectionKey, TextCard } from "@/domain/site-content";
+import { MAX_PARTNER_STEPS, type PlatformCard, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
 import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
+import { PageButtonsField } from "./PageButtonsField";
 import { ProofPointsField } from "./ProofPointsField";
 
 interface SectionFormProps<K extends SiteSectionKey> {
@@ -436,23 +437,33 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
 const PartnerPageForm: Form<"partnerPage"> = (props) => {
   const copy = copyFieldsFor("partnerPage", props);
   const { value, onChange, errors } = props;
-  const updateStep = (index: number, patch: Partial<TextCard>) =>
-    onChange({ ...value, steps: value.steps.map((step, position) => (position === index ? { ...step, ...patch } : step)) as typeof value.steps });
   return (
     <>
       {copy("eyebrow", "Chamada pequena", 40)}
       {copy("title", "Título", 90)}
       {copy("description", "Texto de apoio", 240, { multiline: true })}
+      <PageButtonsField path="partnerPage.buttons" buttons={value.buttons} errors={errors} onChange={(buttons) => onChange({ ...value, buttons })} />
+      <p className="text-xs text-mist">Os mesmos botões aparecem no topo e no fim da página. Arraste para mudar a ordem.</p>
 
       <GroupTitle>Como funciona</GroupTitle>
-      {value.steps.map((step, index) => (
-        <fieldset key={index} className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
-          <legend className="sr-only">{`Passo ${index + 1}`}</legend>
-          <p aria-hidden className="text-xs font-semibold text-mist">{`Passo ${index + 1}`}</p>
-          <CopyField label="Título" path={`partnerPage.steps.${index}.title`} value={step.title} max={60} errors={errors} onChange={(title) => updateStep(index, { title })} />
-          <CopyField label="Texto" path={`partnerPage.steps.${index}.text`} value={step.text} max={220} multiline errors={errors} onChange={(text) => updateStep(index, { text })} />
-        </fieldset>
-      ))}
+      <Repeater
+        legend="Passos"
+        path="partnerPage.steps"
+        items={value.steps}
+        onChange={(steps) => onChange({ ...value, steps })}
+        errors={errors}
+        min={1}
+        max={MAX_PARTNER_STEPS}
+        addLabel="Adicionar passo"
+        itemLabel={(index) => `Passo ${index + 1}`}
+        empty={() => ({ title: "", text: "" })}
+        render={(step, update, itemPath) => (
+          <>
+            <CopyField label="Título" path={`${itemPath}.title`} value={step.title} max={60} errors={errors} onChange={(title) => update({ title })} />
+            <CopyField label="Texto" path={`${itemPath}.text`} value={step.text} max={220} multiline errors={errors} onChange={(text) => update({ text })} />
+          </>
+        )}
+      />
 
       <GroupTitle>Vantagens</GroupTitle>
       {copy("perksTitle", "Título", 60)}
@@ -468,14 +479,9 @@ const PartnerPageForm: Form<"partnerPage"> = (props) => {
         onChange={(perks) => onChange({ ...value, perks })}
       />
 
-      <GroupTitle>Chamada para o WhatsApp</GroupTitle>
+      <GroupTitle>Chamada no fim da página</GroupTitle>
       {copy("ctaTitle", "Título", 60)}
       {copy("ctaText", "Texto", 220, { multiline: true })}
-      {copy("button", "Botão", 32)}
-      {copy("whatsappMessage", "Mensagem que já vai escrita no WhatsApp", 300, {
-        multiline: true,
-        hint: "O número é o do WhatsApp do suporte (Contato e garantia). Sem número, o botão some.",
-      })}
     </>
   );
 };
@@ -540,7 +546,7 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({
     key: "partnerPage",
     title: "Seja parceiro",
-    description: "Página que explica a parceria e leva ao WhatsApp",
+    description: "Explicação da parceria, passos e botões (WhatsApp ou link)",
     path: PARTNER_PATH,
     anchor: "parceiro-title",
     Form: PartnerPageForm,

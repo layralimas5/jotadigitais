@@ -1,4 +1,6 @@
-import { ArrowRight, Check, Store, Wallet } from "lucide-react";
+import { ArrowRight, Check, ExternalLink, Handshake, MessageSquareText, Rocket, Store, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
+import type { PageButton } from "@/domain/site-content";
 import { whatsappMessageUrl } from "@/domain/store-settings";
 import { buttonClasses } from "@/ui/components/Button";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
@@ -6,31 +8,63 @@ import { WhatsAppGlyph } from "@/ui/components/whatsapp/WhatsAppGlyph";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
+import { cn } from "@/ui/lib/cn";
 import { editable } from "@/ui/lib/site-preview";
 
-/** Ícone de cada passo, na ordem. Títulos e textos vêm do painel. */
-const STEP_ICONS = [WhatsAppGlyph, Store, Wallet] as const;
+/** Ícone de cada passo, na ordem; depois do sexto, recomeça. Títulos e textos vêm do painel. */
+const STEP_ICONS = [WhatsAppGlyph, Store, Wallet, Handshake, MessageSquareText, Rocket] as const;
 
-/** Leva ao WhatsApp do Jota com a mensagem pronta; sem número salvo, ao Instagram da loja. */
-function PartnerContactButton({ className }: { className?: string }) {
-  const { partnerPage } = useSiteContent();
+const isInternal = (url: string) => url.startsWith("/");
+
+/**
+ * WhatsApp abre a conversa com o Jota e a mensagem pronta (sem número salvo, vai para o Instagram da loja).
+ * Link leva a uma página do site na mesma aba ou a um endereço de fora em outra aba.
+ */
+function PageButtonLink({ button, index, className }: { button: PageButton; index: number; className?: string }) {
   const { whatsappUrl, instagramUrl } = useStoreSettings();
-  const href = whatsappUrl ? whatsappMessageUrl(whatsappUrl, partnerPage.whatsappMessage) : instagramUrl;
+  const classes = buttonClasses({ size: "lg", variant: index === 0 ? "primary" : "secondary", className });
+  const label = <span {...editable(`partnerPage.buttons.${index}.label`)}>{button.label}</span>;
+
+  if (button.action === "link" && isInternal(button.url)) {
+    return (
+      <Link to={button.url} className={classes}>
+        {label}
+        <ArrowRight aria-hidden className="size-4" />
+      </Link>
+    );
+  }
+  const isWhatsapp = button.action === "whatsapp";
+  const href = !isWhatsapp ? button.url : whatsappUrl ? whatsappMessageUrl(whatsappUrl, button.message) : instagramUrl;
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={buttonClasses({ size: "lg", className })}>
-      {whatsappUrl && <WhatsAppGlyph aria-hidden className="size-4" />}
-      <span {...editable("partnerPage.button")}>{partnerPage.button}</span>
-      <ArrowRight aria-hidden className="size-4" />
+    <a href={href} target="_blank" rel="noopener noreferrer" className={classes}>
+      {isWhatsapp && whatsappUrl && <WhatsAppGlyph aria-hidden className="size-4" />}
+      {label}
+      {isWhatsapp ? <ArrowRight aria-hidden className="size-4" /> : <ExternalLink aria-hidden className="size-4" />}
+      <span className="sr-only"> (abre em outra aba)</span>
     </a>
   );
 }
 
+function PartnerButtons({ className, centered = false }: { className?: string; centered?: boolean }) {
+  const { partnerPage } = useSiteContent();
+  return (
+    <div className={cn("flex flex-col gap-3 sm:flex-row sm:flex-wrap", centered && "sm:justify-center", className)}>
+      {partnerPage.buttons.map((button, index) => (
+        <PageButtonLink key={index} button={button} index={index} className="w-full sm:w-auto" />
+      ))}
+    </div>
+  );
+}
+
+/** Duas ou quatro: duas colunas; o resto, três. Assim nenhuma linha fica com um card sobrando sozinho à toa. */
+const stepColumns = (count: number) => (count === 1 ? "" : count === 2 || count === 4 ? "md:grid-cols-2" : "md:grid-cols-3");
+
 function PartnerSteps() {
   const { partnerPage } = useSiteContent();
   return (
-    <Reveal as="ol" stagger className="mt-12 grid gap-3 sm:mt-16 sm:gap-5 md:grid-cols-3">
+    <Reveal as="ol" stagger className={cn("mt-12 grid gap-3 sm:mt-16 sm:gap-5", stepColumns(partnerPage.steps.length))}>
       {partnerPage.steps.map((step, index) => {
-        const Icon = STEP_ICONS[index] ?? Store;
+        const Icon = STEP_ICONS[index % STEP_ICONS.length] ?? Store;
         return (
           <RevealItem as="li" key={index}>
             <div className="hover-pulse flex h-full gap-4 rounded-2xl border border-line bg-surface/70 p-4 sm:block sm:rounded-3xl sm:p-6">
@@ -38,12 +72,12 @@ function PartnerSteps() {
                 <span className="pulse-icon grid size-11 place-items-center rounded-xl border border-white/10 bg-ink text-electric sm:size-14 sm:rounded-2xl">
                   <Icon aria-hidden className="size-5 sm:size-6" />
                 </span>
-                <span className="font-display text-4xl font-bold text-white/[0.07] max-sm:hidden">0{index + 1}</span>
+                <span className="font-display text-4xl font-bold text-white/[0.07] max-sm:hidden">{String(index + 1).padStart(2, "0")}</span>
               </div>
               <div className="min-w-0">
                 <h2 className="font-display text-base font-semibold text-white sm:mt-6 sm:text-lg">
                   <span aria-hidden className="mr-2 text-electric-soft/60 tabular-nums sm:hidden">
-                    0{index + 1}
+                    {String(index + 1).padStart(2, "0")}
                   </span>
                   <span {...editable(`partnerPage.steps.${index}.title`)}>{step.title}</span>
                 </h2>
@@ -94,7 +128,7 @@ function PartnerCta() {
           <p {...editable("partnerPage.ctaText")} className="mx-auto mt-3 max-w-xl text-[0.95rem] leading-relaxed text-pretty text-mist md:mt-5 md:text-lg">
             {partnerPage.ctaText}
           </p>
-          <PartnerContactButton className="mt-7 w-full sm:mt-10 sm:w-auto" />
+          <PartnerButtons centered className="mt-7 sm:mt-10" />
         </div>
       </div>
     </Reveal>
@@ -122,7 +156,7 @@ export default function PartnerPage() {
           <p {...editable("partnerPage.description")} className="mt-4 text-lg leading-relaxed text-pretty text-fog md:mt-6">
             {partnerPage.description}
           </p>
-          <PartnerContactButton className="mt-7 w-full sm:mt-9 sm:w-auto" />
+          <PartnerButtons className="mt-7 sm:mt-9" />
         </Reveal>
 
         <PartnerSteps />

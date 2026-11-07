@@ -17,7 +17,7 @@ import {
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
 } from "@/domain/support-ticket";
-import { MAX_PROOF_POINTS, PROOF_ICONS } from "@/domain/site-content";
+import { isPageButtonUrl, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -538,6 +538,23 @@ const copyList = (min: number, max: number, itemMax: number) =>
 const textCard = z.object({ title: copy(60), text: copy(220) });
 const platformCard = z.object({ title: copy(60), tiktok: copy(220), other: copy(220) });
 
+/** Botão de WhatsApp precisa da mensagem; botão de link, de um endereço que abra. */
+const pageButton = z
+  .object({
+    label: copy(32),
+    action: z.enum(PAGE_BUTTON_ACTIONS),
+    message: z.string().trim().max(300, "Use no máximo 300 caracteres."),
+    url: z.string().trim().max(300, "Use no máximo 300 caracteres."),
+  })
+  .superRefine((button, ctx) => {
+    if (button.action === "whatsapp" && !button.message) {
+      ctx.addIssue({ code: "custom", path: ["message"], message: "Escreva a mensagem que já vai pronta." });
+    }
+    if (button.action === "link" && !isPageButtonUrl(button.url)) {
+      ctx.addIssue({ code: "custom", path: ["url"], message: "Use uma página do site (/catalogo) ou um endereço que comece com https://." });
+    }
+  });
+
 const siteImage = z.object({
   url: z.string().min(1, "Envie a imagem.").refine(fitsImageLimit, IMAGE_TOO_LONG),
   alt: copy(240),
@@ -611,13 +628,12 @@ export const siteContentSchema = z.object({
   }),
   partnerPage: z.object({
     ...titleBlock,
-    steps: z.tuple([textCard, textCard, textCard]),
+    steps: z.array(textCard).min(1, "Mantenha pelo menos um passo.").max(MAX_PARTNER_STEPS, `Use no máximo ${MAX_PARTNER_STEPS} passos.`),
     perksTitle: copy(60),
     perks: copyList(1, 6, 90),
     ctaTitle: copy(60),
     ctaText: copy(220),
-    button: copy(32),
-    whatsappMessage: copy(300),
+    buttons: z.array(pageButton).min(1, "Mantenha pelo menos um botão.").max(MAX_PAGE_BUTTONS, `Use no máximo ${MAX_PAGE_BUTTONS} botões.`),
   }),
   accountPage: z.object({
     profileLink: copy(40),

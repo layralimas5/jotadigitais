@@ -69,6 +69,24 @@ export interface ProofPoint {
   icon: ProofIcon;
 }
 
+/** O botão abre o WhatsApp do Jota com a mensagem pronta ou leva a um link (página do site ou endereço externo). */
+export const PAGE_BUTTON_ACTIONS = ["whatsapp", "link"] as const;
+export type PageButtonAction = (typeof PAGE_BUTTON_ACTIONS)[number];
+
+export interface PageButton {
+  label: string;
+  action: PageButtonAction;
+  /** Mensagem que já vai escrita no WhatsApp (só no botão de WhatsApp). */
+  message: string;
+  /** "/catalogo" para uma página do site ou "https://..." para fora dele (só no botão de link). */
+  url: string;
+}
+
+/** Mais botões que isso viram uma fila no celular. O primeiro é o destaque; os outros, secundários. */
+export const MAX_PAGE_BUTTONS = 3;
+/** Passos da página de parceiro: até seis cabem em duas linhas de três. */
+export const MAX_PARTNER_STEPS = 6;
+
 export interface SiteContent {
   seo: { title: string; description: string };
   hero: {
@@ -126,13 +144,13 @@ export interface SiteContent {
   };
   /** Página /seja-parceiro: explica a parceria e leva ao WhatsApp do Jota com a mensagem pronta. */
   partnerPage: TitleBlock & {
-    steps: [TextCard, TextCard, TextCard];
+    steps: TextCard[];
     perksTitle: string;
     perks: string[];
     ctaTitle: string;
     ctaText: string;
-    button: string;
-    whatsappMessage: string;
+    /** Aparecem no topo e no fim da página, na mesma ordem. */
+    buttons: PageButton[];
   };
   /** Página de cada conta (/contas/...): a vitrine de venda. */
   accountPage: {
@@ -375,8 +393,14 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     ],
     ctaTitle: "Quer ser parceiro?",
     ctaText: "Chame o Jota no WhatsApp. A mensagem já vai pronta, é só enviar.",
-    button: "Quero ser parceiro",
-    whatsappMessage: "Olá, Jota! Vim pelo site e quero ser parceiro da Jota Digitais. Tenho contas para vender.",
+    buttons: [
+      {
+        label: "Quero ser parceiro",
+        action: "whatsapp",
+        message: "Olá, Jota! Vim pelo site e quero ser parceiro da Jota Digitais. Tenho contas para vender.",
+        url: "",
+      },
+    ],
   },
   accountPage: {
     profileLink: "Ver a conta no {rede}",
@@ -453,14 +477,37 @@ export function fillTokens(text: string, tokens: ContentTokens): string {
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+function mergeTree(saved: unknown, defaults: unknown): unknown {
+  if (!isPlainObject(defaults)) return saved === undefined ? defaults : saved;
+  if (!isPlainObject(saved)) return defaults;
+  const merged: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(defaults)) merged[key] = mergeTree(saved[key], value);
+  return merged;
+}
+
+/** A página de parceiro tinha um botão só (button + whatsappMessage): vira o primeiro da lista, com o texto que o Jota salvou. */
+function upgradePartnerPage(saved: Record<string, unknown>): Record<string, unknown> {
+  const page = saved.partnerPage;
+  if (!isPlainObject(page) || "buttons" in page || typeof page.button !== "string") return saved;
+  const [fallback] = DEFAULT_SITE_CONTENT.partnerPage.buttons;
+  const message = typeof page.whatsappMessage === "string" ? page.whatsappMessage : (fallback?.message ?? "");
+  return { ...saved, partnerPage: { ...page, buttons: [{ label: page.button, action: "whatsapp", message, url: "" }] } };
+}
+
 /**
  * Junta o que foi salvo por cima do padrão, campo a campo. Listas salvas substituem a lista padrão inteira.
  * Assim um conteúdo salvo antes de existir um campo novo continua válido.
  */
-export function mergeWithDefaults(saved: unknown, defaults: unknown = DEFAULT_SITE_CONTENT): unknown {
-  if (!isPlainObject(defaults)) return saved === undefined ? defaults : saved;
-  if (!isPlainObject(saved)) return defaults;
-  const merged: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(defaults)) merged[key] = mergeWithDefaults(saved[key], value);
-  return merged;
+export function mergeWithDefaults(saved: unknown): unknown {
+  return mergeTree(isPlainObject(saved) ? upgradePartnerPage(saved) : saved, DEFAULT_SITE_CONTENT);
+}
+
+/** Endereço que o botão de link aceita: uma página do site ("/catalogo") ou um endereço https. */
+export function isPageButtonUrl(url: string): boolean {
+  if (/^\/(?!\/)/.test(url)) return true;
+  try {
+    return new URL(url).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
