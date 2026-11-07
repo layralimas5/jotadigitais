@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, Crosshair, FilterX, MessageSquare, Paperclip, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { listSupportLabels, listSupportTickets } from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
 import {
@@ -63,6 +63,13 @@ interface Filters {
 const DEFAULT_FILTERS: Filters = { period: "all", status: "active", kind: "all", priority: "all", label: "all" };
 
 const NEW_TICKET_PATH = "/admin/suporte/novo";
+
+/** Chamado recém-aberto que a ficha manda para a listagem abrir no andamento. */
+function openedTicketIdOf(state: unknown): string | null {
+  if (typeof state !== "object" || state === null || !("openedTicketId" in state)) return null;
+  const { openedTicketId } = state;
+  return typeof openedTicketId === "string" ? openedTicketId : null;
+}
 const REFRESH_MS = 30_000;
 
 const STATUS_FILTERS: Record<StatusFilter, (ticket: SupportTicket, role: AdminRole) => boolean> = {
@@ -328,7 +335,8 @@ export default function SupportPage() {
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(tickets.reload, REFRESH_MS);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const openedTicketId = openedTicketIdOf(useLocation().state);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(openedTicketId ? [openedTicketId] : []));
   const data = tickets.status === "success" ? tickets.data : null;
   const labelList = labels.status === "success" ? labels.data : [];
   const visible = useMemo(() => (data ? data.filter((ticket) => matchesFilters(ticket, filters, role)) : []), [data, filters, role]);
