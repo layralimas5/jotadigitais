@@ -279,7 +279,7 @@ export function AdminProtected() {
     <>
       <Sidebar access={access} canPreview={state.session.role === "developer"} />
       <div className="md:pl-60">
-        {previewing && <PreviewBanner />}
+        <PreviewBanner />
         <TopBar access={access} />
         <main
           ref={mainRef}

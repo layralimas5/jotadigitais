@@ -108,52 +108,63 @@ function supabaseContainer(url: string, anonKey: string): Container {
   };
 }
 
+/** Painel inteiro sobre um banco de exemplo no navegador: o modo demonstração e o ambiente de teste usam o mesmo. */
+function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
+  const users = new DemoAdminUserRepository(db);
+  const auth = new DemoAuthService((email) => users.accessOf(email), authKeyPrefix);
+  const store = {
+    accounts: new DemoAccountRepository(db),
+    testimonials: new DemoTestimonialRepository(db),
+    orders: new DemoOrderRepository(db),
+    settings: new DemoStoreSettingsRepository(db, defaultStoreSettings),
+    siteContent: new DemoSiteContentRepository(db),
+  };
+  const admin: AdminDeps = {
+    auth,
+    ...store,
+    leads: new DemoLeadRepository(db),
+    customers: new DemoCustomerRepository(db),
+    templates: new DemoMessageTemplateRepository(db),
+    preferences: new DemoPreferenceRepository(db),
+    expenses: new DemoExpenseRepository(db),
+    revenues: new DemoRevenueRepository(db),
+    partners: new DemoPartnerRepository(db),
+    emailAccounts: new DemoEmailAccountRepository(db),
+    users,
+    profiles: new DevServerProfileLookupService(),
+    notifications: new DemoNotificationRepository(db),
+    calendar: new GoogleCalendarService(backendConfig.googleClientId),
+    images: new DemoImageStorage(),
+    privacy: new DemoPrivacyRepository(db),
+    support: new DemoSupportTicketRepository(db, auth),
+    access: new DemoAccessRepository(db, users, auth),
+  };
+  return { store, admin };
+}
+
 /** Sem Supabase configurado, site e painel rodam com dados guardados no próprio navegador. */
 function demoContainer(): Container {
   const db = new DemoDatabase();
-  const accounts = new DemoAccountRepository(db);
-  const testimonials = new DemoTestimonialRepository(db);
-  const orders = new DemoOrderRepository(db);
-  const settings = new DemoStoreSettingsRepository(db, defaultStoreSettings);
-  const siteContent = new DemoSiteContentRepository(db);
-  const users = new DemoAdminUserRepository(db);
-  const auth = new DemoAuthService((email) => users.accessOf(email));
+  const { store, admin } = demoAdminDeps(db);
   return {
     mode: "demo",
-    store: {
-      accounts,
-      testimonials,
-      orders,
-      settings,
-      siteContent,
-      payments: new DemoPaymentGateway(orders),
-      privacy: new DemoPrivacyService(db),
-    },
-    admin: {
-      auth,
-      accounts,
-      testimonials,
-      orders,
-      settings,
-      siteContent,
-      leads: new DemoLeadRepository(db),
-      customers: new DemoCustomerRepository(db),
-      templates: new DemoMessageTemplateRepository(db),
-      preferences: new DemoPreferenceRepository(db),
-      expenses: new DemoExpenseRepository(db),
-      revenues: new DemoRevenueRepository(db),
-      partners: new DemoPartnerRepository(db),
-      emailAccounts: new DemoEmailAccountRepository(db),
-      users,
-      profiles: new DevServerProfileLookupService(),
-      notifications: new DemoNotificationRepository(db),
-      calendar: new GoogleCalendarService(backendConfig.googleClientId),
-      images: new DemoImageStorage(),
-      privacy: new DemoPrivacyRepository(db),
-      support: new DemoSupportTicketRepository(db, auth),
-      access: new DemoAccessRepository(db, users, auth),
-    },
+    store: { ...store, payments: new DemoPaymentGateway(store.orders), privacy: new DemoPrivacyService(db) },
+    admin,
   };
+}
+
+/** Onde o ambiente de teste guarda os dados de exemplo. Recomeçar o teste apaga só esta chave. */
+export const SANDBOX_STORAGE_KEY = "jota:sandbox-db";
+
+let sandbox: AdminDeps | null = null;
+
+/**
+ * "Testar como o Jota": o painel dele sobre dados de exemplo só deste navegador, com o login de exemplo do Jota.
+ * Tudo funciona (abrir e aprovar chamado, cadastrar, entregar) e nada encosta no banco de verdade.
+ */
+export function sandboxAdminDeps(): AdminDeps {
+  sandbox ??= demoAdminDeps(new DemoDatabase(SANDBOX_STORAGE_KEY), "jota:sandbox").admin;
+  return sandbox;
 }
 
 export const container: Container = backendConfig.supabase

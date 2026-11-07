@@ -6,9 +6,9 @@ import { useAdminView } from "./admin-view";
 
 /** Leitura do painel. `reload` busca de novo sem apagar o que já está na tela. */
 export function useAdminQuery<T>(load: (deps: AdminDeps) => Promise<T>, key: string) {
-  const { deps, previewing } = useAdminView();
-  // Entrar ou sair do modo visualização busca tudo de novo, com ou sem máscara.
-  const state = useAsync(() => load(deps), previewing ? `${key}:preview` : key, { keepPrevious: true });
+  const { deps, mode } = useAdminView();
+  // Trocar de modo (meu painel, ver ou testar como o Jota) busca tudo de novo, na fonte certa.
+  const state = useAsync(() => load(deps), mode === "self" ? key : `${key}:${mode}`, { keepPrevious: true });
   return { ...state, reload: state.retry };
 }
 
