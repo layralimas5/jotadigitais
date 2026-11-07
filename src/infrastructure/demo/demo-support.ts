@@ -1,5 +1,6 @@
 import type { AuthService, SupportTicketRepository } from "@/application/ports";
 import {
+  SupportApprovalError,
   SupportDeleteForbiddenError,
   SupportLabelForbiddenError,
   SupportLabelNameTakenError,
@@ -7,6 +8,7 @@ import {
   SupportTicketNotFoundError,
 } from "@/domain/errors";
 import {
+  canApproveSupportTicket,
   canChangeSupportStatus,
   canDeleteSupportTicket,
   canManageSupportLabels,
@@ -116,6 +118,22 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
             events: [...ticket.events, statusEvent(ticket.status, status, author, now)],
           },
     );
+  }
+
+  async approve(ticketId: string): Promise<void> {
+    await simulateLatency();
+    const author = await this.currentAuthor();
+    const ticket = this.db.read().supportTickets?.find((item) => item.id === ticketId);
+    if (!ticket) throw new SupportTicketNotFoundError();
+    if (!canApproveSupportTicket(ticket, author.role)) throw new SupportApprovalError();
+    const now = new Date().toISOString();
+    this.updateTicket(ticketId, (current) => ({
+      ...current,
+      status: "done",
+      updatedAt: now,
+      resolvedAt: now,
+      events: [...current.events, statusEvent(current.status, "done", author, now)],
+    }));
   }
 
   async listLabels(): Promise<SupportLabel[]> {

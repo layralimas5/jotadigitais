@@ -62,6 +62,11 @@ export function NeedsYouBadge() {
   return <span className={cn(pill, "border-white/25 bg-white text-ink")}>Precisa de você</span>;
 }
 
+/** Finalizado pelo Jota, aprovando o que estava esperando por ele. */
+export function ApprovedByAdminBadge() {
+  return <span className={cn(pill, "border-emerald-400/30 bg-emerald-400/10 text-emerald-300")}>Jota aprovou</span>;
+}
+
 /** "Jota" ou "Layra"; quem foi removido do sistema vira "Usuário removido". */
 export const authorNameOf = (author: SupportAuthor | null): string => author?.name ?? (author ? "Sem nome" : "Usuário removido");
 

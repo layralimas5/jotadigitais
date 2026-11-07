@@ -1,5 +1,6 @@
 import type { AdminRole } from "@/domain/admin-user";
 import {
+  SupportApprovalError,
   SupportAttachmentError,
   SupportDeleteForbiddenError,
   SupportLabelForbiddenError,
@@ -8,6 +9,7 @@ import {
 import {
   attachmentProblem,
   MAX_ATTACHMENTS_PER_MESSAGE,
+  canApproveSupportTicket,
   canChangeSupportStatus,
   canDeleteSupportTicket,
   canManageSupportLabels,
@@ -65,6 +67,11 @@ export function replyToSupportTicket(
 export function changeSupportStatus(deps: AdminDeps, role: AdminRole, ticketId: string, status: SupportStatus): Promise<void> {
   if (!canChangeSupportStatus(role)) throw new SupportStatusForbiddenError();
   return deps.support.changeStatus(ticketId, parseOrThrow(supportStatusSchema, status));
+}
+
+export function approveSupportTicket(deps: AdminDeps, role: AdminRole, ticket: Pick<SupportTicket, "id" | "status">): Promise<void> {
+  if (!canApproveSupportTicket(ticket, role)) throw new SupportApprovalError();
+  return deps.support.approve(ticket.id);
 }
 
 export function listSupportLabels(deps: AdminDeps): Promise<SupportLabel[]> {

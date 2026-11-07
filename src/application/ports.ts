@@ -304,6 +304,8 @@ export interface SupportTicketRepository {
   open(data: SupportTicketData, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportTicket>>;
   reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>>;
   changeStatus(ticketId: string, status: SupportStatus): Promise<void>;
+  /** O Jota aprova e finaliza um chamado que está aguardando ele (o banco confere papel e situação). */
+  approve(ticketId: string): Promise<void>;
   /** Etiquetas em ordem de criação. Criar, mudar, apagar e escolher: só a desenvolvedora (o banco confere). */
   listLabels(): Promise<SupportLabel[]>;
   createLabel(data: SupportLabelData): Promise<SupportLabel>;
