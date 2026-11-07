@@ -370,6 +370,8 @@ interface StatusGroupCopy {
   /** Frase curta sob o título, escrita para quem está vendo. */
   hint: Record<SupportRole, string>;
   tone: string;
+  /** Animação do ícone, só no que está em andamento. */
+  iconClassName?: string;
 }
 
 const STATUS_GROUP: Record<SupportStatus, StatusGroupCopy> = {
@@ -382,6 +384,7 @@ const STATUS_GROUP: Record<SupportStatus, StatusGroupCopy> = {
     icon: Crosshair,
     hint: { admin: "O que a Layra está fazendo agora.", developer: "O seu foco no momento." },
     tone: "text-electric-soft",
+    iconClassName: "motion-safe:animate-[spin_3s_linear_infinite]",
   },
   open: {
     icon: ListTodo,
@@ -410,13 +413,13 @@ interface StatusGroupProps extends Omit<RowProps, "ticket" | "expanded" | "onTog
 }
 
 function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChanged }: StatusGroupProps) {
-  const { icon: Icon, hint, tone } = STATUS_GROUP[status];
+  const { icon: Icon, hint, tone, iconClassName } = STATUS_GROUP[status];
   const headingId = `grupo-${status}`;
   return (
     <section aria-labelledby={headingId} className="space-y-3">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-2">
         <h2 id={headingId} className={cn("flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase", tone)}>
-          <Icon aria-hidden className="size-4" /> {SUPPORT_STATUS_LABEL[status]}
+          <Icon aria-hidden className={cn("size-4", iconClassName)} /> {SUPPORT_STATUS_LABEL[status]}
           <span className="rounded-full border border-line-strong px-2 py-0.5 text-[0.7rem] tracking-normal text-fog">{tickets.length}</span>
         </h2>
         <p className="text-xs text-mist">{hint[role]}</p>

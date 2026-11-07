@@ -57,7 +57,7 @@ const AREA_OPTIONS = SUPPORT_AREAS.map((value) => ({ value, label: SUPPORT_AREA_
 const PRIORITY_OPTIONS = [...SUPPORT_PRIORITIES].reverse().map((value) => ({
   value,
   label: SUPPORT_PRIORITY_LABEL[value],
-  icon: <span aria-hidden className={cn("size-2.5 rounded-full", PRIORITY_TONE[value].dot)} />,
+  icon: <span aria-hidden className={cn("dot-glow size-2.5 rounded-full", PRIORITY_TONE[value].dot)} />,
   selectedClassName: PRIORITY_TONE[value].selected,
 }));
 
