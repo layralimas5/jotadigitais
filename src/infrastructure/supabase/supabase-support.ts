@@ -40,12 +40,13 @@ const EXTENSION: Record<string, string> = {
 };
 
 // O autor vem de admin_users pela chave estrangeira: nome e papel de quem escreveu.
+// No chamado a chave vai explícita: support_ticket_views também liga chamado e usuário.
 const AUTHOR = "author:admin_users(name, role)";
 const REPLY_COLUMNS = `id, body, created_at, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const UNIQUE_VIOLATION = "23505";
 
