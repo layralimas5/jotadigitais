@@ -12,6 +12,7 @@ import {
   type SupportAuthor,
   type SupportLabel,
   type SupportLabelData,
+  type SupportNotifyEvent,
   type SupportStatusEvent,
   type SupportReply,
   type SupportStatus,
@@ -43,7 +44,8 @@ const AUTHOR = "author:admin_users(name, role)";
 const REPLY_COLUMNS = `id, body, created_at, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS})`;
+const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const UNIQUE_VIOLATION = "23505";
 
@@ -72,6 +74,8 @@ const eventRowSchema = z.object({
   author: authorSchema,
 });
 
+const viewRowSchema = z.object({ seen_at: z.string(), viewer: z.object({ role: z.enum(["admin", "developer"]) }).nullable() });
+
 const labelRowSchema = z.object({ id: z.string(), name: z.string(), color: z.enum(SUPPORT_LABEL_COLORS) });
 
 const toLabel = (raw: unknown): SupportLabel => labelRowSchema.parse(raw);
@@ -93,6 +97,7 @@ const ticketRowSchema = z.object({
   replies: z.array(replyRowSchema),
   attachments: z.array(attachmentRowSchema),
   events: z.array(eventRowSchema),
+  views: z.array(viewRowSchema),
 });
 
 type AttachmentRow = z.infer<typeof attachmentRowSchema>;
@@ -141,6 +146,7 @@ function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): 
         }),
       )
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    views: row.views.flatMap((view) => (view.viewer ? [{ role: view.viewer.role, seenAt: new Date(view.seen_at).toISOString() }] : [])),
   };
 }
 
@@ -190,6 +196,16 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     const { data, error } = await this.client.from("support_tickets").update({ status }).eq("id", ticketId).select("id").maybeSingle();
     if (error) fail(error);
     if (!data) throw new SupportTicketNotFoundError();
+  }
+
+  async markSeen(ticketId: string, notify: boolean): Promise<void> {
+    const { error } = await this.client.rpc("mark_support_ticket_seen", { p_ticket_id: ticketId, p_notify: notify });
+    if (error) fail(error);
+  }
+
+  async notifyAdmin(ticketId: string, event: SupportNotifyEvent): Promise<void> {
+    const { error } = await this.client.rpc("notify_admin_support", { p_ticket_id: ticketId, p_event: event });
+    if (error) fail(error);
   }
 
   async setInternal(ticketId: string, internal: boolean): Promise<void> {

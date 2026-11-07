@@ -48,6 +48,7 @@ import { LabelManager } from "../support/LabelManager";
 import { LabelPicker } from "../support/LabelPicker";
 import { PRIORITY_TONE } from "../support/priority-tone";
 import { QueueAgeBadge } from "../support/QueueAgeBadge";
+import { TicketSeenMark } from "../support/SeenIndicator";
 import { StatusPicker } from "../support/StatusPicker";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import {
@@ -294,6 +295,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
                 <Paperclip aria-hidden className="size-3.5" /> {files}
               </span>
             )}
+            <TicketSeenMark ticket={ticket} role={role} />
           </p>
           <ApproveTicketButton ticket={ticket} role={role} onApproved={onChanged} className="mt-3 h-9 px-4" />
         </div>

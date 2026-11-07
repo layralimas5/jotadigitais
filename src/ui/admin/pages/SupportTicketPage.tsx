@@ -1,11 +1,12 @@
 import { ArrowLeft, Eye, EyeOff, Hourglass, RefreshCw, Send } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SUPPORT_TEXT_MAX } from "@/application/schemas";
 import {
   changeSupportStatus,
   findSupportTicket,
   listSupportLabels,
+  markSupportTicketSeen,
   replyToSupportTicket,
   setSupportTicketVisibility,
 } from "@/application/support-use-cases";
@@ -14,7 +15,12 @@ import {
   canChangeSupportStatus,
   canChangeSupportVisibility,
   canManageSupportLabels,
+  canNotifyAdmin,
+  counterpartOf,
+  seenAtBy,
+  SUPPORT_ROLE_NAME,
   timelineOf,
+  wasSeenBy,
   wasApprovedByAdmin,
   type SupportLabel,
   type SupportStatusEvent,
@@ -35,10 +41,12 @@ import { PersonAvatar } from "../components/PersonAvatar";
 import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery, useMutation, usePolling } from "../hooks";
 import { formatDate, formatRelative } from "../lib/dates";
-import { useViewRole } from "../admin-view";
+import { useAdminView, useViewRole } from "../admin-view";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import { AttachmentGallery } from "../support/AttachmentGallery";
 import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
+import { SeenMark } from "../support/SeenIndicator";
 import { LabelPicker } from "../support/LabelPicker";
 import { statusEventText } from "../support/TicketProgress";
 import {
@@ -72,9 +80,11 @@ interface MessageProps {
   attachments: readonly SupportAttachment[];
   /** Mensagem de quem está vendo: fica do lado direito, como num chat. */
   own: boolean;
+  /** Só nas mensagens de quem está vendo: a outra pessoa já viu? Nulo em chamado interno. */
+  seen: { seen: boolean; by: string; seenAt: string | null } | null;
 }
 
-function Message({ author, body, createdAt, attachments, own }: MessageProps) {
+function Message({ author, body, createdAt, attachments, own, seen }: MessageProps) {
   const name = authorNameOf(author);
   return (
     <li className={cn("flex gap-3", own && "flex-row-reverse")}>
@@ -94,6 +104,7 @@ function Message({ author, body, createdAt, attachments, own }: MessageProps) {
         </p>
         <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-fog">{body}</p>
         <AttachmentGallery attachments={attachments} />
+        {seen && <SeenMark {...seen} className="mt-3" />}
       </div>
     </li>
   );
@@ -222,20 +233,23 @@ interface ReplyInput {
   body: string;
   uploads: SupportUpload[];
   askAdmin: boolean;
+  notifyAdmin: boolean;
 }
 
 function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: AdminRole; onSent: () => void }) {
   const toast = useToast();
   const [body, setBody] = useState("");
   const [askAdmin, setAskAdmin] = useState(false);
+  const [notifyAdmin, setNotifyAdmin] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const picked = usePickedFiles();
   const reply = useMutation(async (deps, input: ReplyInput) => {
-    const result = await replyToSupportTicket(deps, ticket.id, { body: input.body }, input.uploads);
+    const result = await replyToSupportTicket(deps, role, ticket, { body: input.body }, input.uploads, { notifyAdmin: input.notifyAdmin });
     if (input.askAdmin) await changeSupportStatus(deps, role, ticket.id, "waiting");
     return result;
   });
   const canAskAdmin = canChangeSupportStatus(role) && ticket.status !== "waiting" && !ticket.internal;
+  const canNotify = canNotifyAdmin(ticket, role);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -244,9 +258,15 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Admi
       return;
     }
     setError(null);
-    const sent = await reply.run({ body, uploads: uploadsOf(picked.files), askAdmin: canAskAdmin && askAdmin });
+    const sent = await reply.run({
+      body,
+      uploads: uploadsOf(picked.files),
+      askAdmin: canAskAdmin && askAdmin,
+      notifyAdmin: canNotify && notifyAdmin,
+    });
     if (!sent) return;
     if (sent.failedUploads.length) toast.show(`Resposta enviada, mas não subiu: ${sent.failedUploads.join(", ")}.`, "error");
+    if (!sent.notified) toast.show("Resposta enviada, mas o aviso no sininho do Jota falhou.", "error");
     setBody("");
     setAskAdmin(false);
     picked.clear();
@@ -269,25 +289,54 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Admi
         <AttachmentPicker files={picked.files} onAdd={picked.add} onRemove={picked.remove} disabled={reply.pending} />
       </div>
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {canAskAdmin ? (
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-fog">
-            <input
-              type="checkbox"
-              checked={askAdmin}
-              onChange={(event) => setAskAdmin(event.target.checked)}
-              className="size-4 accent-[var(--color-electric)]"
-            />
-            Pedir resposta do Jota (muda para “Aguardando o Jota”)
-          </label>
-        ) : (
-          <span />
-        )}
+        <div className="grid gap-2">
+          {canAskAdmin && (
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-fog">
+              <input
+                type="checkbox"
+                checked={askAdmin}
+                onChange={(event) => setAskAdmin(event.target.checked)}
+                className="size-4 accent-[var(--color-electric)]"
+              />
+              Pedir resposta do Jota (muda para “Aguardando o Jota”)
+            </label>
+          )}
+          {canNotify && <NotifyAdminCheckbox checked={notifyAdmin} onChange={setNotifyAdmin} disabled={reply.pending} />}
+        </div>
         <Button type="submit" disabled={reply.pending} className="self-end">
           <Send aria-hidden className="size-4" /> {reply.pending ? "Enviando…" : "Enviar resposta"}
         </Button>
       </div>
     </form>
   );
+}
+
+/** Abrir a conversa marca o visto (e, para a Lay vendo novidade do Jota, avisa no sininho dele). No "ver como o Jota", não. */
+function useMarkSeen(ticket: SupportTicket | null, role: AdminRole, onMarked: () => void) {
+  const { previewing } = useAdminView();
+  const mark = useMutation(async (deps, current: SupportTicket) => {
+    const marking = markSupportTicketSeen(deps, role, current);
+    if (!marking) return false;
+    try {
+      await marking;
+      return true;
+    } catch (error) {
+      // O visto é secundário: a conversa continua usável, e o erro fica no console para investigar.
+      console.error("Falha ao marcar o chamado como visto", error);
+      throw error;
+    }
+  });
+  const lastMarked = useRef<string | null>(null);
+  const run = mark.run;
+  useEffect(() => {
+    if (!ticket || previewing) return;
+    const stamp = `${ticket.id}:${ticket.updatedAt}:${ticket.replies.length}`;
+    if (lastMarked.current === stamp) return;
+    lastMarked.current = stamp;
+    void run(ticket).then((marked) => {
+      if (marked) onMarked();
+    });
+  }, [ticket, previewing, run, onMarked]);
 }
 
 interface TicketViewProps {
@@ -299,6 +348,12 @@ interface TicketViewProps {
 
 function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
   const label = labels.find((item) => item.id === ticket.labelId);
+  const other = counterpartOf(role);
+  const otherSeenAt = seenAtBy(ticket, other);
+  const seenOf = (authorRole: AdminRole | undefined, sentAt: string) =>
+    authorRole === role && !ticket.internal
+      ? { seen: wasSeenBy(ticket, other, sentAt), by: SUPPORT_ROLE_NAME[other], seenAt: otherSeenAt }
+      : null;
   const attachmentsOf = (replyId: string | null) => ticket.attachments.filter((attachment) => attachment.replyId === replyId);
   return (
     <div className="mt-4 grid gap-6">
@@ -317,6 +372,14 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
           Aberto por {authorNameOf(ticket.author)} em {formatDate(ticket.createdAt)}
           {ticket.resolvedAt && ` · finalizado em ${formatDate(ticket.resolvedAt)}`}
         </p>
+        {!ticket.internal && (
+          <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-mist">
+            {otherSeenAt ? <Eye aria-hidden className="size-3.5 text-electric-soft" /> : <EyeOff aria-hidden className="size-3.5" />}
+            {otherSeenAt
+              ? `${SUPPORT_ROLE_NAME[other]} abriu este chamado pela última vez ${formatRelative(otherSeenAt)}`
+              : `${SUPPORT_ROLE_NAME[other]} ainda não abriu este chamado`}
+          </p>
+        )}
       </header>
 
       {canChangeSupportStatus(role) && <StatusControl ticket={ticket} role={role} onChanged={reload} />}
@@ -349,6 +412,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
             createdAt={ticket.createdAt}
             attachments={attachmentsOf(null)}
             own={ticket.author?.role === role}
+            seen={seenOf(ticket.author?.role, ticket.createdAt)}
           />
           {timelineOf(ticket).map((item) =>
             item.type === "status" ? (
@@ -361,6 +425,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
                 createdAt={item.reply.createdAt}
                 attachments={attachmentsOf(item.reply.id)}
                 own={item.reply.author?.role === role}
+                seen={seenOf(item.reply.author?.role, item.reply.createdAt)}
               />
             ),
           )}
@@ -377,6 +442,7 @@ export default function SupportTicketPage() {
   // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
   const role = useViewRole() ?? "admin";
   const ticket = useAdminQuery((deps) => findSupportTicket(deps, role, id), `admin-support-${id}-${role}`);
+  useMarkSeen(ticket.status === "success" ? ticket.data : null, role, ticket.reload);
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(ticket.reload, REFRESH_MS);
   const labelList = labels.status === "success" ? labels.data : [];

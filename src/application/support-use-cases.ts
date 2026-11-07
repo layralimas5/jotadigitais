@@ -15,7 +15,11 @@ import {
   canDeleteSupportTicket,
   canChangeSupportVisibility,
   canManageSupportLabels,
+  canNotifyAdmin,
+  hasUnseenFrom,
   isVisibleTo,
+  seenAtBy,
+  type SupportNotifyEvent,
   type SupportLabel,
   sortTickets,
   type SupportReply,
@@ -48,15 +52,46 @@ export async function findSupportTicket(deps: AdminDeps, role: AdminRole, id: st
   return ticket && isVisibleTo(ticket, role) ? ticket : null;
 }
 
-export function openSupportTicket(
+export interface SupportNotifyOption {
+  /** A Lay pediu para avisar o Jota no sininho. */
+  notifyAdmin?: boolean;
+}
+
+/** O aviso é extra: se falhar, o chamado ou a resposta já foram salvos e a tela avisa à parte. */
+async function notifyAdminIfAsked(
+  deps: AdminDeps,
+  role: AdminRole,
+  ticket: Pick<SupportTicket, "id" | "internal">,
+  event: SupportNotifyEvent,
+  option: SupportNotifyOption,
+): Promise<boolean> {
+  if (!option.notifyAdmin || !canNotifyAdmin(ticket, role)) return true;
+  try {
+    await deps.support.notifyAdmin(ticket.id, event);
+    return true;
+  } catch (error) {
+    console.error("Falha ao avisar o Jota no sininho", error);
+    return false;
+  }
+}
+
+export async function openSupportTicket(
   deps: AdminDeps,
   role: AdminRole,
   raw: unknown,
   uploads: readonly SupportUpload[] = [],
-): Promise<SupportSubmitResult<SupportTicket>> {
+  option: SupportNotifyOption = {},
+): Promise<SupportSubmitResult<SupportTicket> & { notified: boolean }> {
   const data = parseOrThrow(supportTicketDataSchema, raw);
   checkUploads(uploads);
-  return deps.support.open({ ...data, internal: data.internal && canChangeSupportVisibility(role) }, uploads);
+  const result = await deps.support.open({ ...data, internal: data.internal && canChangeSupportVisibility(role) }, uploads);
+  return { ...result, notified: await notifyAdminIfAsked(deps, role, result.saved, "opened", option) };
+}
+
+/** Na conversa aberta: marca o visto quando aparece coisa nova para quem está vendo. */
+export function markSupportTicketSeen(deps: AdminDeps, role: AdminRole, ticket: SupportTicket): Promise<void> | null {
+  if (!hasUnseenFrom(ticket, role) && seenAtBy(ticket, role) !== null) return null;
+  return deps.support.markSeen(ticket.id, role === "developer" && !ticket.internal);
 }
 
 export function setSupportTicketVisibility(deps: AdminDeps, role: AdminRole, ticketId: string, internal: boolean): Promise<void> {
@@ -64,15 +99,18 @@ export function setSupportTicketVisibility(deps: AdminDeps, role: AdminRole, tic
   return deps.support.setInternal(ticketId, internal);
 }
 
-export function replyToSupportTicket(
+export async function replyToSupportTicket(
   deps: AdminDeps,
-  ticketId: string,
+  role: AdminRole,
+  ticket: Pick<SupportTicket, "id" | "internal">,
   raw: unknown,
   uploads: readonly SupportUpload[] = [],
-): Promise<SupportSubmitResult<SupportReply>> {
+  option: SupportNotifyOption = {},
+): Promise<SupportSubmitResult<SupportReply> & { notified: boolean }> {
   const { body } = parseOrThrow(supportReplySchema, raw);
   checkUploads(uploads);
-  return deps.support.reply(ticketId, body, uploads);
+  const result = await deps.support.reply(ticket.id, body, uploads);
+  return { ...result, notified: await notifyAdminIfAsked(deps, role, ticket, "replied", option) };
 }
 
 export function changeSupportStatus(deps: AdminDeps, role: AdminRole, ticketId: string, status: SupportStatus): Promise<void> {

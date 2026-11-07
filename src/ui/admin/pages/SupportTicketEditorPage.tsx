@@ -6,6 +6,7 @@ import { openSupportTicket } from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
 import {
   canChangeSupportVisibility,
+  canNotifyAdmin,
   SUPPORT_AREA_LABEL,
   SUPPORT_AREAS,
   SUPPORT_KIND_LABEL,
@@ -23,6 +24,7 @@ import { FormFooter } from "../components/FormFooter";
 import { useViewRole } from "../admin-view";
 import { useMutation } from "../hooks";
 import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { KIND_ICON } from "../support/SupportBadges";
 import { PRIORITY_TONE } from "../support/priority-tone";
 import { useToast } from "../toast";
@@ -72,7 +74,11 @@ export default function SupportTicketEditorPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const picked = usePickedFiles();
-  const open = useMutation((deps, data: SupportTicketData, uploads: SupportUpload[]) => openSupportTicket(deps, role, data, uploads));
+  const [notifyAdmin, setNotifyAdmin] = useState(true);
+  const open = useMutation((deps, data: SupportTicketData, uploads: SupportUpload[], notify: boolean) =>
+    openSupportTicket(deps, role, data, uploads, { notifyAdmin: notify }),
+  );
+  const canNotify = canNotifyAdmin(values, role);
 
   const update = (patch: Partial<SupportTicketData>) => {
     const next = { ...values, ...patch };
@@ -91,9 +97,10 @@ export default function SupportTicketEditorPage() {
       if (first) formElement.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
-    const opened = await open.run(values, uploadsOf(picked.files));
+    const opened = await open.run(values, uploadsOf(picked.files), canNotify && notifyAdmin);
     if (!opened) return;
-    const { saved, failedUploads } = opened;
+    const { saved, failedUploads, notified } = opened;
+    if (!notified) toast.show("Chamado aberto, mas o aviso no sininho do Jota falhou.", "error");
     if (failedUploads.length) toast.show(`Chamado aberto, mas não subiu: ${failedUploads.join(", ")}. Envie de novo na conversa.`, "error");
     else toast.show("Chamado aberto.");
     // Volta para a listagem com o chamado novo já aberto no andamento, em vez de cair na conversa.
@@ -131,6 +138,11 @@ export default function SupportTicketEditorPage() {
                 onChange={(value) => update({ internal: value === "internal" })}
               />
               <p className="mt-2 text-xs text-mist">“Só eu”: fica só no seu painel, o Jota não vê. Dá para mudar depois no chamado.</p>
+              {canNotify && (
+                <div className="mt-3">
+                  <NotifyAdminCheckbox checked={notifyAdmin} onChange={setNotifyAdmin} disabled={open.pending} />
+                </div>
+              )}
             </div>
           )}
         </FormSection>
