@@ -1,6 +1,5 @@
 import { Plus, SlidersHorizontal, UserMinus } from "lucide-react";
 import { useState } from "react";
-import { container } from "@/app/container";
 import { listAdminUsers, removeAdminUser } from "@/application/admin-use-cases";
 import { sameEmail, STAFF_PERMISSION_LABEL, type AdminUser } from "@/domain/admin-user";
 import { Button, ButtonLink } from "@/ui/components/Button";
@@ -13,8 +12,8 @@ import { useAdminQuery, useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { useAdminSession } from "../session";
 import { useToast } from "../toast";
+import { ExampleUsersNotice } from "../users/ExampleUsersNotice";
 
-const IS_DEMO = container.mode === "demo";
 
 const displayName = (user: AdminUser) => user.name ?? user.email;
 
@@ -110,12 +109,7 @@ export default function UsersPage() {
         }
       />
 
-      {IS_DEMO && (
-        <p className="rounded-2xl border border-line bg-surface/60 px-4 py-3 text-sm text-fog">
-          Modo demonstração: a lista fica só neste navegador e ninguém consegue entrar com ela. Com o banco ligado, cada usuário
-          entra com o próprio e-mail e senha.
-        </p>
-      )}
+      <ExampleUsersNotice />
       {remove.error && <InlineError message={remove.error.message} />}
       {users.status === "loading" && <LoadingBlock />}
       {users.status === "error" && <ErrorState message={users.error.message} onRetry={users.reload} />}

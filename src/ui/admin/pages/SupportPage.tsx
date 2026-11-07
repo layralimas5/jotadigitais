@@ -48,6 +48,7 @@ import { LABEL_TONE } from "../support/label-tone";
 import { LabelManager } from "../support/LabelManager";
 import { LabelPicker } from "../support/LabelPicker";
 import { PRIORITY_TONE } from "../support/priority-tone";
+import { LastMessageNote } from "../support/LastMessageNote";
 import { QueueAgeBadge } from "../support/QueueAgeBadge";
 import { TicketSeenMark } from "../support/SeenIndicator";
 import { StatusPicker } from "../support/StatusPicker";
@@ -298,6 +299,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
             )}
             <TicketSeenMark ticket={ticket} role={role} />
           </p>
+          <LastMessageNote ticket={ticket} role={role} className="mt-2" />
           <ApproveTicketButton ticket={ticket} role={role} onApproved={onChanged} className="mt-3 h-9 px-4" />
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:contents">

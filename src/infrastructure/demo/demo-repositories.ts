@@ -747,6 +747,7 @@ const DEMO_OWNER: AdminUser = {
   email: "jota@jotadigitais.com.br",
   role: "admin",
   permissions: [],
+  whatsapp: null,
   createdAt: "2026-10-09T12:00:00.000Z",
   lastSignInAt: null,
 };
@@ -756,7 +757,12 @@ export class DemoAdminUserRepository implements AdminUserRepository {
 
   private users(state: DemoState): AdminUser[] {
     // Dados locais de antes do papel e das áreas existirem chegam sem eles.
-    return (state.adminUsers ?? [DEMO_OWNER]).map((user) => ({ ...user, role: user.role ?? "admin", permissions: user.permissions ?? [] }));
+    return (state.adminUsers ?? [DEMO_OWNER]).map((user) => ({
+      ...user,
+      role: user.role ?? "admin",
+      permissions: user.permissions ?? [],
+      whatsapp: user.whatsapp ?? null,
+    }));
   }
 
   /** O login do modo demonstração usa para abrir o painel com o papel de quem foi cadastrado aqui. */
@@ -781,6 +787,7 @@ export class DemoAdminUserRepository implements AdminUserRepository {
         email: input.email,
         role: input.role,
         permissions: input.permissions,
+        whatsapp: null,
         createdAt: new Date().toISOString(),
         lastSignInAt: null,
       };

@@ -2,8 +2,6 @@ import type { AdminUser } from "./admin-user";
 
 /** Como a desenvolvedora (TI) vê cada usuário: o cadastro mais o estado do acesso. */
 export interface AccessUser extends Omit<AdminUser, "permissions"> {
-  /** Só dígitos, com DDD; usado para mandar o acesso pelo WhatsApp. */
-  whatsapp: string | null;
   /** Verificação em duas etapas ligada (app autenticador confirmado). */
   mfaEnabled: boolean;
   /** Sessões abertas há menos de 7 dias (o prazo que o sistema aceita). */

@@ -249,7 +249,7 @@ export class SupportLabelNameTakenError extends Error {
 
 export class AccessForbiddenError extends Error {
   constructor() {
-    super("Só a desenvolvedora mexe nos acessos dos usuários.");
+    super("Você não pode mudar o acesso deste usuário.");
     this.name = "AccessForbiddenError";
   }
 }

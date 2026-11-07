@@ -9,6 +9,7 @@ import { PasswordField } from "@/ui/components/form/PasswordField";
 import { FormSection, PageHeader } from "../components/AdminUi";
 import { FormFooter } from "../components/FormFooter";
 import { AccessFields } from "../users/AccessFields";
+import { ExampleUsersNotice } from "../users/ExampleUsersNotice";
 import { useMutation } from "../hooks";
 import { firstNameOf } from "../lib/whatsapp";
 import { useToast } from "../toast";
@@ -74,6 +75,7 @@ export default function UserEditorPage({ backPath = "/admin/usuarios" }: UserEdi
       <div className="mt-4">
         <PageHeader title="Novo usuário" description="A pessoa entra em /admin com este e-mail e a senha provisória." />
       </div>
+      <ExampleUsersNotice className="mt-6 max-w-3xl" />
 
       <form noValidate onSubmit={onSubmit} aria-busy={create.pending} className="mt-6 grid max-w-3xl gap-6">
         <FormSection title="Acesso" description="Passe a senha por um canal seguro. Depois do primeiro acesso, a pessoa troca em Configurações.">

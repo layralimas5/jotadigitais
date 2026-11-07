@@ -1,6 +1,7 @@
 // Cria e remove usuários do sistema e, para a desenvolvedora (TI), troca e-mail, senha e desliga as duas etapas.
 // Roda no Supabase (Deno) com a chave de serviço, que nunca vai para o navegador.
-// Quem chama precisa estar logado e ser administrador; as ações de TI exigem o papel "developer". Tudo conferido aqui.
+// Quem chama precisa estar logado e ser administrador; as ações de TI são da desenvolvedora, e o admin troca nome,
+// e-mail e senha de quem não é a desenvolvedora nem ele mesmo. Tudo conferido aqui.
 // Deploy: npx supabase functions deploy admin-users
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
 
@@ -194,7 +195,20 @@ async function resetMfa(service: SupabaseClient, userId: unknown): Promise<Respo
   return json({ ok: true });
 }
 
+/** Ações de TI. A desenvolvedora faz todas, em qualquer usuário. */
 const DEVELOPER_ACTIONS = new Set(["update_profile", "set_password", "reset_mfa"]);
+/** O que o admin também faz pela ficha em Usuários: trocar nome, e-mail e senha de quem não é a desenvolvedora nem ele mesmo. */
+const ADMIN_LOGIN_ACTIONS = new Set(["update_profile", "set_password"]);
+
+/** O papel de quem pede deixa fazer esta ação de TI neste usuário? */
+async function mayManageLogin(service: SupabaseClient, callerRole: unknown, callerId: string, action: string, userId: unknown): Promise<boolean> {
+  if (callerRole === "developer") return true;
+  if (callerRole !== "admin" || !ADMIN_LOGIN_ACTIONS.has(action)) return false;
+  if (typeof userId !== "string" || userId.length === 0 || userId === callerId) return false;
+  const { data, error } = await service.from("admin_users").select("role").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return data !== null && data.role !== "developer";
+}
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
@@ -215,14 +229,13 @@ Deno.serve(async (request) => {
   if (typeof body !== "object" || body === null) return failWith("invalid");
   const payload = body as Record<string, unknown>;
 
-  // Ações de TI: só a desenvolvedora, com a mesma regra de sessão do is_admin.
-  if (typeof payload.action === "string" && DEVELOPER_ACTIONS.has(payload.action)) {
-    const { data: role } = await caller.rpc("current_admin_role");
-    if (role !== "developer") return failWith("forbidden");
-  }
-
   const service = createClient(url, serviceKey, { auth: { persistSession: false } });
   try {
+    // Ações de TI: a desenvolvedora em todos; o admin só nome, e-mail e senha de quem não é ele nem a desenvolvedora.
+    if (typeof payload.action === "string" && DEVELOPER_ACTIONS.has(payload.action)) {
+      const { data: role } = await caller.rpc("current_admin_role");
+      if (!(await mayManageLogin(service, role, auth.user.id, payload.action, payload.userId))) return failWith("forbidden");
+    }
     if (payload.action === "create") {
       const input = parseCreate(payload);
       return input ? await createUser(service, input) : failWith("invalid");
