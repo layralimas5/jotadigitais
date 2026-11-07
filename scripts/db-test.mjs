@@ -1513,10 +1513,8 @@ async function supportChecks() {
     await rejects(() => as("anon", null, () => db.query(`select id from public.support_tickets`)), /permission denied/),
     "visitante não acessa os chamados",
   );
-  check(
-    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`delete from public.support_tickets where id = $1`, [ticket.id])), /permission denied/),
-    "chamado não é apagado: o histórico fica",
-  );
+  const jotaDelete = await as("authenticated", ADMIN_ID, () => db.query(`delete from public.support_tickets where id = $1 returning id`, [ticket.id]));
+  check(jotaDelete.rows.length === 0, "Jota não apaga chamado");
 
   console.log("\nsuporte estilo GLPI");
   const glpi = await as("authenticated", ADMIN_ID, () =>
@@ -1650,6 +1648,61 @@ async function supportChecks() {
       /permission denied/,
     ),
     "ninguém escreve no andamento pelo painel",
+  );
+
+  console.log("\napagar chamado e TI da desenvolvedora");
+  const doomed = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.support_tickets (title, description, area) values ('Para apagar', 'Chamado que vai ser apagado.', 'site') returning id`),
+  );
+  const doomedId = doomed.rows[0].id;
+  await asDeveloper(() => db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Resposta que vai junto.')`, [doomedId]));
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'done' where id = $1`, [doomedId]));
+  const deleted = await asDeveloper(() => db.query(`delete from public.support_tickets where id = $1 returning id`, [doomedId]));
+  check(deleted.rows.length === 1, "desenvolvedora apaga chamado");
+  const leftovers = await db.query(
+    `select (select count(*) from public.support_replies where ticket_id = $1)::int as replies,
+            (select count(*) from public.support_status_events where ticket_id = $1)::int as events`,
+    [doomedId],
+  );
+  check(leftovers.rows[0].replies === 0 && leftovers.rows[0].events === 0, "respostas e andamento saem junto com o chamado");
+  await db.query(`insert into storage.objects (bucket_id, name) values ('support', 'apagar/arquivo.png')`);
+  const removedFile = await asDeveloper(() => db.query(`delete from storage.objects where bucket_id = 'support' and name = 'apagar/arquivo.png' returning id`));
+  check(removedFile.rows.length === 1, "desenvolvedora apaga os arquivos do chamado no bucket");
+  await db.query(`insert into storage.objects (bucket_id, name) values ('support', 'jota/arquivo.png')`);
+  const jotaFile = await as("authenticated", ADMIN_ID, () => db.query(`delete from storage.objects where bucket_id = 'support' and name = 'jota/arquivo.png' returning id`));
+  check(jotaFile.rows.length === 0, "Jota não apaga arquivos do suporte");
+
+  const accesses = await asDeveloper(() => db.query(`select user_id, email, role, mfa_enabled, active_sessions from public.list_access_users()`));
+  const jotaAccess = accesses.rows.find((row) => row.user_id === ADMIN_ID);
+  check(accesses.rows.length >= 2 && jotaAccess?.email === "jota@exemplo.com" && jotaAccess.active_sessions >= 1, "TI vê os acessos com e-mail e sessões");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select * from public.list_access_users()`)), /forbidden/),
+    "Jota não abre a lista de acessos da TI",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.list_access_users()`)), /permission denied/),
+    "visitante não abre a lista de acessos",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.end_user_sessions($1)`, [DEVELOPER_ID])), /forbidden/),
+    "Jota não encerra sessões de ninguém",
+  );
+  check(
+    await rejects(() => asDeveloper(() => db.query(`select public.end_user_sessions($1)`, [STRANGER_ID])), /user_not_found/),
+    "TI só encerra sessão de usuário do sistema",
+  );
+  await db.query(`insert into auth.sessions (id, user_id) values ('00000000-0000-0000-0000-0000000005a9', $1)`, [ADMIN_ID]);
+  const ended = await asDeveloper(() => db.query(`select public.end_user_sessions($1) as total`, [ADMIN_ID]));
+  const remaining = (await db.query(`select count(*)::int as total from auth.sessions where user_id = $1`, [ADMIN_ID])).rows[0].total;
+  check(ended.rows[0].total >= 2 && remaining === 0, "TI encerra todas as sessões do Jota");
+  check(
+    !(await as("authenticated", ADMIN_ID, () => db.query(`select public.is_admin() as ok`))).rows[0].ok,
+    "com as sessões encerradas, o Jota perde o acesso na hora",
+  );
+  await db.query(`insert into auth.sessions (id, user_id) values ($1, $2)`, [SESSION_OF[ADMIN_ID], ADMIN_ID]);
+  check(
+    await rejects(() => db.query(`update public.admin_users set whatsapp = '12ab' where user_id = $1`, [ADMIN_ID]), /check constraint/),
+    "WhatsApp do usuário só com dígitos",
   );
 
   console.log("\nmodo visualização da desenvolvedora");

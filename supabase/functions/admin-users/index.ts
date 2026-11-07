@@ -1,5 +1,6 @@
-// Cria e remove usuários do sistema. Roda no Supabase (Deno) com a chave de serviço, que nunca vai para o navegador.
-// Quem chama precisa estar logado e ser administrador; isso é conferido aqui, com o token de quem pediu.
+// Cria e remove usuários do sistema e, para a desenvolvedora (TI), troca e-mail, senha e desliga as duas etapas.
+// Roda no Supabase (Deno) com a chave de serviço, que nunca vai para o navegador.
+// Quem chama precisa estar logado e ser administrador; as ações de TI exigem o papel "developer". Tudo conferido aqui.
 // Deploy: npx supabase functions deploy admin-users
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
 
@@ -15,7 +16,7 @@ const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const isStrongPassword = (password: string) =>
   password.length >= 10 && password.length <= 72 && /[A-Za-z]/.test(password) && /\d/.test(password);
 
-type ErrorCode = "forbidden" | "invalid" | "email_taken" | "self" | "last" | "server";
+type ErrorCode = "forbidden" | "invalid" | "email_taken" | "self" | "last" | "not_found" | "server";
 
 const STATUS: Record<ErrorCode, number> = {
   forbidden: 403,
@@ -23,6 +24,7 @@ const STATUS: Record<ErrorCode, number> = {
   email_taken: 409,
   self: 409,
   last: 409,
+  not_found: 404,
   server: 500,
 };
 
@@ -94,6 +96,88 @@ async function removeUser(service: SupabaseClient, callerId: string, userId: unk
   return json({ ok: true });
 }
 
+interface ProfileInput {
+  userId: string;
+  name: string;
+  email: string;
+  whatsapp: string | null;
+}
+
+/** Mesmas regras do accessProfileSchema do painel. */
+function parseProfile(body: Record<string, unknown>): ProfileInput | null {
+  const userId = typeof body.userId === "string" ? body.userId : "";
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const whatsappDigits = typeof body.whatsapp === "string" ? body.whatsapp.replace(/\D/g, "") : "";
+  if (!userId || name.length < 2 || name.length > 80) return null;
+  if (!EMAIL_PATTERN.test(email) || email.length > 254) return null;
+  if (whatsappDigits && (whatsappDigits.length < 10 || whatsappDigits.length > 13)) return null;
+  return { userId, name, email, whatsapp: whatsappDigits || null };
+}
+
+/** Só mexe em quem é usuário do sistema. */
+async function isSystemUser(service: SupabaseClient, userId: unknown): Promise<boolean> {
+  if (typeof userId !== "string" || userId.length === 0) return false;
+  const { data, error } = await service.from("admin_users").select("user_id").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  return data !== null;
+}
+
+/** E-mail novo vale na hora (sem e-mail de confirmação): a TI já conferiu com a pessoa. */
+async function updateProfile(service: SupabaseClient, input: ProfileInput): Promise<Response> {
+  if (!(await isSystemUser(service, input.userId))) return failWith("not_found");
+  const { error } = await service.auth.admin.updateUserById(input.userId, {
+    email: input.email,
+    email_confirm: true,
+    user_metadata: { name: input.name },
+  });
+  if (error) {
+    if (error.code === "email_exists" || error.status === 422) return failWith("email_taken");
+    console.error(error);
+    return failWith("server");
+  }
+  const { error: rowError } = await service
+    .from("admin_users")
+    .update({ name: input.name, whatsapp: input.whatsapp })
+    .eq("user_id", input.userId);
+  if (rowError) {
+    console.error(rowError);
+    return failWith("server");
+  }
+  return json({ ok: true });
+}
+
+async function setPassword(service: SupabaseClient, userId: unknown, password: unknown): Promise<Response> {
+  if (typeof password !== "string" || !isStrongPassword(password)) return failWith("invalid");
+  if (!(await isSystemUser(service, userId))) return failWith("not_found");
+  const { error } = await service.auth.admin.updateUserById(userId as string, { password });
+  if (error) {
+    console.error(error);
+    return failWith("server");
+  }
+  return json({ ok: true });
+}
+
+/** Desliga as duas etapas (perdeu o celular): a pessoa entra só com a senha e cadastra de novo em Configurações. */
+async function resetMfa(service: SupabaseClient, userId: unknown): Promise<Response> {
+  if (!(await isSystemUser(service, userId))) return failWith("not_found");
+  const { data, error } = await service.auth.admin.mfa.listFactors({ userId: userId as string });
+  if (error) {
+    console.error(error);
+    return failWith("server");
+  }
+  for (const factor of data.factors) {
+    const { error: deleteError } = await service.auth.admin.mfa.deleteFactor({ userId: userId as string, id: factor.id });
+    if (deleteError) {
+      console.error(deleteError);
+      return failWith("server");
+    }
+  }
+  return json({ ok: true });
+}
+
+const DEVELOPER_ACTIONS = new Set(["update_profile", "set_password", "reset_mfa"]);
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (request.method !== "POST") return failWith("invalid");
@@ -113,6 +197,12 @@ Deno.serve(async (request) => {
   if (typeof body !== "object" || body === null) return failWith("invalid");
   const payload = body as Record<string, unknown>;
 
+  // Ações de TI: só a desenvolvedora, com a mesma regra de sessão do is_admin.
+  if (typeof payload.action === "string" && DEVELOPER_ACTIONS.has(payload.action)) {
+    const { data: role } = await caller.rpc("current_admin_role");
+    if (role !== "developer") return failWith("forbidden");
+  }
+
   const service = createClient(url, serviceKey, { auth: { persistSession: false } });
   try {
     if (payload.action === "create") {
@@ -120,6 +210,12 @@ Deno.serve(async (request) => {
       return input ? await createUser(service, input) : failWith("invalid");
     }
     if (payload.action === "remove") return await removeUser(service, auth.user.id, payload.userId);
+    if (payload.action === "update_profile") {
+      const input = parseProfile(payload);
+      return input ? await updateProfile(service, input) : failWith("invalid");
+    }
+    if (payload.action === "set_password") return await setPassword(service, payload.userId, payload.password);
+    if (payload.action === "reset_mfa") return await resetMfa(service, payload.userId);
     return failWith("invalid");
   } catch (error) {
     console.error(error);

@@ -32,6 +32,7 @@ import type {
   AdminNotificationRepository,
   AdminPrivacyRepository,
   AdminUserRepository,
+  AccessRepository,
   AuthService,
   SupportTicketRepository,
   AuthState,
@@ -88,6 +89,7 @@ export interface AdminDeps {
   images: ImageStorage;
   privacy: AdminPrivacyRepository;
   support: SupportTicketRepository;
+  access: AccessRepository;
 }
 
 export function signIn(deps: AdminDeps, raw: unknown): Promise<AuthState> {

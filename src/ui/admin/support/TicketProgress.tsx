@@ -31,7 +31,7 @@ function Step({ icon, children, at, tone }: { icon: ReactNode; children: ReactNo
 }
 
 /** O andamento do chamado em uma olhada: aberto, trocas de situação e as últimas mensagens. */
-export function TicketProgress({ ticket }: { ticket: SupportTicket }) {
+export function TicketProgress({ ticket, actions }: { ticket: SupportTicket; actions?: ReactNode }) {
   const timeline = timelineOf(ticket);
   const recent = timeline.slice(-RECENT_ITEMS);
   const hidden = timeline.length - recent.length;
@@ -66,12 +66,15 @@ export function TicketProgress({ ticket }: { ticket: SupportTicket }) {
           ),
         )}
       </ol>
-      <Link
-        to={`/admin/suporte/${ticket.id}`}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-electric-soft underline-offset-4 hover:underline"
-      >
-        Abrir conversa completa <ArrowRight aria-hidden className="size-4" />
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          to={`/admin/suporte/${ticket.id}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-electric-soft underline-offset-4 hover:underline"
+        >
+          Abrir conversa completa <ArrowRight aria-hidden className="size-4" />
+        </Link>
+        {actions}
+      </div>
     </div>
   );
 }

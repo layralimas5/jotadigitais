@@ -371,6 +371,15 @@ export const newAdminUserSchema = z.object({
   password: newPassword,
 });
 
+/** TI: cadastro de um usuário editado pela desenvolvedora. */
+export const accessProfileSchema = z.object({
+  name: personName,
+  email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
+  whatsapp: optionalWhatsapp,
+});
+
+export const accessPasswordSchema = z.object({ password: newPassword });
+
 // ---------------------------------------------------------------------------
 // Automação: modelos de mensagem
 // ---------------------------------------------------------------------------
