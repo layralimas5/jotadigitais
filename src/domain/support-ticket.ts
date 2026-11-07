@@ -146,14 +146,20 @@ export function needsActionFrom(ticket: SupportTicket, role: AdminRole): boolean
   return ticket.status === "open" || lastSpeakerOf(ticket) === "admin";
 }
 
-const STATUS_WEIGHT: Record<SupportStatus, number> = { in_progress: 0, open: 1, waiting: 2, done: 3 };
-const PRIORITY_WEIGHT: Record<SupportPriority, number> = { urgent: 0, normal: 1, low: 2 };
+/**
+ * Ordem da lista: o que espera o Jota (análise ou aprovação) primeiro, depois o que a Lay está
+ * fazendo, depois a fila dela; finalizados por último.
+ */
+export const SUPPORT_STATUS_ORDER: readonly SupportStatus[] = ["waiting", "in_progress", "open", "done"];
 
-/** O foco do momento no topo, depois a fila por urgência; finalizados por último. Empate: o mais mexido antes. */
+const PRIORITY_WEIGHT: Record<SupportPriority, number> = { urgent: 0, normal: 1, low: 2 };
+const statusWeight = (status: SupportStatus): number => SUPPORT_STATUS_ORDER.indexOf(status);
+
+/** Por situação (SUPPORT_STATUS_ORDER), dentro dela por urgência. Empate: o mais mexido antes. */
 export function sortTickets(tickets: readonly SupportTicket[]): SupportTicket[] {
   return [...tickets].sort(
     (a, b) =>
-      STATUS_WEIGHT[a.status] - STATUS_WEIGHT[b.status] ||
+      statusWeight(a.status) - statusWeight(b.status) ||
       (isPendingTicket(a) ? PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority] : 0) ||
       b.updatedAt.localeCompare(a.updatedAt),
   );

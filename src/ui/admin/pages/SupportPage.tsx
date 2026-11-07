@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, Crosshair, FilterX, MessageSquare, Paperclip, Plus } from "lucide-react";
+import { CheckCircle2, ChevronDown, Crosshair, FilterX, Hourglass, ListTodo, MessageSquare, Paperclip, Plus, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listSupportLabels, listSupportTickets } from "@/application/support-use-cases";
@@ -17,6 +17,8 @@ import {
   SUPPORT_PERIODS,
   SUPPORT_PRIORITIES,
   SUPPORT_PRIORITY_LABEL,
+  SUPPORT_STATUS_LABEL,
+  SUPPORT_STATUS_ORDER,
   type SupportKind,
   type SupportLabel,
   type SupportPeriod,
@@ -41,7 +43,6 @@ import {
   authorNameOf,
   KIND_ICON,
   NeedsYouBadge,
-  PriorityDot,
   SupportAreaBadge,
   SupportLabelBadge,
   SupportPriorityBadge,
@@ -96,7 +97,7 @@ const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
   all: "Todas as situações",
 };
 
-const STATUS_FILTER_ORDER: readonly StatusFilter[] = ["active", "mine", "in_progress", "open", "waiting", "done", "all"];
+const STATUS_FILTER_ORDER: readonly StatusFilter[] = ["active", "mine", ...SUPPORT_STATUS_ORDER, "all"];
 
 const DESCRIPTION: Record<AdminRole, string> = {
   admin: "Seus pedidos de ajuste, melhoria e pendências do sistema e do site. Abra a setinha de cada chamado para ver o andamento.",
@@ -216,6 +217,14 @@ function LabelCell({ ticket, role, labels, onChanged }: Omit<RowProps, "expanded
   return label ? <SupportLabelBadge label={label} /> : <span className="text-xs text-mist">Sem etiqueta</span>;
 }
 
+/** O que espera o Jota e o foco do momento ganham borda colorida. */
+const ROW_BORDER: Record<SupportStatus, string> = {
+  waiting: "border-amber-300/40",
+  in_progress: "border-electric/40",
+  open: "border-line",
+  done: "border-line",
+};
+
 function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowProps) {
   const reduceMotion = useReducedMotion();
   const KindIcon = KIND_ICON[ticket.kind];
@@ -224,7 +233,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
   const files = ticket.attachments.length;
 
   return (
-    <li className={cn("rounded-2xl border bg-surface/60 transition-colors", ticket.status === "in_progress" ? "border-electric/40" : "border-line", expanded && "bg-surface")}>
+    <li className={cn("rounded-2xl border bg-surface/60 transition-colors", ROW_BORDER[ticket.status], expanded && "bg-surface")}>
       <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7.5rem_11.5rem_13rem_2.5rem] lg:items-center lg:gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -318,22 +327,74 @@ function ListHeader() {
   );
 }
 
-/** O que a Layra está fazendo agora, sempre à vista no topo. */
-function FocusStrip({ tickets }: { tickets: SupportTicket[] }) {
-  if (tickets.length === 0) return null;
+interface StatusGroupCopy {
+  icon: LucideIcon;
+  /** Frase curta sob o título, escrita para quem está vendo. */
+  hint: Record<AdminRole, string>;
+  tone: string;
+}
+
+const STATUS_GROUP: Record<SupportStatus, StatusGroupCopy> = {
+  waiting: {
+    icon: Hourglass,
+    hint: { admin: "Precisa da sua análise, resposta ou aprovação.", developer: "Esperando o Jota analisar, responder ou aprovar." },
+    tone: "text-amber-200",
+  },
+  in_progress: {
+    icon: Crosshair,
+    hint: { admin: "O que a Layra está fazendo agora.", developer: "O seu foco no momento." },
+    tone: "text-electric-soft",
+  },
+  open: {
+    icon: ListTodo,
+    hint: { admin: "Na fila da Layra, do mais urgente para o menos.", developer: "Na sua fila, do mais urgente para o menos." },
+    tone: "text-pink",
+  },
+  done: {
+    icon: CheckCircle2,
+    hint: { admin: "Resolvidos.", developer: "Resolvidos." },
+    tone: "text-emerald-300",
+  },
+};
+
+/** A lista já vem ordenada; aqui só separa por situação, na ordem de SUPPORT_STATUS_ORDER. */
+function groupByStatus(tickets: readonly SupportTicket[]): { status: SupportStatus; tickets: SupportTicket[] }[] {
+  return SUPPORT_STATUS_ORDER.map((status) => ({ status, tickets: tickets.filter((ticket) => ticket.status === status) })).filter(
+    (group) => group.tickets.length > 0,
+  );
+}
+
+interface StatusGroupProps extends Omit<RowProps, "ticket" | "expanded" | "onToggle"> {
+  status: SupportStatus;
+  tickets: SupportTicket[];
+  expanded: ReadonlySet<string>;
+  onToggle: (id: string) => void;
+}
+
+function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChanged }: StatusGroupProps) {
+  const { icon: Icon, hint, tone } = STATUS_GROUP[status];
+  const headingId = `grupo-${status}`;
   return (
-    <section aria-labelledby="foco" className="rounded-3xl border border-electric/30 bg-electric/[0.06] p-4 sm:p-5">
-      <h2 id="foco" className="flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-electric-soft uppercase">
-        <Crosshair aria-hidden className="size-4" /> Fazendo agora
-      </h2>
-      <ul className="mt-3 grid gap-2">
+    <section aria-labelledby={headingId} className="space-y-3">
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-2">
+        <h2 id={headingId} className={cn("flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase", tone)}>
+          <Icon aria-hidden className="size-4" /> {SUPPORT_STATUS_LABEL[status]}
+          <span className="rounded-full border border-line-strong px-2 py-0.5 text-[0.7rem] tracking-normal text-fog">{tickets.length}</span>
+        </h2>
+        <p className="text-xs text-mist">{hint[role]}</p>
+      </header>
+      <ListHeader />
+      <ul aria-label={SUPPORT_STATUS_LABEL[status]} className="grid gap-2">
         {tickets.map((ticket) => (
-          <li key={ticket.id}>
-            <Link to={`/admin/suporte/${ticket.id}`} className="flex items-center gap-2 text-sm font-medium text-white hover:text-electric-soft">
-              <PriorityDot priority={ticket.priority} className="size-2" />
-              <span className="truncate">{ticket.title}</span>
-            </Link>
-          </li>
+          <TicketRow
+            key={ticket.id}
+            ticket={ticket}
+            role={role}
+            labels={labels}
+            expanded={expanded.has(ticket.id)}
+            onToggle={() => onToggle(ticket.id)}
+            onChanged={onChanged}
+          />
         ))}
       </ul>
     </section>
@@ -397,7 +458,6 @@ export default function SupportPage() {
       {data && data.length > 0 && (
         <>
           <FilterBar filters={filters} onChange={setFilters} tickets={data} labels={labelList} role={role} />
-          <FocusStrip tickets={data.filter((ticket) => ticket.status === "in_progress")} />
           {visible.length === 0 ? (
             <EmptyState
               title="Nenhum chamado com esses filtros"
@@ -409,21 +469,19 @@ export default function SupportPage() {
               }
             />
           ) : (
-            <div className="space-y-2">
-              <ListHeader />
-              <ul aria-label="Chamados" className="grid gap-2">
-                {visible.map((ticket) => (
-                  <TicketRow
-                    key={ticket.id}
-                    ticket={ticket}
-                    role={role}
-                    labels={labelList}
-                    expanded={expanded.has(ticket.id)}
-                    onToggle={() => toggle(ticket.id)}
-                    onChanged={reloadAll}
-                  />
-                ))}
-              </ul>
+            <div className="space-y-8">
+              {groupByStatus(visible).map((group) => (
+                <StatusGroup
+                  key={group.status}
+                  status={group.status}
+                  tickets={group.tickets}
+                  role={role}
+                  labels={labelList}
+                  expanded={expanded}
+                  onToggle={toggle}
+                  onChanged={reloadAll}
+                />
+              ))}
             </div>
           )}
         </>
