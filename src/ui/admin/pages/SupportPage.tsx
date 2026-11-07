@@ -33,7 +33,7 @@ function TicketCard({ ticket }: { ticket: SupportTicket }) {
     <li className="relative rounded-2xl border border-line bg-surface/60 p-4 transition-colors hover:border-line-strong hover:bg-surface sm:p-5">
       <div className="flex flex-wrap items-center gap-2">
         <SupportStatusBadge status={ticket.status} />
-        {ticket.priority !== "normal" && <SupportPriorityBadge priority={ticket.priority} />}
+        <SupportPriorityBadge priority={ticket.priority} />
         <SupportAreaBadge area={ticket.area} />
       </div>
       <h2 className="mt-3 font-semibold text-white">

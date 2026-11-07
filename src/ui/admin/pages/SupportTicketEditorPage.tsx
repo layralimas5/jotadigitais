@@ -1,6 +1,7 @@
 import { ArrowLeft, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { cn } from "@/ui/lib/cn";
 import { fieldErrorsOf, SUPPORT_TEXT_MAX, SUPPORT_TITLE_MAX, supportTicketDataSchema } from "@/application/schemas";
 import { openSupportTicket } from "@/application/support-use-cases";
 import {
@@ -15,6 +16,7 @@ import { FormSection, PageHeader } from "../components/AdminUi";
 import { SegmentedField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useMutation } from "../hooks";
+import { PRIORITY_TONE } from "../support/priority-tone";
 import { useToast } from "../toast";
 
 const LIST_PATH = "/admin/suporte";
@@ -24,7 +26,12 @@ const EMPTY: SupportTicketData = { title: "", description: "", area: "system", p
 const FIELD_ORDER = ["title", "description"] as const;
 
 const AREA_OPTIONS = SUPPORT_AREAS.map((value) => ({ value, label: SUPPORT_AREA_LABEL[value] }));
-const PRIORITY_OPTIONS = SUPPORT_PRIORITIES.map((value) => ({ value, label: SUPPORT_PRIORITY_LABEL[value] }));
+const PRIORITY_OPTIONS = SUPPORT_PRIORITIES.map((value) => ({
+  value,
+  label: SUPPORT_PRIORITY_LABEL[value],
+  icon: <span aria-hidden className={cn("size-2.5 rounded-full", PRIORITY_TONE[value].dot)} />,
+  selectedClassName: PRIORITY_TONE[value].selected,
+}));
 
 function validate(values: SupportTicketData) {
   const result = supportTicketDataSchema.safeParse(values);

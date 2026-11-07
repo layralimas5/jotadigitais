@@ -1,10 +1,12 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, LogOut, Settings, ShieldUser } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, LogOut, Settings, ShieldUser } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
 import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
 import { SETTINGS_PATH } from "../navigation";
+import { useAdminView } from "../admin-view";
+import { usePreviewToggle } from "../preview/PreviewControls";
 import { useAdminSession } from "../session";
 import { RoleBadge } from "./RoleBadge";
 
@@ -18,6 +20,8 @@ function initialOf(email: string): string {
 /** Ícone do usuário no canto superior direito: Configurações, Usuários (só o Jota) e Sair. */
 export function UserMenu() {
   const { state, signOut } = useAdminSession();
+  const { viewRole } = useAdminView();
+  const preview = usePreviewToggle();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -110,7 +114,23 @@ export function UserMenu() {
               <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>
                 <Settings aria-hidden className="size-4" /> Configurações
               </Link>
-              {role === "admin" && (
+              {role === "developer" && (
+                <button
+                  role="menuitem"
+                  tabIndex={-1}
+                  type="button"
+                  onClick={() => {
+                    close();
+                    if (preview.previewing) preview.exit();
+                    else preview.enter();
+                  }}
+                  className={itemClass}
+                >
+                  {preview.previewing ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
+                  {preview.previewing ? "Voltar ao meu painel" : "Ver como o Jota"}
+                </button>
+              )}
+              {viewRole === "admin" && (
                 <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
                   <ShieldUser aria-hidden className="size-4" /> Usuários
                 </Link>

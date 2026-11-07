@@ -191,3 +191,10 @@ export class SupportStatusForbiddenError extends Error {
     this.name = "SupportStatusForbiddenError";
   }
 }
+
+export class PreviewReadOnlyError extends Error {
+  constructor() {
+    super("Modo visualização: aqui você vê o painel como o Jota, mas nada é salvo. Volte para o seu painel para mexer.");
+    this.name = "PreviewReadOnlyError";
+  }
+}

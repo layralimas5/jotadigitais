@@ -18,7 +18,8 @@ import { TikTokOverview } from "../dashboard/TikTokOverview";
 import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
 import { RevenueChart3D } from "../finance/RevenueChart3D";
 import { useAdminQuery } from "../hooks";
-import { useAdminRole } from "../session";
+import { useAdminView } from "../admin-view";
+import { EnterPreviewButton } from "../preview/PreviewControls";
 
 function Block({ id, title, link, children, className }: { id: string; title: string; link?: { to: string; label: string }; children: ReactNode; className?: string }) {
   return (
@@ -76,7 +77,9 @@ function DashboardContent({ dashboard, period, chartViews, linked }: DashboardCo
 }
 
 export default function DashboardPage() {
-  const linked = useAdminRole() === "admin";
+  const { viewRole, previewing } = useAdminView();
+  const linked = viewRole === "admin";
+  const canPreview = viewRole === "developer" && !previewing;
   const source = useAdminQuery(loadDashboardSource, "admin-dashboard");
   const [period, setPeriod] = useDashboardPeriod();
   const sourceData = source.status === "success" ? source.data : null;
@@ -88,7 +91,12 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Como a loja está no período escolhido e o que está esperando por você."
-        action={<DashboardPeriodPicker value={period} onChange={setPeriod} />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            {canPreview && <EnterPreviewButton />}
+            <DashboardPeriodPicker value={period} onChange={setPeriod} />
+          </div>
+        }
       />
       {source.status === "loading" && <LoadingBlock />}
       {source.status === "error" && <ErrorState message={source.error.message} onRetry={source.reload} />}

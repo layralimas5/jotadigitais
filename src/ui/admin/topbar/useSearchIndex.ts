@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { container } from "@/app/container";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useAdminDeps } from "../admin-view";
 import type { SearchItem } from "@/application/search";
 import { loadSearchIndex } from "@/application/workspace-use-cases";
 import { NAV_GROUPS } from "../navigation";
@@ -38,16 +38,23 @@ type IndexState = { status: "idle" | "loading" | "error"; records: SearchItem[] 
 
 /** Contas, pedidos, clientes... carregados quando a busca recebe foco e recarregados se ficarem velhos. */
 export function useSearchIndex() {
+  const deps = useAdminDeps();
   const [state, setState] = useState<IndexState>({ status: "idle", records: [] });
   const loadedAt = useRef(0);
   const loading = useRef(false);
+
+  // Entrou ou saiu do modo visualização: a próxima busca recarrega com os dados certos.
+  useEffect(() => {
+    loadedAt.current = 0;
+    setState({ status: "idle", records: [] });
+  }, [deps]);
 
   const ensureLoaded = useCallback(async () => {
     if (loading.current || Date.now() - loadedAt.current < STALE_MS) return;
     loading.current = true;
     setState((current) => ({ ...current, status: current.status === "ready" ? "ready" : "loading" }));
     try {
-      const records = await loadSearchIndex(container.admin);
+      const records = await loadSearchIndex(deps);
       loadedAt.current = Date.now();
       setState({ status: "ready", records });
     } catch (error) {
@@ -56,7 +63,7 @@ export function useSearchIndex() {
     } finally {
       loading.current = false;
     }
-  }, []);
+  }, [deps]);
 
   return { ...state, ensureLoaded };
 }

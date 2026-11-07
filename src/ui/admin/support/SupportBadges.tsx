@@ -8,6 +8,7 @@ import {
   type SupportStatus,
 } from "@/domain/support-ticket";
 import { cn } from "@/ui/lib/cn";
+import { PRIORITY_TONE } from "./priority-tone";
 
 const pill = "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold";
 
@@ -17,18 +18,17 @@ const STATUS_TONE: Record<SupportStatus, string> = {
   done: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
 };
 
-const PRIORITY_TONE: Record<SupportPriority, string> = {
-  low: "border-white/15 bg-white/[0.04] text-mist",
-  normal: "border-white/15 bg-white/[0.06] text-fog",
-  urgent: "border-alert/40 bg-alert/10 text-[#ff8a8a]",
-};
-
 export function SupportStatusBadge({ status }: { status: SupportStatus }) {
   return <span className={cn(pill, STATUS_TONE[status])}>{SUPPORT_STATUS_LABEL[status]}</span>;
 }
 
 export function SupportPriorityBadge({ priority }: { priority: SupportPriority }) {
-  return <span className={cn(pill, PRIORITY_TONE[priority])}>{SUPPORT_PRIORITY_LABEL[priority]}</span>;
+  return (
+    <span className={cn(pill, "gap-1.5", PRIORITY_TONE[priority].badge)}>
+      <span aria-hidden className={cn("size-1.5 rounded-full", PRIORITY_TONE[priority].dot)} />
+      {SUPPORT_PRIORITY_LABEL[priority]}
+    </span>
+  );
 }
 
 export function SupportAreaBadge({ area }: { area: SupportArea }) {
