@@ -10,7 +10,7 @@ import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { DATA_REQUEST_KINDS } from "@/domain/privacy";
-import { SUPPORT_AREAS, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "@/domain/support-ticket";
+import { SUPPORT_AREAS, SUPPORT_KINDS, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "@/domain/support-ticket";
 import { MAX_PROOF_POINTS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
@@ -665,7 +665,8 @@ export const supportTicketDataSchema = z.object({
     .trim()
     .min(10, "Conte o que aconteceu, onde e o que você esperava.")
     .max(SUPPORT_TEXT_MAX, `Use no máximo ${SUPPORT_TEXT_MAX} caracteres.`),
-  area: z.enum(SUPPORT_AREAS, { message: "Escolha onde está o problema." }),
+  kind: z.enum(SUPPORT_KINDS, { message: "Escolha o tipo do chamado." }),
+  area: z.enum(SUPPORT_AREAS, { message: "Escolha onde está o ajuste." }),
   priority: z.enum(SUPPORT_PRIORITIES, { message: "Escolha a prioridade." }),
 });
 

@@ -1518,6 +1518,86 @@ async function supportChecks() {
     "chamado não é apagado: o histórico fica",
   );
 
+  console.log("\nsuporte estilo GLPI");
+  const glpi = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.support_tickets (title, description, kind, area, priority)
+       values ('Melhorar a vitrine', 'Quero filtro por nicho na vitrine.', 'improvement', 'site', 'low') returning id, kind`,
+    ),
+  );
+  const glpiId = glpi.rows[0].id;
+  check(glpi.rows[0].kind === "improvement", "chamado guarda o tipo (melhoria)");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.support_tickets (title, description, kind, area) values ('Tipo errado', 'Tipo que não existe.', 'outro', 'site')`)),
+      /check constraint/,
+    ),
+    "tipo fora da lista é recusado",
+  );
+  const waiting = await asDeveloper(() => db.query(`update public.support_tickets set status = 'waiting' where id = $1 returning status`, [glpiId]));
+  check(waiting.rows[0]?.status === "waiting", "desenvolvedora deixa o chamado aguardando o Jota");
+  await asDeveloper(() => db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Qual nicho primeiro?')`, [glpiId]));
+  const stillWaiting = await db.query(`select status from public.support_tickets where id = $1`, [glpiId]);
+  check(stillWaiting.rows[0].status === "waiting", "resposta dela não tira o chamado de aguardando");
+  await as("authenticated", ADMIN_ID, () => db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Beleza primeiro.')`, [glpiId]));
+  const reopenedByJota = await db.query(`select status from public.support_tickets where id = $1`, [glpiId]);
+  check(reopenedByJota.rows[0].status === "open", "resposta do Jota devolve o chamado para pendente");
+
+  const okAttachment = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.support_attachments (ticket_id, path, kind, name, content_type, size_bytes)
+       values ($1::uuid, $1::text || '/print.png', 'image', 'print.png', 'image/png', 120000) returning created_by`,
+      [glpiId],
+    ),
+  );
+  check(okAttachment.rows[0]?.created_by === ADMIN_ID, "Jota anexa imagem no chamado, no nome dele");
+  const badAttachment = (path, contentType) =>
+    rejects(
+      () =>
+        as("authenticated", ADMIN_ID, () =>
+          db.query(
+            `insert into public.support_attachments (ticket_id, path, kind, name, content_type, size_bytes)
+             values ($1, $2, 'image', 'arquivo', $3, 10)`,
+            [glpiId, path, contentType],
+          ),
+        ),
+      /check constraint/,
+    );
+  check(await badAttachment("outra-pasta/x.png", "image/png"), "anexo fora da pasta do chamado é recusado");
+  check(await badAttachment(`${glpiId}/virus.exe`, "application/x-msdownload"), "arquivo que não é imagem nem vídeo é recusado");
+  const otherReply = await db.query(`select id from public.support_replies where ticket_id <> $1 limit 1`, [glpiId]);
+  check(
+    await rejects(
+      () =>
+        as("authenticated", ADMIN_ID, () =>
+          db.query(
+            `insert into public.support_attachments (ticket_id, reply_id, path, kind, name, content_type, size_bytes)
+             values ($1::uuid, $2, $1::text || '/a.png', 'image', 'a.png', 'image/png', 10)`,
+            [glpiId, otherReply.rows[0].id],
+          ),
+        ),
+      /row-level security/,
+    ),
+    "anexo não se prende a resposta de outro chamado",
+  );
+  const strangerFiles = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.support_attachments`));
+  check(strangerFiles.rows.length === 0, "usuário que não é admin não vê anexos");
+  const bucket = await db.query(`select public, file_size_limit from storage.buckets where id = 'support'`);
+  check(bucket.rows[0]?.public === false && Number(bucket.rows[0].file_size_limit) === 52428800, "bucket do suporte é privado, com limite de 50 MB");
+  const uploaded = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into storage.objects (bucket_id, name) values ('support', $1::text || '/print.png') returning id`, [glpiId]),
+  );
+  check(uploaded.rows.length === 1, "admin sobe arquivo no bucket do suporte");
+  check(
+    await rejects(
+      () => as("authenticated", STRANGER_ID, () => db.query(`insert into storage.objects (bucket_id, name) values ('support', 'x/y.png')`)),
+      /row-level security/,
+    ),
+    "usuário que não é admin não sobe arquivo no suporte",
+  );
+  const strangerObjects = await as("authenticated", STRANGER_ID, () => db.query(`select id from storage.objects where bucket_id = 'support'`));
+  check(strangerObjects.rows.length === 0, "usuário que não é admin não lê arquivos do suporte");
+
   console.log("\nmodo visualização da desenvolvedora");
   const secretCustomer = await as("authenticated", ADMIN_ID, () =>
     db.query(`insert into public.customers (name, email, document) values ('Cliente Sigiloso', 'sigilo@exemplo.com', '52998224725') returning id`),

@@ -18,6 +18,23 @@ export function useMessageTemplates(): MessageTemplates {
   return state.status === "success" ? state.data : DEFAULT_MESSAGE_TEMPLATES;
 }
 
+/** Busca de novo a cada `intervalMs` e quando a aba volta a ficar visível (conversa do suporte, contadores). */
+export function usePolling(refresh: () => void, intervalMs: number) {
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  });
+  useEffect(() => {
+    const timer = window.setInterval(() => refreshRef.current(), intervalMs);
+    const onVisible = () => document.visibilityState === "visible" && refreshRef.current();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [intervalMs]);
+}
+
 type MutationState = { status: "idle" } | { status: "pending" } | { status: "error"; error: Error };
 
 function toError(reason: unknown): Error {

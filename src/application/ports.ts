@@ -23,7 +23,14 @@ import type {
 import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
-import type { SupportReply, SupportStatus, SupportTicket, SupportTicketData } from "@/domain/support-ticket";
+import type {
+  SupportReply,
+  SupportStatus,
+  SupportSubmitResult,
+  SupportTicket,
+  SupportTicketData,
+  SupportUpload,
+} from "@/domain/support-ticket";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 
 // ---------------------------------------------------------------------------
@@ -288,10 +295,13 @@ export interface AdminUserRepository {
  * a situação só muda pela desenvolvedora, e o banco confere isso também.
  */
 export interface SupportTicketRepository {
+  /** Sem endereço dos anexos: a lista só precisa saber quantos são. */
   listAll(): Promise<SupportTicket[]>;
+  /** Com endereço temporário de cada anexo, para ver na conversa. */
   findById(id: string): Promise<SupportTicket | null>;
-  open(data: SupportTicketData): Promise<SupportTicket>;
-  reply(ticketId: string, body: string): Promise<SupportReply>;
+  /** Salva o texto e depois sobe os anexos; arquivo que falhar volta em `failedUploads`. */
+  open(data: SupportTicketData, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportTicket>>;
+  reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>>;
   changeStatus(ticketId: string, status: SupportStatus): Promise<void>;
 }
 

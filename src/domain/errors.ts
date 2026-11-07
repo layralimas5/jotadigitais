@@ -198,3 +198,10 @@ export class PreviewReadOnlyError extends Error {
     this.name = "PreviewReadOnlyError";
   }
 }
+
+export class SupportAttachmentError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SupportAttachmentError";
+  }
+}

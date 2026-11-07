@@ -2,7 +2,8 @@ import { ChevronRight, ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/AdminUi";
-import { moreItemsFor } from "../navigation";
+import { moreItemsFor, SUPPORT_PATH } from "../navigation";
+import { AttentionCount, useSupportAttention } from "../support/SupportAttention";
 import { useViewRole } from "../admin-view";
 
 const rowClass =
@@ -25,6 +26,7 @@ function Row({ icon, title, description, trailing }: { icon: ReactNode; title: s
 export default function MorePage() {
   const role = useViewRole();
   const items = role ? moreItemsFor(role) : [];
+  const attention = useSupportAttention();
   return (
     <div className="space-y-6">
       <PageHeader title="Mais" />
@@ -36,7 +38,12 @@ export default function MorePage() {
                 icon={<Icon aria-hidden className="size-5" />}
                 title={label}
                 description={description}
-                trailing={<ChevronRight aria-hidden className="size-4 text-mist" />}
+                trailing={
+                  <span className="flex items-center gap-2">
+                    {to === SUPPORT_PATH && <AttentionCount count={attention} />}
+                    <ChevronRight aria-hidden className="size-4 text-mist" />
+                  </span>
+                }
               />
             </Link>
           </li>

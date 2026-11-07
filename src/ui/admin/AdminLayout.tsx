@@ -12,7 +12,8 @@ import { NotificationBell } from "./topbar/NotificationBell";
 import { PageCrumb } from "./topbar/PageCrumb";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import type { AdminRole } from "@/domain/admin-user";
-import { bottomNavItemsFor, canOpen, fitsBottomNav, HOME_PATH, moreItemsFor, navGroupsFor } from "./navigation";
+import { bottomNavItemsFor, canOpen, fitsBottomNav, HOME_PATH, moreItemsFor, navGroupsFor, SUPPORT_PATH } from "./navigation";
+import { AttentionCount, SupportAttentionProvider, useSupportAttention } from "./support/SupportAttention";
 import { AdminViewProvider, useAdminView } from "./admin-view";
 import { PreviewBanner, SidebarPreviewEntry } from "./preview/PreviewControls";
 import { usePreviewSubmitGuard } from "./preview/usePreviewSubmitGuard";
@@ -105,6 +106,7 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
 /** `canPreview`: a desenvolvedora tem o atalho para ver o painel como o Jota. */
 function Sidebar({ role, canPreview }: { role: AdminRole; canPreview: boolean }) {
   const reduceMotion = useReducedMotion();
+  const attention = useSupportAttention();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
       <div className="flex justify-center border-b border-line px-5 py-5">
@@ -131,6 +133,7 @@ function Sidebar({ role, canPreview }: { role: AdminRole; canPreview: boolean })
                         )}
                         <Icon aria-hidden className={cn("relative size-[1.1rem]", isActive ? "text-electric" : "text-mist")} />
                         <span className={cn("relative", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
+                        {to === SUPPORT_PATH && <AttentionCount count={attention} className="relative ml-auto" />}
                       </>
                     )}
                   </NavLink>
@@ -210,6 +213,9 @@ function BottomNav({ role }: { role: AdminRole }) {
   const reduceMotion = useReducedMotion();
   const { pathname } = useLocation();
   const entries = bottomNavOf(role);
+  const attention = useSupportAttention();
+  // Sem lugar próprio na barra, o número do Suporte aparece no "Mais".
+  const attentionTarget = entries.some((entry) => entry.to === SUPPORT_PATH) ? SUPPORT_PATH : "/admin/mais";
   return (
     <nav
       aria-label="Sistema"
@@ -231,6 +237,7 @@ function BottomNav({ role }: { role: AdminRole }) {
                 )}
                 <Icon aria-hidden className={cn("relative size-5", isActive ? "text-electric" : "text-mist")} />
                 <span className={cn("relative", isActive ? "text-white" : "text-mist")}>{label}</span>
+                {to === attentionTarget && <AttentionCount count={attention} className="absolute top-1 left-1/2 ml-2" />}
               </>
               );
             }}
@@ -260,7 +267,8 @@ export function AdminProtected() {
   if (!canOpen(role, location.pathname)) return <Navigate to={HOME_PATH} replace />;
 
   return (
-    <>
+    // O contador olha o papel real: no modo visualização, ainda é a fila da desenvolvedora.
+    <SupportAttentionProvider role={state.session.role}>
       <Sidebar role={role} canPreview={state.session.role === "developer"} />
       <div className="md:pl-60">
         {previewing && <PreviewBanner />}
@@ -276,7 +284,7 @@ export function AdminProtected() {
         </main>
       </div>
       {!editing && <BottomNav role={role} />}
-    </>
+    </SupportAttentionProvider>
   );
 }
 

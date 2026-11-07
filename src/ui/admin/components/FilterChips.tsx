@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { cn } from "@/ui/lib/cn";
 
 export interface FilterChipOption<T extends string> {
@@ -5,6 +6,8 @@ export interface FilterChipOption<T extends string> {
   label: string;
   /** Quantidade ao lado do rótulo, ex.: "Do site 12". */
   count?: number;
+  /** Marca antes do rótulo, ex.: bolinha com a cor da prioridade. */
+  icon?: ReactNode;
 }
 
 interface FilterChipsProps<T extends string> {
@@ -31,6 +34,7 @@ export function FilterChips<T extends string>({ label, value, options, onChange 
               active ? "border-electric bg-electric/15 text-white" : "border-line-strong text-mist hover:text-white",
             )}
           >
+            {option.icon}
             {option.label}
             {option.count !== undefined && (
               <span className={cn("rounded-full px-1.5 text-xs tabular-nums", active ? "bg-electric/25 text-white" : "bg-white/[0.06]")}>
