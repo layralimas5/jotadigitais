@@ -5,6 +5,7 @@ import { signIn } from "@/application/admin-use-cases";
 import { ValidationError } from "@/application/schemas";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
+import { PasswordField } from "@/ui/components/form/PasswordField";
 import { Logo } from "@/ui/components/Logo";
 import { InlineError, LoadingBlock } from "../components/AdminUi";
 import { ForgotPasswordForm } from "../components/ForgotPasswordForm";
@@ -91,10 +92,9 @@ export default function LoginPage() {
                 error={fieldErrors.email}
               />
               <div>
-                <TextField
+                <PasswordField
                   label="Senha"
                   name="password"
-                  type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
