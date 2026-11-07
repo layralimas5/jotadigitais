@@ -11,8 +11,9 @@ import { MobileSearch } from "./topbar/MobileSearch";
 import { NotificationBell } from "./topbar/NotificationBell";
 import { PageCrumb } from "./topbar/PageCrumb";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
-import type { AdminRole } from "@/domain/admin-user";
-import { bottomNavItemsFor, canOpen, fitsBottomNav, HOME_PATH, moreItemsFor, navGroupsFor, SUPPORT_PATH } from "./navigation";
+import { canUseStoreArea, type StaffAccess } from "@/domain/admin-user";
+import { supportRoleOf } from "@/domain/support-ticket";
+import { bottomNavItemsFor, canOpen, fitsBottomNav, homePathFor, moreItemsFor, navGroupsFor, SUPPORT_PATH } from "./navigation";
 import { AttentionCount, SupportAttentionProvider, useSupportAttention } from "./support/SupportAttention";
 import { AdminViewProvider, useAdminView } from "./admin-view";
 import { PreviewBanner, SidebarPreviewEntry } from "./preview/PreviewControls";
@@ -31,6 +32,7 @@ const EDITOR_ROUTES = [
   "/admin/financeiro/receitas/:id",
   "/admin/parceiros/:id",
   "/admin/usuarios/novo",
+  "/admin/usuarios/:id",
   "/admin/suporte/novo",
   "/admin/acessos/novo",
   "/admin/acessos/:id",
@@ -88,10 +90,10 @@ function SiteLink({ className }: { className?: string }) {
 }
 
 /** Na barra lateral o nome "Sistema" fica centralizado embaixo do logo; no topo do celular, ao lado. */
-function Brand({ stacked = false }: { stacked?: boolean }) {
+function Brand({ home, stacked = false }: { home: string; stacked?: boolean }) {
   return (
     <Link
-      to={HOME_PATH}
+      to={home}
       aria-label="Sistema Jota Digitais, início"
       className={cn("flex rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
     >
@@ -106,16 +108,16 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
 
 /** Menu lateral fixo à esquerda, do tablet para cima. */
 /** `canPreview`: a desenvolvedora tem o atalho para ver o painel como o Jota. */
-function Sidebar({ role, canPreview }: { role: AdminRole; canPreview: boolean }) {
+function Sidebar({ access, canPreview }: { access: StaffAccess; canPreview: boolean }) {
   const reduceMotion = useReducedMotion();
   const attention = useSupportAttention();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
       <div className="flex justify-center border-b border-line px-5 py-5">
-        <Brand stacked />
+        <Brand home={homePathFor(access)} stacked />
       </div>
       <nav aria-label="Sistema" className="flex-1 space-y-5 overflow-y-auto p-3">
-        {navGroupsFor(role).map((group) => (
+        {navGroupsFor(access).map((group) => (
           <div key={group.label ?? "inicio"}>
             {group.label && (
               <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
@@ -154,15 +156,15 @@ function Sidebar({ role, canPreview }: { role: AdminRole; canPreview: boolean })
 }
 
 /** Topo enxuto no celular: a navegação fica na barra de baixo. */
-function MobileTopBar({ role }: { role: AdminRole }) {
-  const storeTools = role === "admin";
+function MobileTopBar({ access }: { access: StaffAccess }) {
+  const { search, bell } = topBarToolsOf(access);
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
       <div className="flex h-14 items-center justify-between gap-2 px-4">
-        <Brand />
+        <Brand home={homePathFor(access)} />
         <div className="flex items-center">
-          {storeTools && <MobileSearch />}
-          {storeTools && <NotificationBell />}
+          {search && <MobileSearch />}
+          {bell && <NotificationBell />}
           <UserMenu />
         </div>
       </div>
@@ -171,15 +173,15 @@ function MobileTopBar({ role }: { role: AdminRole }) {
 }
 
 /** Barra do topo no tablet e no computador: onde você está à esquerda, busca no centro, sininho e menu à direita. */
-function DesktopTopBar({ role }: { role: AdminRole }) {
-  const storeTools = role === "admin";
+function DesktopTopBar({ access }: { access: StaffAccess }) {
+  const { search, bell } = topBarToolsOf(access);
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-xl">
       <div className="grid h-16 grid-cols-[minmax(0,1fr)_minmax(16rem,36rem)_minmax(auto,1fr)] items-center gap-6 px-8">
         <PageCrumb />
-        {storeTools && <GlobalSearch withShortcut className="col-start-2 w-full" />}
+        {search && <GlobalSearch withShortcut className="col-start-2 w-full" />}
         <div className="col-start-3 flex items-center justify-self-end gap-1">
-          {storeTools && <NotificationBell />}
+          {bell && <NotificationBell />}
           <UserMenu />
         </div>
       </div>
@@ -188,11 +190,16 @@ function DesktopTopBar({ role }: { role: AdminRole }) {
 }
 
 /**
- * Só uma barra existe por vez: o sininho de cada uma consulta o servidor sozinho.
- * Busca e sininho mostram dados da loja, então ficam só para o Jota.
+ * Busca e sininho mostram dados da loja: a busca (que cruza contas, pedidos e clientes) é só do Jota;
+ * o sininho também aparece para o ajudante que cuida dos pedidos, só com os pedidos novos.
  */
-function TopBar({ role }: { role: AdminRole }) {
-  return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar role={role} /> : <MobileTopBar role={role} />;
+function topBarToolsOf(access: StaffAccess): { search: boolean; bell: boolean } {
+  return { search: access.role === "admin", bell: canUseStoreArea(access, "orders") };
+}
+
+/** Só uma barra existe por vez: o sininho de cada uma consulta o servidor sozinho. */
+function TopBar({ access }: { access: StaffAccess }) {
+  return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar access={access} /> : <MobileTopBar access={access} />;
 }
 
 interface BottomNavEntry {
@@ -203,18 +210,18 @@ interface BottomNavEntry {
   activeOn?: readonly string[];
 }
 
-function bottomNavOf(role: AdminRole): BottomNavEntry[] {
-  const items: BottomNavEntry[] = bottomNavItemsFor(role);
-  if (fitsBottomNav(role)) return items;
-  const moreRoutes = ["/admin/mais", ...moreItemsFor(role).map((item) => `${item.to}/*`)];
+function bottomNavOf(access: StaffAccess): BottomNavEntry[] {
+  const items: BottomNavEntry[] = bottomNavItemsFor(access);
+  if (fitsBottomNav(access)) return items;
+  const moreRoutes = ["/admin/mais", ...moreItemsFor(access).map((item) => `${item.to}/*`)];
   return [...items, { to: "/admin/mais", label: "Mais", icon: Ellipsis, activeOn: moreRoutes }];
 }
 
 /** Navegação no polegar: fixa embaixo no celular, com a aba ativa deslizando entre os itens. */
-function BottomNav({ role }: { role: AdminRole }) {
+function BottomNav({ access }: { access: StaffAccess }) {
   const reduceMotion = useReducedMotion();
   const { pathname } = useLocation();
-  const entries = bottomNavOf(role);
+  const entries = bottomNavOf(access);
   const attention = useSupportAttention();
   // Sem lugar próprio na barra, o número do Suporte aparece no "Mais".
   const attentionTarget = entries.some((entry) => entry.to === SUPPORT_PATH) ? SUPPORT_PATH : "/admin/mais";
@@ -253,7 +260,7 @@ function BottomNav({ role }: { role: AdminRole }) {
 /** Rotas do sistema. Com o Supabase ligado, exigem login de administrador. */
 export function AdminProtected() {
   const { state } = useAdminSession();
-  const { previewing, viewRole } = useAdminView();
+  const { previewing, viewAccess } = useAdminView();
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   usePreviewSubmitGuard(previewing, mainRef);
@@ -264,17 +271,16 @@ export function AdminProtected() {
   // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
   if (state.status !== "signed-in") return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
   // No modo visualização a desenvolvedora navega pelo painel do Jota.
-  const role = viewRole ?? state.session.role;
-  // Cada um só abre o que é dele: endereço digitado ou link antigo de outra seção volta para o início.
-  if (!canOpen(role, location.pathname)) return <Navigate to={HOME_PATH} replace />;
+  const access = viewAccess ?? { role: state.session.role, permissions: state.session.permissions };
+  // Cada um só abre o que é dele: endereço digitado ou link antigo de outra seção volta para o início de cada um.
+  if (!canOpen(access, location.pathname)) return <Navigate to={homePathFor(access)} replace />;
 
-  return (
-    // No modo visualização o contador também é o do Jota.
-    <SupportAttentionProvider role={role}>
-      <Sidebar role={role} canPreview={state.session.role === "developer"} />
+  const panel = (
+    <>
+      <Sidebar access={access} canPreview={state.session.role === "developer"} />
       <div className="md:pl-60">
         {previewing && <PreviewBanner />}
-        <TopBar role={role} />
+        <TopBar access={access} />
         <main
           ref={mainRef}
           id="conteudo"
@@ -285,9 +291,12 @@ export function AdminProtected() {
           </Suspense>
         </main>
       </div>
-      {!editing && <BottomNav role={role} />}
-    </SupportAttentionProvider>
+      {!editing && <BottomNav access={access} />}
+    </>
   );
+  // O ajudante não usa o suporte: nada de consultar os chamados para ele. No modo visualização o contador é o do Jota.
+  if (access.role === "helper") return panel;
+  return <SupportAttentionProvider role={supportRoleOf(access.role)}>{panel}</SupportAttentionProvider>;
 }
 
 export function AdminRoot() {

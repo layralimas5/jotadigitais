@@ -31,6 +31,8 @@ import {
   type SupportStatus,
   type SupportTicket,
   type SupportUpload,
+  supportRoleOf,
+  type SupportRole,
 } from "@/domain/support-ticket";
 import { Button } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -127,7 +129,7 @@ function StatusLine({ event }: { event: SupportStatusEvent }) {
   );
 }
 
-function StatusControl({ ticket, role, onChanged }: { ticket: SupportTicket; role: AdminRole; onChanged: () => void }) {
+function StatusControl({ ticket, role, onChanged }: { ticket: SupportTicket; role: SupportRole; onChanged: () => void }) {
   const toast = useToast();
   const change = useMutation(async (deps, status: SupportStatus) => {
     await changeSupportStatus(deps, role, ticket.id, status);
@@ -172,7 +174,7 @@ const VISIBILITY_OPTIONS = [
 ] as const;
 type Visibility = (typeof VISIBILITY_OPTIONS)[number]["value"];
 
-function VisibilityControl({ ticket, role, onChanged }: { ticket: SupportTicket; role: AdminRole; onChanged: () => void }) {
+function VisibilityControl({ ticket, role, onChanged }: { ticket: SupportTicket; role: SupportRole; onChanged: () => void }) {
   const toast = useToast();
   const change = useMutation(async (deps, internal: boolean) => {
     await setSupportTicketVisibility(deps, role, ticket.id, internal);
@@ -214,7 +216,7 @@ function VisibilityControl({ ticket, role, onChanged }: { ticket: SupportTicket;
 }
 
 /** Para o Jota: deixa claro quando a bola está com ele e deixa aprovar dali mesmo. */
-function WaitingNotice({ ticket, role, onApproved }: { ticket: SupportTicket; role: AdminRole; onApproved: () => void }) {
+function WaitingNotice({ ticket, role, onApproved }: { ticket: SupportTicket; role: SupportRole; onApproved: () => void }) {
   return (
     <section
       role="status"
@@ -236,7 +238,7 @@ interface ReplyInput {
   notifyAdmin: boolean;
 }
 
-function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: AdminRole; onSent: () => void }) {
+function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: SupportRole; onSent: () => void }) {
   const toast = useToast();
   const [body, setBody] = useState("");
   const [askAdmin, setAskAdmin] = useState(false);
@@ -312,7 +314,7 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Admi
 }
 
 /** Abrir a conversa marca o visto (e, para a Lay vendo novidade do Jota, avisa no sininho dele). No "ver como o Jota", não. */
-function useMarkSeen(ticket: SupportTicket | null, role: AdminRole, onMarked: () => void) {
+function useMarkSeen(ticket: SupportTicket | null, role: SupportRole, onMarked: () => void) {
   const { previewing } = useAdminView();
   const mark = useMutation(async (deps, current: SupportTicket) => {
     const marking = markSupportTicketSeen(deps, role, current);
@@ -342,7 +344,7 @@ function useMarkSeen(ticket: SupportTicket | null, role: AdminRole, onMarked: ()
 interface TicketViewProps {
   ticket: SupportTicket;
   labels: readonly SupportLabel[];
-  role: AdminRole;
+  role: SupportRole;
   reload: () => void;
 }
 
@@ -440,7 +442,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
 export default function SupportTicketPage() {
   const { id = "" } = useParams();
   // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
-  const role = useViewRole() ?? "admin";
+  const role = supportRoleOf(useViewRole() ?? "admin");
   const ticket = useAdminQuery((deps) => findSupportTicket(deps, role, id), `admin-support-${id}-${role}`);
   useMarkSeen(ticket.status === "success" ? ticket.data : null, role, ticket.reload);
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");

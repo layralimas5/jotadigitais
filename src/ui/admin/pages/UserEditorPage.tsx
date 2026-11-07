@@ -3,18 +3,20 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { createAdminUser } from "@/application/admin-use-cases";
 import { fieldErrorsOf, newAdminUserSchema, PASSWORD_RULE_HINT } from "@/application/schemas";
-import type { NewAdminUser } from "@/domain/admin-user";
+import type { AdminUserAccess, NewAdminUser } from "@/domain/admin-user";
 import { TextField } from "@/ui/components/form/Fields";
 import { PasswordField } from "@/ui/components/form/PasswordField";
 import { FormSection, PageHeader } from "../components/AdminUi";
 import { FormFooter } from "../components/FormFooter";
+import { AccessFields } from "../users/AccessFields";
 import { useMutation } from "../hooks";
 import { firstNameOf } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
-const EMPTY: NewAdminUser = { name: "", email: "", password: "" };
+/** Começa como ajudante: o caso comum é alguém para ajudar em parte da loja. */
+const EMPTY: NewAdminUser = { name: "", email: "", password: "", role: "helper", permissions: [] };
 
-const FIELD_ORDER = ["name", "email", "password"] as const;
+const FIELD_ORDER = ["name", "email", "password", "permissions"] as const;
 
 function validate(values: NewAdminUser) {
   const result = newAdminUserSchema.safeParse(values);
@@ -50,7 +52,8 @@ export default function UserEditorPage({ backPath = "/admin/usuarios" }: UserEdi
     setErrors(result.errors);
     if (!result.data) {
       const first = FIELD_ORDER.find((field) => result.errors[field]);
-      if (first) formElement.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+      const target = first === "permissions" ? '[name^="permission-"]' : `[name="${first}"]`;
+      if (first) formElement.querySelector<HTMLElement>(target)?.focus();
       return;
     }
     const created = await create.run(values);
@@ -106,6 +109,12 @@ export default function UserEditorPage({ backPath = "/admin/usuarios" }: UserEdi
             hint={PASSWORD_RULE_HINT}
           />
         </FormSection>
+
+        <AccessFields
+          value={{ role: values.role, permissions: values.permissions }}
+          onChange={(access: AdminUserAccess) => update(access)}
+          error={errors.permissions}
+        />
 
         <FormFooter
           submitLabel="Criar acesso"

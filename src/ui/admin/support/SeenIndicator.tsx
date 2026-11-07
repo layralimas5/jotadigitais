@@ -1,6 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
-import type { AdminRole } from "@/domain/admin-user";
-import { counterpartOf, lastMessageAtFrom, seenAtBy, SUPPORT_ROLE_NAME, wasSeenBy, type SupportTicket } from "@/domain/support-ticket";
+import { counterpartOf, lastMessageAtFrom, seenAtBy, SUPPORT_ROLE_NAME, wasSeenBy, type SupportRole, type SupportTicket } from "@/domain/support-ticket";
 import { cn } from "@/ui/lib/cn";
 import { formatDate, formatRelative } from "../lib/dates";
 
@@ -29,7 +28,7 @@ export function SeenMark({ seen, by, seenAt, className }: SeenMarkProps) {
 }
 
 /** Na ficha da lista: a última mensagem de quem está vendo já foi vista pelo outro lado? */
-export function TicketSeenMark({ ticket, role, className }: { ticket: SupportTicket; role: AdminRole; className?: string }) {
+export function TicketSeenMark({ ticket, role, className }: { ticket: SupportTicket; role: SupportRole; className?: string }) {
   const mine = lastMessageAtFrom(ticket, role);
   if (!mine || ticket.internal) return null;
   const other = counterpartOf(role);

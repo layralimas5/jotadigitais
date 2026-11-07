@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { listSupportTickets } from "@/application/support-use-cases";
-import type { AdminRole } from "@/domain/admin-user";
-import { needsActionFrom } from "@/domain/support-ticket";
+import { needsActionFrom, type SupportRole } from "@/domain/support-ticket";
 import { useAdminQuery, usePolling } from "../hooks";
 
 const REFRESH_MS = 60_000;
@@ -13,7 +12,7 @@ const SupportAttentionContext = createContext(0);
  * Quantos chamados esperam a ação de quem está logado: para a Lay, pendentes ou com resposta nova do Jota;
  * para o Jota, os que aguardam ele. Uma consulta só para o menu lateral, a barra de baixo e o "Mais".
  */
-export function SupportAttentionProvider({ role, children }: { role: AdminRole; children: ReactNode }) {
+export function SupportAttentionProvider({ role, children }: { role: SupportRole; children: ReactNode }) {
   const tickets = useAdminQuery((deps) => listSupportTickets(deps, role), `support-attention-${role}`);
   usePolling(tickets.reload, REFRESH_MS);
   // Depois de responder ou mudar a situação a pessoa troca de tela: o número acompanha na hora.

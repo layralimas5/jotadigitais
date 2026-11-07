@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
 import { ACCOUNT_STATUSES, EMPTY_MOCKUP, MAX_MOCKUP_POSTS } from "@/domain/account";
 import { BRAZIL_STATES, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/domain/brazil";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
@@ -358,11 +359,25 @@ const newPassword = z
   .regex(/[A-Za-z]/, "Use pelo menos uma letra.")
   .regex(/\d/, "Use pelo menos um número.");
 
-export const newAdminUserSchema = z.object({
-  name: personName,
-  email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
-  password: newPassword,
-});
+/** Admin tem tudo; ajudante precisa de pelo menos uma área liberada para ter o que fazer no sistema. */
+export const adminUserAccessSchema = z
+  .object({
+    role: z.enum(["admin", "helper"]),
+    permissions: z.array(z.enum(STAFF_PERMISSIONS)),
+  })
+  .refine((access) => access.role === "admin" || access.permissions.length > 0, {
+    path: ["permissions"],
+    message: "Libere pelo menos uma área para o ajudante.",
+  })
+  .transform((access) => ({ role: access.role, permissions: access.role === "helper" ? normalizePermissions(access.permissions) : [] }));
+
+export const newAdminUserSchema = z
+  .object({
+    name: personName,
+    email: z.string().trim().toLowerCase().pipe(z.email("Informe um e-mail válido.")),
+    password: newPassword,
+  })
+  .and(adminUserAccessSchema);
 
 /** TI: cadastro de um usuário editado pela desenvolvedora. */
 export const accessProfileSchema = z.object({

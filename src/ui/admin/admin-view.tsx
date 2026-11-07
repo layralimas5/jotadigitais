@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { container } from "@/app/container";
 import { previewAdminDeps } from "@/application/admin-preview";
 import type { AdminDeps } from "@/application/admin-use-cases";
-import type { AdminRole } from "@/domain/admin-user";
+import type { AdminRole, StaffAccess } from "@/domain/admin-user";
 import { useAdminSession } from "./session";
 
 /** Vale só para esta aba do navegador: fechar e abrir de novo volta para o painel da desenvolvedora. */
@@ -30,6 +30,8 @@ interface AdminViewValue {
   previewing: boolean;
   /** Papel que decide o que aparece no menu e nas telas. No modo visualização, "admin". */
   viewRole: AdminRole | null;
+  /** Papel e áreas liberadas que montam o menu. No modo visualização, o acesso do Jota. */
+  viewAccess: StaffAccess | null;
   deps: AdminDeps;
   enterPreview: () => void;
   exitPreview: () => void;
@@ -39,10 +41,13 @@ const AdminViewContext = createContext<AdminViewValue | null>(null);
 
 const previewDeps = previewAdminDeps(container.admin);
 
+const JOTA_ACCESS: StaffAccess = { role: "admin", permissions: [] };
+
 export function AdminViewProvider({ children }: { children: ReactNode }) {
   const { state } = useAdminSession();
   const [stored, setStored] = useState(readStored);
   const role = state.status === "signed-in" ? state.session.role : null;
+  const permissions = state.status === "signed-in" ? state.session.permissions : null;
   const previewing = role === "developer" && stored;
 
   // Sair do sistema encerra o modo: o próximo login começa no painel de cada um.
@@ -62,11 +67,12 @@ export function AdminViewProvider({ children }: { children: ReactNode }) {
     () => ({
       previewing,
       viewRole: previewing ? "admin" : role,
+      viewAccess: previewing ? JOTA_ACCESS : role ? { role, permissions: permissions ?? [] } : null,
       deps: previewing ? previewDeps : container.admin,
       enterPreview: () => setPreview(true),
       exitPreview: () => setPreview(false),
     }),
-    [previewing, role, setPreview],
+    [previewing, role, permissions, setPreview],
   );
   return <AdminViewContext.Provider value={value}>{children}</AdminViewContext.Provider>;
 }
@@ -82,3 +88,6 @@ export const useAdminDeps = (): AdminDeps => useAdminView().deps;
 
 /** Papel que decide menu e telas (no modo visualização, o do Jota). */
 export const useViewRole = (): AdminRole | null => useAdminView().viewRole;
+
+/** Papel e áreas liberadas de quem está vendo (no modo visualização, o do Jota). */
+export const useViewAccess = (): StaffAccess | null => useAdminView().viewAccess;

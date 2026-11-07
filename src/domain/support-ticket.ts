@@ -128,6 +128,10 @@ export interface SupportTicket extends SupportTicketData {
   views: SupportView[];
 }
 
+/** O suporte é só entre o Jota e a desenvolvedora: ajudante não abre a aba. */
+export type SupportRole = Extract<AdminRole, "admin" | "developer">;
+export const supportRoleOf = (role: AdminRole): SupportRole => (role === "developer" ? "developer" : "admin");
+
 export interface SupportView {
   role: AdminRole;
   seenAt: string;
@@ -351,9 +355,9 @@ export function orderTickets(tickets: readonly SupportTicket[], sort: SupportSor
 // ---------------------------------------------------------------------------
 
 /** Com quem a pessoa conversa no suporte: a Lay com o Jota e o Jota com a Lay. */
-export const counterpartOf = (role: AdminRole): AdminRole => (role === "developer" ? "admin" : "developer");
+export const counterpartOf = (role: SupportRole): SupportRole => (role === "developer" ? "admin" : "developer");
 
-export const SUPPORT_ROLE_NAME: Record<AdminRole, string> = { developer: "Layra", admin: "Jota" };
+export const SUPPORT_ROLE_NAME: Record<SupportRole, string> = { developer: "Layra", admin: "Jota" };
 
 /** Última vez que alguém com esse papel abriu o chamado; nulo quando nunca abriu. */
 export function seenAtBy(ticket: Pick<SupportTicket, "views">, role: AdminRole): string | null {
@@ -382,7 +386,7 @@ export function lastMessageAtFrom(ticket: Pick<SupportTicket, "author" | "create
 }
 
 /** Tem coisa da outra pessoa que quem está vendo ainda não abriu? */
-export function hasUnseenFrom(ticket: SupportTicket, viewer: AdminRole): boolean {
+export function hasUnseenFrom(ticket: SupportTicket, viewer: SupportRole): boolean {
   const theirs = lastMessageAtFrom(ticket, counterpartOf(viewer));
   return theirs !== null && !wasSeenBy(ticket, viewer, theirs);
 }

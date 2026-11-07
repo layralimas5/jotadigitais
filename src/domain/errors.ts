@@ -114,6 +114,19 @@ export class CannotRemoveAdminUserError extends Error {
   }
 }
 
+const CHANGE_ACCESS_MESSAGE: Record<"self" | "developer" | "last", string> = {
+  self: "Você não pode mudar o seu próprio acesso. Peça para outro admin fazer isso.",
+  developer: "O acesso da desenvolvedora não muda por aqui.",
+  last: "O sistema precisa de pelo menos um admin. Promova outra pessoa antes.",
+};
+
+export class CannotChangeAccessError extends Error {
+  constructor(reason: "self" | "developer" | "last") {
+    super(CHANGE_ACCESS_MESSAGE[reason]);
+    this.name = "CannotChangeAccessError";
+  }
+}
+
 export class InvalidCredentialsError extends Error {
   constructor() {
     super("E-mail ou senha incorretos.");

@@ -25,6 +25,7 @@ import {
   type SupportReply,
   type SupportStatus,
   type SupportSubmitResult,
+  type SupportRole,
   type SupportTicket,
   type SupportUpload,
 } from "@/domain/support-ticket";
@@ -89,7 +90,7 @@ export async function openSupportTicket(
 }
 
 /** Na conversa aberta: marca o visto quando aparece coisa nova para quem está vendo. */
-export function markSupportTicketSeen(deps: AdminDeps, role: AdminRole, ticket: SupportTicket): Promise<void> | null {
+export function markSupportTicketSeen(deps: AdminDeps, role: SupportRole, ticket: SupportTicket): Promise<void> | null {
   if (!hasUnseenFrom(ticket, role) && seenAtBy(ticket, role) !== null) return null;
   return deps.support.markSeen(ticket.id, role === "developer" && !ticket.internal);
 }

@@ -8,7 +8,7 @@ const accessRowSchema = z.object({
   user_id: z.string(),
   name: z.string().nullable(),
   email: z.string(),
-  role: z.enum(["admin", "developer"]),
+  role: z.enum(["admin", "developer", "helper"]),
   whatsapp: z.string().nullable(),
   created_at: z.string(),
   last_sign_in_at: z.string().nullable(),
