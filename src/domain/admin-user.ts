@@ -60,6 +60,8 @@ export interface AdminUser {
   role: AdminRole;
   /** Só no ajudante; nos outros papéis, vazio. */
   permissions: StaffPermission[];
+  /** Só dígitos, com DDD; usado para mandar o acesso pelo WhatsApp. */
+  whatsapp: string | null;
   createdAt: string;
   lastSignInAt: string | null;
 }
@@ -80,6 +82,13 @@ export interface NewAdminUser extends AdminUserAccess {
 }
 
 export const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Quem troca nome, e-mail e senha de quem: a desenvolvedora (TI) de qualquer usuário; o admin de qualquer um
+ * menos da desenvolvedora (o servidor também barra o próprio admin, que muda os dados dele em Configurações).
+ */
+export const canManageLoginOf = (viewer: AdminRole, target: Pick<AdminUser, "role">): boolean =>
+  viewer === "developer" || (viewer === "admin" && target.role !== "developer");
 
 /** Em ordem fixa e sem repetir, como o banco guarda. */
 export const normalizePermissions = (permissions: readonly StaffPermission[]): StaffPermission[] =>

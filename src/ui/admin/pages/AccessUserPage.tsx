@@ -1,40 +1,21 @@
-import { ArrowLeft, Copy, KeyRound, LogOut, MessageCircle, RefreshCw, Save, ShieldOff } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { ArrowLeft, LogOut, ShieldOff } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { endAccessSessions, listAccessUsers, resetAccessMfa, setAccessPassword, updateAccessProfile } from "@/application/access-use-cases";
-import { accessPasswordSchema, accessProfileSchema, fieldErrorsOf, PASSWORD_RULE_HINT } from "@/application/schemas";
+import { endAccessSessions, listAccessUsers, resetAccessMfa } from "@/application/access-use-cases";
 import type { AccessUser } from "@/domain/access-user";
 import { sameEmail, type AdminRole } from "@/domain/admin-user";
 import { Button } from "@/ui/components/Button";
-import { TextField } from "@/ui/components/form/Fields";
-import { PasswordField } from "@/ui/components/form/PasswordField";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { FormFooter } from "../components/FormFooter";
 import { RoleBadge } from "../components/RoleBadge";
-import { generatePassword } from "../emails/generate-password";
-import { useCopy } from "../emails/use-copy";
 import { useAdminQuery, useMutation } from "../hooks";
-import { formatPhone } from "../lib/whatsapp";
 import { AccessFacts, displayName } from "../access/AccessParts";
+import { AccessProfileForm } from "../access/AccessProfileForm";
 import { SendAccessDialog, type AccessToSend } from "../access/SendAccessDialog";
 import { ACCESS_PATH } from "../navigation";
 import { useAdminSession } from "../session";
 import { useToast } from "../toast";
-
-interface FormValues {
-  name: string;
-  email: string;
-  whatsapp: string;
-  /** Vazia: a senha continua a mesma. */
-  password: string;
-}
-
-interface SaveInput {
-  profile: { name: string; email: string; whatsapp: string | null } | null;
-  password: string | null;
-}
 
 type Danger = "sessions" | "mfa";
 
@@ -53,27 +34,6 @@ const DANGER_COPY: Record<Danger, { title: string; description: string; confirm:
   },
 };
 
-const initialValues = (user: AccessUser): FormValues => ({
-  name: user.name ?? "",
-  email: user.email,
-  whatsapp: user.whatsapp ? formatPhone(user.whatsapp) : "",
-  password: "",
-});
-
-function validate(values: FormValues): { input: SaveInput | null; errors: Record<string, string> } {
-  const profile = accessProfileSchema.safeParse({ name: values.name, email: values.email, whatsapp: values.whatsapp || null });
-  const password = values.password ? accessPasswordSchema.safeParse({ password: values.password }) : null;
-  const errors = {
-    ...(profile.success ? {} : fieldErrorsOf(profile.error)),
-    ...(password && !password.success ? fieldErrorsOf(password.error) : {}),
-  };
-  if (!profile.success || (password && !password.success)) return { input: null, errors };
-  return { input: { profile: profile.data, password: password?.data.password ?? null }, errors: {} };
-}
-
-const profileChanged = (user: AccessUser, profile: NonNullable<SaveInput["profile"]>) =>
-  profile.name !== (user.name ?? "") || !sameEmail(profile.email, user.email) || (profile.whatsapp ?? null) !== (user.whatsapp ?? null);
-
 interface AccessFormProps {
   user: AccessUser;
   role: AdminRole;
@@ -85,44 +45,13 @@ interface AccessFormProps {
 function AccessForm({ user, role, isYou, reload, onSend }: AccessFormProps) {
   const toast = useToast();
   const navigate = useNavigate();
-  const copy = useCopy();
-  const [values, setValues] = useState<FormValues>(() => initialValues(user));
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [danger, setDanger] = useState<Danger | null>(null);
 
-  const save = useMutation(async (deps, input: SaveInput) => {
-    if (input.profile && profileChanged(user, input.profile)) await updateAccessProfile(deps, role, user.id, input.profile);
-    if (input.password) await setAccessPassword(deps, role, user.id, { password: input.password });
-    return input;
-  });
   const act = useMutation(async (deps, kind: Danger) => {
     if (kind === "sessions") await endAccessSessions(deps, role, user.id);
     else await resetAccessMfa(deps, role, user.id);
     return kind;
   });
-
-  const update = (patch: Partial<FormValues>) => setValues((current) => ({ ...current, ...patch }));
-  const emailChanged = !sameEmail(values.email.trim(), user.email);
-
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const { input, errors: found } = validate(values);
-    setErrors(found);
-    if (!input || !input.profile) return;
-    if (!profileChanged(user, input.profile) && !input.password) {
-      toast.show("Nada mudou.");
-      return;
-    }
-    const saved = await save.run(input);
-    if (!saved?.profile) return;
-    toast.show(saved.password ? "Dados e senha salvos. Já valem para entrar." : "Dados salvos. Já valem para entrar.");
-    // Mudou e-mail ou senha: a mensagem com o acesso novo já abre pronta para mandar.
-    if (saved.password || emailChanged) {
-      onSend({ name: saved.profile.name, email: saved.profile.email, whatsapp: saved.profile.whatsapp, password: saved.password });
-    }
-    update({ password: "" });
-    reload();
-  };
 
   const onConfirmDanger = async () => {
     if (!danger) return;
@@ -135,79 +64,9 @@ function AccessForm({ user, role, isYou, reload, onSend }: AccessFormProps) {
 
   return (
     <>
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
-        <FormSection title="Dados de acesso" description="O que você salvar aqui vale na hora: a pessoa passa a entrar com o e-mail novo.">
-          <TextField label="Nome" name="name" autoComplete="off" maxLength={80} value={values.name} onChange={(event) => update({ name: event.target.value })} error={errors.name} />
-          <TextField
-            label="E-mail de acesso"
-            name="email"
-            type="email"
-            inputMode="email"
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={values.email}
-            onChange={(event) => update({ email: event.target.value })}
-            error={errors.email}
-            hint={emailChanged ? "E-mail novo: vale sem confirmação, assim que você salvar." : undefined}
-          />
-          <TextField
-            label="WhatsApp"
-            name="whatsapp"
-            inputMode="tel"
-            autoComplete="off"
-            placeholder="(84) 98122-5361"
-            value={values.whatsapp}
-            onChange={(event) => update({ whatsapp: event.target.value })}
-            error={errors.whatsapp}
-            hint="Usado para mandar o acesso."
-          />
-        </FormSection>
-
-        <FormSection
-          title="Senha"
-          description="A senha atual não aparece para ninguém (o sistema guarda só uma versão embaralhada). Para a pessoa entrar, defina uma nova aqui: você vê o que digitou e manda para ela."
-        >
-          <PasswordField
-            label="Senha nova"
-            name="password"
-            autoComplete="new-password"
-            placeholder="Deixe vazio para manter a senha atual"
-            initiallyVisible
-            value={values.password}
-            onChange={(event) => update({ password: event.target.value })}
-            error={errors.password}
-            hint={PASSWORD_RULE_HINT}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => update({ password: generatePassword(14) })}>
-              <RefreshCw aria-hidden className="size-4" /> Gerar senha
-            </Button>
-            {values.password && (
-              <Button variant="secondary" onClick={() => void copy(values.password, "Senha copiada.")}>
-                <Copy aria-hidden className="size-4" /> Copiar senha
-              </Button>
-            )}
-          </div>
-        </FormSection>
-
-        <FormFooter
-          submitLabel={values.password ? "Salvar e trocar a senha" : "Salvar dados"}
-          mobileSubmitLabel="Salvar"
-          submitIcon={values.password ? <KeyRound aria-hidden className="size-4" /> : <Save aria-hidden className="size-4" />}
-          pending={save.pending}
-          onCancel={() => navigate(ACCESS_PATH)}
-          errors={[save.error?.message]}
-          extraActions={
-            <Button
-              variant="secondary"
-              onClick={() => onSend({ name: user.name, email: user.email, whatsapp: user.whatsapp, password: null })}
-            >
-              <MessageCircle aria-hidden className="size-4 text-[#25d366]" /> Mandar link de acesso
-            </Button>
-          }
-        />
-      </form>
+      <div className="mt-6">
+        <AccessProfileForm user={user} viewerRole={role} reload={reload} onSend={onSend} onCancel={() => navigate(ACCESS_PATH)} />
+      </div>
 
       <section aria-labelledby="sessao" className="mt-6 max-w-3xl space-y-4 rounded-3xl border border-line bg-surface/60 p-5 sm:p-6">
         <h2 id="sessao" className="font-display text-base font-semibold text-white">

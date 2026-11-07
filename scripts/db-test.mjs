@@ -1854,6 +1854,17 @@ async function helperChecks() {
     await rejects(() => asDeveloper(() => db.query(`select public.set_admin_user_access($1, 'helper', '{}')`, [ADMIN_ID])), /last/),
     "o último admin não pode virar ajudante",
   );
+
+  console.log("\naviso de login e ficha do usuário");
+  const developerLogins = `select 1 from public.notifications where title = 'Novo login no painel' and body like 'Layra entrou%'`;
+  check((await count(asAdmin, developerLogins)) === 0, "Jota não vê no sininho quando a desenvolvedora entra");
+  check((await count(asDeveloper, developerLogins)) > 0, "a desenvolvedora vê o aviso do próprio login");
+  const helperLogin = `select 1 from public.notifications where title = 'Novo login no painel' and body like 'Ajudante%'`;
+  check((await count(asAdmin, helperLogin)) > 0, "Jota vê quando um ajudante entra");
+  check((await count(asDeveloper, helperLogin)) === 0, "login de ajudante não vai para a desenvolvedora");
+  await db.query(`update public.admin_users set whatsapp = '84981225361' where user_id = $1`, [HELPER_ID]);
+  const record = (await asAdmin(() => db.query(`select whatsapp from public.list_admin_users() where user_id = $1`, [HELPER_ID]))).rows[0];
+  check(record?.whatsapp === "84981225361", "lista de usuários traz o WhatsApp para mandar o acesso");
   await db.query(`update public.admin_users set role = 'admin', permissions = '{}' where user_id = $1`, [ADMIN_ID]);
 }
 
