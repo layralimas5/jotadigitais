@@ -205,3 +205,17 @@ export class SupportAttachmentError extends Error {
     this.name = "SupportAttachmentError";
   }
 }
+
+export class SupportLabelForbiddenError extends Error {
+  constructor() {
+    super("Só a desenvolvedora cria e escolhe as etiquetas do suporte.");
+    this.name = "SupportLabelForbiddenError";
+  }
+}
+
+export class SupportLabelNameTakenError extends Error {
+  constructor(name: string) {
+    super(`Já existe uma etiqueta "${name}".`);
+    this.name = "SupportLabelNameTakenError";
+  }
+}

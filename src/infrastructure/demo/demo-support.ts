@@ -1,7 +1,16 @@
 import type { AuthService, SupportTicketRepository } from "@/application/ports";
-import { SupportStatusForbiddenError, SupportTicketNotFoundError } from "@/domain/errors";
+import {
+  SupportLabelForbiddenError,
+  SupportLabelNameTakenError,
+  SupportStatusForbiddenError,
+  SupportTicketNotFoundError,
+} from "@/domain/errors";
 import {
   canChangeSupportStatus,
+  canManageSupportLabels,
+  type SupportLabel,
+  type SupportLabelData,
+  type SupportStatusEvent,
   type SupportAttachment,
   type SupportAuthor,
   type SupportReply,
@@ -12,6 +21,20 @@ import {
   type SupportUpload,
 } from "@/domain/support-ticket";
 import { newId, simulateLatency, type DemoDatabase } from "./demo-database";
+
+const statusEvent = (from: SupportStatus | null, to: SupportStatus, author: SupportAuthor | null, at: string): SupportStatusEvent => ({
+  id: newId("evt"),
+  from,
+  to,
+  author,
+  createdAt: at,
+});
+
+/** Mesma regra do índice único do banco: nome sem diferenciar maiúsculas nem espaços nas pontas. */
+function assertUniqueName(labels: readonly SupportLabel[], name: string, exceptId: string | null): void {
+  const key = name.trim().toLowerCase();
+  if (labels.some((label) => label.id !== exceptId && label.name.trim().toLowerCase() === key)) throw new SupportLabelNameTakenError(name.trim());
+}
 
 /**
  * Chamados no navegador. Quem escreve é quem está logado no modo demo, como o banco faria.
@@ -46,6 +69,8 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       resolvedAt: null,
       replies: [],
       attachments: this.store(uploads, null),
+      labelId: null,
+      events: [],
     };
     this.db.write((state) => {
       state.supportTickets = [ticket, ...(state.supportTickets ?? [])];
@@ -58,14 +83,18 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     const author = await this.currentAuthor();
     const reply: SupportReply = { id: newId("rep"), body, author, createdAt: new Date().toISOString() };
     const attachments = this.store(uploads, reply.id);
-    this.updateTicket(ticketId, (ticket) => ({
-      ...ticket,
-      // Igual ao banco: resposta do Jota num chamado que esperava por ele volta para a fila.
-      status: ticket.status === "waiting" && author.role === "admin" ? "open" : ticket.status,
-      replies: [...ticket.replies, reply],
-      attachments: [...ticket.attachments, ...attachments],
-      updatedAt: reply.createdAt,
-    }));
+    this.updateTicket(ticketId, (ticket) => {
+      // Igual ao banco: resposta do Jota num chamado que esperava por ele volta para a fila (troca automática, sem autor).
+      const reopens = ticket.status === "waiting" && author.role === "admin";
+      return {
+        ...ticket,
+        status: reopens ? "open" : ticket.status,
+        events: reopens ? [...ticket.events, statusEvent("waiting", "open", null, reply.createdAt)] : ticket.events,
+        replies: [...ticket.replies, reply],
+        attachments: [...ticket.attachments, ...attachments],
+        updatedAt: reply.createdAt,
+      };
+    });
     return { saved: reply, failedUploads: [] };
   }
 
@@ -74,7 +103,59 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     const author = await this.currentAuthor();
     if (!canChangeSupportStatus(author.role)) throw new SupportStatusForbiddenError();
     const now = new Date().toISOString();
-    this.updateTicket(ticketId, (ticket) => ({ ...ticket, status, updatedAt: now, resolvedAt: status === "done" ? now : null }));
+    this.updateTicket(ticketId, (ticket) =>
+      ticket.status === status
+        ? ticket
+        : {
+            ...ticket,
+            status,
+            updatedAt: now,
+            resolvedAt: status === "done" ? now : null,
+            events: [...ticket.events, statusEvent(ticket.status, status, author, now)],
+          },
+    );
+  }
+
+  async listLabels(): Promise<SupportLabel[]> {
+    return structuredClone(this.db.read().supportLabels ?? []);
+  }
+
+  async createLabel(data: SupportLabelData): Promise<SupportLabel> {
+    await this.requireLabelManager();
+    const label: SupportLabel = { ...data, id: newId("lbl") };
+    this.db.write((state) => {
+      assertUniqueName(state.supportLabels ?? [], data.name, null);
+      state.supportLabels = [...(state.supportLabels ?? []), label];
+    });
+    return label;
+  }
+
+  async updateLabel(id: string, data: SupportLabelData): Promise<SupportLabel> {
+    await this.requireLabelManager();
+    const label: SupportLabel = { ...data, id };
+    this.db.write((state) => {
+      assertUniqueName(state.supportLabels ?? [], data.name, id);
+      state.supportLabels = (state.supportLabels ?? []).map((current) => (current.id === id ? label : current));
+    });
+    return label;
+  }
+
+  async removeLabel(id: string): Promise<void> {
+    await this.requireLabelManager();
+    this.db.write((state) => {
+      state.supportLabels = (state.supportLabels ?? []).filter((label) => label.id !== id);
+      state.supportTickets = (state.supportTickets ?? []).map((ticket) => (ticket.labelId === id ? { ...ticket, labelId: null } : ticket));
+    });
+  }
+
+  async setLabel(ticketId: string, labelId: string | null): Promise<void> {
+    await simulateLatency();
+    await this.requireLabelManager();
+    this.updateTicket(ticketId, (ticket) => ({ ...ticket, labelId, updatedAt: new Date().toISOString() }));
+  }
+
+  private async requireLabelManager(): Promise<void> {
+    if (!canManageSupportLabels((await this.currentAuthor()).role)) throw new SupportLabelForbiddenError();
   }
 
   /** Guarda o arquivo na memória e devolve o anexo sem endereço (o endereço é posto na leitura). */
@@ -89,14 +170,14 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   private withUrls(ticket: SupportTicket): SupportTicket {
     // Chamados salvos antes dos anexos existirem chegam sem a lista.
     const attachments = ticket.attachments ?? [];
-    return { ...ticket, kind: ticket.kind ?? "task", attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
+    return { ...ticket, kind: ticket.kind ?? "task", labelId: ticket.labelId ?? null, events: ticket.events ?? [], attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
   }
 
   private updateTicket(id: string, change: (ticket: SupportTicket) => SupportTicket): void {
     this.db.write((state) => {
       const tickets = state.supportTickets ?? [];
       if (!tickets.some((ticket) => ticket.id === id)) throw new SupportTicketNotFoundError();
-      state.supportTickets = tickets.map((ticket) => (ticket.id === id ? change({ ...ticket, attachments: ticket.attachments ?? [] }) : ticket));
+      state.supportTickets = tickets.map((ticket) => (ticket.id === id ? change({ ...ticket, attachments: ticket.attachments ?? [], events: ticket.events ?? [], labelId: ticket.labelId ?? null }) : ticket));
     });
   }
 

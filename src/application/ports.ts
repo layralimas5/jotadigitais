@@ -24,6 +24,8 @@ import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
 import type {
+  SupportLabel,
+  SupportLabelData,
   SupportReply,
   SupportStatus,
   SupportSubmitResult,
@@ -303,6 +305,13 @@ export interface SupportTicketRepository {
   open(data: SupportTicketData, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportTicket>>;
   reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>>;
   changeStatus(ticketId: string, status: SupportStatus): Promise<void>;
+  /** Etiquetas em ordem de criação. Criar, mudar, apagar e escolher: só a desenvolvedora (o banco confere). */
+  listLabels(): Promise<SupportLabel[]>;
+  createLabel(data: SupportLabelData): Promise<SupportLabel>;
+  updateLabel(id: string, data: SupportLabelData): Promise<SupportLabel>;
+  /** Os chamados com essa etiqueta ficam sem etiqueta. */
+  removeLabel(id: string): Promise<void>;
+  setLabel(ticketId: string, labelId: string | null): Promise<void>;
 }
 
 /** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */

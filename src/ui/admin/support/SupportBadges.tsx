@@ -7,10 +7,12 @@ import {
   type SupportArea,
   type SupportAuthor,
   type SupportKind,
+  type SupportLabel,
   type SupportPriority,
   type SupportStatus,
 } from "@/domain/support-ticket";
 import { cn } from "@/ui/lib/cn";
+import { LABEL_TONE } from "./label-tone";
 import { PRIORITY_TONE } from "./priority-tone";
 
 const pill = "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold";
@@ -62,3 +64,12 @@ export function NeedsYouBadge() {
 
 /** "Jota" ou "Layra"; quem foi removido do sistema vira "Usuário removido". */
 export const authorNameOf = (author: SupportAuthor | null): string => author?.name ?? (author ? "Sem nome" : "Usuário removido");
+
+export function SupportLabelBadge({ label }: { label: SupportLabel }) {
+  return (
+    <span className={cn(pill, "gap-1.5", LABEL_TONE[label.color].badge)}>
+      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", LABEL_TONE[label.color].dot)} />
+      {label.name}
+    </span>
+  );
+}
