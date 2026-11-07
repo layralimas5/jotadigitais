@@ -43,7 +43,7 @@ const AUTHOR = "author:admin_users(name, role)";
 const REPLY_COLUMNS = `id, body, created_at, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, status, label_id, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS})`;
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const UNIQUE_VIOLATION = "23505";
 
@@ -83,6 +83,7 @@ const ticketRowSchema = z.object({
   kind: z.enum(SUPPORT_KINDS),
   area: z.enum(SUPPORT_AREAS),
   priority: z.enum(SUPPORT_PRIORITIES),
+  internal: z.boolean(),
   status: z.enum(SUPPORT_STATUSES),
   label_id: z.string().nullable(),
   created_at: z.string(),
@@ -120,6 +121,7 @@ function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): 
     kind: row.kind,
     area: row.area,
     priority: row.priority,
+    internal: row.internal,
     status: row.status,
     author: toAuthor(row.author),
     createdAt: row.created_at,
@@ -186,6 +188,12 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
 
   async changeStatus(ticketId: string, status: SupportStatus): Promise<void> {
     const { data, error } = await this.client.from("support_tickets").update({ status }).eq("id", ticketId).select("id").maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new SupportTicketNotFoundError();
+  }
+
+  async setInternal(ticketId: string, internal: boolean): Promise<void> {
+    const { data, error } = await this.client.from("support_tickets").update({ internal }).eq("id", ticketId).select("id").maybeSingle();
     if (error) fail(error);
     if (!data) throw new SupportTicketNotFoundError();
   }

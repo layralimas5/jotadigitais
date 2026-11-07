@@ -1,4 +1,4 @@
-import { Bug, ListTodo, Sparkles, type LucideIcon } from "lucide-react";
+import { Bug, EyeOff, ListTodo, Sparkles, type LucideIcon } from "lucide-react";
 import {
   SUPPORT_AREA_LABEL,
   SUPPORT_KIND_LABEL,
@@ -60,6 +60,16 @@ export function SupportAreaBadge({ area }: { area: SupportArea }) {
 /** Chamado esperando a ação de quem está vendo. */
 export function NeedsYouBadge() {
   return <span className={cn(pill, "border-white/25 bg-white text-ink")}>Precisa de você</span>;
+}
+
+/** Chamado interno: só a desenvolvedora vê. */
+export function InternalBadge() {
+  return (
+    <span className={cn(pill, "gap-1.5 border-violet-400/30 bg-violet-400/10 text-violet-200")} title="O Jota não vê este chamado">
+      <EyeOff aria-hidden className="size-3" />
+      Só você vê
+    </span>
+  );
 }
 
 /** Finalizado pelo Jota, aprovando o que estava esperando por ele. */

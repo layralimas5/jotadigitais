@@ -52,6 +52,7 @@ import { StatusPicker } from "../support/StatusPicker";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import {
   ApprovedByAdminBadge,
+  InternalBadge,
   authorNameOf,
   KIND_ICON,
   NeedsYouBadge,
@@ -271,6 +272,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
               <KindIcon aria-hidden className="size-3.5" /> {SUPPORT_KIND_LABEL[ticket.kind]}
             </span>
             <SupportAreaBadge area={ticket.area} />
+            {ticket.internal && <InternalBadge />}
             {needsActionFrom(ticket, role) && <NeedsYouBadge />}
             {wasApprovedByAdmin(ticket) && <ApprovedByAdminBadge />}
           </div>
@@ -301,7 +303,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
           </div>
           <div className={canChangeSupportStatus(role) ? "min-w-40 flex-1 lg:min-w-0" : undefined}>
             {canChangeSupportStatus(role) ? (
-              <StatusPicker ticketId={ticket.id} ticketTitle={ticket.title} status={ticket.status} role={role} onChanged={onChanged} />
+              <StatusPicker ticketId={ticket.id} ticketTitle={ticket.title} status={ticket.status} internal={ticket.internal} role={role} onChanged={onChanged} />
             ) : (
               <SupportStatusBadge status={ticket.status} />
             )}
@@ -437,7 +439,7 @@ function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChan
 export default function SupportPage() {
   // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
   const role = useViewRole() ?? "admin";
-  const tickets = useAdminQuery(listSupportTickets, "admin-support");
+  const tickets = useAdminQuery((deps) => listSupportTickets(deps, role), `admin-support-${role}`);
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(tickets.reload, REFRESH_MS);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);

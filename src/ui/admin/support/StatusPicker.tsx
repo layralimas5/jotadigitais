@@ -1,6 +1,6 @@
 import { changeSupportStatus } from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
-import { SUPPORT_STATUS_LABEL, SUPPORT_STATUSES, type SupportStatus } from "@/domain/support-ticket";
+import { statusesFor, SUPPORT_STATUS_LABEL, type SupportStatus } from "@/domain/support-ticket";
 import { FilterSelect } from "../components/FilterSelect";
 import { useMutation } from "../hooks";
 import { useToast } from "../toast";
@@ -16,12 +16,13 @@ interface StatusPickerProps {
   ticketId: string;
   ticketTitle: string;
   status: SupportStatus;
+  internal: boolean;
   role: AdminRole;
   onChanged: () => void;
 }
 
 /** Troca da situação direto na lista (só a desenvolvedora). Finalizado tira o chamado de "Em aberto" na hora. */
-export function StatusPicker({ ticketId, ticketTitle, status, role, onChanged }: StatusPickerProps) {
+export function StatusPicker({ ticketId, ticketTitle, status, internal, role, onChanged }: StatusPickerProps) {
   const toast = useToast();
   const change = useMutation((deps, next: SupportStatus) => changeSupportStatus(deps, role, ticketId, next).then(() => next));
 
@@ -41,7 +42,7 @@ export function StatusPicker({ ticketId, ticketTitle, status, role, onChanged }:
       label={`Situação de ${ticketTitle}`}
       value={status}
       onChange={(next) => void onChange(next)}
-      options={SUPPORT_STATUSES.map((value) => ({ value, label: SUPPORT_STATUS_LABEL[value], dotClassName: STATUS_DOT[value] }))}
+      options={statusesFor({ internal }).map((value) => ({ value, label: SUPPORT_STATUS_LABEL[value], dotClassName: STATUS_DOT[value] }))}
     />
   );
 }

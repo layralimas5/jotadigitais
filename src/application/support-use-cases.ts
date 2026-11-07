@@ -5,6 +5,7 @@ import {
   SupportDeleteForbiddenError,
   SupportLabelForbiddenError,
   SupportStatusForbiddenError,
+  SupportVisibilityForbiddenError,
 } from "@/domain/errors";
 import {
   attachmentProblem,
@@ -12,7 +13,9 @@ import {
   canApproveSupportTicket,
   canChangeSupportStatus,
   canDeleteSupportTicket,
+  canChangeSupportVisibility,
   canManageSupportLabels,
+  isVisibleTo,
   type SupportLabel,
   sortTickets,
   type SupportReply,
@@ -35,22 +38,30 @@ function checkUploads(uploads: readonly SupportUpload[]): void {
   }
 }
 
-export async function listSupportTickets(deps: AdminDeps): Promise<SupportTicket[]> {
-  return sortTickets(await deps.support.listAll());
+/** O banco já esconde os internos do Jota; o filtro aqui cobre o "ver como o Jota" da desenvolvedora. */
+export async function listSupportTickets(deps: AdminDeps, role: AdminRole): Promise<SupportTicket[]> {
+  return sortTickets((await deps.support.listAll()).filter((ticket) => isVisibleTo(ticket, role)));
 }
 
-export function findSupportTicket(deps: AdminDeps, id: string): Promise<SupportTicket | null> {
-  return deps.support.findById(id);
+export async function findSupportTicket(deps: AdminDeps, role: AdminRole, id: string): Promise<SupportTicket | null> {
+  const ticket = await deps.support.findById(id);
+  return ticket && isVisibleTo(ticket, role) ? ticket : null;
 }
 
 export function openSupportTicket(
   deps: AdminDeps,
+  role: AdminRole,
   raw: unknown,
   uploads: readonly SupportUpload[] = [],
 ): Promise<SupportSubmitResult<SupportTicket>> {
   const data = parseOrThrow(supportTicketDataSchema, raw);
   checkUploads(uploads);
-  return deps.support.open(data, uploads);
+  return deps.support.open({ ...data, internal: data.internal && canChangeSupportVisibility(role) }, uploads);
+}
+
+export function setSupportTicketVisibility(deps: AdminDeps, role: AdminRole, ticketId: string, internal: boolean): Promise<void> {
+  if (!canChangeSupportVisibility(role)) throw new SupportVisibilityForbiddenError();
+  return deps.support.setInternal(ticketId, internal);
 }
 
 export function replyToSupportTicket(

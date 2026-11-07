@@ -693,6 +693,7 @@ export const supportTicketDataSchema = z.object({
   kind: z.enum(SUPPORT_KINDS, { message: "Escolha o tipo do chamado." }),
   area: z.enum(SUPPORT_AREAS, { message: "Escolha onde está o ajuste." }),
   priority: z.enum(SUPPORT_PRIORITIES, { message: "Escolha a prioridade." }),
+  internal: z.boolean().default(false),
 });
 
 export const supportReplySchema = z.object({

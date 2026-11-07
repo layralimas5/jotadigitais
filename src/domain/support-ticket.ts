@@ -97,6 +97,8 @@ export interface SupportTicketData {
   kind: SupportKind;
   area: SupportArea;
   priority: SupportPriority;
+  /** Só a desenvolvedora vê: tarefa dela, fora do painel do Jota. Quem abre como Jota sempre grava falso. */
+  internal: boolean;
 }
 
 export interface SupportReply {
@@ -123,6 +125,16 @@ export interface SupportTicket extends SupportTicketData {
   /** Trocas de situação, da mais antiga para a mais nova. */
   events: SupportStatusEvent[];
 }
+
+/** Chamado interno é da desenvolvedora: não aparece para o Jota (nem no "ver como o Jota"). */
+export const isVisibleTo = (ticket: Pick<SupportTicket, "internal">, role: AdminRole): boolean => !ticket.internal || role === "developer";
+
+/** Situações possíveis do chamado: o interno não fica aguardando o Jota, porque ele não vê. */
+export const statusesFor = (ticket: Pick<SupportTicket, "internal">): readonly SupportStatus[] =>
+  ticket.internal ? SUPPORT_STATUSES.filter((status) => status !== "waiting") : SUPPORT_STATUSES;
+
+/** Só a desenvolvedora decide se o chamado fica só com ela ou se o Jota também vê. */
+export const canChangeSupportVisibility = (role: AdminRole): boolean => role === "developer";
 
 /** Só quem mantém o sistema muda a situação; o banco reabre sozinho quando o Jota responde. */
 export const canChangeSupportStatus = (role: AdminRole): boolean => role === "developer";

@@ -14,7 +14,7 @@ const SupportAttentionContext = createContext(0);
  * para o Jota, os que aguardam ele. Uma consulta só para o menu lateral, a barra de baixo e o "Mais".
  */
 export function SupportAttentionProvider({ role, children }: { role: AdminRole; children: ReactNode }) {
-  const tickets = useAdminQuery(listSupportTickets, "support-attention");
+  const tickets = useAdminQuery((deps) => listSupportTickets(deps, role), `support-attention-${role}`);
   usePolling(tickets.reload, REFRESH_MS);
   // Depois de responder ou mudar a situação a pessoa troca de tela: o número acompanha na hora.
   const { pathname } = useLocation();

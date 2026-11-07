@@ -1,9 +1,11 @@
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { fieldErrorsOf, SUPPORT_TEXT_MAX, SUPPORT_TITLE_MAX, supportTicketDataSchema } from "@/application/schemas";
 import { openSupportTicket } from "@/application/support-use-cases";
+import type { AdminRole } from "@/domain/admin-user";
 import {
+  canChangeSupportVisibility,
   SUPPORT_AREA_LABEL,
   SUPPORT_AREAS,
   SUPPORT_KIND_LABEL,
@@ -18,6 +20,7 @@ import { cn } from "@/ui/lib/cn";
 import { FormSection, PageHeader } from "../components/AdminUi";
 import { SegmentedField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
+import { useViewRole } from "../admin-view";
 import { useMutation } from "../hooks";
 import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
 import { KIND_ICON } from "../support/SupportBadges";
@@ -27,7 +30,15 @@ import { useToast } from "../toast";
 const LIST_PATH = "/admin/suporte";
 
 // Normal fica no meio das três opções de prioridade, mas é o padrão.
-const EMPTY: SupportTicketData = { title: "", description: "", kind: "problem", area: "system", priority: "normal" };
+// O que a desenvolvedora abre é tarefa dela: nasce só para ela, e ela pode mostrar ao Jota.
+const emptyFor = (role: AdminRole): SupportTicketData => ({
+  title: "",
+  description: "",
+  kind: "problem",
+  area: "system",
+  priority: "normal",
+  internal: canChangeSupportVisibility(role),
+});
 
 const FIELD_ORDER = ["title", "description"] as const;
 
@@ -35,6 +46,10 @@ const KIND_OPTIONS = SUPPORT_KINDS.map((value) => {
   const Icon = KIND_ICON[value];
   return { value, label: SUPPORT_KIND_LABEL[value], icon: <Icon aria-hidden className="size-4" /> };
 });
+const VISIBILITY_OPTIONS = [
+  { value: "internal", label: "Só eu", icon: <EyeOff aria-hidden className="size-4" /> },
+  { value: "shared", label: "Eu e o Jota", icon: <Eye aria-hidden className="size-4" /> },
+] as const;
 const AREA_OPTIONS = SUPPORT_AREAS.map((value) => ({ value, label: SUPPORT_AREA_LABEL[value] }));
 // Na ficha a ordem é a da escala: baixa, normal, urgente.
 const PRIORITY_OPTIONS = [...SUPPORT_PRIORITIES].reverse().map((value) => ({
@@ -52,11 +67,12 @@ function validate(values: SupportTicketData) {
 export default function SupportTicketEditorPage() {
   const navigate = useNavigate();
   const toast = useToast();
-  const [values, setValues] = useState<SupportTicketData>(EMPTY);
+  const role = useViewRole() ?? "admin";
+  const [values, setValues] = useState<SupportTicketData>(() => emptyFor(role));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const picked = usePickedFiles();
-  const open = useMutation((deps, data: SupportTicketData, uploads: SupportUpload[]) => openSupportTicket(deps, data, uploads));
+  const open = useMutation((deps, data: SupportTicketData, uploads: SupportUpload[]) => openSupportTicket(deps, role, data, uploads));
 
   const update = (patch: Partial<SupportTicketData>) => {
     const next = { ...values, ...patch };
@@ -105,6 +121,18 @@ export default function SupportTicketEditorPage() {
             options={PRIORITY_OPTIONS}
             onChange={(priority) => update({ priority })}
           />
+          {canChangeSupportVisibility(role) && (
+            <div>
+              <SegmentedField
+                legend="Quem vê"
+                name="visibility"
+                value={values.internal ? "internal" : "shared"}
+                options={VISIBILITY_OPTIONS}
+                onChange={(value) => update({ internal: value === "internal" })}
+              />
+              <p className="mt-2 text-xs text-mist">“Só eu”: fica só no seu painel, o Jota não vê. Dá para mudar depois no chamado.</p>
+            </div>
+          )}
         </FormSection>
 
         <FormSection title="Detalhes" description="Diga onde está, o que aconteceu e o que você esperava. Um print ou vídeo ajuda muito.">
