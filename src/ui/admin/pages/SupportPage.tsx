@@ -29,7 +29,7 @@ import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterSelect } from "../components/FilterSelect";
 import { useAdminQuery, usePolling } from "../hooks";
 import { formatRelative } from "../lib/dates";
-import { useAdminRole } from "../session";
+import { useViewRole } from "../admin-view";
 import { LABEL_TONE } from "../support/label-tone";
 import { LabelManager } from "../support/LabelManager";
 import { LabelPicker } from "../support/LabelPicker";
@@ -330,7 +330,8 @@ function FocusStrip({ tickets }: { tickets: SupportTicket[] }) {
 }
 
 export default function SupportPage() {
-  const role = useAdminRole() ?? "admin";
+  // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
+  const role = useViewRole() ?? "admin";
   const tickets = useAdminQuery(listSupportTickets, "admin-support");
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(tickets.reload, REFRESH_MS);

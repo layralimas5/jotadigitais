@@ -27,7 +27,7 @@ import { PersonAvatar } from "../components/PersonAvatar";
 import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery, useMutation, usePolling } from "../hooks";
 import { formatDate, formatRelative } from "../lib/dates";
-import { useAdminRole } from "../session";
+import { useViewRole } from "../admin-view";
 import { AttachmentGallery } from "../support/AttachmentGallery";
 import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
 import { LabelPicker } from "../support/LabelPicker";
@@ -295,7 +295,8 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
 
 export default function SupportTicketPage() {
   const { id = "" } = useParams();
-  const role = useAdminRole() ?? "admin";
+  // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
+  const role = useViewRole() ?? "admin";
   const ticket = useAdminQuery((deps) => findSupportTicket(deps, id), `admin-support-${id}`);
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(ticket.reload, REFRESH_MS);
