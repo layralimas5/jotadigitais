@@ -1598,6 +1598,60 @@ async function supportChecks() {
   const strangerObjects = await as("authenticated", STRANGER_ID, () => db.query(`select id from storage.objects where bucket_id = 'support'`));
   check(strangerObjects.rows.length === 0, "usuário que não é admin não lê arquivos do suporte");
 
+  console.log("\netiquetas e andamento do suporte");
+  const label = await asDeveloper(() => db.query(`insert into public.support_labels (name, color) values ('Falta testar', 'amber') returning id`));
+  const labelId = label.rows[0]?.id;
+  check(Boolean(labelId), "desenvolvedora cria etiqueta");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`insert into public.support_labels (name, color) values ('Do Jota', 'pink')`)), /row-level security/),
+    "Jota não cria etiqueta",
+  );
+  check(
+    await rejects(() => asDeveloper(() => db.query(`insert into public.support_labels (name, color) values ('  falta TESTAR ', 'red')`)), /duplicate key|unique/),
+    "nome repetido (sem diferenciar maiúsculas) é recusado",
+  );
+  check(
+    await rejects(() => asDeveloper(() => db.query(`insert into public.support_labels (name, color) values ('Cor errada', 'orange')`)), /check constraint/),
+    "cor fora da paleta é recusada",
+  );
+  const labeled = await asDeveloper(() => db.query(`update public.support_tickets set label_id = $1 where id = $2 returning label_id`, [labelId, glpiId]));
+  check(labeled.rows[0]?.label_id === labelId, "desenvolvedora põe a etiqueta no chamado");
+  const jotaLabel = await as("authenticated", ADMIN_ID, () => db.query(`update public.support_tickets set label_id = null where id = $1 returning id`, [glpiId]));
+  check(jotaLabel.rows.length === 0, "Jota não troca a etiqueta");
+  const jotaSeesLabel = await as("authenticated", ADMIN_ID, () => db.query(`select name from public.support_labels where id = $1`, [labelId]));
+  check(jotaSeesLabel.rows[0]?.name === "Falta testar", "Jota vê as etiquetas");
+  await asDeveloper(() => db.query(`delete from public.support_labels where id = $1`, [labelId]));
+  const unlabeled = await db.query(`select label_id from public.support_tickets where id = $1`, [glpiId]);
+  check(unlabeled.rows[0].label_id === null, "apagar a etiqueta deixa o chamado sem etiqueta");
+
+  const historyBefore = (await db.query(`select count(*)::int as total from public.support_status_events where ticket_id = $1`, [glpiId])).rows[0].total;
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'in_progress' where id = $1`, [glpiId]));
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'waiting' where id = $1`, [glpiId]));
+  await as("authenticated", ADMIN_ID, () => db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Respondido.')`, [glpiId]));
+  const history = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select from_status, to_status, author_id from public.support_status_events where ticket_id = $1 order by created_at, id`, [glpiId]),
+  );
+  const recent = history.rows.slice(historyBefore);
+  check(
+    recent.length === 3 &&
+      recent[0].to_status === "in_progress" &&
+      recent[0].author_id === DEVELOPER_ID &&
+      recent[2].from_status === "waiting" &&
+      recent[2].to_status === "open" &&
+      recent[2].author_id === null,
+    "andamento registra cada troca, e a reabertura automática fica sem autor",
+  );
+  await asDeveloper(() => db.query(`update public.support_tickets set label_id = null where id = $1`, [glpiId]));
+  const sameStatus = (await db.query(`select count(*)::int as total from public.support_status_events where ticket_id = $1`, [glpiId])).rows[0].total;
+  check(sameStatus === historyBefore + 3, "mexer na etiqueta não cria troca de situação no andamento");
+  check(
+    await rejects(
+      () => as("authenticated", ADMIN_ID, () => db.query(`insert into public.support_status_events (ticket_id, to_status) values ($1, 'done')`, [glpiId])),
+      /permission denied/,
+    ),
+    "ninguém escreve no andamento pelo painel",
+  );
+
   console.log("\nmodo visualização da desenvolvedora");
   const secretCustomer = await as("authenticated", ADMIN_ID, () =>
     db.query(`insert into public.customers (name, email, document) values ('Cliente Sigiloso', 'sigilo@exemplo.com', '52998224725') returning id`),

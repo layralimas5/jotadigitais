@@ -118,6 +118,10 @@ export interface SupportTicket extends SupportTicketData {
   /** Da mais antiga para a mais nova. */
   replies: SupportReply[];
   attachments: SupportAttachment[];
+  /** Etiqueta escolhida pela desenvolvedora; nula quando não tem. */
+  labelId: string | null;
+  /** Trocas de situação, da mais antiga para a mais nova. */
+  events: SupportStatusEvent[];
 }
 
 /** Só quem mantém o sistema muda a situação; o banco reabre sozinho quando o Jota responde. */
@@ -153,4 +157,83 @@ export function sortTickets(tickets: readonly SupportTicket[]): SupportTicket[] 
       (isPendingTicket(a) ? PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority] : 0) ||
       b.updatedAt.localeCompare(a.updatedAt),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Etiquetas: a desenvolvedora cria (nome e cor) e escolhe uma por chamado. O Jota só vê.
+// ---------------------------------------------------------------------------
+
+export const SUPPORT_LABEL_COLORS = ["electric", "emerald", "amber", "pink", "violet", "red", "gray"] as const;
+export type SupportLabelColor = (typeof SUPPORT_LABEL_COLORS)[number];
+
+export const SUPPORT_LABEL_COLOR_NAME: Record<SupportLabelColor, string> = {
+  electric: "Azul",
+  emerald: "Verde",
+  amber: "Amarelo",
+  pink: "Rosa",
+  violet: "Roxo",
+  red: "Vermelho",
+  gray: "Cinza",
+};
+
+export const SUPPORT_LABEL_NAME_MAX = 30;
+
+export interface SupportLabelData {
+  name: string;
+  color: SupportLabelColor;
+}
+
+export interface SupportLabel extends SupportLabelData {
+  id: string;
+}
+
+export const canManageSupportLabels = (role: AdminRole): boolean => role === "developer";
+
+// ---------------------------------------------------------------------------
+// Andamento: cada troca de situação fica registrada (quem, de onde, para onde, quando).
+// ---------------------------------------------------------------------------
+
+export interface SupportStatusEvent {
+  id: string;
+  from: SupportStatus | null;
+  to: SupportStatus;
+  author: SupportAuthor | null;
+  createdAt: string;
+}
+
+/** Item da linha do tempo do chamado: mensagem ou troca de situação, na ordem em que aconteceram. */
+export type SupportTimelineItem =
+  | { type: "message"; at: string; reply: SupportReply }
+  | { type: "status"; at: string; event: SupportStatusEvent };
+
+export function timelineOf(ticket: Pick<SupportTicket, "replies" | "events">): SupportTimelineItem[] {
+  const items: SupportTimelineItem[] = [
+    ...ticket.replies.map((reply) => ({ type: "message" as const, at: reply.createdAt, reply })),
+    ...ticket.events.map((event) => ({ type: "status" as const, at: event.createdAt, event })),
+  ];
+  return items.sort((a, b) => a.at.localeCompare(b.at));
+}
+
+// ---------------------------------------------------------------------------
+// Filtro por período: pela última movimentação do chamado.
+// ---------------------------------------------------------------------------
+
+export const SUPPORT_PERIODS = ["all", "today", "7d", "30d", "90d"] as const;
+export type SupportPeriod = (typeof SUPPORT_PERIODS)[number];
+
+export const SUPPORT_PERIOD_LABEL: Record<SupportPeriod, string> = {
+  all: "Qualquer data",
+  today: "Hoje",
+  "7d": "Últimos 7 dias",
+  "30d": "Últimos 30 dias",
+  "90d": "Últimos 90 dias",
+};
+
+const PERIOD_DAYS: Record<Exclude<SupportPeriod, "all" | "today">, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+export function inPeriod(ticket: Pick<SupportTicket, "updatedAt">, period: SupportPeriod, now: Date = new Date()): boolean {
+  if (period === "all") return true;
+  const updated = new Date(ticket.updatedAt);
+  if (period === "today") return updated.toDateString() === now.toDateString();
+  return now.getTime() - updated.getTime() <= PERIOD_DAYS[period] * 24 * 60 * 60 * 1000;
 }

@@ -10,7 +10,14 @@ import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { DATA_REQUEST_KINDS } from "@/domain/privacy";
-import { SUPPORT_AREAS, SUPPORT_KINDS, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "@/domain/support-ticket";
+import {
+  SUPPORT_AREAS,
+  SUPPORT_KINDS,
+  SUPPORT_LABEL_COLORS,
+  SUPPORT_LABEL_NAME_MAX,
+  SUPPORT_PRIORITIES,
+  SUPPORT_STATUSES,
+} from "@/domain/support-ticket";
 import { MAX_PROOF_POINTS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
@@ -675,6 +682,15 @@ export const supportReplySchema = z.object({
 });
 
 export const supportStatusSchema = z.enum(SUPPORT_STATUSES);
+
+export const supportLabelSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Dê um nome curto. Ex.: Falta testar.")
+    .max(SUPPORT_LABEL_NAME_MAX, `Use no máximo ${SUPPORT_LABEL_NAME_MAX} caracteres.`),
+  color: z.enum(SUPPORT_LABEL_COLORS, { message: "Escolha uma cor." }),
+});
 
 // ---------------------------------------------------------------------------
 // LGPD: documentos legais, Meus dados e respostas do painel

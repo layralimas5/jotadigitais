@@ -7,6 +7,12 @@ import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
 export interface FilterOption<T extends string> {
   value: T;
   label: string;
+  /** Classes de uma bolinha de cor antes do rótulo (prioridade, etiqueta). */
+  dotClassName?: string;
+}
+
+function Dot({ className }: { className?: string }) {
+  return className ? <span aria-hidden className={cn("size-2 shrink-0 rounded-full", className)} /> : null;
 }
 
 interface FilterSelectProps<T extends string> {
@@ -103,7 +109,10 @@ export function FilterSelect<T extends string>({ label, value, options, onChange
           open ? "border-electric" : "border-line-strong hover:border-white/25",
         )}
       >
-        <span className="truncate">{selected?.label}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <Dot className={selected?.dotClassName} />
+          <span className="truncate">{selected?.label}</span>
+        </span>
         <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-mist transition-transform duration-200", open && "rotate-180 text-white")} />
       </button>
 
@@ -139,7 +148,10 @@ export function FilterSelect<T extends string>({ label, value, options, onChange
                     isSelected && "text-white",
                   )}
                 >
-                  <span className="truncate">{option.label}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <Dot className={option.dotClassName} />
+                    <span className="truncate">{option.label}</span>
+                  </span>
                   {isSelected && <Check aria-hidden className="size-4 shrink-0 text-electric" />}
                 </li>
               );

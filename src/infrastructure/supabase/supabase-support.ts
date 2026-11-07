@@ -1,14 +1,18 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SupportTicketRepository } from "@/application/ports";
-import { SupportTicketNotFoundError } from "@/domain/errors";
+import { SupportLabelNameTakenError, SupportTicketNotFoundError } from "@/domain/errors";
 import {
   SUPPORT_AREAS,
   SUPPORT_KINDS,
+  SUPPORT_LABEL_COLORS,
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
   type SupportAttachment,
   type SupportAuthor,
+  type SupportLabel,
+  type SupportLabelData,
+  type SupportStatusEvent,
   type SupportReply,
   type SupportStatus,
   type SupportSubmitResult,
@@ -38,7 +42,10 @@ const EXTENSION: Record<string, string> = {
 const AUTHOR = "author:admin_users(name, role)";
 const REPLY_COLUMNS = `id, body, created_at, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, status, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS})`;
+const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, status, label_id, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS})`;
+const LABEL_COLUMNS = "id, name, color";
+const UNIQUE_VIOLATION = "23505";
 
 const authorSchema = z.object({ name: z.string().nullable(), role: z.enum(["admin", "developer"]) }).nullable();
 
@@ -57,6 +64,18 @@ const attachmentRowSchema = z.object({
   name: z.string(),
 });
 
+const eventRowSchema = z.object({
+  id: z.string(),
+  from_status: z.enum(SUPPORT_STATUSES).nullable(),
+  to_status: z.enum(SUPPORT_STATUSES),
+  created_at: z.string(),
+  author: authorSchema,
+});
+
+const labelRowSchema = z.object({ id: z.string(), name: z.string(), color: z.enum(SUPPORT_LABEL_COLORS) });
+
+const toLabel = (raw: unknown): SupportLabel => labelRowSchema.parse(raw);
+
 const ticketRowSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -65,12 +84,14 @@ const ticketRowSchema = z.object({
   area: z.enum(SUPPORT_AREAS),
   priority: z.enum(SUPPORT_PRIORITIES),
   status: z.enum(SUPPORT_STATUSES),
+  label_id: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   resolved_at: z.string().nullable(),
   author: authorSchema,
   replies: z.array(replyRowSchema),
   attachments: z.array(attachmentRowSchema),
+  events: z.array(eventRowSchema),
 });
 
 type AttachmentRow = z.infer<typeof attachmentRowSchema>;
@@ -106,7 +127,24 @@ function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): 
     resolvedAt: row.resolved_at,
     replies: row.replies.map(toReply).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     attachments: row.attachments.map((attachment) => toAttachment(attachment, urls)),
+    labelId: row.label_id,
+    events: row.events
+      .map(
+        (event): SupportStatusEvent => ({
+          id: event.id,
+          from: event.from_status,
+          to: event.to_status,
+          author: toAuthor(event.author),
+          createdAt: event.created_at,
+        }),
+      )
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
   };
+}
+
+function failOnLabel(error: PostgrestError, name: string): never {
+  if (error.code === UNIQUE_VIOLATION) throw new SupportLabelNameTakenError(name.trim());
+  return fail(error);
 }
 
 export class SupabaseSupportTicketRepository implements SupportTicketRepository {
@@ -148,6 +186,35 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
 
   async changeStatus(ticketId: string, status: SupportStatus): Promise<void> {
     const { data, error } = await this.client.from("support_tickets").update({ status }).eq("id", ticketId).select("id").maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new SupportTicketNotFoundError();
+  }
+
+  async listLabels(): Promise<SupportLabel[]> {
+    const { data, error } = await this.client.from("support_labels").select(LABEL_COLUMNS).order("created_at");
+    if (error) fail(error);
+    return data.map(toLabel);
+  }
+
+  async createLabel(input: SupportLabelData): Promise<SupportLabel> {
+    const { data, error } = await this.client.from("support_labels").insert(input).select(LABEL_COLUMNS).single();
+    if (error) failOnLabel(error, input.name);
+    return toLabel(data);
+  }
+
+  async updateLabel(id: string, input: SupportLabelData): Promise<SupportLabel> {
+    const { data, error } = await this.client.from("support_labels").update(input).eq("id", id).select(LABEL_COLUMNS).single();
+    if (error) failOnLabel(error, input.name);
+    return toLabel(data);
+  }
+
+  async removeLabel(id: string): Promise<void> {
+    const { error } = await this.client.from("support_labels").delete().eq("id", id);
+    if (error) fail(error);
+  }
+
+  async setLabel(ticketId: string, labelId: string | null): Promise<void> {
+    const { data, error } = await this.client.from("support_tickets").update({ label_id: labelId }).eq("id", ticketId).select("id").maybeSingle();
     if (error) fail(error);
     if (!data) throw new SupportTicketNotFoundError();
   }

@@ -1,11 +1,15 @@
-import { ArrowLeft, Hourglass, Send } from "lucide-react";
+import { ArrowLeft, Hourglass, RefreshCw, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SUPPORT_TEXT_MAX } from "@/application/schemas";
-import { changeSupportStatus, findSupportTicket, replyToSupportTicket } from "@/application/support-use-cases";
+import { changeSupportStatus, findSupportTicket, listSupportLabels, replyToSupportTicket } from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
 import {
   canChangeSupportStatus,
+  canManageSupportLabels,
+  timelineOf,
+  type SupportLabel,
+  type SupportStatusEvent,
   SUPPORT_STATUS_LABEL,
   SUPPORT_STATUSES,
   type SupportAttachment,
@@ -26,11 +30,14 @@ import { formatDate, formatRelative } from "../lib/dates";
 import { useAdminRole } from "../session";
 import { AttachmentGallery } from "../support/AttachmentGallery";
 import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { LabelPicker } from "../support/LabelPicker";
+import { statusEventText } from "../support/TicketProgress";
 import {
   authorNameOf,
   STATUS_TONE,
   SupportAreaBadge,
   SupportKindBadge,
+  SupportLabelBadge,
   SupportPriorityBadge,
   SupportStatusBadge,
 } from "../support/SupportBadges";
@@ -76,6 +83,23 @@ function Message({ author, body, createdAt, attachments, own }: MessageProps) {
         <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-fog">{body}</p>
         <AttachmentGallery attachments={attachments} />
       </div>
+    </li>
+  );
+}
+
+/** Troca de situação no meio da conversa, como uma linha do sistema. */
+function StatusLine({ event }: { event: SupportStatusEvent }) {
+  return (
+    <li className="flex items-center justify-center gap-2 text-center text-xs text-mist">
+      <span aria-hidden className="h-px flex-1 bg-line" />
+      <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-3 py-1", STATUS_TONE[event.to])}>
+        <RefreshCw aria-hidden className="size-3" />
+        {statusEventText(event)}
+        <time dateTime={event.createdAt} title={formatDate(event.createdAt)} className="opacity-80">
+          · {formatRelative(event.createdAt)}
+        </time>
+      </span>
+      <span aria-hidden className="h-px flex-1 bg-line" />
     </li>
   );
 }
@@ -190,7 +214,15 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Admi
   );
 }
 
-function TicketView({ ticket, role, reload }: { ticket: SupportTicket; role: AdminRole; reload: () => void }) {
+interface TicketViewProps {
+  ticket: SupportTicket;
+  labels: readonly SupportLabel[];
+  role: AdminRole;
+  reload: () => void;
+}
+
+function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
+  const label = labels.find((item) => item.id === ticket.labelId);
   const attachmentsOf = (replyId: string | null) => ticket.attachments.filter((attachment) => attachment.replyId === replyId);
   return (
     <div className="mt-4 grid gap-6">
@@ -200,6 +232,7 @@ function TicketView({ ticket, role, reload }: { ticket: SupportTicket; role: Adm
           <SupportPriorityBadge priority={ticket.priority} />
           <SupportKindBadge kind={ticket.kind} />
           <SupportAreaBadge area={ticket.area} />
+          {label && !canManageSupportLabels(role) && <SupportLabelBadge label={label} />}
         </div>
         <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight break-words text-white sm:text-3xl">{ticket.title}</h1>
         <p className="mt-1.5 text-sm text-mist">
@@ -209,6 +242,21 @@ function TicketView({ ticket, role, reload }: { ticket: SupportTicket; role: Adm
       </header>
 
       {canChangeSupportStatus(role) && <StatusControl ticket={ticket} role={role} onChanged={reload} />}
+      {canManageSupportLabels(role) && (
+        <section aria-label="Etiqueta do chamado" className="flex flex-wrap items-center gap-3 rounded-3xl border border-line bg-surface/60 p-5">
+          <span className="text-sm font-medium text-fog">Etiqueta</span>
+          <LabelPicker
+            ticketId={ticket.id}
+            ticketTitle={ticket.title}
+            labelId={ticket.labelId}
+            labels={labels}
+            role={role}
+            onChanged={reload}
+            className="w-full sm:w-64"
+          />
+          {labels.length === 0 && <span className="text-xs text-mist">Crie etiquetas no botão “Etiquetas” da lista do Suporte.</span>}
+        </section>
+      )}
       {role === "admin" && ticket.status === "waiting" && <WaitingNotice />}
 
       <section aria-labelledby="conversa">
@@ -223,16 +271,20 @@ function TicketView({ ticket, role, reload }: { ticket: SupportTicket; role: Adm
             attachments={attachmentsOf(null)}
             own={ticket.author?.role === role}
           />
-          {ticket.replies.map((reply) => (
-            <Message
-              key={reply.id}
-              author={reply.author}
-              body={reply.body}
-              createdAt={reply.createdAt}
-              attachments={attachmentsOf(reply.id)}
-              own={reply.author?.role === role}
-            />
-          ))}
+          {timelineOf(ticket).map((item) =>
+            item.type === "status" ? (
+              <StatusLine key={item.event.id} event={item.event} />
+            ) : (
+              <Message
+                key={item.reply.id}
+                author={item.reply.author}
+                body={item.reply.body}
+                createdAt={item.reply.createdAt}
+                attachments={attachmentsOf(item.reply.id)}
+                own={item.reply.author?.role === role}
+              />
+            ),
+          )}
         </ol>
       </section>
 
@@ -245,7 +297,9 @@ export default function SupportTicketPage() {
   const { id = "" } = useParams();
   const role = useAdminRole() ?? "admin";
   const ticket = useAdminQuery((deps) => findSupportTicket(deps, id), `admin-support-${id}`);
+  const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(ticket.reload, REFRESH_MS);
+  const labelList = labels.status === "success" ? labels.data : [];
 
   return (
     <>
@@ -259,7 +313,7 @@ export default function SupportTicketPage() {
           <EmptyState title="Chamado não encontrado" description="Ele pode ter sido removido ou o link está incompleto." />
         </div>
       )}
-      {ticket.status === "success" && ticket.data && <TicketView ticket={ticket.data} role={role} reload={ticket.reload} />}
+      {ticket.status === "success" && ticket.data && <TicketView ticket={ticket.data} labels={labelList} role={role} reload={ticket.reload} />}
     </>
   );
 }

@@ -1,9 +1,11 @@
 import type { AdminRole } from "@/domain/admin-user";
-import { SupportAttachmentError, SupportStatusForbiddenError } from "@/domain/errors";
+import { SupportAttachmentError, SupportLabelForbiddenError, SupportStatusForbiddenError } from "@/domain/errors";
 import {
   attachmentProblem,
   MAX_ATTACHMENTS_PER_MESSAGE,
   canChangeSupportStatus,
+  canManageSupportLabels,
+  type SupportLabel,
   sortTickets,
   type SupportReply,
   type SupportStatus,
@@ -12,7 +14,7 @@ import {
   type SupportUpload,
 } from "@/domain/support-ticket";
 import type { AdminDeps } from "./admin-use-cases";
-import { parseOrThrow, supportReplySchema, supportStatusSchema, supportTicketDataSchema } from "./schemas";
+import { parseOrThrow, supportLabelSchema, supportReplySchema, supportStatusSchema, supportTicketDataSchema } from "./schemas";
 
 /** Confere os arquivos antes de salvar qualquer coisa: tipo, tamanho e quantidade. */
 function checkUploads(uploads: readonly SupportUpload[]): void {
@@ -57,4 +59,28 @@ export function replyToSupportTicket(
 export function changeSupportStatus(deps: AdminDeps, role: AdminRole, ticketId: string, status: SupportStatus): Promise<void> {
   if (!canChangeSupportStatus(role)) throw new SupportStatusForbiddenError();
   return deps.support.changeStatus(ticketId, parseOrThrow(supportStatusSchema, status));
+}
+
+export function listSupportLabels(deps: AdminDeps): Promise<SupportLabel[]> {
+  return deps.support.listLabels();
+}
+
+function requireLabelManager(role: AdminRole): void {
+  if (!canManageSupportLabels(role)) throw new SupportLabelForbiddenError();
+}
+
+export function saveSupportLabel(deps: AdminDeps, role: AdminRole, id: string | null, raw: unknown): Promise<SupportLabel> {
+  requireLabelManager(role);
+  const data = parseOrThrow(supportLabelSchema, raw);
+  return id ? deps.support.updateLabel(id, data) : deps.support.createLabel(data);
+}
+
+export function deleteSupportLabel(deps: AdminDeps, role: AdminRole, id: string): Promise<void> {
+  requireLabelManager(role);
+  return deps.support.removeLabel(id);
+}
+
+export function setSupportLabel(deps: AdminDeps, role: AdminRole, ticketId: string, labelId: string | null): Promise<void> {
+  requireLabelManager(role);
+  return deps.support.setLabel(ticketId, labelId);
 }
