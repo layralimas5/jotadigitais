@@ -27,7 +27,7 @@ import type {
 } from "@/application/ports";
 import type { Account, AccountData } from "@/domain/account";
 import type { LegalConsent, LegalDocumentSlug } from "@/domain/legal/legal-document";
-import type { AdminUser, NewAdminUser } from "@/domain/admin-user";
+import { STAFF_PERMISSIONS, type AdminUser, type AdminUserAccess, type NewAdminUser } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
@@ -48,6 +48,7 @@ import {
   OutdatedLegalDocumentsError,
   TooManyOpenDataRequestsError,
   TooManyPrivacyAttemptsError,
+  CannotChangeAccessError,
 } from "@/domain/errors";
 import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
 import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData } from "@/domain/customer";
@@ -986,7 +987,8 @@ const adminUserRowSchema = z.object({
   user_id: z.string(),
   name: z.string().nullable(),
   email: z.string(),
-  role: z.enum(["admin", "developer"]),
+  role: z.enum(["admin", "developer", "helper"]),
+  permissions: z.array(z.enum(STAFF_PERMISSIONS)).default([]),
   created_at: z.string(),
   last_sign_in_at: z.string().nullable(),
 });
@@ -998,6 +1000,7 @@ function toAdminUser(raw: unknown): AdminUser {
     name: row.name,
     email: row.email,
     role: row.role,
+    permissions: row.permissions,
     createdAt: row.created_at,
     lastSignInAt: row.last_sign_in_at,
   };
@@ -1041,6 +1044,14 @@ export class SupabaseAdminUserRepository implements AdminUserRepository {
     const { data, error } = await this.client.functions.invoke(ADMIN_USERS_FUNCTION, { body: { action: "create", ...input } });
     if (error) return failFromFunction(error, input.email);
     return toAdminUser(data);
+  }
+
+  async setAccess(id: string, access: AdminUserAccess): Promise<void> {
+    const { error } = await this.client.rpc("set_admin_user_access", { p_user_id: id, p_role: access.role, p_permissions: access.permissions });
+    if (!error) return;
+    if (error.message.includes("self")) throw new CannotChangeAccessError("self");
+    if (error.message.includes("last")) throw new CannotChangeAccessError("last");
+    fail(error);
   }
 
   async remove(id: string): Promise<void> {

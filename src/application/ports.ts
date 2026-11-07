@@ -1,6 +1,6 @@
 import type { Account, AccountData } from "@/domain/account";
 import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
-import type { AdminRole, AdminUser, NewAdminUser } from "@/domain/admin-user";
+import type { AdminRole, AdminUser, AdminUserAccess, NewAdminUser, StaffPermission } from "@/domain/admin-user";
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { LegalConsent } from "@/domain/legal/legal-document";
@@ -128,6 +128,8 @@ export interface AdminSession {
   email: string;
   name: string | null;
   role: AdminRole;
+  /** Áreas liberadas, só no ajudante. */
+  permissions: StaffPermission[];
   /** Entrou pelo link de "esqueci a senha": cria a senha nova sem informar a atual. */
   recoveringPassword: boolean;
 }
@@ -288,6 +290,8 @@ export interface AdminPrivacyRepository {
 export interface AdminUserRepository {
   listAll(): Promise<AdminUser[]>;
   create(input: NewAdminUser): Promise<AdminUser>;
+  /** Troca entre admin e ajudante e as áreas liberadas. O banco recusa mudar o próprio acesso e ficar sem admin. */
+  setAccess(id: string, access: AdminUserAccess): Promise<void>;
   remove(id: string): Promise<void>;
 }
 

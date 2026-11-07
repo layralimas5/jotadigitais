@@ -3,13 +3,13 @@ import { CheckCircle2, ChevronDown, Crosshair, FilterX, Hourglass, ListTodo, Mes
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listSupportLabels, listSupportTickets } from "@/application/support-use-cases";
-import type { AdminRole } from "@/domain/admin-user";
 import {
   canChangeSupportStatus,
   canDeleteSupportTicket,
   canManageSupportLabels,
   inPeriod,
   isPendingTicket,
+  supportRoleOf,
   matchesAge,
   orderTickets,
   needsActionFrom,
@@ -31,6 +31,7 @@ import {
   type SupportLabel,
   type SupportPeriod,
   type SupportPriority,
+  type SupportRole,
   type SupportSort,
   type SupportStatus,
   type SupportTicket,
@@ -91,7 +92,7 @@ function openedTicketIdOf(state: unknown): string | null {
 }
 const REFRESH_MS = 30_000;
 
-const STATUS_FILTERS: Record<StatusFilter, (ticket: SupportTicket, role: AdminRole) => boolean> = {
+const STATUS_FILTERS: Record<StatusFilter, (ticket: SupportTicket, role: SupportRole) => boolean> = {
   mine: needsActionFrom,
   active: isPendingTicket,
   in_progress: (ticket) => ticket.status === "in_progress",
@@ -113,12 +114,12 @@ const STATUS_FILTER_LABEL: Record<StatusFilter, string> = {
 
 const STATUS_FILTER_ORDER: readonly StatusFilter[] = ["active", "mine", ...SUPPORT_STATUS_ORDER, "all"];
 
-const DESCRIPTION: Record<AdminRole, string> = {
+const DESCRIPTION: Record<SupportRole, string> = {
   admin: "Seus pedidos de ajuste, melhoria e pendências do sistema e do site. Abra a setinha de cada chamado para ver o andamento.",
   developer: "Os pedidos do Jota. Filtre o que priorizar, marque a etiqueta e abra a setinha para ver o andamento.",
 };
 
-function matchesFilters(ticket: SupportTicket, filters: Filters, role: AdminRole): boolean {
+function matchesFilters(ticket: SupportTicket, filters: Filters, role: SupportRole): boolean {
   return (
     matchesAge(ticket, filters.age) &&
     inPeriod(ticket, filters.period) &&
@@ -140,7 +141,7 @@ interface FilterBarProps {
   onChange: (filters: Filters) => void;
   tickets: readonly SupportTicket[];
   labels: readonly SupportLabel[];
-  role: AdminRole;
+  role: SupportRole;
 }
 
 function FilterBar({ filters, onChange, tickets, labels, role }: FilterBarProps) {
@@ -232,7 +233,7 @@ function FilterBar({ filters, onChange, tickets, labels, role }: FilterBarProps)
 
 interface RowProps {
   ticket: SupportTicket;
-  role: AdminRole;
+  role: SupportRole;
   labels: readonly SupportLabel[];
   expanded: boolean;
   onToggle: () => void;
@@ -363,7 +364,7 @@ function ListHeader() {
 interface StatusGroupCopy {
   icon: LucideIcon;
   /** Frase curta sob o título, escrita para quem está vendo. */
-  hint: Record<AdminRole, string>;
+  hint: Record<SupportRole, string>;
   tone: string;
 }
 
@@ -436,7 +437,7 @@ function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChan
 
 export default function SupportPage() {
   // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
-  const role = useViewRole() ?? "admin";
+  const role = supportRoleOf(useViewRole() ?? "admin");
   const tickets = useAdminQuery(listSupportTickets, "admin-support");
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(tickets.reload, REFRESH_MS);

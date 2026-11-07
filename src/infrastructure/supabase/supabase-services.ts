@@ -11,7 +11,7 @@ import type {
   ProfileUpdateResult,
   UploadedImage,
 } from "@/application/ports";
-import { sameEmail, type AdminRole } from "@/domain/admin-user";
+import { sameEmail, STAFF_PERMISSIONS, type AdminRole, type StaffPermission } from "@/domain/admin-user";
 import { InvalidCredentialsError, InvalidMfaCodeError, NotAdminError, WrongCurrentPasswordError } from "@/domain/errors";
 import { logBackendError } from "./supabase-repositories";
 
@@ -22,6 +22,10 @@ const SIGNED_OUT: AuthState = { status: "signed-out" };
 /** Código errado, vencido ou já usado. */
 const isWrongMfaCode = (error: AuthError): boolean =>
   error.code === "mfa_verification_failed" || error.code === "mfa_challenge_expired" || error.status === 422;
+
+/** Só as áreas que o painel conhece: uma área nova no banco antes do deploy do painel é ignorada. */
+const knownPermissions = (raw: string[] | null): StaffPermission[] =>
+  (raw ?? []).filter((item): item is StaffPermission => (STAFF_PERMISSIONS as readonly string[]).includes(item));
 
 /**
  * Login do Jota pelo Supabase Auth. Só entra quem também está na tabela `admin_users`.
@@ -216,9 +220,9 @@ export class SupabaseAuthService implements AuthService {
     // A tabela só deixa administrador ler: achar a própria linha já confirma o acesso.
     const { data, error } = await this.client
       .from("admin_users")
-      .select("name, role")
+      .select("name, role, permissions")
       .eq("user_id", session.user.id)
-      .maybeSingle<{ name: string | null; role: AdminRole }>();
+      .maybeSingle<{ name: string | null; role: AdminRole; permissions: string[] | null }>();
     if (error) {
       logBackendError(error);
       return SIGNED_OUT;
@@ -230,7 +234,13 @@ export class SupabaseAuthService implements AuthService {
       if (signOutError) console.error(signOutError);
       return SIGNED_OUT;
     }
-    const adminSession = { email: session.user.email, name: data.name, role: data.role, recoveringPassword: this.recoveringPassword };
+    const adminSession = {
+      email: session.user.email,
+      name: data.name,
+      role: data.role,
+      permissions: knownPermissions(data.permissions),
+      recoveringPassword: this.recoveringPassword,
+    };
     return { status: "signed-in", session: adminSession };
   }
 }

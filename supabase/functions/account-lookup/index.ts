@@ -36,8 +36,9 @@ Deno.serve(async (request) => {
   if (!url || !anonKey) return failWith("failed");
 
   const caller = createClient(url, anonKey, { global: { headers: { Authorization: request.headers.get("Authorization") ?? "" } } });
-  const { data: isAdmin } = await caller.rpc("is_admin");
-  if (isAdmin !== true) return failWith("forbidden");
+  // Quem cadastra contas (Jota, desenvolvedora ou ajudante com Contas).
+  const { data: allowed } = await caller.rpc("has_permission", { p_permission: "accounts" });
+  if (allowed !== true) return failWith("forbidden");
 
   const body: unknown = await request.json().catch(() => null);
   const profileUrl = typeof body === "object" && body !== null ? (body as Record<string, unknown>).url : null;

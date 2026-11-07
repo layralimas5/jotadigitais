@@ -124,6 +124,10 @@ export interface SupportTicket extends SupportTicketData {
   events: SupportStatusEvent[];
 }
 
+/** O suporte é só entre o Jota e a desenvolvedora: ajudante não abre a aba. */
+export type SupportRole = Extract<AdminRole, "admin" | "developer">;
+export const supportRoleOf = (role: AdminRole): SupportRole => (role === "developer" ? "developer" : "admin");
+
 /** Só quem mantém o sistema muda a situação; o banco reabre sozinho quando o Jota responde. */
 export const canChangeSupportStatus = (role: AdminRole): boolean => role === "developer";
 

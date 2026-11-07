@@ -3,7 +3,7 @@ import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { DashboardSource } from "@/domain/dashboard";
 import type { EmailAccount, EmailAccountListItem } from "@/domain/email-account";
-import { CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
+import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
 import type { Expense, Revenue } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
@@ -55,6 +55,7 @@ import {
   leadDataSchema,
   messageTemplatesSchema,
   mfaCodeSchema,
+  adminUserAccessSchema,
   newAdminUserSchema,
   parseOrThrow,
   partnerDataSchema,
@@ -368,11 +369,18 @@ export function createAdminUser(deps: AdminDeps, raw: unknown): Promise<AdminUse
   return deps.users.create(parseOrThrow(newAdminUserSchema, raw));
 }
 
-/** Ninguém tira o próprio acesso e o sistema nunca fica sem usuário. O servidor confere de novo. */
+/** Ninguém muda o próprio acesso pelo painel; o banco confere de novo e também impede ficar sem admin. */
+export function setAdminUserAccess(deps: AdminDeps, user: AdminUser, currentEmail: string, raw: unknown): Promise<void> {
+  if (sameEmail(user.email, currentEmail)) throw new CannotChangeAccessError("self");
+  if (user.role === "developer") throw new CannotChangeAccessError("developer");
+  return deps.users.setAccess(user.id, parseOrThrow(adminUserAccessSchema, raw));
+}
+
+/** Ninguém tira o próprio acesso e o sistema nunca fica sem admin (ajudante sai sempre). O servidor confere de novo. */
 export async function removeAdminUser(deps: AdminDeps, user: AdminUser, currentEmail: string): Promise<void> {
   if (sameEmail(user.email, currentEmail)) throw new CannotRemoveAdminUserError("self");
   const users = await deps.users.listAll();
-  if (users.length <= 1) throw new CannotRemoveAdminUserError("last");
+  if (user.role === "admin" && users.filter((item) => item.role === "admin").length <= 1) throw new CannotRemoveAdminUserError("last");
   await deps.users.remove(user.id);
 }
 

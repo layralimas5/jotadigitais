@@ -1,8 +1,8 @@
-import { Plus, UserMinus } from "lucide-react";
+import { Plus, SlidersHorizontal, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { container } from "@/app/container";
 import { listAdminUsers, removeAdminUser } from "@/application/admin-use-cases";
-import { sameEmail, type AdminUser } from "@/domain/admin-user";
+import { sameEmail, STAFF_PERMISSION_LABEL, type AdminUser } from "@/domain/admin-user";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { Fab, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
@@ -21,12 +21,29 @@ const displayName = (user: AdminUser) => user.name ?? user.email;
 interface UserRowProps {
   user: AdminUser;
   isYou: boolean;
-  /** Falso para você mesmo e para o último usuário: o sistema nunca fica sem acesso. */
+  /** Falso para você mesmo e para o último admin: o sistema nunca fica sem acesso completo. */
   canRemove: boolean;
+  /** Falso para você mesmo e para a desenvolvedora. */
+  canEditAccess: boolean;
   onRemove: (user: AdminUser) => void;
 }
 
-function UserRow({ user, isYou, canRemove, onRemove }: UserRowProps) {
+/** Áreas liberadas do ajudante, em etiquetas pequenas. */
+function PermissionChips({ user }: { user: AdminUser }) {
+  if (user.role !== "helper") return null;
+  if (user.permissions.length === 0) return <p className="mt-1 text-xs text-mist">Nenhuma área liberada</p>;
+  return (
+    <ul aria-label="Áreas liberadas" className="mt-1.5 flex flex-wrap gap-1">
+      {user.permissions.map((permission) => (
+        <li key={permission} className="rounded-full border border-line-strong px-2 py-0.5 text-[0.68rem] text-fog">
+          {STAFF_PERMISSION_LABEL[permission]}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function UserRow({ user, isYou, canRemove, canEditAccess, onRemove }: UserRowProps) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 sm:px-5">
       <PersonAvatar name={displayName(user)} />
@@ -41,13 +58,19 @@ function UserRow({ user, isYou, canRemove, onRemove }: UserRowProps) {
           )}
         </p>
         <p className="truncate text-xs text-mist">{user.email}</p>
+        <PermissionChips user={user} />
       </div>
       <p className="text-xs text-mist sm:w-44 sm:text-right">
         {user.lastSignInAt ? `Último acesso em ${formatDate(user.lastSignInAt)}` : "Ainda não entrou"}
         <span className="block">Desde {formatDate(user.createdAt)}</span>
       </p>
+      {canEditAccess && (
+        <ButtonLink to={`/admin/usuarios/${user.id}`} variant="secondary" className="max-sm:flex-1">
+          <SlidersHorizontal aria-hidden className="size-4" /> Editar acesso
+        </ButtonLink>
+      )}
       {canRemove && (
-        <Button variant="ghost" className="text-[#ff7a7a] hover:text-[#ff9a9a] max-sm:w-full" onClick={() => onRemove(user)}>
+        <Button variant="ghost" className="text-[#ff7a7a] hover:text-[#ff9a9a] max-sm:flex-1" onClick={() => onRemove(user)}>
           <UserMinus aria-hidden className="size-4" /> Tirar acesso
         </Button>
       )}
@@ -79,7 +102,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Usuários"
-        description="Quem entra no sistema. Todos têm acesso completo."
+        description="Quem entra no sistema. Admin tem acesso completo; ajudante vê só as áreas que você liberar."
         action={
           <ButtonLink to="/admin/usuarios/novo" className="max-md:hidden">
             <Plus aria-hidden className="size-4" /> Novo usuário
@@ -97,7 +120,7 @@ export default function UsersPage() {
       {users.status === "loading" && <LoadingBlock />}
       {users.status === "error" && <ErrorState message={users.error.message} onRetry={users.reload} />}
       {users.status === "success" && users.data.length === 0 && (
-        <EmptyState title="Nenhum usuário" description="Cadastre quem vai ajudar a cuidar da loja." />
+        <EmptyState title="Nenhum usuário" description="Cadastre quem vai ajudar a cuidar da loja e escolha o que cada um pode ver." />
       )}
       {users.status === "success" && users.data.length > 0 && (
         <ul className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/40">
@@ -106,7 +129,8 @@ export default function UsersPage() {
               key={user.id}
               user={user}
               isYou={sameEmail(user.email, currentEmail)}
-              canRemove={users.data.length > 1 && !sameEmail(user.email, currentEmail)}
+              canRemove={!sameEmail(user.email, currentEmail) && (user.role !== "admin" || users.data.filter((item) => item.role === "admin").length > 1)}
+              canEditAccess={!sameEmail(user.email, currentEmail) && user.role !== "developer"}
               onRemove={setToRemove}
             />
           ))}

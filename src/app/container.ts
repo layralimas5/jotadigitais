@@ -116,8 +116,8 @@ function demoContainer(): Container {
   const orders = new DemoOrderRepository(db);
   const settings = new DemoStoreSettingsRepository(db, defaultStoreSettings);
   const siteContent = new DemoSiteContentRepository(db);
-  const auth = new DemoAuthService();
   const users = new DemoAdminUserRepository(db);
+  const auth = new DemoAuthService((email) => users.accessOf(email));
   return {
     mode: "demo",
     store: {

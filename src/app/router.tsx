@@ -29,6 +29,7 @@ const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"
 const EmailAccountsPage = lazy(() => import("@/ui/admin/pages/EmailAccountsPage"));
 const EmailAccountEditorPage = lazy(() => import("@/ui/admin/pages/EmailAccountEditorPage"));
 const UsersPage = lazy(() => import("@/ui/admin/pages/UsersPage"));
+const UserAccessPage = lazy(() => import("@/ui/admin/pages/UserAccessPage"));
 const UserEditorPage = lazy(() => import("@/ui/admin/pages/UserEditorPage"));
 const SettingsPage = lazy(() => import("@/ui/admin/pages/SettingsPage"));
 const CustomersPage = lazy(() => import("@/ui/admin/pages/CustomersPage"));
@@ -111,6 +112,7 @@ export const router = createBrowserRouter([
           { path: "configuracoes", element: <SettingsPage /> },
           { path: "usuarios", element: <UsersPage /> },
           { path: "usuarios/novo", element: <UserEditorPage /> },
+          { path: "usuarios/:id", element: <UserAccessPage /> },
           { path: "acessos", element: <AccessPage /> },
           { path: "acessos/novo", element: <UserEditorPage backPath="/admin/acessos" /> },
           { path: "acessos/:id", element: <AccessUserPage /> },
