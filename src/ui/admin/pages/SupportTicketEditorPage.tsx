@@ -80,7 +80,8 @@ export default function SupportTicketEditorPage() {
     const { saved, failedUploads } = opened;
     if (failedUploads.length) toast.show(`Chamado aberto, mas não subiu: ${failedUploads.join(", ")}. Envie de novo na conversa.`, "error");
     else toast.show("Chamado aberto.");
-    navigate(`${LIST_PATH}/${saved.id}`, { replace: true });
+    // Volta para a listagem com o chamado novo já aberto no andamento, em vez de cair na conversa.
+    navigate(LIST_PATH, { replace: true, state: { openedTicketId: saved.id } });
   };
 
   return (
