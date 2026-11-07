@@ -1,18 +1,25 @@
-import { ArrowLeft, Hourglass, RefreshCw, Send } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Hourglass, RefreshCw, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SUPPORT_TEXT_MAX } from "@/application/schemas";
-import { changeSupportStatus, findSupportTicket, listSupportLabels, replyToSupportTicket } from "@/application/support-use-cases";
+import {
+  changeSupportStatus,
+  findSupportTicket,
+  listSupportLabels,
+  replyToSupportTicket,
+  setSupportTicketVisibility,
+} from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
 import {
   canChangeSupportStatus,
+  canChangeSupportVisibility,
   canManageSupportLabels,
   timelineOf,
   wasApprovedByAdmin,
   type SupportLabel,
   type SupportStatusEvent,
+  statusesFor,
   SUPPORT_STATUS_LABEL,
-  SUPPORT_STATUSES,
   type SupportAttachment,
   type SupportAuthor,
   type SupportStatus,
@@ -37,6 +44,7 @@ import { statusEventText } from "../support/TicketProgress";
 import {
   ApprovedByAdminBadge,
   authorNameOf,
+  InternalBadge,
   STATUS_TONE,
   SupportAreaBadge,
   SupportKindBadge,
@@ -50,11 +58,12 @@ const LIST_PATH = "/admin/suporte";
 /** A conversa se atualiza sozinha: a resposta de um aparece para o outro sem recarregar. */
 const REFRESH_MS = 20_000;
 
-const STATUS_OPTIONS = SUPPORT_STATUSES.map((value) => ({
-  value,
-  label: SUPPORT_STATUS_LABEL[value],
-  selectedClassName: cn(STATUS_TONE[value], "text-white"),
-}));
+const statusOptionsFor = (ticket: SupportTicket) =>
+  statusesFor(ticket).map((value) => ({
+    value,
+    label: SUPPORT_STATUS_LABEL[value],
+    selectedClassName: cn(STATUS_TONE[value], "text-white"),
+  }));
 
 interface MessageProps {
   author: SupportAuthor | null;
@@ -114,6 +123,8 @@ function StatusControl({ ticket, role, onChanged }: { ticket: SupportTicket; rol
     return status;
   });
 
+  const options = statusOptionsFor(ticket);
+
   const onChange = async (status: SupportStatus) => {
     if (status === ticket.status || change.pending) return;
     const changed = await change.run(status);
@@ -124,8 +135,64 @@ function StatusControl({ ticket, role, onChanged }: { ticket: SupportTicket; rol
 
   return (
     <section aria-label="Situação do chamado" aria-busy={change.pending} className="rounded-3xl border border-line bg-surface/60 p-5">
-      <SegmentedField legend="Situação" name="status" columns={4} value={ticket.status} options={STATUS_OPTIONS} onChange={(status) => void onChange(status)} />
-      <p className="mt-2 text-xs text-mist">O Jota vê a situação na hora. Quando ele responde um chamado aguardando, ele volta sozinho para pendente.</p>
+      <SegmentedField
+        legend="Situação"
+        name="status"
+        columns={ticket.internal ? 3 : 4}
+        value={ticket.status}
+        options={options}
+        onChange={(status) => void onChange(status)}
+      />
+      {!ticket.internal && (
+        <p className="mt-2 text-xs text-mist">O Jota vê a situação na hora. Quando ele responde um chamado aguardando, ele volta sozinho para pendente.</p>
+      )}
+      {change.error && (
+        <div className="mt-3">
+          <InlineError message={change.error.message} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+const VISIBILITY_OPTIONS = [
+  { value: "internal", label: "Só eu", icon: <EyeOff aria-hidden className="size-4" /> },
+  { value: "shared", label: "Eu e o Jota", icon: <Eye aria-hidden className="size-4" /> },
+] as const;
+type Visibility = (typeof VISIBILITY_OPTIONS)[number]["value"];
+
+function VisibilityControl({ ticket, role, onChanged }: { ticket: SupportTicket; role: AdminRole; onChanged: () => void }) {
+  const toast = useToast();
+  const change = useMutation(async (deps, internal: boolean) => {
+    await setSupportTicketVisibility(deps, role, ticket.id, internal);
+    return internal;
+  });
+  // Esperando o Jota, o chamado precisa continuar visível para ele.
+  const locked = ticket.status === "waiting";
+
+  const onChange = async (value: Visibility) => {
+    const internal = value === "internal";
+    if (internal === ticket.internal || change.pending || locked) return;
+    const changed = await change.run(internal);
+    if (changed === undefined) return;
+    toast.show(changed ? "Agora só você vê este chamado." : "O Jota agora vê este chamado.");
+    onChanged();
+  };
+
+  return (
+    <section aria-label="Quem vê o chamado" aria-busy={change.pending} className="rounded-3xl border border-line bg-surface/60 p-5">
+      <SegmentedField
+        legend="Quem vê"
+        name="visibility"
+        value={ticket.internal ? "internal" : "shared"}
+        options={VISIBILITY_OPTIONS}
+        onChange={(value) => void onChange(value)}
+      />
+      <p className="mt-2 text-xs text-mist">
+        {locked
+          ? "Está aguardando o Jota, então ele precisa ver. Mude a situação antes de esconder."
+          : "“Só eu”: some do painel do Jota, com a conversa e os anexos."}
+      </p>
       {change.error && (
         <div className="mt-3">
           <InlineError message={change.error.message} />
@@ -168,7 +235,7 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Admi
     if (input.askAdmin) await changeSupportStatus(deps, role, ticket.id, "waiting");
     return result;
   });
-  const canAskAdmin = canChangeSupportStatus(role) && ticket.status !== "waiting";
+  const canAskAdmin = canChangeSupportStatus(role) && ticket.status !== "waiting" && !ticket.internal;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -238,6 +305,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
       <header>
         <div className="flex flex-wrap items-center gap-2">
           <SupportStatusBadge status={ticket.status} />
+          {ticket.internal && <InternalBadge />}
           {wasApprovedByAdmin(ticket) && <ApprovedByAdminBadge />}
           <SupportPriorityBadge priority={ticket.priority} />
           <SupportKindBadge kind={ticket.kind} />
@@ -252,6 +320,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
       </header>
 
       {canChangeSupportStatus(role) && <StatusControl ticket={ticket} role={role} onChanged={reload} />}
+      {canChangeSupportVisibility(role) && <VisibilityControl ticket={ticket} role={role} onChanged={reload} />}
       {canManageSupportLabels(role) && (
         <section aria-label="Etiqueta do chamado" className="flex flex-wrap items-center gap-3 rounded-3xl border border-line bg-surface/60 p-5">
           <span className="text-sm font-medium text-fog">Etiqueta</span>
@@ -307,7 +376,7 @@ export default function SupportTicketPage() {
   const { id = "" } = useParams();
   // No modo "ver como o Jota" a tela é a dele: sem etiquetas para editar nem controle de situação.
   const role = useViewRole() ?? "admin";
-  const ticket = useAdminQuery((deps) => findSupportTicket(deps, id), `admin-support-${id}`);
+  const ticket = useAdminQuery((deps) => findSupportTicket(deps, role, id), `admin-support-${id}-${role}`);
   const labels = useAdminQuery(listSupportLabels, "admin-support-labels");
   usePolling(ticket.reload, REFRESH_MS);
   const labelList = labels.status === "success" ? labels.data : [];

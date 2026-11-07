@@ -192,6 +192,13 @@ export class SupportStatusForbiddenError extends Error {
   }
 }
 
+export class SupportVisibilityForbiddenError extends Error {
+  constructor() {
+    super("Só a desenvolvedora decide quem vê o chamado.");
+    this.name = "SupportVisibilityForbiddenError";
+  }
+}
+
 export class SupportApprovalError extends Error {
   constructor(message = "Só dá para aprovar chamado que está aguardando o Jota.") {
     super(message);

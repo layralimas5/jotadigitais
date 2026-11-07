@@ -6,12 +6,15 @@ import {
   SupportLabelNameTakenError,
   SupportStatusForbiddenError,
   SupportTicketNotFoundError,
+  SupportVisibilityForbiddenError,
 } from "@/domain/errors";
 import {
   canApproveSupportTicket,
   canChangeSupportStatus,
+  canChangeSupportVisibility,
   canDeleteSupportTicket,
   canManageSupportLabels,
+  isVisibleTo,
   type SupportLabel,
   type SupportLabelData,
   type SupportStatusEvent,
@@ -52,8 +55,12 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     private readonly auth: AuthService,
   ) {}
 
+  /** Igual ao banco: interno só para a desenvolvedora. */
   async listAll(): Promise<SupportTicket[]> {
-    return structuredClone(this.db.read().supportTickets ?? []).map((ticket) => this.withUrls(ticket));
+    const role = (await this.currentAuthor()).role;
+    return structuredClone(this.db.read().supportTickets ?? [])
+      .map((ticket) => this.withUrls(ticket))
+      .filter((ticket) => isVisibleTo(ticket, role));
   }
 
   async findById(id: string): Promise<SupportTicket | null> {
@@ -118,6 +125,12 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
             events: [...ticket.events, statusEvent(ticket.status, status, author, now)],
           },
     );
+  }
+
+  async setInternal(ticketId: string, internal: boolean): Promise<void> {
+    await simulateLatency();
+    if (!canChangeSupportVisibility((await this.currentAuthor()).role)) throw new SupportVisibilityForbiddenError();
+    this.updateTicket(ticketId, (ticket) => ({ ...ticket, internal }));
   }
 
   async approve(ticketId: string): Promise<void> {
@@ -200,7 +213,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   private withUrls(ticket: SupportTicket): SupportTicket {
     // Chamados salvos antes dos anexos existirem chegam sem a lista.
     const attachments = ticket.attachments ?? [];
-    return { ...ticket, kind: ticket.kind ?? "task", labelId: ticket.labelId ?? null, events: ticket.events ?? [], attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
+    return { ...ticket, kind: ticket.kind ?? "task", internal: ticket.internal ?? false, labelId: ticket.labelId ?? null, events: ticket.events ?? [], attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
   }
 
   private updateTicket(id: string, change: (ticket: SupportTicket) => SupportTicket): void {
