@@ -267,8 +267,8 @@ export function AdminProtected() {
   if (!canOpen(role, location.pathname)) return <Navigate to={HOME_PATH} replace />;
 
   return (
-    // O contador olha o papel real: no modo visualização, ainda é a fila da desenvolvedora.
-    <SupportAttentionProvider role={state.session.role}>
+    // No modo visualização o contador também é o do Jota.
+    <SupportAttentionProvider role={role}>
       <Sidebar role={role} canPreview={state.session.role === "developer"} />
       <div className="md:pl-60">
         {previewing && <PreviewBanner />}
