@@ -31,7 +31,7 @@ export function SupportStatusBadge({ status }: { status: SupportStatus }) {
 }
 
 export function PriorityDot({ priority, className }: { priority: SupportPriority; className?: string }) {
-  return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", PRIORITY_TONE[priority].dot, className)} />;
+  return <span aria-hidden className={cn("dot-glow size-1.5 shrink-0 rounded-full", PRIORITY_TONE[priority].dot, className)} />;
 }
 
 export function SupportPriorityBadge({ priority }: { priority: SupportPriority }) {
@@ -83,7 +83,7 @@ export const authorNameOf = (author: SupportAuthor | null): string => author?.na
 export function SupportLabelBadge({ label }: { label: SupportLabel }) {
   return (
     <span className={cn(pill, "gap-1.5", LABEL_TONE[label.color].badge)}>
-      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", LABEL_TONE[label.color].dot)} />
+      <span aria-hidden className={cn("dot-glow size-1.5 shrink-0 rounded-full", LABEL_TONE[label.color].dot)} />
       {label.name}
     </span>
   );

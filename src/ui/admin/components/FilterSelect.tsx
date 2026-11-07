@@ -12,7 +12,7 @@ export interface FilterOption<T extends string> {
 }
 
 function Dot({ className }: { className?: string }) {
-  return className ? <span aria-hidden className={cn("size-2 shrink-0 rounded-full", className)} /> : null;
+  return className ? <span aria-hidden className={cn("dot-glow size-2 shrink-0 rounded-full", className)} /> : null;
 }
 
 interface FilterSelectProps<T extends string> {

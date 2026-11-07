@@ -153,3 +153,36 @@
     transform: translateY(100%);
   }
 }
+
+/* Pontinho de cor com brilho: um halo da mesma cor, respirando devagar. */
+@keyframes dot-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+}
+
+@utility dot-glow {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: inherit;
+    filter: blur(4px);
+    pointer-events: none;
+    animation: dot-glow 2.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      animation: none;
+      opacity: 0.8;
+    }
+  }
+}
