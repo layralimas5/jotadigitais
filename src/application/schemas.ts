@@ -10,6 +10,7 @@ import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
 import { DATA_REQUEST_KINDS } from "@/domain/privacy";
+import { SUPPORT_AREAS, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from "@/domain/support-ticket";
 import { MAX_PROOF_POINTS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
@@ -645,6 +646,34 @@ export const siteContentSchema = z.object({
     relatedTitle: copy(60),
   }),
 });
+
+// ---------------------------------------------------------------------------
+// Suporte: chamados do Jota para a desenvolvedora (mesmos limites da tabela support_tickets)
+// ---------------------------------------------------------------------------
+
+export const SUPPORT_TITLE_MAX = 120;
+export const SUPPORT_TEXT_MAX = 4000;
+
+export const supportTicketDataSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, "Escreva um título curto. Ex.: Botão de pagar não abre.")
+    .max(SUPPORT_TITLE_MAX, `Use no máximo ${SUPPORT_TITLE_MAX} caracteres.`),
+  description: z
+    .string()
+    .trim()
+    .min(10, "Conte o que aconteceu, onde e o que você esperava.")
+    .max(SUPPORT_TEXT_MAX, `Use no máximo ${SUPPORT_TEXT_MAX} caracteres.`),
+  area: z.enum(SUPPORT_AREAS, { message: "Escolha onde está o problema." }),
+  priority: z.enum(SUPPORT_PRIORITIES, { message: "Escolha a prioridade." }),
+});
+
+export const supportReplySchema = z.object({
+  body: z.string().trim().min(1, "Escreva a resposta.").max(SUPPORT_TEXT_MAX, `Use no máximo ${SUPPORT_TEXT_MAX} caracteres.`),
+});
+
+export const supportStatusSchema = z.enum(SUPPORT_STATUSES);
 
 // ---------------------------------------------------------------------------
 // LGPD: documentos legais, Meus dados e respostas do painel

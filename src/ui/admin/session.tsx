@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { container } from "@/app/container";
 import type { AuthState } from "@/application/ports";
+import type { AdminRole } from "@/domain/admin-user";
 
 type SessionState = { status: "loading" } | AuthState;
 
@@ -48,4 +49,10 @@ export function useAdminSession(): SessionContextValue {
   const value = useContext(SessionContext);
   if (!value) throw new Error("useAdminSession precisa estar dentro de AdminSessionProvider.");
   return value;
+}
+
+/** Papel de quem está logado. Dentro das telas protegidas nunca é nulo. */
+export function useAdminRole(): AdminRole | null {
+  const { state } = useAdminSession();
+  return state.status === "signed-in" ? state.session.role : null;
 }

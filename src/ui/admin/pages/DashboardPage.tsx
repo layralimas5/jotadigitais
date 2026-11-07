@@ -18,6 +18,7 @@ import { TikTokOverview } from "../dashboard/TikTokOverview";
 import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
 import { RevenueChart3D } from "../finance/RevenueChart3D";
 import { useAdminQuery } from "../hooks";
+import { useAdminRole } from "../session";
 
 function Block({ id, title, link, children, className }: { id: string; title: string; link?: { to: string; label: string }; children: ReactNode; className?: string }) {
   return (
@@ -28,16 +29,25 @@ function Block({ id, title, link, children, className }: { id: string; title: st
   );
 }
 
-function DashboardContent({ dashboard, period, chartViews }: { dashboard: Dashboard; period: DashboardPeriod; chartViews: ChartView[] }) {
+interface DashboardContentProps {
+  dashboard: Dashboard;
+  period: DashboardPeriod;
+  chartViews: ChartView[];
+  /** Falso para a desenvolvedora: ela vê o dashboard como o Jota, mas sem atalhos para as telas da loja. */
+  linked: boolean;
+}
+
+function DashboardContent({ dashboard, period, chartViews, linked }: DashboardContentProps) {
   const reduceMotion = useReducedMotion();
   const scope = scopeOf(period);
+  const linkTo = (to: string, label: string) => (linked ? { to, label } : undefined);
   return (
     <motion.div variants={reduceMotion ? undefined : staggerContainer} initial="hidden" animate="show" className="space-y-8">
       <motion.div variants={fadeUp}>
-        <PendingStrip dashboard={dashboard} scope={scope} />
+        <PendingStrip dashboard={dashboard} scope={scope} linked={linked} />
       </motion.div>
 
-      <Block id="bloco-financeiro" title={`Financeiro ${scope.of}`} link={{ to: "/admin/financeiro", label: "Abrir Financeiro" }}>
+      <Block id="bloco-financeiro" title={`Financeiro ${scope.of}`} link={linkTo("/admin/financeiro", "Abrir Financeiro")}>
         <FinanceOverview dashboard={dashboard} scope={scope} comparisonLabel={comparisonLabelOf(period)} />
       </Block>
 
@@ -46,19 +56,19 @@ function DashboardContent({ dashboard, period, chartViews }: { dashboard: Dashbo
       </motion.div>
 
       <div className="grid gap-8 lg:grid-cols-5 lg:gap-4">
-        <Block id="bloco-contas" title="Contas" link={{ to: "/admin/contas", label: "Ver contas" }} className="lg:col-span-3">
+        <Block id="bloco-contas" title="Contas" link={linkTo("/admin/contas", "Ver contas")} className="lg:col-span-3">
           <AccountsOverview dashboard={dashboard} />
         </Block>
-        <Block id="bloco-clientes" title="Clientes" link={{ to: "/admin/clientes", label: "Ver clientes" }} className="lg:col-span-2">
+        <Block id="bloco-clientes" title="Clientes" link={linkTo("/admin/clientes", "Ver clientes")} className="lg:col-span-2">
           <CustomersOverview dashboard={dashboard} scope={scope} />
         </Block>
       </div>
 
-      <Block id="bloco-tiktok" title="Métricas do TikTok" link={{ to: "/admin/contas", label: "Ver contas" }}>
+      <Block id="bloco-tiktok" title="Métricas do TikTok" link={linkTo("/admin/contas", "Ver contas")}>
         <TikTokOverview dashboard={dashboard} scope={scope} />
       </Block>
 
-      <Block id="bloco-pedidos" title="Últimos pedidos" link={{ to: "/admin/pedidos", label: "Ver todos" }}>
+      <Block id="bloco-pedidos" title="Últimos pedidos" link={linkTo("/admin/pedidos", "Ver todos")}>
         <RecentOrders orders={dashboard.recentOrders} />
       </Block>
     </motion.div>
@@ -66,6 +76,7 @@ function DashboardContent({ dashboard, period, chartViews }: { dashboard: Dashbo
 }
 
 export default function DashboardPage() {
+  const linked = useAdminRole() === "admin";
   const source = useAdminQuery(loadDashboardSource, "admin-dashboard");
   const [period, setPeriod] = useDashboardPeriod();
   const sourceData = source.status === "success" ? source.data : null;
@@ -81,7 +92,7 @@ export default function DashboardPage() {
       />
       {source.status === "loading" && <LoadingBlock />}
       {source.status === "error" && <ErrorState message={source.error.message} onRetry={source.reload} />}
-      {dashboard && <DashboardContent dashboard={dashboard} period={period} chartViews={chartViews} />}
+      {dashboard && <DashboardContent dashboard={dashboard} period={period} chartViews={chartViews} linked={linked} />}
     </div>
   );
 }

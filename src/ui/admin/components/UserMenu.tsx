@@ -15,7 +15,7 @@ function initialOf(email: string): string {
   return email.trim().charAt(0).toUpperCase() || "J";
 }
 
-/** Ícone do usuário no canto superior direito: Configurações, Usuários e Sair. */
+/** Ícone do usuário no canto superior direito: Configurações, Usuários (só o Jota) e Sair. */
 export function UserMenu() {
   const { state, signOut } = useAdminSession();
   const [open, setOpen] = useState(false);
@@ -110,9 +110,11 @@ export function UserMenu() {
               <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>
                 <Settings aria-hidden className="size-4" /> Configurações
               </Link>
-              <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
-                <ShieldUser aria-hidden className="size-4" /> Usuários
-              </Link>
+              {role === "admin" && (
+                <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
+                  <ShieldUser aria-hidden className="size-4" /> Usuários
+                </Link>
+              )}
               <button
                 role="menuitem"
                 tabIndex={-1}

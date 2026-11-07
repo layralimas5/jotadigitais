@@ -701,6 +701,7 @@ async function main() {
   await cardInstallmentChecks();
   await c6PixChecks();
   await accountMockupChecks();
+  await supportChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1418,6 +1419,104 @@ async function emailVaultChecks() {
   await as("authenticated", ADMIN_ID, () => db.query(`delete from public.email_accounts where id = $1`, [emailId]));
   const audited = await db.query(`select count(*)::int as total from public.audit_events where action = 'delete' and entity = 'email_accounts'`);
   check(audited.rows[0].total === 1, "apagar um e-mail fica na auditoria");
+}
+
+const DEVELOPER_ID = "00000000-0000-0000-0000-00000000d003";
+const DEVELOPER_SESSION = "00000000-0000-0000-0000-0000000005d3";
+
+/** Suporte: os dois abrem e respondem; só a desenvolvedora muda a situação; ninguém escreve em nome do outro. */
+async function supportChecks() {
+  console.log("\nsuporte");
+  await db.exec(`
+    insert into auth.users (id, email) values ('${DEVELOPER_ID}', 'lay@exemplo.com');
+    insert into public.admin_users (user_id, name, role) values ('${DEVELOPER_ID}', 'Layra', 'developer');
+    insert into auth.sessions (id, user_id) values ('${DEVELOPER_SESSION}', '${DEVELOPER_ID}');
+  `);
+  const asDeveloper = (fn) => as("authenticated", DEVELOPER_ID, fn, { sessionId: DEVELOPER_SESSION });
+
+  const opened = await as("authenticated", ADMIN_ID, () =>
+    db.query(
+      `insert into public.support_tickets (title, description, area, priority)
+       values ('Botão de pagar', 'O botão de pagar não abre no iPhone.', 'site', 'urgent')
+       returning id, status, created_by`,
+    ),
+  );
+  const ticket = opened.rows[0];
+  check(ticket?.status === "open" && ticket.created_by === ADMIN_ID, "Jota abre chamado, que nasce aberto e no nome dele");
+
+  check(
+    await rejects(
+      () =>
+        as("authenticated", ADMIN_ID, () =>
+          db.query(
+            `insert into public.support_tickets (title, description, area, created_by)
+             values ('Em nome dela', 'Tentando abrir pela outra pessoa.', 'system', $1)`,
+            [DEVELOPER_ID],
+          ),
+        ),
+      /permission denied|row-level security/,
+    ),
+    "ninguém abre chamado em nome de outro usuário",
+  );
+  check(
+    await rejects(
+      () =>
+        as("authenticated", ADMIN_ID, () =>
+          db.query(`insert into public.support_tickets (title, description, area, status) values ('Já resolvido', 'Tentando abrir resolvido.', 'system', 'done')`),
+        ),
+      /permission denied|row-level security/,
+    ),
+    "chamado não nasce resolvido",
+  );
+
+  const jotaUpdate = await as("authenticated", ADMIN_ID, () =>
+    db.query(`update public.support_tickets set status = 'done' where id = $1 returning id`, [ticket.id]),
+  );
+  check(jotaUpdate.rows.length === 0, "Jota não muda a situação do chamado");
+  check(
+    await rejects(
+      () => asDeveloper(() => db.query(`update public.support_tickets set title = 'Outro título' where id = $1`, [ticket.id])),
+      /permission denied/,
+    ),
+    "desenvolvedora não reescreve o pedido do Jota",
+  );
+
+  const resolved = await asDeveloper(() =>
+    db.query(`update public.support_tickets set status = 'done' where id = $1 returning status, resolved_at`, [ticket.id]),
+  );
+  check(resolved.rows[0]?.status === "done" && resolved.rows[0].resolved_at !== null, "desenvolvedora resolve o chamado e a data fica gravada");
+  const reopened = await asDeveloper(() =>
+    db.query(`update public.support_tickets set status = 'in_progress' where id = $1 returning resolved_at`, [ticket.id]),
+  );
+  check(reopened.rows[0]?.resolved_at === null, "reabrir apaga a data de resolvido");
+
+  const before = (await db.query(`select updated_at from public.support_tickets where id = $1`, [ticket.id])).rows[0].updated_at;
+  const reply = await asDeveloper(() =>
+    db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Vou olhar hoje.') returning author_id`, [ticket.id]),
+  );
+  check(reply.rows[0]?.author_id === DEVELOPER_ID, "resposta fica no nome de quem escreveu");
+  const jotaReply = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Obrigado!') returning id`, [ticket.id]),
+  );
+  check(jotaReply.rows.length === 1, "Jota responde no chamado");
+  const after = (await db.query(`select updated_at from public.support_tickets where id = $1`, [ticket.id])).rows[0].updated_at;
+  check(new Date(after).getTime() >= new Date(before).getTime(), "resposta nova sobe o chamado na lista");
+
+  const thread = await as("authenticated", ADMIN_ID, () =>
+    db.query(`select count(*)::int as total from public.support_replies where ticket_id = $1`, [ticket.id]),
+  );
+  check(thread.rows[0].total === 2, "os dois leem a conversa inteira");
+
+  const strangerTickets = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.support_tickets`));
+  check(strangerTickets.rows.length === 0, "usuário que não é admin não vê chamados");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select id from public.support_tickets`)), /permission denied/),
+    "visitante não acessa os chamados",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`delete from public.support_tickets where id = $1`, [ticket.id])), /permission denied/),
+    "chamado não é apagado: o histórico fica",
+  );
 }
 
 main().catch((error) => {

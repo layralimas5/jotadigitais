@@ -23,6 +23,7 @@ import type {
 import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { StoreSettings } from "@/domain/store-settings";
+import type { SupportReply, SupportStatus, SupportTicket, SupportTicketData } from "@/domain/support-ticket";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 
 // ---------------------------------------------------------------------------
@@ -280,6 +281,18 @@ export interface AdminUserRepository {
   listAll(): Promise<AdminUser[]>;
   create(input: NewAdminUser): Promise<AdminUser>;
   remove(id: string): Promise<void>;
+}
+
+/**
+ * Chamados de suporte. Quem abre e quem responde é sempre o usuário logado (o banco grava sozinho);
+ * a situação só muda pela desenvolvedora, e o banco confere isso também.
+ */
+export interface SupportTicketRepository {
+  listAll(): Promise<SupportTicket[]>;
+  findById(id: string): Promise<SupportTicket | null>;
+  open(data: SupportTicketData): Promise<SupportTicket>;
+  reply(ticketId: string, body: string): Promise<SupportReply>;
+  changeStatus(ticketId: string, status: SupportStatus): Promise<void>;
 }
 
 /** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */

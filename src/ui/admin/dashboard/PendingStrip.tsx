@@ -56,7 +56,19 @@ function pendingOf(dashboard: Dashboard, scope: PeriodScope): Pending[] {
 }
 
 /** O que está esperando o Jota agir, logo no topo. */
-export function PendingStrip({ dashboard, scope }: { dashboard: Dashboard; scope: PeriodScope }) {
+function PendingContent({ item }: { item: Pending }) {
+  return (
+    <>
+      <ToneIcon icon={item.icon} tone={item.tone} />
+      <span className="text-sm leading-snug text-fog group-hover:text-white">
+        <strong className="font-display font-semibold text-white tabular-nums">{item.value}</strong> {item.label}
+      </span>
+    </>
+  );
+}
+
+/** `linked` falso: a desenvolvedora vê os avisos como o Jota vê, sem entrar nas telas da loja. */
+export function PendingStrip({ dashboard, scope, linked = true }: { dashboard: Dashboard; scope: PeriodScope; linked?: boolean }) {
   const pending = pendingOf(dashboard, scope);
   if (pending.length === 0) {
     return (
@@ -69,15 +81,18 @@ export function PendingStrip({ dashboard, scope }: { dashboard: Dashboard; scope
     <ul aria-label="Precisa de você" className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
       {pending.map((item) => (
         <li key={item.label}>
-          <Link
-            to={item.to}
-            className="group flex h-full items-center gap-3 rounded-2xl border border-line bg-surface/70 px-4 py-3 transition-colors hover:border-line-strong hover:bg-surface"
-          >
-            <ToneIcon icon={item.icon} tone={item.tone} />
-            <span className="text-sm leading-snug text-fog group-hover:text-white">
-              <strong className="font-display font-semibold text-white tabular-nums">{item.value}</strong> {item.label}
-            </span>
-          </Link>
+          {linked ? (
+            <Link
+              to={item.to}
+              className="group flex h-full items-center gap-3 rounded-2xl border border-line bg-surface/70 px-4 py-3 transition-colors hover:border-line-strong hover:bg-surface"
+            >
+              <PendingContent item={item} />
+            </Link>
+          ) : (
+            <div className="flex h-full items-center gap-3 rounded-2xl border border-line bg-surface/70 px-4 py-3">
+              <PendingContent item={item} />
+            </div>
+          )}
         </li>
       ))}
     </ul>
