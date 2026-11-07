@@ -20,7 +20,14 @@ function validate(values: NewAdminUser) {
   return result.success ? { data: result.data, errors: {} } : { data: null, errors: fieldErrorsOf(result.error) };
 }
 
-export default function UserEditorPage() {
+interface UserEditorPageProps {
+  /** Para onde volta. Pela aba Acessos (TI), volta com a mensagem de acesso pronta para mandar. */
+  backPath?: string;
+}
+
+const ACCESS_BACK_PATH = "/admin/acessos";
+
+export default function UserEditorPage({ backPath = "/admin/usuarios" }: UserEditorPageProps) {
   const navigate = useNavigate();
   const toast = useToast();
   const [values, setValues] = useState<NewAdminUser>(EMPTY);
@@ -48,12 +55,16 @@ export default function UserEditorPage() {
     const created = await create.run(values);
     if (!created) return;
     toast.show(`Acesso criado para ${firstNameOf(created.name ?? created.email)}.`);
-    navigate("/admin/usuarios");
+    if (backPath === ACCESS_BACK_PATH) {
+      navigate(backPath, { state: { createdAccess: { name: created.name, email: created.email, password: values.password } } });
+      return;
+    }
+    navigate(backPath);
   };
 
   return (
     <>
-      <Link to="/admin/usuarios" className="inline-flex items-center gap-2 text-sm text-mist hover:text-white">
+      <Link to={backPath} className="inline-flex items-center gap-2 text-sm text-mist hover:text-white">
         <ArrowLeft aria-hidden className="size-4" /> Voltar
       </Link>
       <div className="mt-4">
@@ -101,7 +112,7 @@ export default function UserEditorPage() {
           pendingLabel="Criando…"
           submitIcon={<UserPlus aria-hidden className="size-4" />}
           pending={create.pending}
-          onCancel={() => navigate("/admin/usuarios")}
+          onCancel={() => navigate(backPath)}
           errors={[create.error?.message]}
         />
       </form>

@@ -1,5 +1,6 @@
 import type { AuthService, SupportTicketRepository } from "@/application/ports";
 import {
+  SupportDeleteForbiddenError,
   SupportLabelForbiddenError,
   SupportLabelNameTakenError,
   SupportStatusForbiddenError,
@@ -7,6 +8,7 @@ import {
 } from "@/domain/errors";
 import {
   canChangeSupportStatus,
+  canDeleteSupportTicket,
   canManageSupportLabels,
   type SupportLabel,
   type SupportLabelData,
@@ -152,6 +154,16 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     await simulateLatency();
     await this.requireLabelManager();
     this.updateTicket(ticketId, (ticket) => ({ ...ticket, labelId, updatedAt: new Date().toISOString() }));
+  }
+
+  async remove(ticketId: string): Promise<void> {
+    await simulateLatency();
+    if (!canDeleteSupportTicket((await this.currentAuthor()).role)) throw new SupportDeleteForbiddenError();
+    this.db.write((state) => {
+      const tickets = state.supportTickets ?? [];
+      if (!tickets.some((ticket) => ticket.id === ticketId)) throw new SupportTicketNotFoundError();
+      state.supportTickets = tickets.filter((ticket) => ticket.id !== ticketId);
+    });
   }
 
   private async requireLabelManager(): Promise<void> {

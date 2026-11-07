@@ -1,9 +1,15 @@
 import type { AdminRole } from "@/domain/admin-user";
-import { SupportAttachmentError, SupportLabelForbiddenError, SupportStatusForbiddenError } from "@/domain/errors";
+import {
+  SupportAttachmentError,
+  SupportDeleteForbiddenError,
+  SupportLabelForbiddenError,
+  SupportStatusForbiddenError,
+} from "@/domain/errors";
 import {
   attachmentProblem,
   MAX_ATTACHMENTS_PER_MESSAGE,
   canChangeSupportStatus,
+  canDeleteSupportTicket,
   canManageSupportLabels,
   type SupportLabel,
   sortTickets,
@@ -83,4 +89,9 @@ export function deleteSupportLabel(deps: AdminDeps, role: AdminRole, id: string)
 export function setSupportLabel(deps: AdminDeps, role: AdminRole, ticketId: string, labelId: string | null): Promise<void> {
   requireLabelManager(role);
   return deps.support.setLabel(ticketId, labelId);
+}
+
+export function deleteSupportTicket(deps: AdminDeps, role: AdminRole, ticketId: string): Promise<void> {
+  if (!canDeleteSupportTicket(role)) throw new SupportDeleteForbiddenError();
+  return deps.support.remove(ticketId);
 }

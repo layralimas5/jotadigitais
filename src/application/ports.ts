@@ -1,4 +1,5 @@
 import type { Account, AccountData } from "@/domain/account";
+import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
 import type { AdminRole, AdminUser, NewAdminUser } from "@/domain/admin-user";
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
@@ -312,6 +313,22 @@ export interface SupportTicketRepository {
   /** Os chamados com essa etiqueta ficam sem etiqueta. */
   removeLabel(id: string): Promise<void>;
   setLabel(ticketId: string, labelId: string | null): Promise<void>;
+  /** Apaga o chamado com conversa, anexos e histórico. Só a desenvolvedora (o banco confere). */
+  remove(ticketId: string): Promise<void>;
+}
+
+/**
+ * Acessos (TI): o que a desenvolvedora faz pelos usuários. O servidor confere o papel em cada chamada.
+ * Trocar e-mail e senha passam pela Edge Function admin-users (chave de serviço); sessões e duas etapas, por funções do banco.
+ */
+export interface AccessRepository {
+  listAll(): Promise<AccessUser[]>;
+  updateProfile(userId: string, update: AccessProfileUpdate): Promise<void>;
+  setPassword(userId: string, password: string): Promise<void>;
+  /** Desconecta a pessoa de todos os aparelhos. */
+  endSessions(userId: string): Promise<void>;
+  /** Desliga a verificação em duas etapas (ex.: perdeu o celular); ela cadastra de novo em Configurações. */
+  resetMfa(userId: string): Promise<void>;
 }
 
 /** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */

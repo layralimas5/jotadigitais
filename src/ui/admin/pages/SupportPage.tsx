@@ -6,6 +6,7 @@ import { listSupportLabels, listSupportTickets } from "@/application/support-use
 import type { AdminRole } from "@/domain/admin-user";
 import {
   canChangeSupportStatus,
+  canDeleteSupportTicket,
   canManageSupportLabels,
   inPeriod,
   isPendingTicket,
@@ -46,6 +47,7 @@ import {
   SupportPriorityBadge,
   SupportStatusBadge,
 } from "../support/SupportBadges";
+import { DeleteTicketButton } from "../support/DeleteTicketButton";
 import { TicketProgress } from "../support/TicketProgress";
 
 type StatusFilter = "mine" | "active" | SupportStatus | "all";
@@ -288,7 +290,10 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
             className="overflow-hidden"
           >
             <div className="border-t border-line px-4 py-4 sm:px-5">
-              <TicketProgress ticket={ticket} />
+              <TicketProgress
+                ticket={ticket}
+                actions={canDeleteSupportTicket(role) ? <DeleteTicketButton ticket={ticket} role={role} onDeleted={onChanged} /> : undefined}
+              />
             </div>
           </motion.div>
         )}

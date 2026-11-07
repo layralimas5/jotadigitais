@@ -189,6 +189,9 @@ export interface SupportLabel extends SupportLabelData {
 
 export const canManageSupportLabels = (role: AdminRole): boolean => role === "developer";
 
+/** Apagar um chamado (com conversa e anexos) é só da desenvolvedora. */
+export const canDeleteSupportTicket = (role: AdminRole): boolean => role === "developer";
+
 // ---------------------------------------------------------------------------
 // Andamento: cada troca de situação fica registrada (quem, de onde, para onde, quando).
 // ---------------------------------------------------------------------------

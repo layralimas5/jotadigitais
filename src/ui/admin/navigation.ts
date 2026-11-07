@@ -3,6 +3,7 @@ import {
   Globe,
   Handshake,
   ImageIcon,
+  KeyRound,
   LifeBuoy,
   LayoutDashboard,
   Mail,
@@ -44,6 +45,11 @@ export const SUPPORT_PATH = "/admin/suporte";
 
 const EVERYONE: readonly AdminRole[] = ["admin", "developer"];
 const STORE: readonly AdminRole[] = ["admin"];
+/** TI: só a desenvolvedora. */
+const DEVELOPER: readonly AdminRole[] = ["developer"];
+
+export const ACCESS_PATH = "/admin/acessos";
+export const NEW_ACCESS_PATH = `${ACCESS_PATH}/novo`;
 
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
@@ -80,6 +86,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/privacidade", label: "Privacidade", icon: ShieldCheck, inBottomNav: false, description: "LGPD e pedidos dos titulares", roles: STORE },
       { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "Google Agenda e outras conexões", roles: STORE },
       { to: SUPPORT_PATH, label: "Suporte", icon: LifeBuoy, inBottomNav: false, description: "Chamados de ajustes no sistema e no site", roles: EVERYONE },
+      { to: ACCESS_PATH, label: "Acessos", icon: KeyRound, inBottomNav: false, description: "TI: e-mail, senha e sessões de cada usuário", roles: DEVELOPER },
       { to: SETTINGS_PATH, label: "Configurações", icon: Settings, inBottomNav: false, description: "Perfil, senha e backup", roles: EVERYONE },
     ],
   },

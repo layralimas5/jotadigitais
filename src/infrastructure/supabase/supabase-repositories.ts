@@ -1004,12 +1004,12 @@ function toAdminUser(raw: unknown): AdminUser {
   };
 }
 
-const ADMIN_USERS_FUNCTION = "admin-users";
+export const ADMIN_USERS_FUNCTION = "admin-users";
 
 const functionErrorSchema = z.object({ error: z.string() });
 
 /** Traduz o código de erro que a Edge Function admin-users devolve. */
-async function failFromFunction(error: unknown, email = ""): Promise<never> {
+export async function failFromFunction(error: unknown, email = ""): Promise<never> {
   console.error(error);
   if (error instanceof FunctionsHttpError) {
     const body: unknown = await error.context.json().catch(() => null);
@@ -1019,6 +1019,7 @@ async function failFromFunction(error: unknown, email = ""): Promise<never> {
     if (code === "self") throw new CannotRemoveAdminUserError("self");
     if (code === "last") throw new CannotRemoveAdminUserError("last");
     if (code === "forbidden") throw new Error("Só quem tem acesso ao sistema pode mexer nos usuários.");
+    if (code === "not_found") throw new Error("Esse usuário não existe mais no sistema. Atualize a lista.");
     if (code === "invalid") throw new Error(`Dados inválidos. Confira nome e e-mail. ${PASSWORD_RULE_HINT}`);
   }
   throw new Error("Não foi possível falar com o servidor. Tente de novo em instantes.");

@@ -219,3 +219,17 @@ export class SupportLabelNameTakenError extends Error {
     this.name = "SupportLabelNameTakenError";
   }
 }
+
+export class AccessForbiddenError extends Error {
+  constructor() {
+    super("Só a desenvolvedora mexe nos acessos dos usuários.");
+    this.name = "AccessForbiddenError";
+  }
+}
+
+export class SupportDeleteForbiddenError extends Error {
+  constructor() {
+    super("Só a desenvolvedora apaga chamados.");
+    this.name = "SupportDeleteForbiddenError";
+  }
+}

@@ -22,6 +22,7 @@ import {
 import { DemoPrivacyRepository, DemoPrivacyService } from "@/infrastructure/demo/demo-privacy";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { DemoSupportTicketRepository } from "@/infrastructure/demo/demo-support";
+import { DemoAccessRepository } from "@/infrastructure/demo/demo-access";
 import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { DemoPaymentGateway } from "@/infrastructure/demo/demo-payment-gateway";
 import { SupabasePaymentGateway } from "@/infrastructure/supabase/supabase-payment-gateway";
@@ -47,6 +48,7 @@ import { SupabasePrivacyRepository, SupabasePrivacyService } from "@/infrastruct
 import { PUBLIC_ACCOUNT_COLUMNS } from "@/infrastructure/supabase/rows";
 import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
 import { SupabaseSupportTicketRepository } from "@/infrastructure/supabase/supabase-support";
+import { SupabaseAccessRepository } from "@/infrastructure/supabase/supabase-access";
 import { backendConfig, defaultStoreSettings } from "./config";
 
 export type BackendMode = "supabase" | "demo";
@@ -101,6 +103,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       images: new SupabaseImageStorage(client),
       privacy: new SupabasePrivacyRepository(client),
       support: new SupabaseSupportTicketRepository(client),
+      access: new SupabaseAccessRepository(client),
     },
   };
 }
@@ -114,6 +117,7 @@ function demoContainer(): Container {
   const settings = new DemoStoreSettingsRepository(db, defaultStoreSettings);
   const siteContent = new DemoSiteContentRepository(db);
   const auth = new DemoAuthService();
+  const users = new DemoAdminUserRepository(db);
   return {
     mode: "demo",
     store: {
@@ -140,13 +144,14 @@ function demoContainer(): Container {
       revenues: new DemoRevenueRepository(db),
       partners: new DemoPartnerRepository(db),
       emailAccounts: new DemoEmailAccountRepository(db),
-      users: new DemoAdminUserRepository(db),
+      users,
       profiles: new DevServerProfileLookupService(),
       notifications: new DemoNotificationRepository(db),
       calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new DemoImageStorage(),
       privacy: new DemoPrivacyRepository(db),
       support: new DemoSupportTicketRepository(db, auth),
+      access: new DemoAccessRepository(db, users, auth),
     },
   };
 }

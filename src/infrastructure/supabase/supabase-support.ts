@@ -219,6 +219,21 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     if (!data) throw new SupportTicketNotFoundError();
   }
 
+  async remove(ticketId: string): Promise<void> {
+    // Os caminhos saem antes: depois do delete a linha dos anexos some junto (cascade).
+    const { data: files, error: filesError } = await this.client.from("support_attachments").select("path").eq("ticket_id", ticketId);
+    if (filesError) fail(filesError);
+    const { data, error } = await this.client.from("support_tickets").delete().eq("id", ticketId).select("id").maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new SupportTicketNotFoundError();
+    const paths = files.map((file) => z.object({ path: z.string() }).parse(file).path);
+    if (paths.length > 0) {
+      const { error: storageError } = await this.client.storage.from(BUCKET).remove(paths);
+      // O chamado já saiu; arquivo que sobrar no bucket não aparece em lugar nenhum.
+      if (storageError) console.error("Falha ao apagar anexos do chamado", storageError);
+    }
+  }
+
   /** Sobe um arquivo por vez e registra no chamado. Devolve o nome dos que falharam. */
   private async attach(ticketId: string, replyId: string | null, uploads: readonly SupportUpload[]): Promise<string[]> {
     const failed: string[] = [];
