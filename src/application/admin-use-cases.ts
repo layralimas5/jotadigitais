@@ -33,6 +33,7 @@ import type {
   AdminPrivacyRepository,
   AdminUserRepository,
   AuthService,
+  SupportTicketRepository,
   AuthState,
   CalendarService,
   ProfileLookupService,
@@ -86,6 +87,7 @@ export interface AdminDeps {
   calendar: CalendarService;
   images: ImageStorage;
   privacy: AdminPrivacyRepository;
+  support: SupportTicketRepository;
 }
 
 export function signIn(deps: AdminDeps, raw: unknown): Promise<AuthState> {

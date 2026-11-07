@@ -177,3 +177,17 @@ export class DataSubjectNotFoundError extends Error {
     this.name = "DataSubjectNotFoundError";
   }
 }
+
+export class SupportTicketNotFoundError extends Error {
+  constructor() {
+    super("Este chamado não existe mais.");
+    this.name = "SupportTicketNotFoundError";
+  }
+}
+
+export class SupportStatusForbiddenError extends Error {
+  constructor() {
+    super("Só a desenvolvedora muda a situação do chamado.");
+    this.name = "SupportStatusForbiddenError";
+  }
+}

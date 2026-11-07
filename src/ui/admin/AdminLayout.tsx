@@ -11,7 +11,8 @@ import { MobileSearch } from "./topbar/MobileSearch";
 import { NotificationBell } from "./topbar/NotificationBell";
 import { PageCrumb } from "./topbar/PageCrumb";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
-import { BOTTOM_NAV_ITEMS, HOME_PATH, MORE_ITEMS, NAV_GROUPS } from "./navigation";
+import type { AdminRole } from "@/domain/admin-user";
+import { bottomNavItemsFor, canOpen, fitsBottomNav, HOME_PATH, moreItemsFor, navGroupsFor } from "./navigation";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
@@ -26,6 +27,7 @@ const EDITOR_ROUTES = [
   "/admin/financeiro/receitas/:id",
   "/admin/parceiros/:id",
   "/admin/usuarios/novo",
+  "/admin/suporte/novo",
 ];
 
 /** Editores largos (prévia ao lado): também têm barra própria no celular, mas usam a largura toda. */
@@ -38,9 +40,8 @@ const FORM_ROUTES = [
   "/admin/automacao",
   "/admin/apis",
   "/admin/configuracoes",
+  "/admin/suporte/:id",
 ];
-
-const MORE_ROUTES = ["/admin/mais", ...MORE_ITEMS.map((item) => `${item.to}/*`)];
 
 /** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */
 const DESKTOP_QUERY = "(min-width: 48rem)";
@@ -98,7 +99,7 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
 }
 
 /** Menu lateral fixo à esquerda, do tablet para cima. */
-function Sidebar() {
+function Sidebar({ role }: { role: AdminRole }) {
   const reduceMotion = useReducedMotion();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
@@ -106,7 +107,7 @@ function Sidebar() {
         <Brand stacked />
       </div>
       <nav aria-label="Sistema" className="flex-1 space-y-5 overflow-y-auto p-3">
-        {NAV_GROUPS.map((group) => (
+        {navGroupsFor(role).map((group) => (
           <div key={group.label ?? "inicio"}>
             {group.label && (
               <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
@@ -143,14 +144,15 @@ function Sidebar() {
 }
 
 /** Topo enxuto no celular: a navegação fica na barra de baixo. */
-function MobileTopBar() {
+function MobileTopBar({ role }: { role: AdminRole }) {
+  const storeTools = role === "admin";
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
       <div className="flex h-14 items-center justify-between gap-2 px-4">
         <Brand />
         <div className="flex items-center">
-          <MobileSearch />
-          <NotificationBell />
+          {storeTools && <MobileSearch />}
+          {storeTools && <NotificationBell />}
           <UserMenu />
         </div>
       </div>
@@ -159,14 +161,15 @@ function MobileTopBar() {
 }
 
 /** Barra do topo no tablet e no computador: onde você está à esquerda, busca no centro, sininho e menu à direita. */
-function DesktopTopBar() {
+function DesktopTopBar({ role }: { role: AdminRole }) {
+  const storeTools = role === "admin";
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-xl">
       <div className="grid h-16 grid-cols-[minmax(0,1fr)_minmax(16rem,36rem)_minmax(auto,1fr)] items-center gap-6 px-8">
         <PageCrumb />
-        <GlobalSearch withShortcut className="col-start-2 w-full" />
-        <div className="flex items-center justify-self-end gap-1">
-          <NotificationBell />
+        {storeTools && <GlobalSearch withShortcut className="col-start-2 w-full" />}
+        <div className="col-start-3 flex items-center justify-self-end gap-1">
+          {storeTools && <NotificationBell />}
           <UserMenu />
         </div>
       </div>
@@ -174,9 +177,12 @@ function DesktopTopBar() {
   );
 }
 
-/** Só uma barra existe por vez: o sininho de cada uma consulta o servidor sozinho. */
-function TopBar() {
-  return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar /> : <MobileTopBar />;
+/**
+ * Só uma barra existe por vez: o sininho de cada uma consulta o servidor sozinho.
+ * Busca e sininho mostram dados da loja, então ficam só para o Jota.
+ */
+function TopBar({ role }: { role: AdminRole }) {
+  return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar role={role} /> : <MobileTopBar role={role} />;
 }
 
 interface BottomNavEntry {
@@ -187,22 +193,25 @@ interface BottomNavEntry {
   activeOn?: readonly string[];
 }
 
-const BOTTOM_NAV: readonly BottomNavEntry[] = [
-  ...BOTTOM_NAV_ITEMS,
-  { to: "/admin/mais", label: "Mais", icon: Ellipsis, activeOn: MORE_ROUTES },
-];
+function bottomNavOf(role: AdminRole): BottomNavEntry[] {
+  const items: BottomNavEntry[] = bottomNavItemsFor(role);
+  if (fitsBottomNav(role)) return items;
+  const moreRoutes = ["/admin/mais", ...moreItemsFor(role).map((item) => `${item.to}/*`)];
+  return [...items, { to: "/admin/mais", label: "Mais", icon: Ellipsis, activeOn: moreRoutes }];
+}
 
 /** Navegação no polegar: fixa embaixo no celular, com a aba ativa deslizando entre os itens. */
-function BottomNav() {
+function BottomNav({ role }: { role: AdminRole }) {
   const reduceMotion = useReducedMotion();
   const { pathname } = useLocation();
+  const entries = bottomNavOf(role);
   return (
     <nav
       aria-label="Sistema"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
     >
-      <div className="grid grid-cols-5 px-1 py-1.5">
-        {BOTTOM_NAV.map(({ to, label, icon: Icon, activeOn }) => (
+      <div className="grid px-1 py-1.5" style={{ gridTemplateColumns: `repeat(${entries.length}, minmax(0, 1fr))` }}>
+        {entries.map(({ to, label, icon: Icon, activeOn }) => (
           <NavLink key={to} to={to} className="relative flex flex-col items-center gap-0.5 rounded-2xl py-2 text-[0.7rem] font-medium">
             {({ isActive: linkActive }) => {
               const isActive = activeOn ? matchesAny(activeOn, pathname) : linkActive;
@@ -237,12 +246,15 @@ export function AdminProtected() {
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;
   // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
   if (state.status !== "signed-in") return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
+  const { role } = state.session;
+  // Cada um só abre o que é dele: endereço digitado ou link antigo de outra seção volta para o início.
+  if (!canOpen(role, location.pathname)) return <Navigate to={HOME_PATH} replace />;
 
   return (
     <>
-      <Sidebar />
+      <Sidebar role={role} />
       <div className="md:pl-60">
-        <TopBar />
+        <TopBar role={role} />
         <main
           id="conteudo"
           className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}
@@ -252,7 +264,7 @@ export function AdminProtected() {
           </Suspense>
         </main>
       </div>
-      {!editing && <BottomNav />}
+      {!editing && <BottomNav role={role} />}
     </>
   );
 }

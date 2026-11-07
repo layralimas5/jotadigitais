@@ -43,6 +43,9 @@ const MorePage = lazy(() => import("@/ui/admin/pages/MorePage"));
 const FinancePage = lazy(() => import("@/ui/admin/pages/FinancePage"));
 const ExpenseEditorPage = lazy(() => import("@/ui/admin/pages/ExpenseEditorPage"));
 const RevenueEditorPage = lazy(() => import("@/ui/admin/pages/RevenueEditorPage"));
+const SupportPage = lazy(() => import("@/ui/admin/pages/SupportPage"));
+const SupportTicketEditorPage = lazy(() => import("@/ui/admin/pages/SupportTicketEditorPage"));
+const SupportTicketPage = lazy(() => import("@/ui/admin/pages/SupportTicketPage"));
 
 export const router = createBrowserRouter([
   {
@@ -106,6 +109,9 @@ export const router = createBrowserRouter([
           { path: "configuracoes", element: <SettingsPage /> },
           { path: "usuarios", element: <UsersPage /> },
           { path: "usuarios/novo", element: <UserEditorPage /> },
+          { path: "suporte", element: <SupportPage /> },
+          { path: "suporte/novo", element: <SupportTicketEditorPage /> },
+          { path: "suporte/:id", element: <SupportTicketPage /> },
           // Links antigos de "Minha conta" (e-mails de redefinição já enviados) caem nas Configurações.
           { path: "minha-conta", element: <Navigate to="/admin/configuracoes" replace /> },
         ],

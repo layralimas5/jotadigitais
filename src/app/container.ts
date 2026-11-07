@@ -21,6 +21,7 @@ import {
 } from "@/infrastructure/demo/demo-repositories";
 import { DemoPrivacyRepository, DemoPrivacyService } from "@/infrastructure/demo/demo-privacy";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
+import { DemoSupportTicketRepository } from "@/infrastructure/demo/demo-support";
 import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { DemoPaymentGateway } from "@/infrastructure/demo/demo-payment-gateway";
 import { SupabasePaymentGateway } from "@/infrastructure/supabase/supabase-payment-gateway";
@@ -45,6 +46,7 @@ import {
 import { SupabasePrivacyRepository, SupabasePrivacyService } from "@/infrastructure/supabase/supabase-privacy";
 import { PUBLIC_ACCOUNT_COLUMNS } from "@/infrastructure/supabase/rows";
 import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
+import { SupabaseSupportTicketRepository } from "@/infrastructure/supabase/supabase-support";
 import { backendConfig, defaultStoreSettings } from "./config";
 
 export type BackendMode = "supabase" | "demo";
@@ -98,6 +100,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new SupabaseImageStorage(client),
       privacy: new SupabasePrivacyRepository(client),
+      support: new SupabaseSupportTicketRepository(client),
     },
   };
 }
@@ -110,6 +113,7 @@ function demoContainer(): Container {
   const orders = new DemoOrderRepository(db);
   const settings = new DemoStoreSettingsRepository(db, defaultStoreSettings);
   const siteContent = new DemoSiteContentRepository(db);
+  const auth = new DemoAuthService();
   return {
     mode: "demo",
     store: {
@@ -122,7 +126,7 @@ function demoContainer(): Container {
       privacy: new DemoPrivacyService(db),
     },
     admin: {
-      auth: new DemoAuthService(),
+      auth,
       accounts,
       testimonials,
       orders,
@@ -142,6 +146,7 @@ function demoContainer(): Container {
       calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new DemoImageStorage(),
       privacy: new DemoPrivacyRepository(db),
+      support: new DemoSupportTicketRepository(db, auth),
     },
   };
 }
