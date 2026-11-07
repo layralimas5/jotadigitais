@@ -33,8 +33,14 @@ alter table public.notifications drop constraint notifications_kind_check;
 alter table public.notifications add constraint notifications_kind_check
   check (kind in ('order', 'news', 'privacy', 'security', 'support'));
 
-alter policy "admins read notifications" on public.notifications
-  using ((select public.is_admin()) and (recipient_role is null or recipient_role = (select public.current_admin_role())));
+-- Cada aviso de suporte vai só para quem ele é; o ajudante com Pedidos continua vendo só o pedido novo.
+drop policy "notifications staff read" on public.notifications;
+create policy "notifications staff read" on public.notifications
+  for select to authenticated
+  using (
+    ((select public.is_admin()) and (recipient_role is null or recipient_role = (select public.current_admin_role())))
+    or (kind = 'order' and recipient_role is null and (select public.has_permission('orders')))
+  );
 
 -- Aviso de suporte para o Jota. Chamado interno nunca avisa.
 create or replace function public.notify_admin_about_ticket(p_ticket_id uuid, p_title text, p_body text)
