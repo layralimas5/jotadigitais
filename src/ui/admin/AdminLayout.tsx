@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
@@ -13,6 +13,9 @@ import { PageCrumb } from "./topbar/PageCrumb";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import type { AdminRole } from "@/domain/admin-user";
 import { bottomNavItemsFor, canOpen, fitsBottomNav, HOME_PATH, moreItemsFor, navGroupsFor } from "./navigation";
+import { AdminViewProvider, useAdminView } from "./admin-view";
+import { PreviewBanner, SidebarPreviewEntry } from "./preview/PreviewControls";
+import { usePreviewSubmitGuard } from "./preview/usePreviewSubmitGuard";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
@@ -99,7 +102,8 @@ function Brand({ stacked = false }: { stacked?: boolean }) {
 }
 
 /** Menu lateral fixo à esquerda, do tablet para cima. */
-function Sidebar({ role }: { role: AdminRole }) {
+/** `canPreview`: a desenvolvedora tem o atalho para ver o painel como o Jota. */
+function Sidebar({ role, canPreview }: { role: AdminRole; canPreview: boolean }) {
   const reduceMotion = useReducedMotion();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
@@ -136,7 +140,8 @@ function Sidebar({ role }: { role: AdminRole }) {
           </div>
         ))}
       </nav>
-      <div className="border-t border-line p-3">
+      <div className="space-y-1 border-t border-line p-3">
+        {canPreview && <SidebarPreviewEntry />}
         <SiteLink />
       </div>
     </aside>
@@ -239,23 +244,29 @@ function BottomNav({ role }: { role: AdminRole }) {
 /** Rotas do sistema. Com o Supabase ligado, exigem login de administrador. */
 export function AdminProtected() {
   const { state } = useAdminSession();
+  const { previewing, viewRole } = useAdminView();
   const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  usePreviewSubmitGuard(previewing, mainRef);
   const editing = matchesAny([...EDITOR_ROUTES, ...WIDE_EDITOR_ROUTES], location.pathname);
   const formPage = matchesAny(FORM_ROUTES, location.pathname);
 
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;
   // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
   if (state.status !== "signed-in") return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
-  const { role } = state.session;
+  // No modo visualização a desenvolvedora navega pelo painel do Jota.
+  const role = viewRole ?? state.session.role;
   // Cada um só abre o que é dele: endereço digitado ou link antigo de outra seção volta para o início.
   if (!canOpen(role, location.pathname)) return <Navigate to={HOME_PATH} replace />;
 
   return (
     <>
-      <Sidebar role={role} />
+      <Sidebar role={role} canPreview={state.session.role === "developer"} />
       <div className="md:pl-60">
+        {previewing && <PreviewBanner />}
         <TopBar role={role} />
         <main
+          ref={mainRef}
           id="conteudo"
           className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}
         >
@@ -273,13 +284,15 @@ export function AdminRoot() {
   useNoIndex();
   return (
     <AdminSessionProvider>
-      <ToastProvider>
-        <div className="min-h-screen bg-ink">
-          <Suspense fallback={<LoadingBlock />}>
-            <Outlet />
-          </Suspense>
-        </div>
-      </ToastProvider>
+      <AdminViewProvider>
+        <ToastProvider>
+          <div className="min-h-screen bg-ink">
+            <Suspense fallback={<LoadingBlock />}>
+              <Outlet />
+            </Suspense>
+          </div>
+        </ToastProvider>
+      </AdminViewProvider>
     </AdminSessionProvider>
   );
 }

@@ -1517,6 +1517,28 @@ async function supportChecks() {
     await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`delete from public.support_tickets where id = $1`, [ticket.id])), /permission denied/),
     "chamado não é apagado: o histórico fica",
   );
+
+  console.log("\nmodo visualização da desenvolvedora");
+  const secretCustomer = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.customers (name, email, document) values ('Cliente Sigiloso', 'sigilo@exemplo.com', '52998224725') returning id`),
+  );
+  const customerId = secretCustomer.rows[0].id;
+  const documentOf = (fn) => fn(() => db.query(`select c.document_plain as document from public.customers c where id = $1`, [customerId]));
+  check((await documentOf((q) => as("authenticated", ADMIN_ID, q))).rows[0].document === "52998224725", "Jota continua lendo o CPF do cliente");
+  const devCustomer = await documentOf(asDeveloper);
+  check(devCustomer.rows.length === 1 && devCustomer.rows[0].document === null, "desenvolvedora vê o cliente, mas o CPF volta vazio");
+
+  const devOrders = await asDeveloper(() => db.query(`select o.customer_document_plain as document from public.orders o where o.customer_document_encrypted is not null`));
+  check(devOrders.rows.length > 0 && devOrders.rows.every((row) => row.document === null), "CPF dos pedidos volta vazio para a desenvolvedora");
+
+  const vault = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.email_accounts (email, password) values ('sigilo.conta@gmail.com', 'S3nhaSecreta') returning id`),
+  );
+  const vaultId = vault.rows[0].id;
+  const passwordOf = (fn) => fn(() => db.query(`select e.password_plain as password, e.has_password from public.email_accounts e where id = $1`, [vaultId]));
+  check((await passwordOf((q) => as("authenticated", ADMIN_ID, q))).rows[0].password === "S3nhaSecreta", "Jota continua abrindo a senha do e-mail");
+  const devVault = (await passwordOf(asDeveloper)).rows[0];
+  check(devVault?.password === null && devVault.has_password === true, "desenvolvedora sabe que há senha, mas não a lê");
 }
 
 main().catch((error) => {

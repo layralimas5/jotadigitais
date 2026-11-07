@@ -142,6 +142,8 @@ interface SegmentedOption<T extends string> {
   value: T;
   label: string;
   icon?: ReactNode;
+  /** Classes da opção escolhida, para escolhas com cor própria (ex.: prioridade). Sem ela, o azul padrão. */
+  selectedClassName?: string;
 }
 
 interface SegmentedFieldProps<T extends string> {
@@ -167,7 +169,7 @@ export function SegmentedField<T extends string>({ legend, name, value, options,
             className={cn(
               "flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-electric",
               value === option.value
-                ? "border-electric bg-electric/10 text-white"
+                ? (option.selectedClassName ?? "border-electric bg-electric/10 text-white")
                 : "border-line-strong text-mist hover:border-white/25 hover:text-white",
             )}
           >

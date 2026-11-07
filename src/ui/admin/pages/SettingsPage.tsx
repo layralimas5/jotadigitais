@@ -45,7 +45,8 @@ export default function SettingsPage() {
           <DemoPasswordNotice />
         )}
         <MfaSection />
-        <BackupSection />
+        {/* O backup baixa os dados da loja inteira: é do Jota. */}
+        {session.role === "admin" && <BackupSection />}
       </div>
     </>
   );

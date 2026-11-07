@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { container } from "@/app/container";
+import { useAdminDeps } from "../admin-view";
 import { dismissNotifications, loadNotifications } from "@/application/workspace-use-cases";
 import type { AppNotification } from "@/domain/notification";
 
@@ -12,6 +12,7 @@ type State = { status: "loading" } | { status: "ready"; items: AppNotification[]
  * Apagar some na hora da tela; se o servidor recusar, o aviso volta e `onError` é chamado.
  */
 export function useNotifications(onError: (message: string) => void) {
+  const deps = useAdminDeps();
   const [state, setState] = useState<State>({ status: "loading" });
   const mounted = useRef(true);
   const onErrorRef = useRef(onError);
@@ -22,13 +23,13 @@ export function useNotifications(onError: (message: string) => void) {
 
   const refresh = useCallback(async () => {
     try {
-      const items = await loadNotifications(container.admin);
+      const items = await loadNotifications(deps);
       if (mounted.current) setState({ status: "ready", items });
     } catch (error) {
       console.error("Falha ao carregar as notificações", error);
       if (mounted.current) setState((current) => (current.status === "ready" ? current : { status: "error" }));
     }
-  }, []);
+  }, [deps]);
 
   useEffect(() => {
     mounted.current = true;
@@ -49,14 +50,14 @@ export function useNotifications(onError: (message: string) => void) {
       const previous = state.items;
       setState({ status: "ready", items: previous.filter((item) => !keys.includes(item.key)) });
       try {
-        await dismissNotifications(container.admin, keys);
+        await dismissNotifications(deps, keys);
       } catch (error) {
         console.error("Falha ao apagar notificação", error);
         if (mounted.current) setState({ status: "ready", items: previous });
         onErrorRef.current("Não foi possível apagar agora. Tente de novo.");
       }
     },
-    [state],
+    [state, deps],
   );
 
   return { state, refresh, dismiss };

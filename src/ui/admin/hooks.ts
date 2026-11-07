@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { container } from "@/app/container";
 import { getMessageTemplates, type AdminDeps } from "@/application/admin-use-cases";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
 import { useAsync } from "@/ui/hooks/useAsync";
-
-const { admin } = container;
+import { useAdminView } from "./admin-view";
 
 /** Leitura do painel. `reload` busca de novo sem apagar o que já está na tela. */
 export function useAdminQuery<T>(load: (deps: AdminDeps) => Promise<T>, key: string) {
-  const state = useAsync(() => load(admin), key, { keepPrevious: true });
+  const { deps, previewing } = useAdminView();
+  // Entrar ou sair do modo visualização busca tudo de novo, com ou sem máscara.
+  const state = useAsync(() => load(deps), previewing ? `${key}:preview` : key, { keepPrevious: true });
   return { ...state, reload: state.retry };
 }
 
@@ -27,11 +27,14 @@ function toError(reason: unknown): Error {
 /** Gravação do painel com estado de envio e erro. Devolve `undefined` quando falha (o erro fica no estado). */
 export function useMutation<A extends unknown[], R>(action: (deps: AdminDeps, ...args: A) => Promise<R>) {
   const [state, setState] = useState<MutationState>({ status: "idle" });
+  const { deps } = useAdminView();
   const actionRef = useRef(action);
+  const depsRef = useRef(deps);
   const mounted = useRef(true);
 
   useEffect(() => {
     actionRef.current = action;
+    depsRef.current = deps;
   });
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function useMutation<A extends unknown[], R>(action: (deps: AdminDeps, ..
   const run = useCallback(async (...args: A): Promise<R | undefined> => {
     setState({ status: "pending" });
     try {
-      const result = await actionRef.current(admin, ...args);
+      const result = await actionRef.current(depsRef.current, ...args);
       if (mounted.current) setState({ status: "idle" });
       return result;
     } catch (reason) {
