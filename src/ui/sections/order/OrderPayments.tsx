@@ -113,7 +113,7 @@ function CardPayment({ order, payment }: { order: Order; payment: OrderPayment }
       <p className="text-sm text-fog">
         {payment.requestedInstallments
           ? `Você vai para o checkout seguro da InfinitePay. Lá, escolha ${installmentsLabel(payment.requestedInstallments)}, como no pedido, e volte para cá depois de pagar.`
-          : "Você vai para o checkout seguro da InfinitePay, escolhe as parcelas (até 12x) e volta para cá depois de pagar."}
+          : "Você vai para o checkout seguro da InfinitePay, escolhe em quantas vezes quer pagar e volta para cá depois de pagar."}
       </p>
       <Button
         type="button"
