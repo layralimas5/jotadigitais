@@ -702,6 +702,7 @@ async function main() {
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
+  await helperChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1726,6 +1727,134 @@ async function supportChecks() {
   check((await passwordOf((q) => as("authenticated", ADMIN_ID, q))).rows[0].password === "S3nhaSecreta", "Jota continua abrindo a senha do e-mail");
   const devVault = (await passwordOf(asDeveloper)).rows[0];
   check(devVault?.password === null && devVault.has_password === true, "desenvolvedora sabe que há senha, mas não a lê");
+}
+
+const HELPER_ID = "00000000-0000-0000-0000-00000000e004";
+const HELPER_SESSION = "00000000-0000-0000-0000-0000000005e4";
+
+/** Ajudante: só lê e escreve nas áreas que o admin liberou; o resto da loja fica fechado. */
+async function helperChecks() {
+  console.log("\najudantes e permissões");
+  await db.exec(`
+    insert into auth.users (id, email) values ('${HELPER_ID}', 'ajudante@exemplo.com');
+    insert into public.admin_users (user_id, name, role, permissions) values ('${HELPER_ID}', 'Ajudante', 'helper', '{accounts,orders}');
+    insert into auth.sessions (id, user_id) values ('${HELPER_SESSION}', '${HELPER_ID}');
+  `);
+  const asHelper = (fn) => as("authenticated", HELPER_ID, fn, { sessionId: HELPER_SESSION });
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const count = async (fn, sql, params = []) => (await fn(() => db.query(sql, params))).rows.length;
+
+  const flags = (
+    await asHelper(() =>
+      db.query(`select public.is_admin() as admin, public.is_staff() as staff, public.current_admin_role() as role,
+                       public.has_permission('accounts') as accounts, public.has_permission('finance') as finance`),
+    )
+  ).rows[0];
+  check(flags.staff === true && flags.admin === false && flags.role === "helper", "ajudante entra no sistema, mas não tem acesso completo");
+  check(flags.accounts === true && flags.finance === false, "ajudante tem só as áreas liberadas");
+  check((await count(asHelper, `select 1 from public.admin_users`)) === 1, "ajudante lê só a própria linha de usuário (o login precisa dela)");
+  check(await rejects(() => asHelper(() => db.query(`select * from public.list_admin_users()`)), /forbidden/), "ajudante não vê a lista de usuários");
+
+  // Contas: liberado
+  const account = await asHelper(() =>
+    db.query(
+      `insert into public.accounts (slug, platform, display_name, handle, followers, price_cents, stats)
+       values ('conta-do-ajudante', 'tiktok', 'Conta do Ajudante', '@ajudante', 2000, 40000, $1) returning id`,
+      [tiktokStats],
+    ),
+  );
+  check(account.rows.length === 1, "ajudante com Contas cadastra conta");
+  const accountId = account.rows[0].id;
+  const edited = await asHelper(() => db.query(`update public.accounts set price_cents = 42000 where id = $1 returning id`, [accountId]));
+  check(edited.rows.length === 1, "ajudante com Contas edita conta");
+  const photo = await asHelper(() => db.query(`insert into storage.objects (bucket_id, name) values ('media', 'accounts/ajudante.webp') returning id`));
+  check(photo.rows.length === 1, "ajudante com Contas sobe foto da conta");
+
+  // Pedidos: liberado (confirma Pix, entrega e lê a mensagem pronta)
+  const placed = await as("anon", null, () =>
+    db.query(
+      `select public.place_order($1, 'Cliente do Ajudante', null, '84977770001', $2, null, null, null, null, 'pix', ${CONSENT}, 'instagram', null, null, 120) as data`,
+      [accountId, cpfFrom("515151515")],
+    ),
+  );
+  const order = placed.rows[0].data;
+  check((await count(asHelper, `select 1 from public.orders where code = $1`, [order.code])) === 1, "ajudante com Pedidos vê o pedido");
+  const paid = await asHelper(() =>
+    db.query(`update public.order_payments set status = 'paid' where id = $1 and method = 'pix' returning id`, [order.payments[0].id]),
+  );
+  check(paid.rows.length === 1, "ajudante com Pedidos confirma o Pix");
+  const delivered = await asHelper(() => db.query(`update public.orders set status = 'delivered' where code = $1 returning status`, [order.code]));
+  check(delivered.rows[0]?.status === "delivered", "ajudante com Pedidos marca como entregue");
+  const cpf = (await asHelper(() => db.query(`select o.customer_document_plain as document from public.orders o where code = $1`, [order.code]))).rows[0];
+  check(cpf !== undefined && cpf.document === null, "CPF do cliente volta vazio para o ajudante");
+  check((await count(asHelper, `select 1 from public.message_templates`)) > 0, "ajudante com Pedidos lê as mensagens prontas para mandar ao cliente");
+  const templateEdit = await asHelper(() => db.query(`update public.message_templates set body = body returning 1`));
+  check(templateEdit.rows.length === 0, "ajudante sem Automação não edita as mensagens prontas");
+
+  // Fechado: financeiro, clientes, parceiros, CRM, cofre de e-mails, site, suporte, auditoria
+  check((await count(asHelper, `select 1 from public.revenues`)) === 0, "ajudante sem Financeiro não vê receitas");
+  check((await count(asHelper, `select 1 from public.expenses`)) === 0, "ajudante sem Financeiro não vê despesas");
+  const expenseEdit = await asHelper(() => db.query(`update public.expenses set description = description returning 1`));
+  check(expenseEdit.rows.length === 0, "ajudante sem Financeiro não mexe em despesa");
+  check((await count(asHelper, `select 1 from public.customers`)) === 0, "ajudante sem Clientes não vê clientes");
+  check((await count(asHelper, `select 1 from public.partners`)) === 0, "ajudante sem Parceiros não vê parceiros");
+  check((await count(asHelper, `select 1 from public.leads`)) === 0, "ajudante sem CRM não vê leads");
+  check((await count(asHelper, `select 1 from public.email_accounts`)) === 0, "ajudante sem E-mails não vê o cofre");
+  check((await count(asHelper, `select 1 from public.support_tickets`)) === 0, "ajudante não vê o suporte");
+  check((await count(asHelper, `select 1 from public.audit_events`)) === 0, "ajudante não vê a auditoria");
+  check((await count(asHelper, `select 1 from public.data_requests`)) === 0, "ajudante não vê pedidos de LGPD");
+  const siteEdit = await asHelper(() => db.query(`update public.store_settings set guarantee_days = guarantee_days returning 1`));
+  check(siteEdit.rows.length === 0, "ajudante sem Site não muda as configurações da loja");
+  check((await count(asHelper, `select 1 from public.notifications where kind <> 'order'`)) === 0, "sininho do ajudante só mostra pedido novo");
+  await asHelper(() => db.query(`select public.update_my_profile('Ajudante Novo')`));
+  const renamed = await db.query(`select name from public.admin_users where user_id = $1`, [HELPER_ID]);
+  check(renamed.rows[0].name === "Ajudante Novo", "ajudante muda o próprio nome");
+
+  // O admin libera e tira áreas
+  check(
+    await rejects(() => asHelper(() => db.query(`select public.set_admin_user_access($1, 'admin', '{}')`, [HELPER_ID])), /forbidden|self/),
+    "ajudante não muda o próprio acesso",
+  );
+  await asAdmin(() => db.query(`select public.set_admin_user_access($1, 'helper', '{emails}')`, [HELPER_ID]));
+  const vault = await asAdmin(() =>
+    db.query(`insert into public.email_accounts (email, password) values ('cofre.ajudante@gmail.com', 'SenhaDoCofre1') returning id`),
+  );
+  const opened = (await asHelper(() => db.query(`select e.password_plain as password from public.email_accounts e where id = $1`, [vault.rows[0].id]))).rows[0];
+  check(opened?.password === "SenhaDoCofre1", "liberado E-mails, o ajudante abre a senha do cofre");
+  check((await count(asHelper, `select 1 from public.orders`)) === 0, "tirado Pedidos, o ajudante para de ver os pedidos na hora");
+  const listed = (await asAdmin(() => db.query(`select role, permissions from public.list_admin_users() where user_id = $1`, [HELPER_ID]))).rows[0];
+  check(listed?.role === "helper" && listed.permissions.join() === "emails", "lista de usuários mostra papel e áreas do ajudante");
+
+  check(await rejects(() => asAdmin(() => db.query(`select public.set_admin_user_access($1, 'helper', '{}')`, [ADMIN_ID])), /self/), "admin não rebaixa a si mesmo");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.set_admin_user_access($1, 'helper', '{}')`, [DEVELOPER_ID])), /forbidden/),
+    "papel da desenvolvedora não muda por aqui",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.set_admin_user_access($1, 'helper', '{tudo}')`, [HELPER_ID])), /check constraint|violates/),
+    "área que não existe é recusada",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.set_admin_user_access($1, 'developer', '{}')`, [HELPER_ID])), /invalid/),
+    "ninguém vira desenvolvedora por aqui",
+  );
+
+  // Promover e rebaixar
+  await asAdmin(() => db.query(`select public.set_admin_user_access($1, 'admin', '{orders}')`, [HELPER_ID]));
+  const promoted = (await db.query(`select role, permissions from public.admin_users where user_id = $1`, [HELPER_ID])).rows[0];
+  check(promoted.role === "admin" && promoted.permissions.length === 0, "virar admin dá acesso completo e limpa as áreas");
+  check((await asHelper(() => db.query(`select public.is_admin() as ok`))).rows[0].ok === true, "admin promovido passa a ver tudo");
+  await asHelper(() => db.query(`select public.set_admin_user_access($1, 'helper', '{}')`, [ADMIN_ID]));
+  check((await db.query(`select role from public.admin_users where user_id = $1`, [ADMIN_ID])).rows[0].role === "helper", "com outro admin no sistema, um admin pode virar ajudante");
+  // Volta ao começo (Jota admin, ajudante com Pedidos) e confere a trava do último admin.
+  await db.query(`update public.admin_users set role = 'admin', permissions = '{}' where user_id = $1`, [ADMIN_ID]);
+  await db.query(`update public.admin_users set role = 'helper', permissions = '{orders}' where user_id = $1`, [HELPER_ID]);
+  const asDeveloper = (fn) => as("authenticated", DEVELOPER_ID, fn, { sessionId: DEVELOPER_SESSION });
+  check(
+    await rejects(() => asDeveloper(() => db.query(`select public.set_admin_user_access($1, 'helper', '{}')`, [ADMIN_ID])), /last/),
+    "o último admin não pode virar ajudante",
+  );
+  await db.query(`update public.admin_users set role = 'admin', permissions = '{}' where user_id = $1`, [ADMIN_ID]);
 }
 
 main().catch((error) => {

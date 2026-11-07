@@ -34,10 +34,23 @@ function json(body: unknown, status = 200): Response {
 
 const failWith = (code: ErrorCode) => json({ error: code }, STATUS[code]);
 
+/** Áreas que o ajudante pode receber. Mesma lista da constraint de admin_users.permissions. */
+const PERMISSIONS = new Set(["accounts", "emails", "orders", "customers", "partners", "crm", "automation", "finance", "site"]);
+
 interface CreateInput {
   name: string;
   email: string;
   password: string;
+  role: "admin" | "helper";
+  permissions: string[];
+}
+
+function parseAccess(body: Record<string, unknown>): Pick<CreateInput, "role" | "permissions"> | null {
+  const role = body.role === undefined ? "admin" : body.role;
+  if (role !== "admin" && role !== "helper") return null;
+  const raw = body.permissions === undefined ? [] : body.permissions;
+  if (!Array.isArray(raw) || !raw.every((item) => typeof item === "string" && PERMISSIONS.has(item))) return null;
+  return { role, permissions: role === "helper" ? [...new Set(raw as string[])] : [] };
 }
 
 /** Mesmas regras do newAdminUserSchema do painel. */
@@ -48,11 +61,13 @@ function parseCreate(body: Record<string, unknown>): CreateInput | null {
   if (name.length < 2 || name.length > 80) return null;
   if (!EMAIL_PATTERN.test(email) || email.length > 254) return null;
   if (!isStrongPassword(password)) return null;
-  return { name, email, password };
+  const access = parseAccess(body);
+  return access ? { name, email, password, ...access } : null;
 }
 
+/** Quem tem acesso completo da loja (papel admin): o sistema nunca fica sem nenhum. */
 async function adminCount(service: SupabaseClient): Promise<number> {
-  const { count, error } = await service.from("admin_users").select("user_id", { count: "exact", head: true });
+  const { count, error } = await service.from("admin_users").select("user_id", { count: "exact", head: true }).eq("role", "admin");
   if (error) throw error;
   return count ?? 0;
 }
@@ -72,8 +87,8 @@ async function createUser(service: SupabaseClient, input: CreateInput): Promise<
   const user = data.user;
   const { data: row, error: insertError } = await service
     .from("admin_users")
-    .insert({ user_id: user.id, name: input.name })
-    .select("user_id, name, role, created_at")
+    .insert({ user_id: user.id, name: input.name, role: input.role, permissions: input.permissions })
+    .select("user_id, name, role, permissions, created_at")
     .single();
   if (insertError) {
     console.error(insertError);
@@ -86,7 +101,10 @@ async function createUser(service: SupabaseClient, input: CreateInput): Promise<
 async function removeUser(service: SupabaseClient, callerId: string, userId: unknown): Promise<Response> {
   if (typeof userId !== "string" || userId.length === 0) return failWith("invalid");
   if (userId === callerId) return failWith("self");
-  if ((await adminCount(service)) <= 1) return failWith("last");
+  const { data: target, error: targetError } = await service.from("admin_users").select("role").eq("user_id", userId).maybeSingle();
+  if (targetError) throw targetError;
+  if (!target) return failWith("not_found");
+  if (target.role === "admin" && (await adminCount(service)) <= 1) return failWith("last");
   // Apagar no Auth leva junto a linha de admin_users (on delete cascade).
   const { error } = await service.auth.admin.deleteUser(userId);
   if (error) {

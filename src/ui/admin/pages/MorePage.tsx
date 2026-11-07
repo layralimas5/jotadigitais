@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { PageHeader } from "../components/AdminUi";
 import { moreItemsFor, SUPPORT_PATH } from "../navigation";
 import { AttentionCount, useSupportAttention } from "../support/SupportAttention";
-import { useViewRole } from "../admin-view";
+import { useViewAccess } from "../admin-view";
 
 const rowClass =
   "flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.03] active:bg-white/[0.05] focus-visible:bg-white/[0.05] focus-visible:outline-none";
@@ -24,8 +24,8 @@ function Row({ icon, title, description, trailing }: { icon: ReactNode; title: s
 
 /** No celular, as seções que não cabem na barra de baixo. */
 export default function MorePage() {
-  const role = useViewRole();
-  const items = role ? moreItemsFor(role) : [];
+  const access = useViewAccess();
+  const items = access ? moreItemsFor(access) : [];
   const attention = useSupportAttention();
   return (
     <div className="space-y-6">

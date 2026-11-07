@@ -23,11 +23,12 @@ import type {
   TestimonialRepository,
 } from "@/application/ports";
 import { effectiveStatus, isPurchasable, type Account, type AccountData } from "@/domain/account";
-import { sameEmail, type AdminUser, type NewAdminUser } from "@/domain/admin-user";
+import { sameEmail, type AdminRole, type AdminUser, type AdminUserAccess, type NewAdminUser, type StaffPermission } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
   AdminUserEmailTakenError,
+  CannotChangeAccessError,
   CannotRemoveAdminUserError,
   CustomerEmailTakenError,
   CustomerNotFoundError,
@@ -745,6 +746,7 @@ const DEMO_OWNER: AdminUser = {
   name: "Jota",
   email: "jota@jotadigitais.com.br",
   role: "admin",
+  permissions: [],
   createdAt: "2026-10-09T12:00:00.000Z",
   lastSignInAt: null,
 };
@@ -753,8 +755,14 @@ export class DemoAdminUserRepository implements AdminUserRepository {
   constructor(private readonly db: DemoDatabase) {}
 
   private users(state: DemoState): AdminUser[] {
-    // Dados locais de antes do papel existir chegam sem ele.
-    return (state.adminUsers ?? [DEMO_OWNER]).map((user) => ({ ...user, role: user.role ?? "admin" }));
+    // Dados locais de antes do papel e das áreas existirem chegam sem eles.
+    return (state.adminUsers ?? [DEMO_OWNER]).map((user) => ({ ...user, role: user.role ?? "admin", permissions: user.permissions ?? [] }));
+  }
+
+  /** O login do modo demonstração usa para abrir o painel com o papel de quem foi cadastrado aqui. */
+  accessOf(email: string): { role: AdminRole; permissions: StaffPermission[] } | null {
+    const user = this.users(this.db.read()).find((item) => sameEmail(item.email, email));
+    return user ? { role: user.role, permissions: user.permissions } : null;
   }
 
   async listAll(): Promise<AdminUser[]> {
@@ -771,7 +779,8 @@ export class DemoAdminUserRepository implements AdminUserRepository {
         id: newId("usr"),
         name: input.name,
         email: input.email,
-        role: "admin",
+        role: input.role,
+        permissions: input.permissions,
         createdAt: new Date().toISOString(),
         lastSignInAt: null,
       };
@@ -780,11 +789,25 @@ export class DemoAdminUserRepository implements AdminUserRepository {
     });
   }
 
+  async setAccess(id: string, access: AdminUserAccess): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const users = this.users(state);
+      const target = users.find((user) => user.id === id);
+      if (!target) throw new Error("Esse usuário não existe mais no sistema. Atualize a lista.");
+      if (target.role === "developer") throw new CannotChangeAccessError("developer");
+      const otherAdmins = users.filter((user) => user.role === "admin" && user.id !== id);
+      if (target.role === "admin" && access.role === "helper" && otherAdmins.length === 0) throw new CannotChangeAccessError("last");
+      state.adminUsers = users.map((user) => (user.id === id ? { ...user, ...access } : user));
+    });
+  }
+
   async remove(id: string): Promise<void> {
     await simulateLatency();
     this.db.write((state) => {
       const users = this.users(state);
-      if (users.length <= 1) throw new CannotRemoveAdminUserError("last");
+      const target = users.find((user) => user.id === id);
+      if (target?.role === "admin" && users.filter((user) => user.role === "admin").length <= 1) throw new CannotRemoveAdminUserError("last");
       state.adminUsers = users.filter((user) => user.id !== id);
     });
   }

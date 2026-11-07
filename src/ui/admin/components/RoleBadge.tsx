@@ -4,6 +4,7 @@ import { cn } from "@/ui/lib/cn";
 const TONE: Record<AdminRole, string> = {
   admin: "border-amber-300/40 bg-amber-300/10 text-amber-200",
   developer: "border-pink/40 bg-pink/10 text-pink",
+  helper: "border-electric/40 bg-electric/10 text-electric-soft",
 };
 
 export function RoleBadge({ role, className }: { role: AdminRole; className?: string }) {

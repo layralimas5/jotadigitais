@@ -9,7 +9,7 @@ import type {
   ProfileUpdateResult,
   UploadedImage,
 } from "@/application/ports";
-import type { AdminRole } from "@/domain/admin-user";
+import type { AdminRole, StaffPermission } from "@/domain/admin-user";
 import { InvalidMfaCodeError } from "@/domain/errors";
 
 const AUTH_KEY = "jota:demo-auth";
@@ -57,8 +57,13 @@ function writeKey(key: string, value: string) {
  * o painel abre direto e "Sair" leva para a tela de login, que aceita qualquer e-mail.
  * Com o Supabase ligado, o login de verdade assume.
  */
+/** Papel e áreas de quem foi cadastrado na aba Usuários do modo demonstração. */
+export type DemoAccessLookup = (email: string) => { role: AdminRole; permissions: StaffPermission[] } | null;
+
 export class DemoAuthService implements AuthService {
   private readonly listeners = new Set<Listener>();
+
+  constructor(private readonly lookupAccess?: DemoAccessLookup) {}
 
   async getState(): Promise<AuthState> {
     return this.readState();
@@ -132,8 +137,15 @@ export class DemoAuthService implements AuthService {
 
   private sessionOf(email: string): AdminSession {
     const known = KNOWN_PEOPLE[email.trim().toLowerCase()];
+    const registered = this.lookupAccess?.(email) ?? null;
     const name = readKey(nameKeyOf(email)) ?? known?.name ?? null;
-    return { email, name, role: known?.role ?? "admin", recoveringPassword: false };
+    return {
+      email,
+      name,
+      role: known?.role ?? registered?.role ?? "admin",
+      permissions: known ? [] : (registered?.permissions ?? []),
+      recoveringPassword: false,
+    };
   }
 
   private storeEmail(value: string) {

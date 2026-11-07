@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAccount, findAccount, listPartners, saveAccount } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
+import { helperCan } from "@/domain/admin-user";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
@@ -32,6 +33,7 @@ import {
 import { useAdminQuery, useMutation } from "../hooks";
 import { formatPercent } from "../lib/percent";
 import { useToast } from "../toast";
+import { useViewAccess } from "../admin-view";
 
 const STATUS_OPTIONS = ACCOUNT_STATUSES.map((value) => ({ value, label: ACCOUNT_STATUS_LABEL[value] }));
 const platformOption = (value: Platform) => ({
@@ -261,6 +263,19 @@ function LivePreview({ values, accountId }: { values: AccountFormValues; account
 const OWN_STOCK_OPTION = { value: "", label: "Da loja (sem parceiro)" };
 
 /** Parceiros ativos, mais o atual mesmo que tenha sido desativado, para não sumir da conta sem querer. */
+/** Ajudante sem a área Parceiros não vê a lista (pix e comissões): o parceiro já escolhido continua salvo na conta. */
+function PartnerField({ value, onChange }: { value: string; onChange: (partnerId: string) => void }) {
+  const access = useViewAccess();
+  if (access?.role === "helper" && !helperCan(access, "partners")) {
+    return (
+      <p className="rounded-xl border border-line bg-ink/50 px-4 py-3 text-xs text-mist">
+        {value ? "Esta conta é de um parceiro. Só o admin troca o parceiro." : "O parceiro da conta é definido pelo admin."}
+      </p>
+    );
+  }
+  return <PartnerSelect value={value} onChange={onChange} />;
+}
+
 function PartnerSelect({ value, onChange }: { value: string; onChange: (partnerId: string) => void }) {
   const partners = useAdminQuery(listPartners, "account-partners");
   if (partners.status !== "success") {
@@ -422,7 +437,7 @@ function AccountEditor({ account }: { account: Account | null }) {
               <SelectField label="Status" name="status" value={values.status} options={STATUS_OPTIONS} onChange={(event) => set("status", event.target.value as AccountStatus)} />
               <TextField label="Anunciada em" name="listedAt" type="date" value={values.listedAt} onChange={(event) => set("listedAt", event.target.value)} error={errors.listedAt} />
             </div>
-            <PartnerSelect value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
+            <PartnerField value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
 
           <AccountPageSection values={values} errors={errors} set={set} accountId={account?.id ?? "preview"} />
