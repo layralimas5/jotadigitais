@@ -124,6 +124,13 @@ export interface SupportTicket extends SupportTicketData {
   labelId: string | null;
   /** Trocas de situação, da mais antiga para a mais nova. */
   events: SupportStatusEvent[];
+  /** Última vez que cada pessoa abriu o chamado. */
+  views: SupportView[];
+}
+
+export interface SupportView {
+  role: AdminRole;
+  seenAt: string;
 }
 
 /** Chamado interno é da desenvolvedora: não aparece para o Jota (nem no "ver como o Jota"). */
@@ -337,4 +344,45 @@ export function orderTickets(tickets: readonly SupportTicket[], sort: SupportSor
   const byAge = (a: SupportTicket, b: SupportTicket) =>
     sort === "oldest" ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt);
   return [...tickets].sort((a, b) => statusWeight(a.status) - statusWeight(b.status) || byAge(a, b));
+}
+
+// ---------------------------------------------------------------------------
+// Visto: cada pessoa vê se o outro lado já abriu o chamado depois da mensagem dela.
+// ---------------------------------------------------------------------------
+
+/** Com quem a pessoa conversa no suporte: a Lay com o Jota e o Jota com a Lay. */
+export const counterpartOf = (role: AdminRole): AdminRole => (role === "developer" ? "admin" : "developer");
+
+export const SUPPORT_ROLE_NAME: Record<AdminRole, string> = { developer: "Layra", admin: "Jota" };
+
+/** Última vez que alguém com esse papel abriu o chamado; nulo quando nunca abriu. */
+export function seenAtBy(ticket: Pick<SupportTicket, "views">, role: AdminRole): string | null {
+  const dates = ticket.views.filter((view) => view.role === role).map((view) => view.seenAt);
+  return dates.length ? dates.reduce((latest, date) => (Date.parse(date) > Date.parse(latest) ? date : latest)) : null;
+}
+
+/** A mensagem enviada em `sentAt` já foi vista por quem tem esse papel? */
+export function wasSeenBy(ticket: Pick<SupportTicket, "views">, role: AdminRole, sentAt: string): boolean {
+  const seenAt = seenAtBy(ticket, role);
+  return seenAt !== null && Date.parse(seenAt) >= Date.parse(sentAt);
+}
+
+/** O que vira aviso no sininho do Jota quando a Lay escolhe avisar. */
+export type SupportNotifyEvent = "opened" | "replied";
+
+/** Só a Lay avisa o Jota, e só em chamado que ele vê. */
+export const canNotifyAdmin = (ticket: Pick<SupportTicket, "internal">, role: AdminRole): boolean => role === "developer" && !ticket.internal;
+
+/** Hora da última mensagem desta pessoa (o próprio chamado conta como a primeira); nula se ela não escreveu. */
+export function lastMessageAtFrom(ticket: Pick<SupportTicket, "author" | "createdAt" | "replies">, role: AdminRole): string | null {
+  const replies = ticket.replies.filter((reply) => reply.author?.role === role);
+  const last = replies.at(-1);
+  if (last) return last.createdAt;
+  return ticket.author?.role === role ? ticket.createdAt : null;
+}
+
+/** Tem coisa da outra pessoa que quem está vendo ainda não abriu? */
+export function hasUnseenFrom(ticket: SupportTicket, viewer: AdminRole): boolean {
+  const theirs = lastMessageAtFrom(ticket, counterpartOf(viewer));
+  return theirs !== null && !wasSeenBy(ticket, viewer, theirs);
 }

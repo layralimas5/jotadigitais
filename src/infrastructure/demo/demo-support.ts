@@ -17,6 +17,9 @@ import {
   isVisibleTo,
   type SupportLabel,
   type SupportLabelData,
+  type SupportNotifyEvent,
+  type SupportView,
+  hasUnseenFrom,
   type SupportStatusEvent,
   type SupportAttachment,
   type SupportAuthor,
@@ -27,7 +30,16 @@ import {
   type SupportTicketData,
   type SupportUpload,
 } from "@/domain/support-ticket";
+import type { StoredNotification } from "@/domain/notification";
+import type { AdminRole } from "@/domain/admin-user";
 import { newId, simulateLatency, type DemoDatabase } from "./demo-database";
+import { MAX_NOTIFICATIONS, notificationsOf } from "./demo-repositories";
+
+/** Troca a última vez que esse papel viu o chamado. */
+const withView = (views: readonly SupportView[], role: AdminRole, seenAt: string): SupportView[] => [
+  ...views.filter((view) => view.role !== role),
+  { role, seenAt },
+];
 
 const statusEvent = (from: SupportStatus | null, to: SupportStatus, author: SupportAuthor | null, at: string): SupportStatusEvent => ({
   id: newId("evt"),
@@ -82,6 +94,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       attachments: this.store(uploads, null),
       labelId: null,
       events: [],
+      views: [{ role: (await this.currentAuthor()).role, seenAt: now }],
     };
     this.db.write((state) => {
       state.supportTickets = [ticket, ...(state.supportTickets ?? [])];
@@ -103,6 +116,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
         events: reopens ? [...ticket.events, statusEvent("waiting", "open", null, reply.createdAt)] : ticket.events,
         replies: [...ticket.replies, reply],
         attachments: [...ticket.attachments, ...attachments],
+        views: withView(ticket.views, author.role, reply.createdAt),
         updatedAt: reply.createdAt,
       };
     });
@@ -125,6 +139,44 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
             events: [...ticket.events, statusEvent(ticket.status, status, author, now)],
           },
     );
+  }
+
+  /** Mesma regra da função mark_support_ticket_seen do banco. */
+  async markSeen(ticketId: string, notify: boolean): Promise<void> {
+    const viewer = await this.currentAuthor();
+    const now = new Date().toISOString();
+    const before = (await this.findById(ticketId)) ?? null;
+    if (!before) throw new SupportTicketNotFoundError();
+    const hasNews = notify && viewer.role === "developer" && hasUnseenFrom(before, "developer");
+    this.updateTicket(ticketId, (ticket) => ({ ...ticket, views: withView(ticket.views, viewer.role, now) }));
+    if (hasNews) this.notifyJota(before, `Layra viu: ${before.title}`, "Ela já está por dentro do que você mandou.");
+  }
+
+  async notifyAdmin(ticketId: string, event: SupportNotifyEvent): Promise<void> {
+    const author = await this.currentAuthor();
+    if (author.role !== "developer") throw new SupportStatusForbiddenError();
+    const ticket = this.db.read().supportTickets?.find((item) => item.id === ticketId);
+    if (!ticket) throw new SupportTicketNotFoundError();
+    if (event === "opened") this.notifyJota(ticket, `Layra abriu um chamado: ${ticket.title}`, ticket.description);
+    else {
+      const last = ticket.replies.filter((reply) => reply.author?.role === "developer").at(-1);
+      this.notifyJota(ticket, `Layra respondeu: ${ticket.title}`, last?.body ?? null);
+    }
+  }
+
+  private notifyJota(ticket: SupportTicket, title: string, body: string | null): void {
+    if (ticket.internal) return;
+    const notification: StoredNotification = {
+      id: newId("ntf"),
+      kind: "support",
+      title: title.slice(0, 120),
+      body: body ? body.slice(0, 500) : null,
+      link: `/admin/suporte/${ticket.id}`,
+      createdAt: new Date().toISOString(),
+    };
+    this.db.write((state) => {
+      state.notifications = [notification, ...notificationsOf(state)].slice(0, MAX_NOTIFICATIONS);
+    });
   }
 
   async setInternal(ticketId: string, internal: boolean): Promise<void> {
@@ -213,14 +265,14 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   private withUrls(ticket: SupportTicket): SupportTicket {
     // Chamados salvos antes dos anexos existirem chegam sem a lista.
     const attachments = ticket.attachments ?? [];
-    return { ...ticket, kind: ticket.kind ?? "task", internal: ticket.internal ?? false, labelId: ticket.labelId ?? null, events: ticket.events ?? [], attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
+    return { ...ticket, kind: ticket.kind ?? "task", internal: ticket.internal ?? false, views: ticket.views ?? [], labelId: ticket.labelId ?? null, events: ticket.events ?? [], attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
   }
 
   private updateTicket(id: string, change: (ticket: SupportTicket) => SupportTicket): void {
     this.db.write((state) => {
       const tickets = state.supportTickets ?? [];
       if (!tickets.some((ticket) => ticket.id === id)) throw new SupportTicketNotFoundError();
-      state.supportTickets = tickets.map((ticket) => (ticket.id === id ? change({ ...ticket, attachments: ticket.attachments ?? [], events: ticket.events ?? [], labelId: ticket.labelId ?? null }) : ticket));
+      state.supportTickets = tickets.map((ticket) => (ticket.id === id ? change({ ...ticket, attachments: ticket.attachments ?? [], events: ticket.events ?? [], views: ticket.views ?? [], labelId: ticket.labelId ?? null }) : ticket));
     });
   }
 

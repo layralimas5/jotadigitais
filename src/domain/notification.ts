@@ -7,9 +7,10 @@ import type { Order } from "./order";
  * - `order`: pedido novo do site, gravado pelo banco na hora em que entra;
  * - `news`: novidades do sistema, publicadas por quem cuida dele;
  * - `privacy`: solicitação LGPD aberta em Meus dados, gravada pelo banco;
+ * - `support`: a Layra abriu, respondeu ou viu um chamado (só para o Jota);
  * - `reminder`: lembretes calculados na hora a partir dos pedidos e do CRM.
  */
-export type NotificationKind = "order" | "news" | "privacy" | "security" | "reminder";
+export type NotificationKind = "order" | "news" | "privacy" | "security" | "support" | "reminder";
 
 export interface AppNotification {
   /** Identifica a notificação para apagar: o mesmo aviso não volta depois de apagado. */
@@ -25,7 +26,7 @@ export interface AppNotification {
 /** Notificação guardada no banco (pedido novo, novidade ou solicitação LGPD). */
 export interface StoredNotification {
   id: string;
-  kind: Extract<NotificationKind, "order" | "news" | "privacy" | "security">;
+  kind: Extract<NotificationKind, "order" | "news" | "privacy" | "security" | "support">;
   title: string;
   body: string | null;
   link: string | null;
