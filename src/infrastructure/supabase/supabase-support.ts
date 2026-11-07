@@ -4,20 +4,41 @@ import type { SupportTicketRepository } from "@/application/ports";
 import { SupportTicketNotFoundError } from "@/domain/errors";
 import {
   SUPPORT_AREAS,
+  SUPPORT_KINDS,
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
+  type SupportAttachment,
   type SupportAuthor,
   type SupportReply,
   type SupportStatus,
+  type SupportSubmitResult,
   type SupportTicket,
   type SupportTicketData,
+  type SupportUpload,
 } from "@/domain/support-ticket";
 import { fail } from "./supabase-repositories";
+
+const BUCKET = "support";
+/** Tempo do link para ver o anexo. */
+const SIGNED_URL_SECONDS = 60 * 60;
+/** O link é reaproveitado até faltar isso para vencer: a conversa se atualiza sem reiniciar o vídeo que está tocando. */
+const SIGNED_URL_MARGIN_MS = 10 * 60 * 1000;
+
+const EXTENSION: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
 
 // O autor vem de admin_users pela chave estrangeira: nome e papel de quem escreveu.
 const AUTHOR = "author:admin_users(name, role)";
 const REPLY_COLUMNS = `id, body, created_at, ${AUTHOR}`;
-const TICKET_COLUMNS = `id, title, description, area, priority, status, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS})`;
+const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, status, created_at, updated_at, resolved_at, ${AUTHOR}, replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS})`;
 
 const authorSchema = z.object({ name: z.string().nullable(), role: z.enum(["admin", "developer"]) }).nullable();
 
@@ -28,10 +49,19 @@ const replyRowSchema = z.object({
   author: authorSchema,
 });
 
+const attachmentRowSchema = z.object({
+  id: z.string(),
+  reply_id: z.string().nullable(),
+  path: z.string(),
+  kind: z.enum(["image", "video"]),
+  name: z.string(),
+});
+
 const ticketRowSchema = z.object({
   id: z.string(),
   title: z.string(),
   description: z.string(),
+  kind: z.enum(SUPPORT_KINDS),
   area: z.enum(SUPPORT_AREAS),
   priority: z.enum(SUPPORT_PRIORITIES),
   status: z.enum(SUPPORT_STATUSES),
@@ -40,7 +70,10 @@ const ticketRowSchema = z.object({
   resolved_at: z.string().nullable(),
   author: authorSchema,
   replies: z.array(replyRowSchema),
+  attachments: z.array(attachmentRowSchema),
 });
+
+type AttachmentRow = z.infer<typeof attachmentRowSchema>;
 
 const toAuthor = (row: z.infer<typeof authorSchema>): SupportAuthor | null => (row ? { name: row.name, role: row.role } : null);
 
@@ -49,12 +82,21 @@ function toReply(raw: unknown): SupportReply {
   return { id: row.id, body: row.body, author: toAuthor(row.author), createdAt: row.created_at };
 }
 
-function toTicket(raw: unknown): SupportTicket {
+const toAttachment = (row: AttachmentRow, urls: ReadonlyMap<string, string>): SupportAttachment => ({
+  id: row.id,
+  kind: row.kind,
+  name: row.name,
+  url: urls.get(row.path) ?? null,
+  replyId: row.reply_id,
+});
+
+function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): SupportTicket {
   const row = ticketRowSchema.parse(raw);
   return {
     id: row.id,
     title: row.title,
     description: row.description,
+    kind: row.kind,
     area: row.area,
     priority: row.priority,
     status: row.status,
@@ -63,43 +105,97 @@ function toTicket(raw: unknown): SupportTicket {
     updatedAt: row.updated_at,
     resolvedAt: row.resolved_at,
     replies: row.replies.map(toReply).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    attachments: row.attachments.map((attachment) => toAttachment(attachment, urls)),
   };
 }
 
 export class SupabaseSupportTicketRepository implements SupportTicketRepository {
+  private readonly urlCache = new Map<string, { url: string; expiresAt: number }>();
+
   constructor(private readonly client: SupabaseClient) {}
 
   async listAll(): Promise<SupportTicket[]> {
     const { data, error } = await this.client.from("support_tickets").select(TICKET_COLUMNS).order("updated_at", { ascending: false });
     if (error) fail(error);
-    return data.map(toTicket);
+    return data.map((row) => toTicket(row));
   }
 
   async findById(id: string): Promise<SupportTicket | null> {
     const { data, error } = await this.client.from("support_tickets").select(TICKET_COLUMNS).eq("id", id).maybeSingle();
     if (error) fail(error);
-    return data ? toTicket(data) : null;
+    if (!data) return null;
+    const paths = ticketRowSchema.parse(data).attachments.map((attachment) => attachment.path);
+    return toTicket(data, await this.signedUrls(paths));
   }
 
-  async open(input: SupportTicketData): Promise<SupportTicket> {
+  async open(input: SupportTicketData, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportTicket>> {
     const { data, error } = await this.client.from("support_tickets").insert(input).select(TICKET_COLUMNS).single();
     if (error) fail(error);
-    return toTicket(data);
+    const ticket = toTicket(data);
+    return { saved: ticket, failedUploads: await this.attach(ticket.id, null, uploads) };
   }
 
-  async reply(ticketId: string, body: string): Promise<SupportReply> {
+  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>> {
     const { data, error } = await this.client
       .from("support_replies")
       .insert({ ticket_id: ticketId, body })
       .select(REPLY_COLUMNS)
       .single();
     if (error) fail(error);
-    return toReply(data);
+    const reply = toReply(data);
+    return { saved: reply, failedUploads: await this.attach(ticketId, reply.id, uploads) };
   }
 
   async changeStatus(ticketId: string, status: SupportStatus): Promise<void> {
     const { data, error } = await this.client.from("support_tickets").update({ status }).eq("id", ticketId).select("id").maybeSingle();
     if (error) fail(error);
     if (!data) throw new SupportTicketNotFoundError();
+  }
+
+  /** Sobe um arquivo por vez e registra no chamado. Devolve o nome dos que falharam. */
+  private async attach(ticketId: string, replyId: string | null, uploads: readonly SupportUpload[]): Promise<string[]> {
+    const failed: string[] = [];
+    for (const upload of uploads) {
+      const path = `${ticketId}/${crypto.randomUUID()}.${EXTENSION[upload.contentType] ?? "bin"}`;
+      const stored = await this.client.storage.from(BUCKET).upload(path, upload.file, { contentType: upload.contentType });
+      if (stored.error) {
+        console.error("Falha ao subir anexo do suporte", stored.error);
+        failed.push(upload.name);
+        continue;
+      }
+      const { error } = await this.client.from("support_attachments").insert({
+        ticket_id: ticketId,
+        reply_id: replyId,
+        path,
+        kind: upload.kind,
+        name: upload.name.slice(0, 200),
+        content_type: upload.contentType,
+        size_bytes: upload.file.size,
+      });
+      if (error) {
+        console.error("Falha ao registrar anexo do suporte", error);
+        failed.push(upload.name);
+      }
+    }
+    return failed;
+  }
+
+  private async signedUrls(paths: string[]): Promise<Map<string, string>> {
+    const now = Date.now();
+    const missing = paths.filter((path) => (this.urlCache.get(path)?.expiresAt ?? 0) - SIGNED_URL_MARGIN_MS <= now);
+    if (missing.length > 0) {
+      const { data, error } = await this.client.storage.from(BUCKET).createSignedUrls(missing, SIGNED_URL_SECONDS);
+      if (error) {
+        // Sem link o anexo aparece como indisponível, mas a conversa continua legível.
+        console.error("Falha ao gerar links dos anexos do suporte", error);
+      } else {
+        const expiresAt = now + SIGNED_URL_SECONDS * 1000;
+        for (const item of data) if (item.path && item.signedUrl) this.urlCache.set(item.path, { url: item.signedUrl, expiresAt });
+      }
+    }
+    return new Map(paths.flatMap((path) => {
+      const cached = this.urlCache.get(path);
+      return cached ? [[path, cached.url] as const] : [];
+    }));
   }
 }

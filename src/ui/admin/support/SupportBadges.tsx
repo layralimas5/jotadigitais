@@ -1,9 +1,12 @@
+import { Bug, ListTodo, Sparkles, type LucideIcon } from "lucide-react";
 import {
   SUPPORT_AREA_LABEL,
+  SUPPORT_KIND_LABEL,
   SUPPORT_PRIORITY_LABEL,
   SUPPORT_STATUS_LABEL,
   type SupportArea,
   type SupportAuthor,
+  type SupportKind,
   type SupportPriority,
   type SupportStatus,
 } from "@/domain/support-ticket";
@@ -12,27 +15,49 @@ import { PRIORITY_TONE } from "./priority-tone";
 
 const pill = "inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold";
 
-const STATUS_TONE: Record<SupportStatus, string> = {
+export const STATUS_TONE: Record<SupportStatus, string> = {
   open: "border-pink/30 bg-pink/10 text-pink",
   in_progress: "border-electric/40 bg-electric/10 text-electric-soft",
+  waiting: "border-amber-300/40 bg-amber-300/10 text-amber-200",
   done: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
 };
+
+export const KIND_ICON: Record<SupportKind, LucideIcon> = { problem: Bug, improvement: Sparkles, task: ListTodo };
 
 export function SupportStatusBadge({ status }: { status: SupportStatus }) {
   return <span className={cn(pill, STATUS_TONE[status])}>{SUPPORT_STATUS_LABEL[status]}</span>;
 }
 
+export function PriorityDot({ priority, className }: { priority: SupportPriority; className?: string }) {
+  return <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", PRIORITY_TONE[priority].dot, className)} />;
+}
+
 export function SupportPriorityBadge({ priority }: { priority: SupportPriority }) {
   return (
     <span className={cn(pill, "gap-1.5", PRIORITY_TONE[priority].badge)}>
-      <span aria-hidden className={cn("size-1.5 rounded-full", PRIORITY_TONE[priority].dot)} />
+      <PriorityDot priority={priority} />
       {SUPPORT_PRIORITY_LABEL[priority]}
     </span>
   );
 }
 
+export function SupportKindBadge({ kind }: { kind: SupportKind }) {
+  const Icon = KIND_ICON[kind];
+  return (
+    <span className={cn(pill, "gap-1.5 border-line-strong text-fog")}>
+      <Icon aria-hidden className="size-3" />
+      {SUPPORT_KIND_LABEL[kind]}
+    </span>
+  );
+}
+
 export function SupportAreaBadge({ area }: { area: SupportArea }) {
-  return <span className={cn(pill, "border-line-strong text-fog")}>{SUPPORT_AREA_LABEL[area]}</span>;
+  return <span className={cn(pill, "border-line-strong text-mist")}>{SUPPORT_AREA_LABEL[area]}</span>;
+}
+
+/** Chamado esperando a ação de quem está vendo. */
+export function NeedsYouBadge() {
+  return <span className={cn(pill, "border-white/25 bg-white text-ink")}>Precisa de você</span>;
 }
 
 /** "Jota" ou "Layra"; quem foi removido do sistema vira "Usuário removido". */

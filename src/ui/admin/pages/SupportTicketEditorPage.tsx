@@ -1,32 +1,43 @@
 import { ArrowLeft, Send } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { cn } from "@/ui/lib/cn";
 import { fieldErrorsOf, SUPPORT_TEXT_MAX, SUPPORT_TITLE_MAX, supportTicketDataSchema } from "@/application/schemas";
 import { openSupportTicket } from "@/application/support-use-cases";
 import {
   SUPPORT_AREA_LABEL,
   SUPPORT_AREAS,
+  SUPPORT_KIND_LABEL,
+  SUPPORT_KINDS,
   SUPPORT_PRIORITIES,
   SUPPORT_PRIORITY_LABEL,
   type SupportTicketData,
+  type SupportUpload,
 } from "@/domain/support-ticket";
 import { TextField } from "@/ui/components/form/Fields";
+import { cn } from "@/ui/lib/cn";
 import { FormSection, PageHeader } from "../components/AdminUi";
 import { SegmentedField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useMutation } from "../hooks";
+import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { KIND_ICON } from "../support/SupportBadges";
 import { PRIORITY_TONE } from "../support/priority-tone";
 import { useToast } from "../toast";
 
 const LIST_PATH = "/admin/suporte";
 
-const EMPTY: SupportTicketData = { title: "", description: "", area: "system", priority: "normal" };
+// Normal fica no meio das três opções de prioridade, mas é o padrão.
+const EMPTY: SupportTicketData = { title: "", description: "", kind: "problem", area: "system", priority: "normal" };
 
 const FIELD_ORDER = ["title", "description"] as const;
 
+const KIND_OPTIONS = SUPPORT_KINDS.map((value) => {
+  const Icon = KIND_ICON[value];
+  return { value, label: SUPPORT_KIND_LABEL[value], icon: <Icon aria-hidden className="size-4" /> };
+});
 const AREA_OPTIONS = SUPPORT_AREAS.map((value) => ({ value, label: SUPPORT_AREA_LABEL[value] }));
-const PRIORITY_OPTIONS = SUPPORT_PRIORITIES.map((value) => ({
+// Na ficha a ordem é a da escala: baixa, normal, urgente.
+const PRIORITY_OPTIONS = [...SUPPORT_PRIORITIES].reverse().map((value) => ({
   value,
   label: SUPPORT_PRIORITY_LABEL[value],
   icon: <span aria-hidden className={cn("size-2.5 rounded-full", PRIORITY_TONE[value].dot)} />,
@@ -44,7 +55,8 @@ export default function SupportTicketEditorPage() {
   const [values, setValues] = useState<SupportTicketData>(EMPTY);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
-  const open = useMutation(openSupportTicket);
+  const picked = usePickedFiles();
+  const open = useMutation((deps, data: SupportTicketData, uploads: SupportUpload[]) => openSupportTicket(deps, data, uploads));
 
   const update = (patch: Partial<SupportTicketData>) => {
     const next = { ...values, ...patch };
@@ -63,10 +75,12 @@ export default function SupportTicketEditorPage() {
       if (first) formElement.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
-    const ticket = await open.run(values);
-    if (!ticket) return;
-    toast.show("Chamado aberto.");
-    navigate(`${LIST_PATH}/${ticket.id}`, { replace: true });
+    const opened = await open.run(values, uploadsOf(picked.files));
+    if (!opened) return;
+    const { saved, failedUploads } = opened;
+    if (failedUploads.length) toast.show(`Chamado aberto, mas não subiu: ${failedUploads.join(", ")}. Envie de novo na conversa.`, "error");
+    else toast.show("Chamado aberto.");
+    navigate(`${LIST_PATH}/${saved.id}`, { replace: true });
   };
 
   return (
@@ -75,11 +89,24 @@ export default function SupportTicketEditorPage() {
         <ArrowLeft aria-hidden className="size-4" /> Voltar
       </Link>
       <div className="mt-4">
-        <PageHeader title="Novo chamado" description="Quanto mais detalhe, mais rápido sai o ajuste." />
+        <PageHeader title="Novo chamado" description="Problema, melhoria ou pendência no sistema ou no site. Quanto mais detalhe, mais rápido sai." />
       </div>
 
       <form noValidate onSubmit={onSubmit} aria-busy={open.pending} className="mt-6 grid max-w-3xl gap-6">
-        <FormSection title="O que precisa" description="Diga onde está, o que aconteceu e o que você esperava que acontecesse.">
+        <FormSection title="O que é">
+          <SegmentedField legend="Tipo" name="kind" columns={3} value={values.kind} options={KIND_OPTIONS} onChange={(kind) => update({ kind })} />
+          <SegmentedField legend="Onde" name="area" value={values.area} options={AREA_OPTIONS} onChange={(area) => update({ area })} />
+          <SegmentedField
+            legend="Prioridade"
+            name="priority"
+            columns={3}
+            value={values.priority}
+            options={PRIORITY_OPTIONS}
+            onChange={(priority) => update({ priority })}
+          />
+        </FormSection>
+
+        <FormSection title="Detalhes" description="Diga onde está, o que aconteceu e o que você esperava. Um print ou vídeo ajuda muito.">
           <TextField
             label="Título"
             name="title"
@@ -100,24 +127,13 @@ export default function SupportTicketEditorPage() {
             onChange={(event) => update({ description: event.target.value })}
             error={errors.description}
           />
-        </FormSection>
-
-        <FormSection title="Onde e com que pressa">
-          <SegmentedField legend="Onde" name="area" value={values.area} options={AREA_OPTIONS} onChange={(area) => update({ area })} />
-          <SegmentedField
-            legend="Prioridade"
-            name="priority"
-            columns={3}
-            value={values.priority}
-            options={PRIORITY_OPTIONS}
-            onChange={(priority) => update({ priority })}
-          />
+          <AttachmentPicker files={picked.files} onAdd={picked.add} onRemove={picked.remove} disabled={open.pending} />
         </FormSection>
 
         <FormFooter
           submitLabel="Abrir chamado"
           mobileSubmitLabel="Abrir"
-          pendingLabel="Enviando…"
+          pendingLabel={picked.files.length ? "Enviando arquivos…" : "Enviando…"}
           submitIcon={<Send aria-hidden className="size-4" />}
           pending={open.pending}
           onCancel={() => navigate(LIST_PATH)}
