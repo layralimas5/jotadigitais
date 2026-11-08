@@ -16,7 +16,7 @@ export function ExampleUsersNotice({ className }: { className?: string }) {
       {testing ? (
         <>
           <strong className="font-semibold text-white">Ambiente de teste:</strong> os usuários criados aqui são de exemplo e não conseguem entrar no
-          sistema. Para criar um acesso de verdade, volte ao seu painel e use Acessos.
+          sistema. Os acessos de verdade o Jota cria aqui em Usuários, entrando com a conta dele.
         </>
       ) : (
         <>
