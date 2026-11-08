@@ -130,7 +130,13 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
     users: readOnly(deps.users, { listAll: each(maskUser) }),
     profiles: readOnly(deps.profiles, { lookup: null }),
     // Apagar do sininho vale só para quem apagou: não mexe no que o Jota vê.
-    notifications: readOnly(deps.notifications, { listRecent: null, listDismissed: null, dismiss: null }),
+    notifications: {
+      // O sininho é o do Jota (chamados, pedidos), não o da desenvolvedora.
+      listRecent: () => deps.notifications.listRecentForAdmin(),
+      listRecentForAdmin: () => deps.notifications.listRecentForAdmin(),
+      listDismissed: () => deps.notifications.listDismissed(),
+      dismiss: (keys) => deps.notifications.dismiss(keys),
+    },
     images: readOnly(deps.images, {}),
     privacy: readOnly(deps.privacy, { listRequests: each(maskRequest) }),
   };

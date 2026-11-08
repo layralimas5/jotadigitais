@@ -361,6 +361,8 @@ export interface ProfileLookupService {
 /** Notificações do sininho guardadas no banco, e o que cada usuário já apagou. */
 export interface AdminNotificationRepository {
   listRecent(): Promise<StoredNotification[]>;
+  /** O sininho do Jota, para a desenvolvedora no "Ver como o Jota": o banco só libera para ela. */
+  listRecentForAdmin(): Promise<StoredNotification[]>;
   listDismissed(): Promise<string[]>;
   dismiss(keys: readonly string[]): Promise<void>;
 }

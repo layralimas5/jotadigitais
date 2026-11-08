@@ -827,6 +827,10 @@ export class DemoNotificationRepository implements AdminNotificationRepository {
     return notificationsOf(this.db.read());
   }
 
+  async listRecentForAdmin(): Promise<StoredNotification[]> {
+    return this.listRecent();
+  }
+
   async listDismissed(): Promise<string[]> {
     return this.db.read().dismissedNotifications ?? [];
   }

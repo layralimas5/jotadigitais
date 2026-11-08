@@ -704,6 +704,7 @@ async function main() {
   await supportChecks();
   await helperChecks();
   await legalEditingChecks();
+  await supportForwardChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1927,4 +1928,38 @@ async function legalEditingChecks() {
   const badBlock = { ...documents, privacy: { ...documents.privacy, sections: [{ id: "x", title: "X", blocks: [{ type: "script", text: "oi" }] }] } };
   check(await rejects(() => publish(asAdmin, badBlock, controller), /invalid_legal_document/), "bloco desconhecido é recusado");
   check(await rejects(() => publish(asAdmin, documents, controller, "x"), /invalid_legal_document/), "precisa dizer o que mudou");
+}
+
+async function supportForwardChecks() {
+  console.log("\nchamado encaminhado avisa o Jota");
+  const asDeveloper = (fn) => as("authenticated", DEVELOPER_ID, fn, { sessionId: DEVELOPER_SESSION });
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const created = await asDeveloper(() =>
+    db.query(`insert into public.support_tickets (title, description, area) values ('Revisar banner', 'Preciso que você aprove o banner.', 'site') returning id`),
+  );
+  const id = created.rows[0].id;
+  const notices = async () =>
+    (await db.query(`select title from public.notifications where kind = 'support' and link = $1 and recipient_role = 'admin'`, [`/admin/suporte/${id}`])).rows;
+
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'waiting' where id = $1`, [id]));
+  const after = await notices();
+  check(after.length === 1 && after[0].title.startsWith("Layra encaminhou para você"), "encaminhar para o Jota avisa no sininho dele");
+
+  const jotaSees = await asAdmin(() => db.query(`select 1 from public.notifications where link = $1`, [`/admin/suporte/${id}`]));
+  check(jotaSees.rows.length === 1, "o Jota lê o aviso do encaminhamento");
+
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'in_progress' where id = $1`, [id]));
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'waiting' where id = $1`, [id]));
+  check((await notices()).length === 1, "encaminhar de novo logo em seguida não repete o aviso");
+
+  const internal = await asDeveloper(() =>
+    db.query(`insert into public.support_tickets (title, description, area, internal) values ('Nota interna', 'Anotação só minha sobre o sistema.', 'system', true) returning id`),
+  );
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'waiting' where id = $1`, [internal.rows[0].id]));
+  const internalNotices = await db.query(`select 1 from public.notifications where link = $1`, [`/admin/suporte/${internal.rows[0].id}`]);
+  check(internalNotices.rows.length === 0, "chamado interno não avisa");
+
+  const preview = await asDeveloper(() => db.query(`select title from public.list_admin_notifications(30, 50)`));
+  check(preview.rows.some((row) => row.title.startsWith("Layra encaminhou")), "no Ver como o Jota, a desenvolvedora vê o sininho dele");
+  check(await rejects(() => asAdmin(() => db.query(`select * from public.list_admin_notifications(30, 50)`)), /forbidden/), "só a desenvolvedora usa a leitura do sininho do Jota");
 }

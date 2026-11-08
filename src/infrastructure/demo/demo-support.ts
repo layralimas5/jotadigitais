@@ -35,6 +35,9 @@ import type { AdminRole } from "@/domain/admin-user";
 import { newId, simulateLatency, type DemoDatabase } from "./demo-database";
 import { MAX_NOTIFICATIONS, notificationsOf } from "./demo-repositories";
 
+/** Responder avisando e encaminhar no mesmo envio vira um aviso só. */
+const FORWARD_NOTICE_WINDOW_MS = 2 * 60_000;
+
 /** Troca a última vez que esse papel viu o chamado. */
 const withView = (views: readonly SupportView[], role: AdminRole, seenAt: string): SupportView[] => [
   ...views.filter((view) => view.role !== role),
@@ -128,6 +131,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     const author = await this.currentAuthor();
     if (!canChangeSupportStatus(author.role)) throw new SupportStatusForbiddenError();
     const now = new Date().toISOString();
+    const before = this.db.read().supportTickets?.find((item) => item.id === ticketId);
     this.updateTicket(ticketId, (ticket) =>
       ticket.status === status
         ? ticket
@@ -138,6 +142,17 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
             resolvedAt: status === "done" ? now : null,
             events: [...ticket.events, statusEvent(ticket.status, status, author, now)],
           },
+    );
+    // Mesma regra do gatilho notify_admin_on_forward: encaminhar para o Jota avisa, sem repetir aviso recente.
+    if (before && status === "waiting" && before.status !== "waiting" && author.role === "developer" && !this.recentlyNotified(before.id)) {
+      this.notifyJota(before, `Layra encaminhou para você: ${before.title}`, "Está aguardando a sua análise, resposta ou aprovação.");
+    }
+  }
+
+  private recentlyNotified(ticketId: string): boolean {
+    const since = Date.now() - FORWARD_NOTICE_WINDOW_MS;
+    return notificationsOf(this.db.read()).some(
+      (notification) => notification.link === `/admin/suporte/${ticketId}` && Date.parse(notification.createdAt) > since,
     );
   }
 

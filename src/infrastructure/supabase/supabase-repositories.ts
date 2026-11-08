@@ -1118,6 +1118,12 @@ export class SupabaseNotificationRepository implements AdminNotificationReposito
     return data.map(toStoredNotification);
   }
 
+  async listRecentForAdmin(): Promise<StoredNotification[]> {
+    const { data, error } = await this.client.rpc("list_admin_notifications", { p_days: NOTIFICATION_WINDOW_DAYS, p_limit: MAX_NOTIFICATIONS });
+    if (error) fail(error);
+    return (Array.isArray(data) ? (data as unknown[]) : []).map(toStoredNotification);
+  }
+
   async listDismissed(): Promise<string[]> {
     const { data, error } = await this.client.from("notification_dismissals").select("key");
     if (error) fail(error);
