@@ -703,6 +703,7 @@ async function main() {
   await accountMockupChecks();
   await supportChecks();
   await helperChecks();
+  await legalEditingChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1872,3 +1873,58 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
+async function legalEditingChecks() {
+  console.log("\ntermos e política editáveis");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asHelper = (fn) => as("authenticated", HELPER_ID, fn, { sessionId: HELPER_SESSION });
+  const current = async () =>
+    Object.fromEntries((await as("anon", null, () => db.query(`select * from public.current_legal_documents()`))).rows.map((row) => [row.slug, row]));
+
+  const before = await current();
+  check(
+    before.terms?.version === "1.1.0" && before.terms.content?.title && before.privacy?.content?.sections?.length > 0 && before.terms.controller?.brand,
+    "o site lê a versão no ar com o texto e os dados da empresa",
+  );
+
+  const contentOf = (row) => ({ title: row.content.title, summary: row.content.summary, sections: row.content.sections });
+  const documents = { terms: contentOf(before.terms), privacy: contentOf(before.privacy) };
+  const publish = (fn, docs, controller, note = "Ajuste de texto") =>
+    fn(() => db.query(`select public.publish_legal_documents($1, $2, $3) as count`, [docs, controller, note]));
+
+  check(
+    await rejects(() => publish(asHelper, documents, before.terms.controller), /forbidden/),
+    "ajudante sem a área Site não publica os termos",
+  );
+  check(await rejects(() => publish((fn) => as("anon", null, fn), documents, before.terms.controller), /permission denied/), "visitante não publica");
+
+  const unchanged = await publish(asAdmin, documents, before.terms.controller);
+  check(unchanged.rows[0].count === 0, "publicar sem mudar nada não cria versão");
+
+  const editedTerms = { ...documents.terms, title: "Termos de Uso da Jota" };
+  const once = await publish(asAdmin, { ...documents, terms: editedTerms }, before.terms.controller, "Título novo");
+  const afterTerms = await current();
+  check(once.rows[0].count === 1, "só o documento que mudou ganha versão nova");
+  check(afterTerms.terms.version === "1.2.0" && afterTerms.privacy.version === "1.1.0", "termos vão para 1.2.0 e a política fica na 1.1.0");
+  check(
+    afterTerms.terms.content.history[0]?.summary === "Título novo" && afterTerms.terms.content.history.length === before.terms.content.history.length + 1,
+    "a mudança entra no topo do histórico de versões",
+  );
+  const stillCurrent = await db.query(`select public.is_current_legal_document('terms', '1.2.0', $1) as ok, public.is_current_legal_document('terms', '1.1.0', $2) as old`, [
+    afterTerms.terms.sha256,
+    before.terms.sha256,
+  ]);
+  check(stillCurrent.rows[0].ok === true && stillCurrent.rows[0].old === false, "o checkout passa a aceitar só a versão nova");
+
+  const controller = { ...before.terms.controller, legalName: "  Jota Digitais LTDA  ", document: "" };
+  const both = await publish(asAdmin, { ...documents, terms: editedTerms }, controller, "Dados da empresa");
+  const afterController = await current();
+  check(both.rows[0].count === 2 && afterController.terms.version === "1.3.0" && afterController.privacy.version === "1.2.0", "dados da empresa mudam os dois documentos");
+  check(afterController.privacy.controller.legalName === "Jota Digitais LTDA" && afterController.privacy.controller.document === null, "dados da empresa saem limpos (vazio vira a preencher)");
+
+  const broken = { ...documents, privacy: { ...documents.privacy, sections: [] } };
+  check(await rejects(() => publish(asAdmin, broken, controller), /invalid_legal_document/), "documento sem seção é recusado");
+  const badBlock = { ...documents, privacy: { ...documents.privacy, sections: [{ id: "x", title: "X", blocks: [{ type: "script", text: "oi" }] }] } };
+  check(await rejects(() => publish(asAdmin, badBlock, controller), /invalid_legal_document/), "bloco desconhecido é recusado");
+  check(await rejects(() => publish(asAdmin, documents, controller, "x"), /invalid_legal_document/), "precisa dizer o que mudou");
+}

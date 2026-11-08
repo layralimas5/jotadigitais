@@ -1,13 +1,24 @@
 import { useSearchParams } from "react-router-dom";
-import { getSiteContent } from "@/application/admin-use-cases";
+import { getLegalLibrary, getSiteContent } from "@/application/admin-use-cases";
+import type { LegalDocumentSlug } from "@/domain/legal/legal-document";
 import { ErrorState } from "@/ui/components/StateViews";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterChips } from "../components/FilterChips";
 import { useAdminQuery } from "../hooks";
 import { ContactSettings } from "../site/ContactSettings";
+import { LegalEditor } from "../site/legal/LegalEditor";
 import { SiteEditor } from "../site/SiteEditor";
 
-type SiteTab = "textos" | "contato";
+type SiteTab = "textos" | "contato" | "termos" | "privacidade";
+
+const SITE_TABS: readonly SiteTab[] = ["textos", "contato", "termos", "privacidade"];
+
+const LEGAL_TABS: readonly { tab: SiteTab; slug: LegalDocumentSlug }[] = [
+  { tab: "termos", slug: "terms" },
+  { tab: "privacidade", slug: "privacy" },
+];
+
+const isSiteTab = (value: string | null): value is SiteTab => SITE_TABS.includes(value as SiteTab);
 
 const TAB_PARAM = "aba";
 
@@ -18,9 +29,29 @@ function TextsTab() {
   return <SiteEditor initial={content.data} />;
 }
 
+/** Termos e Política carregam juntos: mudar os dados da empresa num publica versão nova dos dois. */
+function LegalTabs({ tab }: { tab: SiteTab }) {
+  const library = useAdminQuery(getLegalLibrary, "legal-library");
+  const open = LEGAL_TABS.some((legal) => legal.tab === tab);
+  if (library.status === "loading") return open ? <LoadingBlock /> : null;
+  if (library.status === "error") return open ? <ErrorState message={library.error.message} onRetry={library.reload} /> : null;
+  const { data } = library;
+  return (
+    <>
+      {/* A chave remonta o editor com o texto publicado; trocar de aba não apaga o rascunho. */}
+      {LEGAL_TABS.map((legal) => (
+        <div key={legal.tab} hidden={tab !== legal.tab}>
+          <LegalEditor key={`${data.terms.document.version}|${data.privacy.document.version}`} slug={legal.slug} library={data} reload={library.reload} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function SitePage() {
   const [params, setParams] = useSearchParams();
-  const tab: SiteTab = params.get(TAB_PARAM) === "contato" ? "contato" : "textos";
+  const requested = params.get(TAB_PARAM);
+  const tab: SiteTab = isSiteTab(requested) ? requested : "textos";
 
   const setTab = (next: SiteTab) => {
     const nextParams = new URLSearchParams(params);
@@ -31,7 +62,7 @@ export default function SitePage() {
 
   return (
     <>
-      <PageHeader title="Site" description="Tudo que aparece no site: textos, imagens, contato e garantia. Você vê a mudança antes de publicar." />
+      <PageHeader title="Site" description="Tudo que aparece no site: textos, imagens, contato, garantia, termos de uso e política de privacidade. Você vê a mudança antes de publicar." />
       <div className="mt-5 mb-6">
         <FilterChips<SiteTab>
           label="Parte do site"
@@ -40,16 +71,19 @@ export default function SitePage() {
           options={[
             { value: "textos", label: "Textos e imagens" },
             { value: "contato", label: "Contato e garantia" },
+            { value: "termos", label: "Termos de uso" },
+            { value: "privacidade", label: "Política de privacidade" },
           ]}
         />
       </div>
-      {/* As duas abas ficam montadas: trocar de aba não apaga o rascunho dos textos. */}
+      {/* As abas ficam montadas: trocar de aba não apaga o rascunho. */}
       <div hidden={tab !== "textos"}>
         <TextsTab />
       </div>
       <div hidden={tab !== "contato"}>
         <ContactSettings />
       </div>
+      <LegalTabs tab={tab} />
     </>
   );
 }

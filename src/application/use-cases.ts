@@ -14,6 +14,7 @@ import type {
   PaymentGateway,
   PrivacyService,
   SiteContentRepository,
+  LegalDocumentRepository,
   StoreSettingsRepository,
   TestimonialRepository,
 } from "./ports";
@@ -27,6 +28,7 @@ export interface UseCaseDeps {
   payments: PaymentGateway;
   settings: StoreSettingsRepository;
   siteContent: SiteContentRepository;
+  legal: LegalDocumentRepository;
   privacy: PrivacyService;
 }
 
@@ -90,7 +92,7 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
     },
     paymentMethod: data.paymentMethod,
     firstPartCents: split ? data.firstPartCents : null,
-    consents: await currentLegalConsents(),
+    consents: await currentLegalConsents(deps),
   });
   return { order };
 }

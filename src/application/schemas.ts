@@ -6,6 +6,7 @@ import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLoca
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
+import { LEGAL_LIMITS } from "@/domain/legal/legal-editing";
 import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
@@ -755,6 +756,53 @@ export const legalControllerSchema = z.object(
     z.ZodNullable<z.ZodString>
   >,
 );
+
+/** Mesmos limites que publish_legal_documents confere no banco. */
+const legalContentSchema = z.object({
+  title: legalText.max(LEGAL_LIMITS.title),
+  summary: legalText.max(LEGAL_LIMITS.summary),
+  sections: z
+    .array(
+      z.object({
+        id: z.string().regex(/^[a-z0-9-]{1,60}$/),
+        title: legalText.max(LEGAL_LIMITS.sectionTitle),
+        blocks: z.array(legalBlockSchema).min(1).max(60),
+      }),
+    )
+    .min(1)
+    .max(LEGAL_LIMITS.sections),
+});
+
+const controllerValue = z
+  .string()
+  .trim()
+  .max(LEGAL_LIMITS.controllerField)
+  .nullable()
+  .transform((value) => value || null);
+
+export const legalPublishSchema = z.object({
+  documents: z.object({ terms: legalContentSchema, privacy: legalContentSchema }),
+  controller: z.object(
+    Object.fromEntries(CONTROLLER_FIELDS.map((field) => [field, controllerValue])) as Record<
+      (typeof CONTROLLER_FIELDS)[number],
+      typeof controllerValue
+    >,
+  ),
+  note: z
+    .string()
+    .trim()
+    .min(LEGAL_LIMITS.noteMin, "Conte em poucas palavras o que mudou.")
+    .max(LEGAL_LIMITS.note, `Use no máximo ${LEGAL_LIMITS.note} caracteres.`),
+});
+
+/** Linha de legal_documents como current_legal_documents devolve. */
+export const legalDocumentRowSchema = z.object({
+  slug: z.enum(LEGAL_DOCUMENT_SLUGS),
+  version: z.string(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  content: z.unknown().nullable().default(null),
+  controller: z.unknown().nullable().default(null),
+});
 
 const orderCodeField = z
   .string()

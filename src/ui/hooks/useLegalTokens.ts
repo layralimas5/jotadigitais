@@ -1,13 +1,12 @@
 import { useMemo } from "react";
-import { LEGAL_CONTROLLER } from "@/application/legal-documents";
-import type { LegalTokenValues } from "@/domain/legal/legal-document";
+import type { LegalController, LegalTokenValues } from "@/domain/legal/legal-document";
 import { useStoreSettings } from "./useStoreSettings";
 
 /** Dados do controlador (fixos na versão do documento) e da loja (prazo de garantia e @, que mudam pelo painel). */
-export function useLegalTokens(): LegalTokenValues {
+export function useLegalTokens(controller: LegalController): LegalTokenValues {
   const { guaranteeDays, instagramHandle } = useStoreSettings();
   return useMemo(
-    () => ({ ...LEGAL_CONTROLLER, guaranteeDays: String(guaranteeDays), instagram: instagramHandle }),
-    [guaranteeDays, instagramHandle],
+    () => ({ ...controller, guaranteeDays: String(guaranteeDays), instagram: instagramHandle }),
+    [controller, guaranteeDays, instagramHandle],
   );
 }

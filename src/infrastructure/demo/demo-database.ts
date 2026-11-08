@@ -4,6 +4,7 @@ import type { CustomerRecord } from "@/domain/customer";
 import type { EmailAccount } from "@/domain/email-account";
 import type { Expense, Revenue } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
+import type { LegalController, LegalDocument, LegalDocumentSlug } from "@/domain/legal/legal-document";
 import type { MessageTemplates } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
 import type { ConsentRecord, DataRequest } from "@/domain/privacy";
@@ -18,6 +19,15 @@ import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
 export const DEMO_STORAGE_KEY = "jota:demo-db";
 const SCHEMA_VERSION = 2;
 
+export interface DemoLegalDocumentRow {
+  slug: LegalDocumentSlug;
+  version: string;
+  sha256: string;
+  publishedAt: string;
+  content: LegalDocument;
+  controller: LegalController;
+}
+
 export interface DemoState {
   version: number;
   accounts: Account[];
@@ -28,6 +38,8 @@ export interface DemoState {
   settings?: StoreSettings;
   /** Guardado como veio; quem lê junta com o padrão e valida. */
   siteContent?: unknown;
+  /** Cada versão publicada dos Termos e da Política, como a tabela legal_documents. */
+  legalDocuments?: DemoLegalDocumentRow[];
   leads?: Lead[];
   customers?: CustomerRecord[];
   messageTemplates?: Partial<MessageTemplates>;

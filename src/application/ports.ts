@@ -4,6 +4,7 @@ import type { AdminRole, AdminUser, AdminUserAccess, NewAdminUser, StaffPermissi
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
 import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
 import type { LegalConsent } from "@/domain/legal/legal-document";
+import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
@@ -121,6 +122,11 @@ export interface SiteContentRepository {
   load(): Promise<unknown>;
 }
 
+/** Versão mais recente de cada documento legal, como está no banco. Quem lê valida e cai no texto original se precisar. */
+export interface LegalDocumentRepository {
+  listCurrent(): Promise<unknown[]>;
+}
+
 // ---------------------------------------------------------------------------
 // Painel administrativo
 // ---------------------------------------------------------------------------
@@ -182,6 +188,11 @@ export interface AuthService {
 
 export interface AdminSiteContentRepository extends SiteContentRepository {
   save(content: SiteContent): Promise<void>;
+}
+
+export interface AdminLegalDocumentRepository extends LegalDocumentRepository {
+  /** Publica versão nova de quem mudou. O banco numera, data e guarda o histórico. */
+  publish(input: LegalPublishInput): Promise<void>;
 }
 
 export interface AdminStoreSettingsRepository extends StoreSettingsRepository {

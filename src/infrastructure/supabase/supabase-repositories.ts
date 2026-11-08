@@ -17,6 +17,7 @@ import type {
   AdminPreferenceKey,
   AdminPreferenceRepository,
   AdminSiteContentRepository,
+  AdminLegalDocumentRepository,
   AdminRevenueRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -27,6 +28,7 @@ import type {
 } from "@/application/ports";
 import type { Account, AccountData } from "@/domain/account";
 import type { LegalConsent, LegalDocumentSlug } from "@/domain/legal/legal-document";
+import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import { STAFF_PERMISSIONS, type AdminUser, type AdminUserAccess, type NewAdminUser } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
@@ -380,6 +382,25 @@ export class SupabaseSiteContentRepository implements AdminSiteContentRepository
   async save(content: SiteContent): Promise<void> {
     const { error } = await this.client.from("site_content").upsert({ id: true, content }, { onConflict: "id" });
     if (error) fail(error);
+  }
+}
+
+export class SupabaseLegalDocumentRepository implements AdminLegalDocumentRepository {
+  constructor(private readonly client: SupabaseClient) {}
+
+  async listCurrent(): Promise<unknown[]> {
+    const { data, error } = await this.client.rpc("current_legal_documents");
+    if (error) fail(error);
+    return Array.isArray(data) ? (data as unknown[]) : [];
+  }
+
+  async publish(input: LegalPublishInput): Promise<void> {
+    const { error } = await this.client.rpc("publish_legal_documents", {
+      p_documents: input.documents,
+      p_controller: input.controller,
+      p_note: input.note,
+    });
+    if (error) failFromRpc(error);
   }
 }
 

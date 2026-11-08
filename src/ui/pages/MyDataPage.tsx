@@ -1,20 +1,20 @@
 import { Download, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
-import { LEGAL_CONTROLLER } from "@/application/legal-documents";
 import { Button } from "@/ui/components/Button";
 import { MissingField } from "@/ui/components/legal/LegalText";
 import { PendingControllerNotice } from "@/ui/components/legal/PendingControllerNotice";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
+import { useLegalLibrary } from "@/ui/hooks/useLegalLibrary";
 import { useMyData } from "@/ui/hooks/useMyData";
 import { downloadJson } from "@/ui/lib/download";
 import { AccessForm } from "@/ui/sections/my-data/AccessForm";
 import { DataRequestForm } from "@/ui/sections/my-data/DataRequestForm";
 import { SubjectDataView } from "@/ui/sections/my-data/SubjectDataView";
 
-function PrivacyEmail() {
-  return LEGAL_CONTROLLER.privacyEmail ? (
-    <a href={`mailto:${LEGAL_CONTROLLER.privacyEmail}`} className="text-electric-soft underline underline-offset-4">
-      {LEGAL_CONTROLLER.privacyEmail}
+function PrivacyEmail({ email }: { email: string | null }) {
+  return email ? (
+    <a href={`mailto:${email}`} className="text-electric-soft underline underline-offset-4">
+      {email}
     </a>
   ) : (
     <MissingField label="e-mail para assuntos de privacidade" />
@@ -24,6 +24,7 @@ function PrivacyEmail() {
 export default function MyDataPage() {
   useDocumentMeta("Meus dados", "Veja, baixe, corrija ou peça a exclusão dos dados que a Jota Digitais guarda sobre você (LGPD, art. 18).");
   const { state, enter, leave, request } = useMyData();
+  const { controller } = useLegalLibrary().privacy;
 
   return (
     <div className="pt-28 pb-24 md:pt-36">
@@ -35,7 +36,7 @@ export default function MyDataPage() {
           Respondemos em até 15 dias.
         </p>
         <div className="mt-8">
-          <PendingControllerNotice />
+          <PendingControllerNotice controller={controller} />
         </div>
 
         <div className="mt-8">
@@ -91,7 +92,7 @@ export default function MyDataPage() {
         </div>
 
         <p className="mt-10 text-sm leading-relaxed text-mist">
-          Nunca comprou, mas falou com a gente no WhatsApp ou no Instagram? Escreva para <PrivacyEmail /> e confirmamos a sua
+          Nunca comprou, mas falou com a gente no WhatsApp ou no Instagram? Escreva para <PrivacyEmail email={controller.privacyEmail} /> e confirmamos a sua
           identidade pelo mesmo canal. Entenda como tratamos os dados na{" "}
           <Link to="/politica-de-privacidade" className="text-electric-soft underline underline-offset-4">
             Política de Privacidade

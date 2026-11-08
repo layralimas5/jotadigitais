@@ -27,6 +27,7 @@ import type {
   AdminRevenueRepository,
   AdminSession,
   AdminSiteContentRepository,
+  AdminLegalDocumentRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminNotificationRepository,
@@ -63,6 +64,7 @@ import {
   revenueDataSchema,
   signInSchema,
   siteContentSchema,
+  legalPublishSchema,
   storeSettingsSchema,
   testimonialDataSchema,
   ValidationError,
@@ -75,6 +77,7 @@ export interface AdminDeps {
   orders: AdminOrderRepository;
   settings: AdminStoreSettingsRepository;
   siteContent: AdminSiteContentRepository;
+  legal: AdminLegalDocumentRepository;
   leads: AdminLeadRepository;
   customers: AdminCustomerRepository;
   templates: AdminMessageTemplateRepository;
@@ -441,6 +444,13 @@ export async function saveSiteContent(deps: AdminDeps, raw: unknown): Promise<Si
   const content = parseOrThrow(siteContentSchema, raw);
   await deps.siteContent.save(content);
   return content;
+}
+
+export { loadLegalLibrary as getLegalLibrary } from "./legal-documents";
+
+/** Publica os Termos e a Política: só o documento que mudou ganha versão nova. */
+export async function publishLegalDocuments(deps: AdminDeps, raw: unknown): Promise<void> {
+  await deps.legal.publish(parseOrThrow(legalPublishSchema, raw));
 }
 
 export function uploadImage(deps: AdminDeps, image: PreparedImage, folder: MediaFolder): Promise<UploadedImage> {

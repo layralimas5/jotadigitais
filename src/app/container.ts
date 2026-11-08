@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { AdminDeps } from "@/application/admin-use-cases";
 import type { UseCaseDeps } from "@/application/use-cases";
 import { DemoDatabase } from "@/infrastructure/demo/demo-database";
+import { DemoLegalDocumentRepository } from "@/infrastructure/demo/demo-legal";
 import {
   DemoAccountRepository,
   DemoCustomerRepository,
@@ -41,6 +42,7 @@ import {
   SupabasePreferenceRepository,
   SupabaseRevenueRepository,
   SupabaseSiteContentRepository,
+  SupabaseLegalDocumentRepository,
   SupabaseStoreSettingsRepository,
   SupabaseTestimonialRepository,
 } from "@/infrastructure/supabase/supabase-repositories";
@@ -70,6 +72,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
   const orders = new SupabaseOrderRepository(client);
   const settings = new SupabaseStoreSettingsRepository(client, defaultStoreSettings);
   const siteContent = new SupabaseSiteContentRepository(client);
+  const legal = new SupabaseLegalDocumentRepository(client);
   return {
     mode: "supabase",
     store: {
@@ -78,6 +81,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       orders,
       settings,
       siteContent,
+      legal,
       payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
     },
@@ -88,6 +92,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       orders,
       settings,
       siteContent,
+      legal,
       leads: new SupabaseLeadRepository(client),
       customers: new SupabaseCustomerRepository(client),
       templates: new SupabaseMessageTemplateRepository(client),
@@ -118,6 +123,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     orders: new DemoOrderRepository(db),
     settings: new DemoStoreSettingsRepository(db, defaultStoreSettings),
     siteContent: new DemoSiteContentRepository(db),
+    legal: new DemoLegalDocumentRepository(db),
   };
   const admin: AdminDeps = {
     auth,
