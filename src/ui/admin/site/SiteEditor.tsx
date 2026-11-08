@@ -4,7 +4,7 @@ import { useBlocker } from "react-router-dom";
 import type { SiteContent, SiteSectionKey } from "@/domain/site-content";
 import { Button } from "@/ui/components/Button";
 import { cn } from "@/ui/lib/cn";
-import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { ABOUT_PATH, PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { MobileActionBar } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FilterChips } from "../components/FilterChips";
@@ -19,6 +19,7 @@ const PREVIEW_PAGE_LABEL: Record<SiteSectionDefinition["path"], string> = {
   [PREVIEW_CHECKOUT_PATH]: "Checkout (primeira conta da vitrine)",
   [PREVIEW_ORDER_PATH]: "Página do pedido (exemplo)",
   [PARTNER_PATH]: "Página Seja parceiro",
+  [ABOUT_PATH]: "Página Quem sou eu",
 };
 
 interface SectionPanelProps {
@@ -219,18 +220,25 @@ function useFieldFocus(listRef: React.RefObject<HTMLUListElement | null>) {
 }
 
 /** Textos e imagens do site, com a prévia do site real ao lado. Nada vai para o ar antes de "Salvar e publicar". */
-export function SiteEditor({ initial }: { initial: SiteContent }) {
+export function SiteEditor({ initial, sections = SITE_SECTIONS }: { initial: SiteContent; sections?: readonly SiteSectionDefinition[] }) {
   const toast = useToast();
   const draft = useSiteDraft(initial);
-  const [openKey, setOpenKey] = useState<SiteSectionKey | null>("hero");
+  const [openKey, setOpenKey] = useState<SiteSectionKey | null>(sections[0]?.key ?? null);
   const [device, setDevice] = useState<PreviewDevice>(() => (window.matchMedia(WIDE_SCREEN).matches ? "desktop" : "mobile"));
   const [mobileView, setMobileView] = useState<MobileView>("edit");
-  const [scrollTarget, setScrollTarget] = useState<string | null>(SITE_SECTIONS[0]?.anchor ?? null);
+  const [scrollTarget, setScrollTarget] = useState<string | null>(sections[0]?.anchor ?? null);
   const [highlightPath, setHighlightPath] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const focusField = useFieldFocus(listRef);
   const blocker = useLeaveGuard(draft.dirty);
-  const openSection = SITE_SECTIONS.find((section) => section.key === openKey) ?? null;
+  const openSection = sections.find((section) => section.key === openKey) ?? null;
+
+  // Outra aba (Textos e imagens ou Quem sou eu) mostra outras seções do mesmo rascunho: abre a primeira delas.
+  const firstSection = sections[0];
+  useEffect(() => {
+    setOpenKey(firstSection?.key ?? null);
+    setScrollTarget(firstSection?.anchor ?? null);
+  }, [firstSection]);
 
   const toggleSection = (section: SiteSectionDefinition) => {
     const opening = openKey !== section.key;
@@ -241,7 +249,7 @@ export function SiteEditor({ initial }: { initial: SiteContent }) {
   /** Clique na prévia: abre a seção do elemento e foca o campo, sem rolar a prévia para o topo da seção. */
   const onPreviewEdit = (path: string) => {
     const key = path.split(".")[0];
-    if (!SITE_SECTIONS.some((section) => section.key === key)) return;
+    if (!sections.some((section) => section.key === key)) return;
     setOpenKey(key as SiteSectionKey);
     setMobileView("edit");
     setHighlightPath(path);
@@ -260,9 +268,14 @@ export function SiteEditor({ initial }: { initial: SiteContent }) {
       toast.show("Site publicado. Quem abrir agora já vê os textos novos.");
       return;
     }
+    const failed = SITE_SECTIONS.find((section) => section.key === result.section);
+    if (failed && !sections.includes(failed)) {
+      toast.show(`Tem campo para corrigir em "${failed.title}", na aba Textos e imagens.`, "error");
+      return;
+    }
     if (result.section) {
       setOpenKey(result.section);
-      setScrollTarget(SITE_SECTIONS.find((section) => section.key === result.section)?.anchor ?? null);
+      setScrollTarget(failed?.anchor ?? null);
       setMobileView("edit");
       toast.show("Tem campo para corrigir. A seção com problema ficou aberta.", "error");
       return;
@@ -290,7 +303,7 @@ export function SiteEditor({ initial }: { initial: SiteContent }) {
           className={cn("space-y-2.5", mobileView === "preview" && "max-lg:hidden")}
           aria-label="Seções do site"
         >
-          {SITE_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <SectionPanel
               key={section.key}
               section={section}

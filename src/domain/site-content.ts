@@ -86,6 +86,9 @@ export interface PageButton {
 export const MAX_PAGE_BUTTONS = 3;
 /** Passos da página de parceiro: até seis cabem em duas linhas de três. */
 export const MAX_PARTNER_STEPS = 6;
+/** Página Quem sou eu: destaques em até duas linhas de três e fotos numa grade de até seis. */
+export const MAX_ABOUT_HIGHLIGHTS = 6;
+export const MAX_ABOUT_PHOTOS = 6;
 
 export interface SiteContent {
   seo: { title: string; description: string };
@@ -149,6 +152,21 @@ export interface SiteContent {
     perks: string[];
     ctaTitle: string;
     ctaText: string;
+    /** Aparecem no topo e no fim da página, na mesma ordem. */
+    buttons: PageButton[];
+  };
+  /** Página /quem-sou-eu: quem está por trás da loja, com foto, história, fotos e botões. */
+  aboutPage: TitleBlock & {
+    /** Foto principal. Sem foto (url vazia), a página mostra a marca no lugar. */
+    photo: SiteImage;
+    storyTitle: string;
+    /** Parágrafos separados por uma linha em branco. */
+    story: string;
+    highlightsTitle: string;
+    /** Nenhum: a parte de destaques some. */
+    highlights: TextCard[];
+    /** Nenhuma: a galeria some. */
+    gallery: SiteImage[];
     /** Aparecem no topo e no fim da página, na mesma ordem. */
     buttons: PageButton[];
   };
@@ -400,6 +418,32 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
         message: "Olá, Jota! Vim pelo site e quero ser parceiro da Jota Digitais. Tenho contas para vender.",
         url: "",
       },
+    ],
+  },
+  aboutPage: {
+    eyebrow: "Quem sou eu",
+    title: "Prazer, eu sou o Jota.",
+    description:
+      "Estou por trás da Jota Digitais: separo cada conta, confiro os números, atendo você no WhatsApp e acompanho a entrega até o fim.",
+    photo: { url: "", alt: "Foto do Jota, fundador da Jota Digitais" },
+    storyTitle: "Minha história",
+    story:
+      "A Jota Digitais nasceu para encurtar o caminho de quem quer vender pelas redes sociais. Em vez de começar do zero e esperar meses, você já começa com uma conta pronta, com seguidores e liberada para vender.\n\nCada conta passa por mim antes de entrar na vitrine. E depois da compra você não fica sozinho: o atendimento é pelo WhatsApp e a compra tem garantia.",
+    highlightsTitle: "Como eu trabalho",
+    highlights: [
+      { title: "Conta conferida", text: "Antes de entrar na vitrine, cada conta tem os números e o acesso conferidos." },
+      { title: "Atendimento de perto", text: "Você fala direto comigo no WhatsApp, antes e depois da compra." },
+      { title: "Compra com garantia", text: "Se algo der errado no prazo de garantia, eu resolvo com você." },
+    ],
+    gallery: [],
+    buttons: [
+      {
+        label: "Falar comigo no WhatsApp",
+        action: "whatsapp",
+        message: "Olá, Jota! Vim pela página Quem sou eu e quero saber mais sobre as contas.",
+        url: "",
+      },
+      { label: "Ver as contas", action: "link", message: "", url: "/contas" },
     ],
   },
   accountPage: {

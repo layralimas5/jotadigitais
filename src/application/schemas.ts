@@ -19,7 +19,7 @@ import {
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
 } from "@/domain/support-ticket";
-import { isPageButtonUrl, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
+import { isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -649,6 +649,16 @@ export const siteContentSchema = z.object({
     perks: copyList(1, 6, 90),
     ctaTitle: copy(60),
     ctaText: copy(220),
+    buttons: z.array(pageButton).min(1, "Mantenha pelo menos um botão.").max(MAX_PAGE_BUTTONS, `Use no máximo ${MAX_PAGE_BUTTONS} botões.`),
+  }),
+  aboutPage: z.object({
+    ...titleBlock,
+    photo: z.object({ url: z.string().refine(fitsImageLimit, IMAGE_TOO_LONG), alt: copy(240) }),
+    storyTitle: copy(60),
+    story: copy(3000),
+    highlightsTitle: copy(60),
+    highlights: z.array(textCard).max(MAX_ABOUT_HIGHLIGHTS, `Use no máximo ${MAX_ABOUT_HIGHLIGHTS} destaques.`),
+    gallery: z.array(siteImage).max(MAX_ABOUT_PHOTOS, `Use no máximo ${MAX_ABOUT_PHOTOS} fotos.`),
     buttons: z.array(pageButton).min(1, "Mantenha pelo menos um botão.").max(MAX_PAGE_BUTTONS, `Use no máximo ${MAX_PAGE_BUTTONS} botões.`),
   }),
   accountPage: z.object({

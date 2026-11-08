@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: "/#como-funciona", label: "Como funciona" },
   { to: "/#garantia", label: "Garantia" },
   { to: "/#duvidas", label: "Dúvidas" },
+  { to: "/quem-sou-eu", label: "Quem sou eu" },
   { to: "/seja-parceiro", label: "Seja parceiro" },
 ] as const;
 

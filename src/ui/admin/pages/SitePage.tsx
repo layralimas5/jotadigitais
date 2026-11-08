@@ -7,11 +7,16 @@ import { FilterChips } from "../components/FilterChips";
 import { useAdminQuery } from "../hooks";
 import { ContactSettings } from "../site/ContactSettings";
 import { LegalEditor } from "../site/legal/LegalEditor";
+import { SITE_SECTIONS } from "../site/section-forms";
 import { SiteEditor } from "../site/SiteEditor";
 
-type SiteTab = "textos" | "contato" | "termos" | "privacidade";
+type SiteTab = "textos" | "contato" | "sobre" | "termos" | "privacidade";
 
-const SITE_TABS: readonly SiteTab[] = ["textos", "contato", "termos", "privacidade"];
+const SITE_TABS: readonly SiteTab[] = ["textos", "contato", "sobre", "termos", "privacidade"];
+
+/** Quem sou eu tem aba própria, mas é o mesmo rascunho dos textos: publicar numa leva tudo junto. */
+const ABOUT_SECTIONS = SITE_SECTIONS.filter((section) => section.key === "aboutPage");
+const TEXT_SECTIONS = SITE_SECTIONS.filter((section) => section.key !== "aboutPage");
 
 const LEGAL_TABS: readonly { tab: SiteTab; slug: LegalDocumentSlug }[] = [
   { tab: "termos", slug: "terms" },
@@ -22,11 +27,11 @@ const isSiteTab = (value: string | null): value is SiteTab => SITE_TABS.includes
 
 const TAB_PARAM = "aba";
 
-function TextsTab() {
+function TextsTab({ about }: { about: boolean }) {
   const content = useAdminQuery(getSiteContent, "site-content");
   if (content.status === "loading") return <LoadingBlock />;
   if (content.status === "error") return <ErrorState message={content.error.message} onRetry={content.reload} />;
-  return <SiteEditor initial={content.data} />;
+  return <SiteEditor initial={content.data} sections={about ? ABOUT_SECTIONS : TEXT_SECTIONS} />;
 }
 
 /** Termos e Política carregam juntos: mudar os dados da empresa num publica versão nova dos dois. */
@@ -62,7 +67,7 @@ export default function SitePage() {
 
   return (
     <>
-      <PageHeader title="Site" description="Tudo que aparece no site: textos, imagens, contato, garantia, termos de uso e política de privacidade. Você vê a mudança antes de publicar." />
+      <PageHeader title="Site" description="Tudo que aparece no site: textos, imagens, contato, garantia, quem sou eu, termos de uso e política de privacidade. Você vê a mudança antes de publicar." />
       <div className="mt-5 mb-6">
         <FilterChips<SiteTab>
           label="Parte do site"
@@ -71,14 +76,15 @@ export default function SitePage() {
           options={[
             { value: "textos", label: "Textos e imagens" },
             { value: "contato", label: "Contato e garantia" },
+            { value: "sobre", label: "Quem sou eu" },
             { value: "termos", label: "Termos de uso" },
             { value: "privacidade", label: "Política de privacidade" },
           ]}
         />
       </div>
       {/* As abas ficam montadas: trocar de aba não apaga o rascunho. */}
-      <div hidden={tab !== "textos"}>
-        <TextsTab />
+      <div hidden={tab !== "textos" && tab !== "sobre"}>
+        <TextsTab about={tab === "sobre"} />
       </div>
       <div hidden={tab !== "contato"}>
         <ContactSettings />

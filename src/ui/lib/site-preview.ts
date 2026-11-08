@@ -64,6 +64,8 @@ export const PREVIEW_CHECKOUT_PATH = `/checkout/${PREVIEW_ACCOUNT_SLUG}`;
 
 export const PARTNER_PATH = "/seja-parceiro";
 
+export const ABOUT_PATH = "/quem-sou-eu";
+
 /** Atributo que liga um elemento do site ao campo do editor que o controla. */
 export const EDIT_ATTRIBUTE = "data-edit";
 

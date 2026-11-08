@@ -2,8 +2,8 @@ import type { ComponentType } from "react";
 import { CHECKOUT_SOURCE_ORDER, LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
-import { MAX_PARTNER_STEPS, type PlatformCard, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
-import { PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PARTNER_STEPS, type PlatformCard, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
+import { ABOUT_PATH, PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { PageButtonsField } from "./PageButtonsField";
@@ -486,6 +486,74 @@ const PartnerPageForm: Form<"partnerPage"> = (props) => {
   );
 };
 
+const AboutPageForm: Form<"aboutPage"> = (props) => {
+  const copy = copyFieldsFor("aboutPage", props);
+  const { value, onChange, errors } = props;
+  return (
+    <>
+      {copy("eyebrow", "Chamada pequena (também é o nome da aba do navegador)", 40)}
+      {copy("title", "Título", 90)}
+      {copy("description", "Texto de apoio", 240, { multiline: true })}
+      <PageButtonsField path="aboutPage.buttons" buttons={value.buttons} errors={errors} onChange={(buttons) => onChange({ ...value, buttons })} />
+      <p className="text-xs text-mist">Os mesmos botões aparecem no topo e no fim da página. Arraste para mudar a ordem.</p>
+
+      <GroupTitle>Foto principal</GroupTitle>
+      <ImageCopyField label="Sua foto" path="aboutPage.photo" image={value.photo} errors={errors} onChange={(photo) => onChange({ ...value, photo })} />
+      {value.photo.url && (
+        <button
+          type="button"
+          onClick={() => onChange({ ...value, photo: { ...value.photo, url: "" } })}
+          className="text-xs text-mist underline-offset-4 hover:text-white hover:underline"
+        >
+          Tirar a foto (a página mostra um ícone no lugar)
+        </button>
+      )}
+
+      <GroupTitle>História</GroupTitle>
+      {copy("storyTitle", "Título", 60)}
+      {copy("story", "Texto", 3000, { multiline: true, hint: "Deixe uma linha em branco para começar outro parágrafo." })}
+
+      <GroupTitle>Destaques</GroupTitle>
+      {copy("highlightsTitle", "Título", 60)}
+      <Repeater
+        legend="Cards"
+        path="aboutPage.highlights"
+        items={value.highlights}
+        onChange={(highlights) => onChange({ ...value, highlights })}
+        errors={errors}
+        min={0}
+        max={MAX_ABOUT_HIGHLIGHTS}
+        addLabel="Adicionar destaque"
+        itemLabel={(index) => `Destaque ${index + 1}`}
+        empty={() => ({ title: "", text: "" })}
+        render={(highlight, update, itemPath) => (
+          <>
+            <CopyField label="Título" path={`${itemPath}.title`} value={highlight.title} max={60} errors={errors} onChange={(title) => update({ title })} />
+            <CopyField label="Texto" path={`${itemPath}.text`} value={highlight.text} max={220} multiline errors={errors} onChange={(text) => update({ text })} />
+          </>
+        )}
+      />
+      <p className="text-xs text-mist">Sem nenhum destaque, essa parte some da página.</p>
+
+      <GroupTitle>Fotos</GroupTitle>
+      <Repeater
+        legend="Galeria"
+        path="aboutPage.gallery"
+        items={value.gallery}
+        onChange={(gallery) => onChange({ ...value, gallery })}
+        errors={errors}
+        min={0}
+        max={MAX_ABOUT_PHOTOS}
+        addLabel="Adicionar foto"
+        itemLabel={(index) => `Foto ${index + 1}`}
+        empty={() => ({ url: "", alt: "" })}
+        render={(photo, update, itemPath) => <ImageCopyField label="Foto" path={itemPath} image={photo} errors={errors} onChange={(next) => update(next)} />}
+      />
+      <p className="text-xs text-mist">Até {MAX_ABOUT_PHOTOS} fotos, numa grade. Sem nenhuma, essa parte some da página.</p>
+    </>
+  );
+};
+
 const SeoForm: Form<"seo"> = (props) => {
   const copy = copyFieldsFor("seo", props);
   return (
@@ -501,7 +569,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PREVIEW_CHECKOUT_PATH | typeof PARTNER_PATH;
+  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PREVIEW_CHECKOUT_PATH | typeof PARTNER_PATH | typeof ABOUT_PATH;
   anchor: string;
   Form: Form<K>;
 }
@@ -550,6 +618,14 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
     path: PARTNER_PATH,
     anchor: "parceiro-title",
     Form: PartnerPageForm,
+  }),
+  define({
+    key: "aboutPage",
+    title: "Quem sou eu",
+    description: "Sua foto, história, destaques, fotos e botões",
+    path: ABOUT_PATH,
+    anchor: "sobre-title",
+    Form: AboutPageForm,
   }),
   define({ key: "seo", title: "Google e aba do navegador", description: "Título e descrição da página inicial", path: "/", anchor: "hero-title", Form: SeoForm }),
 ];

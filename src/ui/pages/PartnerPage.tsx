@@ -1,59 +1,18 @@
-import { ArrowRight, Check, ExternalLink, Handshake, MessageSquareText, Rocket, Store, Wallet } from "lucide-react";
-import { Link } from "react-router-dom";
-import type { PageButton } from "@/domain/site-content";
-import { whatsappMessageUrl } from "@/domain/store-settings";
-import { buttonClasses } from "@/ui/components/Button";
+import { Check, Handshake, MessageSquareText, Rocket, Store, Wallet } from "lucide-react";
+import { PageButtons } from "@/ui/components/PageButtons";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { WhatsAppGlyph } from "@/ui/components/whatsapp/WhatsAppGlyph";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
-import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { cn } from "@/ui/lib/cn";
 import { editable } from "@/ui/lib/site-preview";
 
 /** Ícone de cada passo, na ordem; depois do sexto, recomeça. Títulos e textos vêm do painel. */
 const STEP_ICONS = [WhatsAppGlyph, Store, Wallet, Handshake, MessageSquareText, Rocket] as const;
 
-const isInternal = (url: string) => url.startsWith("/");
-
-/**
- * WhatsApp abre a conversa com o Jota e a mensagem pronta (sem número salvo, vai para o Instagram da loja).
- * Link leva a uma página do site na mesma aba ou a um endereço de fora em outra aba.
- */
-function PageButtonLink({ button, index, className }: { button: PageButton; index: number; className?: string }) {
-  const { whatsappUrl, instagramUrl } = useStoreSettings();
-  const classes = buttonClasses({ size: "lg", variant: index === 0 ? "primary" : "secondary", className });
-  const label = <span {...editable(`partnerPage.buttons.${index}.label`)}>{button.label}</span>;
-
-  if (button.action === "link" && isInternal(button.url)) {
-    return (
-      <Link to={button.url} className={classes}>
-        {label}
-        <ArrowRight aria-hidden className="size-4" />
-      </Link>
-    );
-  }
-  const isWhatsapp = button.action === "whatsapp";
-  const href = !isWhatsapp ? button.url : whatsappUrl ? whatsappMessageUrl(whatsappUrl, button.message) : instagramUrl;
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={classes}>
-      {isWhatsapp && whatsappUrl && <WhatsAppGlyph aria-hidden className="size-4" />}
-      {label}
-      {isWhatsapp ? <ArrowRight aria-hidden className="size-4" /> : <ExternalLink aria-hidden className="size-4" />}
-      <span className="sr-only"> (abre em outra aba)</span>
-    </a>
-  );
-}
-
 function PartnerButtons({ className, centered = false }: { className?: string; centered?: boolean }) {
   const { partnerPage } = useSiteContent();
-  return (
-    <div className={cn("flex flex-col gap-3 sm:flex-row sm:flex-wrap", centered && "sm:justify-center", className)}>
-      {partnerPage.buttons.map((button, index) => (
-        <PageButtonLink key={index} button={button} index={index} className="w-full sm:w-auto" />
-      ))}
-    </div>
-  );
+  return <PageButtons buttons={partnerPage.buttons} path="partnerPage.buttons" centered={centered} className={className} />;
 }
 
 /** Duas ou quatro: duas colunas; o resto, três. Assim nenhuma linha fica com um card sobrando sozinho à toa. */
