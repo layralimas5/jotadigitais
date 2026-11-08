@@ -186,3 +186,89 @@
     }
   }
 }
+
+/*
+ * Ampulheta de "Aguardando": a areia escorre de cima para baixo por uns 5 segundos e ela vira.
+ * Virada, a areia que caiu fica em cima, igual ao começo: o ciclo emenda sem salto.
+ */
+@keyframes hourglass-flip {
+  0%,
+  84% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(180deg);
+  }
+}
+
+@keyframes hourglass-top {
+  0% {
+    transform: scale(1);
+  }
+  80%,
+  100% {
+    transform: scale(0);
+  }
+}
+
+@keyframes hourglass-bottom {
+  0% {
+    transform: scale(0);
+  }
+  80%,
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes hourglass-stream {
+  0%,
+  76% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+  80%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: -12;
+  }
+}
+
+.hourglass-body,
+.hourglass-top,
+.hourglass-bottom {
+  transform-box: view-box;
+}
+
+.hourglass-body {
+  transform-origin: 12px 12px;
+  animation: hourglass-flip 6s ease-in-out infinite;
+}
+
+.hourglass-top {
+  transform-origin: 12px 10px;
+  animation: hourglass-top 6s linear infinite;
+}
+
+.hourglass-bottom {
+  transform-origin: 12px 19px;
+  transform: scale(0);
+  animation: hourglass-bottom 6s linear infinite;
+}
+
+.hourglass-stream {
+  stroke-dasharray: 1.5 1.5;
+  animation: hourglass-stream 6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hourglass-body,
+  .hourglass-top,
+  .hourglass-bottom,
+  .hourglass-stream {
+    animation: none;
+  }
+  .hourglass-stream {
+    opacity: 0;
+  }
+}

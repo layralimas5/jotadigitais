@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, ChevronDown, Crosshair, FilterX, Hourglass, ListTodo, MessageSquare, Paperclip, Plus, type LucideIcon } from "lucide-react";
+import { CheckCircle2, ChevronDown, Crosshair, FilterX, ListTodo, MessageSquare, Paperclip, Plus, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listSupportLabels, listSupportTickets } from "@/application/support-use-cases";
@@ -38,6 +38,7 @@ import {
 } from "@/domain/support-ticket";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
+import { AnimatedHourglass } from "@/ui/components/AnimatedHourglass";
 import { cn } from "@/ui/lib/cn";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterSelect } from "../components/FilterSelect";
@@ -370,7 +371,7 @@ function ListHeader() {
 }
 
 interface StatusGroupCopy {
-  icon: LucideIcon;
+  icon: LucideIcon | typeof AnimatedHourglass;
   /** Frase curta sob o título, escrita para quem está vendo. */
   hint: Record<SupportRole, string>;
   tone: string;
@@ -380,7 +381,7 @@ interface StatusGroupCopy {
 
 const STATUS_GROUP: Record<SupportStatus, StatusGroupCopy> = {
   waiting: {
-    icon: Hourglass,
+    icon: AnimatedHourglass,
     hint: { admin: "Precisa da sua análise, resposta ou aprovação.", developer: "Esperando o Jota analisar, responder ou aprovar." },
     tone: "text-amber-200",
   },
