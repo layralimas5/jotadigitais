@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import { Navigate, createBrowserRouter } from "react-router-dom";
+import RouteErrorPage from "@/ui/pages/RouteErrorPage";
 import { Layout } from "@/ui/components/layout/Layout";
 import HomePage from "@/ui/pages/HomePage";
 
@@ -54,6 +55,7 @@ const SupportTicketPage = lazy(() => import("@/ui/admin/pages/SupportTicketPage"
 export const router = createBrowserRouter([
   {
     element: <Layout />,
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
       { path: "contas", element: <CatalogPage /> },
@@ -73,6 +75,7 @@ export const router = createBrowserRouter([
   {
     path: "admin",
     element: <AdminRoot />,
+    errorElement: <RouteErrorPage />,
     children: [
       { path: "login", element: <LoginPage /> },
       {
