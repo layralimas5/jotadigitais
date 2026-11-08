@@ -5,12 +5,14 @@ import {
   SupportLabelForbiddenError,
   SupportLabelNameTakenError,
   SupportStatusForbiddenError,
+  SupportPriorityForbiddenError,
   SupportTicketNotFoundError,
   SupportVisibilityForbiddenError,
 } from "@/domain/errors";
 import {
   canApproveSupportTicket,
   canChangeSupportStatus,
+  canChangeSupportPriority,
   canChangeSupportVisibility,
   canDeleteSupportTicket,
   canManageSupportLabels,
@@ -25,6 +27,7 @@ import {
   type SupportAuthor,
   type SupportReply,
   type SupportStatus,
+  type SupportPriority,
   type SupportSubmitResult,
   type SupportTicket,
   type SupportTicketData,
@@ -154,6 +157,16 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     return notificationsOf(this.db.read()).some(
       (notification) => notification.link === `/admin/suporte/${ticketId}` && Date.parse(notification.createdAt) > since,
     );
+  }
+
+  /** Mesma regra da função set_support_ticket_priority do banco. */
+  async changePriority(ticketId: string, priority: SupportPriority): Promise<void> {
+    await simulateLatency();
+    const author = await this.currentAuthor();
+    const ticket = this.db.read().supportTickets?.find((item) => item.id === ticketId);
+    if (!ticket) throw new SupportTicketNotFoundError();
+    if (!canChangeSupportPriority(ticket, author.role)) throw new SupportPriorityForbiddenError();
+    this.updateTicket(ticketId, (current) => (current.priority === priority ? current : { ...current, priority, updatedAt: new Date().toISOString() }));
   }
 
   /** Mesma regra da função mark_support_ticket_seen do banco. */

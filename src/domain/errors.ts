@@ -198,6 +198,13 @@ export class SupportTicketNotFoundError extends Error {
   }
 }
 
+export class SupportPriorityForbiddenError extends Error {
+  constructor() {
+    super("A prioridade de um chamado finalizado não muda mais.");
+    this.name = "SupportPriorityForbiddenError";
+  }
+}
+
 export class SupportStatusForbiddenError extends Error {
   constructor() {
     super("Só a desenvolvedora muda a situação do chamado.");

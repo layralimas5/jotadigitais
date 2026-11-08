@@ -9,6 +9,7 @@ import {
   markSupportTicketSeen,
   replyToSupportTicket,
   setSupportTicketVisibility,
+  changeSupportPriority,
 } from "@/application/support-use-cases";
 import type { AdminRole } from "@/domain/admin-user";
 import {
@@ -33,6 +34,10 @@ import {
   type SupportUpload,
   supportRoleOf,
   type SupportRole,
+  canChangeSupportPriority,
+  SUPPORT_PRIORITIES,
+  SUPPORT_PRIORITY_LABEL,
+  type SupportPriority,
 } from "@/domain/support-ticket";
 import { Button } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -46,7 +51,7 @@ import { formatDate, formatRelative } from "../lib/dates";
 import { useAdminView, useViewRole } from "../admin-view";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import { AttachmentGallery } from "../support/AttachmentGallery";
-import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { AttachmentPicker, pasteFilesInto, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { SeenMark } from "../support/SeenIndicator";
 import { LabelPicker } from "../support/LabelPicker";
@@ -62,6 +67,7 @@ import {
   SupportPriorityBadge,
   SupportStatusBadge,
 } from "../support/SupportBadges";
+import { PRIORITY_TONE } from "../support/priority-tone";
 import { useToast } from "../toast";
 
 const LIST_PATH = "/admin/suporte";
@@ -159,6 +165,49 @@ function StatusControl({ ticket, role, onChanged }: { ticket: SupportTicket; rol
       {!ticket.internal && (
         <p className="mt-2 text-xs text-mist">O Jota vê a situação na hora. Quando ele responde um chamado aguardando, ele volta sozinho para pendente.</p>
       )}
+      {change.error && (
+        <div className="mt-3">
+          <InlineError message={change.error.message} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+const PRIORITY_OPTIONS = SUPPORT_PRIORITIES.map((value) => ({
+  value,
+  label: SUPPORT_PRIORITY_LABEL[value],
+  icon: <span aria-hidden className={cn("size-2 rounded-full", PRIORITY_TONE[value].dot)} />,
+  selectedClassName: PRIORITY_TONE[value].selected,
+}));
+
+/** O Jota ou a Lay trocam a prioridade de um chamado em aberto, mesmo que ele tenha sido aberto com outra. */
+function PriorityControl({ ticket, role, onChanged }: { ticket: SupportTicket; role: SupportRole; onChanged: () => void }) {
+  const toast = useToast();
+  const change = useMutation(async (deps, priority: SupportPriority) => {
+    await changeSupportPriority(deps, role, ticket, priority);
+    return priority;
+  });
+
+  const onChange = async (priority: SupportPriority) => {
+    if (priority === ticket.priority || change.pending) return;
+    const changed = await change.run(priority);
+    if (!changed) return;
+    toast.show(`Prioridade: ${SUPPORT_PRIORITY_LABEL[changed].toLowerCase()}.`);
+    onChanged();
+  };
+
+  return (
+    <section aria-label="Prioridade do chamado" aria-busy={change.pending} className="rounded-3xl border border-line bg-surface/60 p-5">
+      <SegmentedField
+        legend="Prioridade"
+        name="priority"
+        columns={3}
+        value={ticket.priority}
+        options={PRIORITY_OPTIONS}
+        onChange={(priority) => void onChange(priority)}
+      />
+      <p className="mt-2 text-xs text-mist">Aberto com uma prioridade e entendeu que é outra? Troque aqui; vale na hora para os dois.</p>
       {change.error && (
         <div className="mt-3">
           <InlineError message={change.error.message} />
@@ -285,10 +334,11 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Supp
         placeholder="Escreva uma atualização, uma dúvida ou mais detalhes."
         value={body}
         onChange={(event) => setBody(event.target.value)}
+        onPaste={pasteFilesInto(picked.addFiles)}
         error={error ?? reply.error?.message}
       />
       <div className="mt-4">
-        <AttachmentPicker files={picked.files} onAdd={picked.add} onRemove={picked.remove} disabled={reply.pending} />
+        <AttachmentPicker files={picked.files} problem={picked.problem} onFiles={picked.addFiles} onRemove={picked.remove} disabled={reply.pending} />
       </div>
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid gap-2">
@@ -385,6 +435,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
       </header>
 
       {canChangeSupportStatus(role) && <StatusControl ticket={ticket} role={role} onChanged={reload} />}
+      {canChangeSupportPriority(ticket, role) && <PriorityControl ticket={ticket} role={role} onChanged={reload} />}
       {canChangeSupportVisibility(role) && <VisibilityControl ticket={ticket} role={role} onChanged={reload} />}
       {canManageSupportLabels(role) && (
         <section aria-label="Etiqueta do chamado" className="flex flex-wrap items-center gap-3 rounded-3xl border border-line bg-surface/60 p-5">

@@ -16,6 +16,7 @@ import {
   type SupportStatusEvent,
   type SupportReply,
   type SupportStatus,
+  type SupportPriority,
   type SupportSubmitResult,
   type SupportTicket,
   type SupportTicketData,
@@ -197,6 +198,14 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     const { data, error } = await this.client.from("support_tickets").update({ status }).eq("id", ticketId).select("id").maybeSingle();
     if (error) fail(error);
     if (!data) throw new SupportTicketNotFoundError();
+  }
+
+  async changePriority(ticketId: string, priority: SupportPriority): Promise<void> {
+    const { error } = await this.client.rpc("set_support_ticket_priority", { p_ticket_id: ticketId, p_priority: priority });
+    if (error) {
+      if (error.message.includes("ticket_not_found")) throw new SupportTicketNotFoundError();
+      fail(error);
+    }
   }
 
   async markSeen(ticketId: string, notify: boolean): Promise<void> {

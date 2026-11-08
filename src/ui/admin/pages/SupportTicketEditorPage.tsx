@@ -23,7 +23,7 @@ import { SegmentedField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useViewRole } from "../admin-view";
 import { useMutation } from "../hooks";
-import { AttachmentPicker, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { AttachmentPicker, pasteFilesInto, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { KIND_ICON } from "../support/SupportBadges";
 import { PRIORITY_TONE } from "../support/priority-tone";
@@ -166,9 +166,10 @@ export default function SupportTicketEditorPage() {
             placeholder="Ex.: Na página da conta, quando toco em Comprar no iPhone, nada acontece."
             value={values.description}
             onChange={(event) => update({ description: event.target.value })}
+            onPaste={pasteFilesInto(picked.addFiles)}
             error={errors.description}
           />
-          <AttachmentPicker files={picked.files} onAdd={picked.add} onRemove={picked.remove} disabled={open.pending} />
+          <AttachmentPicker files={picked.files} problem={picked.problem} onFiles={picked.addFiles} onRemove={picked.remove} disabled={open.pending} />
         </FormSection>
 
         <FormFooter

@@ -705,6 +705,7 @@ async function main() {
   await helperChecks();
   await legalEditingChecks();
   await supportForwardChecks();
+  await supportPriorityChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -1962,4 +1963,28 @@ async function supportForwardChecks() {
   const preview = await asDeveloper(() => db.query(`select title from public.list_admin_notifications(30, 50)`));
   check(preview.rows.some((row) => row.title.startsWith("Layra encaminhou")), "no Ver como o Jota, a desenvolvedora vê o sininho dele");
   check(await rejects(() => asAdmin(() => db.query(`select * from public.list_admin_notifications(30, 50)`)), /forbidden/), "só a desenvolvedora usa a leitura do sininho do Jota");
+}
+
+async function supportPriorityChecks() {
+  console.log("\nprioridade do chamado");
+  const asDeveloper = (fn) => as("authenticated", DEVELOPER_ID, fn, { sessionId: DEVELOPER_SESSION });
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asHelper = (fn) => as("authenticated", HELPER_ID, fn, { sessionId: HELPER_SESSION });
+  const created = await asDeveloper(() =>
+    db.query(`insert into public.support_tickets (title, description, area, priority) values ('Trocar prioridade', 'Chamado para trocar a prioridade.', 'site', 'low') returning id`),
+  );
+  const id = created.rows[0].id;
+  const priority = async () => (await db.query(`select priority from public.support_tickets where id = $1`, [id])).rows[0].priority;
+  const setPriority = (fn, value) => fn(() => db.query(`select public.set_support_ticket_priority($1, $2)`, [id, value]));
+
+  await setPriority(asAdmin, "urgent");
+  check((await priority()) === "urgent", "Jota muda a prioridade de um chamado que a Lay abriu");
+  await setPriority(asDeveloper, "normal");
+  check((await priority()) === "normal", "a Lay também muda a prioridade");
+  check(await rejects(() => setPriority(asAdmin, "altissima"), /invalid_priority/), "prioridade desconhecida é recusada");
+  check(await rejects(() => setPriority(asHelper, "urgent"), /forbidden/), "ajudante não muda prioridade");
+  check(await rejects(() => asAdmin(() => db.query(`update public.support_tickets set priority = 'low' where id = $1`, [id])), /permission denied/), "ninguém muda a prioridade direto na tabela");
+
+  await asDeveloper(() => db.query(`update public.support_tickets set status = 'done' where id = $1`, [id]));
+  check(await rejects(() => setPriority(asAdmin, "urgent"), /forbidden/), "chamado finalizado não muda mais de prioridade");
 }

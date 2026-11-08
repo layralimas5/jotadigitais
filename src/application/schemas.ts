@@ -727,6 +727,7 @@ export const supportReplySchema = z.object({
 });
 
 export const supportStatusSchema = z.enum(SUPPORT_STATUSES);
+export const supportPrioritySchema = z.enum(SUPPORT_PRIORITIES, { message: "Escolha a prioridade." });
 
 export const supportLabelSchema = z.object({
   name: z

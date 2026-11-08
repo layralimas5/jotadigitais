@@ -31,6 +31,7 @@ import type {
   SupportNotifyEvent,
   SupportReply,
   SupportStatus,
+  SupportPriority,
   SupportSubmitResult,
   SupportTicket,
   SupportTicketData,
@@ -320,6 +321,8 @@ export interface SupportTicketRepository {
   open(data: SupportTicketData, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportTicket>>;
   reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>>;
   changeStatus(ticketId: string, status: SupportStatus): Promise<void>;
+  /** Jota ou a desenvolvedora, em chamado ainda não finalizado. */
+  changePriority(ticketId: string, priority: SupportPriority): Promise<void>;
   /** Marca que quem está logado abriu o chamado agora. `notify`: a Lay vendo novidade do Jota avisa no sininho dele. */
   markSeen(ticketId: string, notify: boolean): Promise<void>;
   /** A Lay avisa o Jota no sininho que abriu ou respondeu o chamado (o banco monta o texto). */

@@ -132,6 +132,10 @@ export interface SupportTicket extends SupportTicketData {
 export type SupportRole = Extract<AdminRole, "admin" | "developer">;
 export const supportRoleOf = (role: AdminRole): SupportRole => (role === "developer" ? "developer" : "admin");
 
+/** Jota e a desenvolvedora mudam a prioridade de um chamado em aberto, quem quer que o tenha aberto. */
+export const canChangeSupportPriority = (ticket: Pick<SupportTicket, "status">, role: AdminRole): boolean =>
+  (role === "admin" || role === "developer") && ticket.status !== "done";
+
 export interface SupportView {
   role: AdminRole;
   seenAt: string;
