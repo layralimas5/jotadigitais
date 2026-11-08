@@ -299,8 +299,10 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
             )}
             <TicketSeenMark ticket={ticket} role={role} />
           </p>
-          <LastMessageNote ticket={ticket} role={role} className="mt-2" />
-          <ApproveTicketButton ticket={ticket} role={role} onApproved={onChanged} className="mt-3 h-9 px-4" />
+          <div className="mt-2 flex flex-wrap items-center gap-3 empty:hidden">
+            <LastMessageNote ticket={ticket} role={role} />
+            <ApproveTicketButton ticket={ticket} role={role} onApproved={onChanged} className="h-9 px-4" />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:contents">
           <div>
