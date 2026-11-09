@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AccountFilter, AccountSort } from "@/application/ports";
 import type { Account } from "@/domain/account";
+import { ACCOUNT_COUNTRIES, COUNTRY_LABEL, isCountryCode } from "@/domain/country";
 import { OTHER_NETWORKS_FIRST, PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { ChipMarquee } from "@/ui/components/ChipMarquee";
@@ -43,6 +44,8 @@ function useCatalogParams() {
   const platformParam = params.get("rede");
   const rangeParam = params.get("seguidores");
   const sortParam = params.get("ordem");
+  const countryParam = params.get("pais")?.toUpperCase();
+  const country = isCountryCode(countryParam) ? countryParam : undefined;
   const platform = isPlatform(platformParam) ? platformParam : undefined;
   const range: RangeKey = isRange(rangeParam) ? rangeParam : "todas";
   const sort: AccountSort = isSort(sortParam) ? sortParam : "recent";
@@ -60,7 +63,7 @@ function useCatalogParams() {
     );
   };
 
-  return { platform, range, sort, otherNetworksFirst, update, reset: () => setParams({}, { replace: true }) };
+  return { platform, country, range, sort, otherNetworksFirst, update, reset: () => setParams({}, { replace: true }) };
 }
 
 /** Agrupa por rede na ordem Instagram, YouTube, TikTok, mantendo a ordem escolhida dentro de cada rede. */
@@ -99,18 +102,19 @@ function FilterChip({ active, onClick, children, repeated = false }: FilterChipP
 export default function CatalogPage() {
   useDocumentMeta(
     "Contas disponíveis",
-    "Contas de TikTok, Instagram, YouTube e Facebook prontas para usar. Filtre por rede social e número de seguidores.",
+    "Contas de TikTok, Instagram, YouTube e Facebook prontas para usar. Filtre por rede social, país e número de seguidores.",
   );
-  const { platform, range, sort, otherNetworksFirst, update, reset } = useCatalogParams();
+  const { platform, country, range, sort, otherNetworksFirst, update, reset } = useCatalogParams();
 
   const filter = useMemo<AccountFilter>(
     () => ({
       platform,
+      country,
       minFollowers: FOLLOWER_RANGES[range].min,
       maxFollowers: FOLLOWER_RANGES[range].max,
       sort,
     }),
-    [platform, range, sort],
+    [platform, country, range, sort],
   );
   const fetched = useAccounts(filter);
   const accounts = useMemo(
@@ -120,7 +124,7 @@ export default function CatalogPage() {
         : fetched,
     [fetched, otherNetworksFirst],
   );
-  const hasFilters = Boolean(platform || range !== "todas");
+  const hasFilters = Boolean(platform || country || range !== "todas");
   const availableCount =
     accounts.status === "success" ? accounts.data.filter((account) => account.status === "available").length : null;
 
@@ -139,7 +143,7 @@ export default function CatalogPage() {
         </header>
 
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
-          {/* Filtros pedidos pelo Jota: rede social, faixa de seguidores e ordem (recentes primeiro). Sem busca por nome. */}
+          {/* Filtros pedidos pelo Jota: rede social, país, faixa de seguidores e ordem (recentes primeiro). Sem busca por nome. */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             {/* A pedido do Jota: "Todas as redes" fica fixo no início e as redes passam em loop para a esquerda. */}
             <div role="group" aria-label="Filtrar por rede social" className="-mx-4 flex min-w-0 items-center gap-2 pl-4 sm:mx-0 sm:pl-0 lg:flex-1">
@@ -157,8 +161,23 @@ export default function CatalogPage() {
                 }
               </ChipMarquee>
             </div>
-            <div className="flex shrink-0 gap-3">
-              <label className="flex-1 lg:flex-none">
+            <div className="grid shrink-0 grid-cols-2 gap-3 sm:flex">
+              <label className="col-span-2 sm:flex-1 lg:flex-none">
+                <span className="sr-only">País da conta</span>
+                <select
+                  value={country ?? ""}
+                  onChange={(event) => update("pais", event.target.value || undefined)}
+                  className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
+                >
+                  <option value="">Todos os países</option>
+                  {ACCOUNT_COUNTRIES.map((code) => (
+                    <option key={code} value={code}>
+                      {COUNTRY_LABEL[code]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="sm:flex-1 lg:flex-none">
                 <span className="sr-only">Seguidores ou inscritos</span>
                 <select
                   value={range}
@@ -172,7 +191,7 @@ export default function CatalogPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex-1 lg:flex-none">
+              <label className="sm:flex-1 lg:flex-none">
                 <span className="sr-only">Ordenar</span>
                 <select
                   value={sort}
@@ -208,7 +227,7 @@ export default function CatalogPage() {
           {accounts.status === "success" && accounts.data.length === 0 && (
             <EmptyState
               title="Nenhuma conta com esses filtros"
-              description="Tente outra rede social ou outra faixa de seguidores. Entram contas novas toda semana."
+              description="Tente outra rede social, outro país ou outra faixa de seguidores. Entram contas novas toda semana."
               action={
                 hasFilters ? (
                   <Button variant="secondary" onClick={reset}>

@@ -155,12 +155,13 @@ export class SupabaseAccountRepository implements AccountRepository, AdminAccoun
   ) {}
 
   /**
-   * Rede, faixa de seguidores e busca vão para o banco. Disponibilidade e ordenação são resolvidas aqui,
+   * Rede, país, faixa de seguidores e busca vão para o banco. Disponibilidade e ordenação são resolvidas aqui,
    * porque reserva vencida conta como disponível (ver `effectiveStatus`).
    */
   async list(filter: AccountFilter): Promise<Account[]> {
     let request = this.client.from("accounts").select(this.columns);
     if (filter.platform) request = request.eq("platform", filter.platform);
+    if (filter.country) request = request.eq("country", filter.country);
     if (filter.minFollowers !== undefined) request = request.gte("followers", filter.minFollowers);
     if (filter.maxFollowers !== undefined) request = request.lt("followers", filter.maxFollowers);
     if (filter.onlyAvailable) request = request.neq("status", "sold");

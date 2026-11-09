@@ -1,5 +1,5 @@
 import type { Account, AccountStatus } from "@/domain/account";
-import { countryLabelOf } from "@/domain/country";
+import { DEFAULT_COUNTRY, countryLabelOf } from "@/domain/country";
 import type { AccountFilter, AccountSort } from "./ports";
 
 const sorters: Record<AccountSort, (a: Account, b: Account) => number> = {
@@ -23,6 +23,7 @@ export function normalizeSearch(text: string): string {
 export function matchesFilter(account: Account, filter: AccountFilter): boolean {
   if (filter.onlyAvailable && account.status !== "available") return false;
   if (filter.platform && account.platform !== filter.platform) return false;
+  if (filter.country && (account.country ?? DEFAULT_COUNTRY) !== filter.country) return false;
   if (filter.minFollowers !== undefined && account.followers < filter.minFollowers) return false;
   if (filter.maxFollowers !== undefined && account.followers >= filter.maxFollowers) return false;
   if (filter.query) {
