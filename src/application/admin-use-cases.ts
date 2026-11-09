@@ -1,6 +1,7 @@
 import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
+import type { Coupon } from "@/domain/coupon";
 import type { DashboardSource } from "@/domain/dashboard";
 import { accessOf, type AccountAccess, type EmailAccount, type EmailAccountListItem } from "@/domain/email-account";
 import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
@@ -18,6 +19,7 @@ import type { Testimonial } from "@/domain/testimonial";
 import type {
   AdminAccountRepository,
   AdminCustomerRepository,
+  AdminCouponRepository,
   AdminEmailAccountRepository,
   AdminExpenseRepository,
   AdminLeadRepository,
@@ -50,6 +52,7 @@ import type {
 import {
   accountAccessSchema,
   accountDataSchema,
+  couponDataSchema,
   changePasswordSchema,
   passwordResetSchema,
   customerRecordSchema,
@@ -88,6 +91,7 @@ export interface AdminDeps {
   revenues: AdminRevenueRepository;
   partners: AdminPartnerRepository;
   emailAccounts: AdminEmailAccountRepository;
+  coupons: AdminCouponRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
   notifications: AdminNotificationRepository;
@@ -360,6 +364,36 @@ export function findEmailAccount(deps: AdminDeps, id: string): Promise<EmailAcco
 export function saveEmailAccount(deps: AdminDeps, id: string | null, raw: unknown): Promise<EmailAccount> {
   const data = parseOrThrow(emailAccountDataSchema, raw);
   return id ? deps.emailAccounts.update(id, data) : deps.emailAccounts.create(data);
+}
+
+export interface CouponSummary {
+  coupon: Coupon;
+  /** Desconto dado nos pedidos não cancelados com o cupom. */
+  discountGiven: number;
+}
+
+/** Cupons com o quanto cada um já tirou dos pedidos (cancelados não contam). */
+export async function listCouponSummaries(deps: AdminDeps): Promise<CouponSummary[]> {
+  const [coupons, orders] = await Promise.all([deps.coupons.listAll(), deps.orders.listAll()]);
+  const given = new Map<string, number>();
+  for (const order of orders) {
+    if (!order.couponCode || order.status === "canceled") continue;
+    given.set(order.couponCode, (given.get(order.couponCode) ?? 0) + order.discount);
+  }
+  return coupons.map((coupon) => ({ coupon, discountGiven: given.get(coupon.code) ?? 0 }));
+}
+
+export function findCoupon(deps: AdminDeps, id: string): Promise<Coupon | null> {
+  return deps.coupons.findById(id);
+}
+
+export function saveCoupon(deps: AdminDeps, id: string | null, raw: unknown): Promise<Coupon> {
+  const data = parseOrThrow(couponDataSchema, raw);
+  return id ? deps.coupons.update(id, data) : deps.coupons.create(data);
+}
+
+export function deleteCoupon(deps: AdminDeps, id: string): Promise<void> {
+  return deps.coupons.remove(id);
 }
 
 /** Login da conta (e-mail e senha), guardado na aba E-mails e ligado a ela. */

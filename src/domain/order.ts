@@ -43,7 +43,12 @@ export interface Order {
   accountPlatform: Platform;
   customer: Customer;
   paymentMethod: PaymentMethod;
+  /** Já com o desconto do cupom. */
   total: Cents;
+  /** Cupom usado no checkout; nulo sem cupom. */
+  couponCode: string | null;
+  /** Quanto o cupom tirou do preço da conta (0 sem cupom). */
+  discount: Cents;
   status: OrderStatus;
   /** Até quando a conta fica reservada esperando o pagamento. */
   expiresAt: string;

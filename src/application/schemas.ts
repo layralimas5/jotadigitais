@@ -5,6 +5,14 @@ import { BRAZIL_STATES, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/doma
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
+import {
+  COUPON_CODE_PATTERN,
+  COUPON_KINDS,
+  MAX_COUPON_FIXED_CENTS,
+  MAX_COUPON_PERCENT,
+  MIN_COUPON_FIXED_CENTS,
+  normalizeCouponCode,
+} from "@/domain/coupon";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
 import { LEGAL_LIMITS } from "@/domain/legal/legal-editing";
 import { PAYMENT_PLANS } from "@/domain/payment";
@@ -105,6 +113,12 @@ export const referredByFor = (data: { source: string | null; referredBy: string 
   data.source === "referral" ? data.referredBy : null;
 
 
+/** Código do cupom como o cliente digitou: vira maiúsculas e precisa seguir o padrão do banco. */
+export const couponCodeField = z
+  .string()
+  .transform(normalizeCouponCode)
+  .pipe(z.string().regex(COUPON_CODE_PATTERN, "Use de 3 a 30 letras, números, - ou _, sem espaços."));
+
 /**
  * Checkout numa tela só, com o mínimo: nome, WhatsApp (entrega e suporte), CPF/CNPJ (garantia e fraude)
  * e como conheceu a loja. A maioridade é declarada junto com o aceite dos Termos.
@@ -119,6 +133,8 @@ export const checkoutSchema = z
     paymentMethod: z.enum(PAYMENT_PLANS, { message: "Escolha a forma de pagamento." }),
     /** Só no pagamento dividido. O limite contra o total é conferido no caso de uso, que conhece o preço. */
     firstPartCents: z.number({ message: "Informe quanto vai no primeiro cartão." }).int().positive().nullable(),
+    /** Cupom já aplicado na prévia. O desconto em si é calculado de novo no banco. */
+    couponCode: couponCodeField.nullable().default(null),
     acceptedTerms: z.literal(true, {
       message: "Para continuar, aceite os Termos de Uso e a Política de Privacidade e confirme que tem 18 anos ou mais.",
     }),
@@ -353,6 +369,44 @@ export const accountAccessSchema = z.object({
 });
 
 export type AccountAccessInput = z.infer<typeof accountAccessSchema>;
+
+// ---------------------------------------------------------------------------
+// Cupons (mesmas regras da tabela coupons)
+// ---------------------------------------------------------------------------
+
+const optionalIsoDate = z
+  .string()
+  .nullable()
+  .refine((value) => value === null || !Number.isNaN(Date.parse(value)), "Data inválida.");
+
+export const couponDataSchema = z
+  .object({
+    code: couponCodeField,
+    kind: z.enum(COUPON_KINDS, { message: "Escolha o tipo do desconto." }),
+    value: z.number({ message: "Informe o desconto." }).int("Informe o desconto."),
+    active: z.boolean(),
+    startsAt: optionalIsoDate,
+    endsAt: optionalIsoDate,
+    maxUses: z
+      .number({ message: "Informe um número." })
+      .int("Use um número inteiro.")
+      .min(1, "Use pelo menos 1.")
+      .max(100_000, "Use no máximo 100.000.")
+      .nullable(),
+    notes: optionalText(500),
+  })
+  .refine((data) => data.kind !== "percent" || (data.value >= 1 && data.value <= MAX_COUPON_PERCENT), {
+    path: ["value"],
+    message: `Use de 1% a ${MAX_COUPON_PERCENT}%.`,
+  })
+  .refine((data) => data.kind !== "fixed" || (data.value >= MIN_COUPON_FIXED_CENTS && data.value <= MAX_COUPON_FIXED_CENTS), {
+    path: ["value"],
+    message: "Use de R$ 1,00 a R$ 100.000,00.",
+  })
+  .refine((data) => !data.startsAt || !data.endsAt || Date.parse(data.endsAt) > Date.parse(data.startsAt), {
+    path: ["endsAt"],
+    message: "O fim precisa ser depois do início.",
+  });
 
 // ---------------------------------------------------------------------------
 // Usuários do sistema

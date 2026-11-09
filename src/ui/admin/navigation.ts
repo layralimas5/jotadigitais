@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   ShieldUser,
   SquareKanban,
+  TicketPercent,
   Users,
   Wallet,
   Workflow,
@@ -70,6 +71,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/pedidos", label: "Pedidos", icon: Receipt, inBottomNav: true, description: "Pagamentos e entregas", roles: STORE, area: "orders" },
       { to: "/admin/finalizados", label: "Finalizados", icon: CircleCheckBig, inBottomNav: false, description: "Vendas entregues e garantia", roles: STORE, area: "orders" },
       { to: "/admin/financeiro", label: "Financeiro", icon: Wallet, inBottomNav: false, description: "Receitas, despesas e lucro", roles: STORE, area: "finance" },
+      { to: "/admin/cupons", label: "Cupons", icon: TicketPercent, inBottomNav: false, description: "Códigos de desconto do checkout", roles: STORE },
     ],
   },
   {

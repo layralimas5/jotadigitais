@@ -147,6 +147,9 @@ const orderRowSchema = z.object({
   customer_referred_by: z.string().nullish(),
   payment_method: z.enum(PAYMENT_METHODS),
   total_cents: z.number(),
+  // Pedidos de antes dos cupons e a página pública antiga vêm sem estes.
+  coupon_code: z.string().nullish(),
+  discount_cents: z.number().nullish(),
   status: z.enum(ORDER_STATUSES),
   expires_at: z.string(),
   created_at: z.string(),
@@ -181,7 +184,7 @@ const ORDER_PAYMENT_COLUMNS =
 
 export const ORDER_COLUMNS =
   // O CPF/CNPJ fica cifrado no banco; customer_document_plain devolve o número aberto só para administrador.
-  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, customer_source, customer_referred_by, payment_method, total_cents, status, expires_at, created_at, delivered_at, " +
+  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, customer_source, customer_referred_by, payment_method, total_cents, coupon_code, discount_cents, status, expires_at, created_at, delivered_at, " +
   `payments:order_payments(${ORDER_PAYMENT_COLUMNS})`;
 
 export function toOrder(raw: unknown): Order {
@@ -206,6 +209,8 @@ export function toOrder(raw: unknown): Order {
     },
     paymentMethod: row.payment_method,
     total: row.total_cents,
+    couponCode: row.coupon_code ?? null,
+    discount: row.discount_cents ?? 0,
     status: row.status,
     expiresAt: row.expires_at,
     createdAt: row.created_at,

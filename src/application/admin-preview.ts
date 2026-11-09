@@ -126,6 +126,7 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
     expenses: readOnly(deps.expenses, { listAll: null, findById: null }),
     revenues: readOnly(deps.revenues, { listAll: null, findById: null }),
     partners: readOnly(deps.partners, { listAll: each(maskPartner), findById: maybe(maskPartner) }),
+    coupons: readOnly(deps.coupons, { listAll: null, findById: null }),
     emailAccounts: readOnly(deps.emailAccounts, {
       listAll: each(maskEmailItem),
       findById: maybe(maskEmailAccount),

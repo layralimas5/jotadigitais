@@ -1,3 +1,5 @@
+import { DemoCouponRepository, DemoCouponService } from "@/infrastructure/demo/demo-coupons";
+import { SupabaseCouponRepository, SupabaseCouponService } from "@/infrastructure/supabase/supabase-coupons";
 import { createClient } from "@supabase/supabase-js";
 import type { AdminDeps } from "@/application/admin-use-cases";
 import type { UseCaseDeps } from "@/application/use-cases";
@@ -84,6 +86,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       legal,
       payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
+      coupons: new SupabaseCouponService(client),
     },
     admin: {
       auth: new SupabaseAuthService(client, passwordChecker),
@@ -101,6 +104,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       revenues: new SupabaseRevenueRepository(client),
       partners: new SupabasePartnerRepository(client),
       emailAccounts: new SupabaseEmailAccountRepository(client),
+      coupons: new SupabaseCouponRepository(client),
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
       notifications: new SupabaseNotificationRepository(client),
@@ -136,6 +140,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     revenues: new DemoRevenueRepository(db),
     partners: new DemoPartnerRepository(db),
     emailAccounts: new DemoEmailAccountRepository(db),
+    coupons: new DemoCouponRepository(db),
     users,
     profiles: new DevServerProfileLookupService(),
     notifications: new DemoNotificationRepository(db),
@@ -154,7 +159,7 @@ function demoContainer(): Container {
   const { store, admin } = demoAdminDeps(db);
   return {
     mode: "demo",
-    store: { ...store, payments: new DemoPaymentGateway(store.orders), privacy: new DemoPrivacyService(db) },
+    store: { ...store, payments: new DemoPaymentGateway(store.orders), privacy: new DemoPrivacyService(db), coupons: new DemoCouponService(db) },
     admin,
   };
 }

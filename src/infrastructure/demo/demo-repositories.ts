@@ -62,6 +62,7 @@ import { planParts } from "@/domain/payment";
 import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
+import { applyDemoCoupon } from "./demo-coupons";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 import { SEED_NEWS } from "./seed";
 
@@ -256,6 +257,8 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       for (const stale of state.orders) {
         if (stale.accountId === account.id && stale.status === "awaiting_payment") stale.status = "canceled";
       }
+      const coupon = input.couponCode ? applyDemoCoupon(state, input.couponCode, account.price) : null;
+      const total = account.price - (coupon?.discount ?? 0);
 
       const created: Order = {
         code: generateOrderCode(),
@@ -265,12 +268,14 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         accountPlatform: account.platform,
         customer: { ...input.customer, email },
         paymentMethod: input.paymentMethod,
-        total: account.price,
+        total,
+        couponCode: coupon?.code ?? null,
+        discount: coupon?.discount ?? 0,
         status: "awaiting_payment",
         expiresAt: new Date(now + RESERVATION_HOLD_MINUTES * MINUTE_MS).toISOString(),
         createdAt: new Date(now).toISOString(),
         deliveredAt: null,
-        payments: planParts(input.paymentMethod, account.price, input.firstPartCents).map((part, index) => ({
+        payments: planParts(input.paymentMethod, total, input.firstPartCents).map((part, index) => ({
           id: newId("pay"),
           position: index + 1,
           method: part.method,

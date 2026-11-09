@@ -9,15 +9,17 @@ import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
 import { AccountBadgePill, PlatformTag } from "@/ui/components/account/AccountBadges";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useCheckoutForm } from "@/ui/hooks/useCheckoutForm";
+import { useCoupon, type CouponController } from "@/ui/hooks/useCoupon";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccount, useAccounts, usePlaceOrder } from "@/ui/hooks/useStore";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
 import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
+import { CouponField } from "@/ui/sections/checkout/CouponField";
 import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
 
-function OrderSummary({ account }: { account: Account }) {
+function OrderSummary({ account, coupon, preview }: { account: Account; coupon: CouponController; preview: boolean }) {
   return (
     <aside aria-labelledby="resumo-title" className="rounded-3xl border border-line bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
       <h2 id="resumo-title" className="font-display text-lg font-semibold text-white">
@@ -42,15 +44,28 @@ function OrderSummary({ account }: { account: Account }) {
           <dt>Conta</dt>
           <dd className="tabular-nums">{formatBRL(account.price)}</dd>
         </div>
+        {coupon.state.applied && (
+          <div className="flex justify-between text-emerald-300">
+            <dt>Cupom {coupon.state.applied.code}</dt>
+            <dd className="tabular-nums">−{formatBRL(coupon.state.applied.discount)}</dd>
+          </div>
+        )}
         <div className="flex justify-between text-mist">
           <dt>Entrega</dt>
           <dd>Pelo WhatsApp</dd>
         </div>
         <div className="flex items-baseline justify-between border-t border-line pt-4">
           <dt className="font-semibold text-white">Total</dt>
-          <dd className="font-display text-2xl font-bold text-white tabular-nums">{formatBRL(account.price)}</dd>
+          <dd className="flex items-baseline gap-2">
+            {coupon.state.applied && <s className="text-sm text-mist tabular-nums">{formatBRL(account.price)}</s>}
+            <span className="font-display text-2xl font-bold text-white tabular-nums">{formatBRL(coupon.total)}</span>
+          </dd>
         </div>
       </dl>
+
+      <div className="mt-5">
+        <CouponField coupon={coupon} disabled={preview} />
+      </div>
 
       <p className="mt-6 flex items-start gap-2 text-xs leading-relaxed text-mist">
         <MessageCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
@@ -61,7 +76,7 @@ function OrderSummary({ account }: { account: Account }) {
 }
 
 /** Na prévia da aba Site, o formulário só mostra: finalizar não registra pedido. */
-function CheckoutForm({ account, preview = false }: { account: Account; preview?: boolean }) {
+function CheckoutForm({ account, coupon, preview = false }: { account: Account; coupon: CouponController; preview?: boolean }) {
   const navigate = useNavigate();
   const placeOrder = usePlaceOrder();
   const submitting = placeOrder.state.status === "submitting";
@@ -69,16 +84,16 @@ function CheckoutForm({ account, preview = false }: { account: Account; preview?
 
   const onValid = async (data: CheckoutData) => {
     if (preview) return;
-    const placed = await placeOrder.submit(account.id, data);
+    const placed = await placeOrder.submit(account.id, { ...data, couponCode: coupon.code });
     if (placed) navigate(`/pedido/${placed.order.code}`, { replace: true });
   };
-  const { values, errors, setField, handleSubmit } = useCheckoutForm(account.price, onValid, defaultSource);
+  const { values, errors, setField, handleSubmit } = useCheckoutForm(coupon.total, onValid, defaultSource);
   const pixEnabled = acceptsPix(useStoreSettings());
 
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10" aria-busy={submitting}>
       <CheckoutProfileFields values={values} errors={errors} setField={setField} />
-      <CheckoutPaymentStep total={account.price} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
+      <CheckoutPaymentStep total={coupon.total} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
 
       {placeOrder.state.status === "error" && (
         <p role="alert" className="rounded-2xl border border-alert/30 bg-alert/[0.07] p-4 text-sm text-white">
@@ -87,15 +102,15 @@ function CheckoutForm({ account, preview = false }: { account: Account; preview?
       )}
 
       <div>
-        <Button type="submit" size="lg" className="w-full" disabled={submitting || preview}>
-          {submitting ? (
+        <Button type="submit" size="lg" className="w-full" disabled={submitting || preview || coupon.state.status === "checking"}>
+          {submitting || coupon.state.status === "checking" ? (
             <>
               <span aria-hidden className="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
-              Registrando pedido…
+              {submitting ? "Registrando pedido…" : "Conferindo o cupom…"}
             </>
           ) : (
             <>
-              <Lock aria-hidden className="size-4" /> Finalizar compra · {formatBRL(account.price)}
+              <Lock aria-hidden className="size-4" /> Finalizar compra · {formatBRL(coupon.total)}
             </>
           )}
         </Button>
@@ -107,6 +122,7 @@ function CheckoutForm({ account, preview = false }: { account: Account; preview?
 
 function CheckoutContent({ account, preview = false }: { account: Account; preview?: boolean }) {
   useDocumentMeta(`Checkout ${account.handle}`);
+  const coupon = useCoupon(account.id, account.price, preview);
   if (!preview && !isPurchasable(account)) {
     return (
       <EmptyState
@@ -118,9 +134,9 @@ function CheckoutContent({ account, preview = false }: { account: Account; previ
   }
   return (
     <div className="grid grid-cols-1 gap-8 sm:gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
-      <CheckoutForm account={account} preview={preview} />
+      <CheckoutForm account={account} coupon={coupon} preview={preview} />
       <div className="order-first lg:order-none">
-        <OrderSummary account={account} />
+        <OrderSummary account={account} coupon={coupon} preview={preview} />
       </div>
     </div>
   );

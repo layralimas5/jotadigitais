@@ -34,6 +34,7 @@ import {
   AccountNotFoundError,
   AccountUnavailableError,
   AdminUserEmailTakenError,
+  CouponRejectedError,
   CannotRemoveAdminUserError,
   CustomerEmailTakenError,
   CustomerNotFoundError,
@@ -71,6 +72,7 @@ import {
   type MessageTemplates,
 } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
+import { COUPON_REJECTION_MESSAGE, couponRejectionOf } from "@/domain/coupon";
 import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
 import { PLATFORMS } from "@/domain/platform";
@@ -116,6 +118,8 @@ export function fail(error: PostgrestError): never {
 
 /** Checkout e página do pedido: o limite de tentativas tem mensagem própria (a do Meus dados fala de privacidade). */
 function failFromOrderRpc(error: PostgrestError): never {
+  const rejection = couponRejectionOf(error.message);
+  if (rejection && rejection.startsWith("coupon_")) throw new CouponRejectedError(rejection, COUPON_REJECTION_MESSAGE[rejection]);
   if (error.message.includes("too_many_attempts")) throw new TooManyAttemptsError();
   return failFromRpc(error);
 }
@@ -313,6 +317,9 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_referred_by: input.customer.referredBy,
       p_first_part_cents: input.firstPartCents,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
+      // Versão de 20 argumentos: com eles a chamada nunca cai na de 18 nem na de 19.
+      p_installments: null,
+      p_coupon_code: input.couponCode,
     });
     if (error) failFromOrderRpc(error);
     return toOrder(data);

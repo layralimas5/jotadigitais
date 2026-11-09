@@ -39,6 +39,8 @@ const PREVIEW_ORDER: Order = {
   },
   paymentMethod: "pix",
   total: 50_000,
+  couponCode: null,
+  discount: 0,
   status: "paid",
   expiresAt: new Date(0).toISOString(),
   createdAt: new Date(0).toISOString(),
@@ -141,6 +143,11 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
         <div className="p-4">
           <dt className="text-xs text-mist">Total</dt>
           <dd className="mt-1 font-semibold text-white tabular-nums">{formatBRL(order.total)}</dd>
+          {order.couponCode && order.discount > 0 && (
+            <dd className="mt-0.5 text-xs text-emerald-300">
+              Cupom {order.couponCode}: −{formatBRL(order.discount)}
+            </dd>
+          )}
         </div>
         <div className="p-4">
           <dt className="text-xs text-mist">Pagamento</dt>

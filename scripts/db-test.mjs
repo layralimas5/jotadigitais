@@ -699,6 +699,7 @@ async function main() {
   await splitPaymentChecks();
   await checkoutWithoutEmailChecks();
   await cardInstallmentChecks();
+  await couponChecks();
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
@@ -1987,4 +1988,99 @@ async function supportPriorityChecks() {
 
   await asDeveloper(() => db.query(`update public.support_tickets set status = 'done' where id = $1`, [id]));
   check(await rejects(() => setPriority(asAdmin, "urgent"), /forbidden/), "chamado finalizado não muda mais de prioridade");
+}
+
+/** Chama a versão de 20 argumentos pelos nomes, como o site faz pelo PostgREST. */
+function placeWithCoupon(accountId, buyer, plan, firstPartCents, couponCode) {
+  const [termsVersion, termsSha, privacyVersion, privacySha] = CONSENT.split(", ").map((value) => value.slice(1, -1));
+  return as("anon", null, () =>
+    db.query(
+      `select public.place_order(p_account_id => $1, p_name => 'Cliente Cupom', p_email => $2, p_whatsapp => $3, p_document => $4,
+         p_birth_date => null, p_instagram => null, p_city => null, p_state => null, p_payment_method => $5::public.payment_method,
+         p_terms_version => $8, p_terms_sha256 => $9, p_privacy_version => $10, p_privacy_sha256 => $11,
+         p_source => 'instagram', p_referred_by => null, p_first_part_cents => $6::integer, p_hold_minutes => 120,
+         p_installments => null::integer, p_coupon_code => $7::text) as data`,
+      [accountId, buyer.email, buyer.whatsapp, buyer.document, plan, firstPartCents, couponCode, termsVersion, termsSha, privacyVersion, privacySha],
+    ),
+  );
+}
+
+const previewCoupon = (code, accountId, ip) =>
+  as("anon", null, () => db.query(`select public.preview_coupon($1, $2) as data`, [code, accountId]), { ip }).then((r) => r.rows[0].data);
+
+async function couponChecks() {
+  console.log("\ncupons");
+  const buyer = (n) => ({ email: `cupom${n}@exemplo.com`, whatsapp: `1195557000${n}`, document: cpfFrom(`5${n}${n}888222`.slice(0, 9)) });
+  const createCoupon = (sql) => as("authenticated", ADMIN_ID, () => db.query(sql));
+
+  await createCoupon(`insert into public.coupons (code, kind, value) values ('DEZ', 'percent', 10)`);
+  await createCoupon(`insert into public.coupons (code, kind, value, max_uses) values ('CINQUENTA', 'fixed', 5000, 1)`);
+  await createCoupon(`insert into public.coupons (code, kind, value, ends_at) values ('VENCIDO', 'percent', 20, now() - interval '1 day')`);
+  await createCoupon(`insert into public.coupons (code, kind, value, active) values ('PAUSADO', 'percent', 20, false)`);
+  await createCoupon(`insert into public.coupons (code, kind, value) values ('GIGANTE', 'fixed', 9999900)`);
+  check((await db.query(`select count(*)::int as n from public.coupons`)).rows[0].n === 5, "admin cria cupons");
+
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select * from public.coupons`)), /permission denied/),
+    "visitante não lista os cupons",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`insert into public.coupons (code, kind, value) values ('HACK', 'percent', 90)`)), /permission denied/),
+    "visitante não cria cupom",
+  );
+  const strangerSees = await as("authenticated", STRANGER_ID, () => db.query(`select count(*)::int as n from public.coupons`));
+  check(strangerSees.rows[0].n === 0, "usuário logado de fora do painel não vê cupom");
+  check(
+    await rejects(() => createCoupon(`insert into public.coupons (code, kind, value) values ('TUDO', 'percent', 100)`), /check/),
+    "desconto de 100% é recusado",
+  );
+  check(
+    await rejects(() => createCoupon(`insert into public.coupons (code, kind, value) values ('dez minúsculo', 'percent', 10)`), /check/),
+    "código fora do padrão (minúscula, espaço) é recusado",
+  );
+
+  const account = await newAccount("cupom-previa");
+  const preview = await previewCoupon(" dez ", account, "10.0.0.1");
+  check(preview.code === "DEZ" && preview.discount_cents === 3700 && preview.total_cents === 33300, "prévia: 10% de R$ 370 = R$ 37 de desconto");
+  check((await previewCoupon("NAOEXISTE", account, "10.0.0.1")).error === "coupon_not_found", "prévia de cupom inexistente avisa o erro");
+  check((await previewCoupon("VENCIDO", account, "10.0.0.1")).error === "coupon_expired", "cupom vencido é recusado");
+  check((await previewCoupon("PAUSADO", account, "10.0.0.1")).error === "coupon_inactive", "cupom desativado é recusado");
+  const huge = await previewCoupon("GIGANTE", account, "10.0.0.1");
+  check(huge.total_cents === 500, "desconto maior que o preço para em R$ 5,00 de total");
+
+  for (let i = 0; i < 20; i += 1) await previewCoupon(`TESTE${i}`, account, "10.0.0.9");
+  check((await previewCoupon("DEZ", account, "10.0.0.9")).error === "too_many_attempts", "prévia limita tentativas por visitante (erros contam)");
+
+  const placed = (await placeWithCoupon(await newAccount("cupom-pix"), buyer(1), "pix", null, "dez")).rows[0].data;
+  check(
+    placed.total_cents === 33300 && placed.discount_cents === 3700 && placed.coupon_code === "DEZ" && placed.payments[0].amount_cents === 33300,
+    "pedido com cupom grava o desconto e cobra o total com desconto",
+  );
+
+  const split = (await placeWithCoupon(await newAccount("cupom-dividido"), buyer(2), "card_pix", 13300, "DEZ")).rows[0].data;
+  check(
+    split.payments[0].amount_cents === 13300 && split.payments[1].amount_cents === 20000,
+    "pagamento dividido usa o total com desconto",
+  );
+
+  const first = (await placeWithCoupon(await newAccount("cupom-limite-1"), buyer(3), "pix", null, "CINQUENTA")).rows[0].data;
+  check(first.total_cents === 32000, "cupom de R$ 50 tira R$ 50");
+  check(
+    await rejects(async () => placeWithCoupon(await newAccount("cupom-limite-2"), buyer(4), "pix", null, "CINQUENTA"), /coupon_exhausted/),
+    "cupom de uso único não vale no segundo pedido",
+  );
+  await db.query(`update public.orders set status = 'canceled' where code = $1`, [first.code]);
+  const again = (await placeWithCoupon(await newAccount("cupom-limite-3"), buyer(5), "pix", null, "CINQUENTA")).rows[0].data;
+  check(again.total_cents === 32000, "pedido cancelado devolve o uso do cupom");
+
+  check(
+    await rejects(async () => placeWithCoupon(await newAccount("cupom-errado"), buyer(6), "pix", null, "INVENTADO"), /coupon_not_found/),
+    "pedido com cupom inexistente é recusado (não sai sem o desconto que a pessoa esperava)",
+  );
+
+  const uses = await as("authenticated", ADMIN_ID, () => db.query(`select c.code, c.coupon_uses as uses from public.coupons c where code in ('DEZ', 'CINQUENTA') order by code`));
+  check(uses.rows[0].uses === 1 && uses.rows[1].uses === 2, "painel vê quantas vezes cada cupom foi usado");
+
+  const plain = (await placeWithCoupon(await newAccount("cupom-sem"), buyer(7), "pix", null, null)).rows[0].data;
+  check(plain.total_cents === 37000 && plain.discount_cents === 0 && plain.coupon_code === null, "sem cupom, o pedido segue com o preço cheio");
 }

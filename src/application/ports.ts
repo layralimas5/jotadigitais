@@ -1,3 +1,4 @@
+import type { Coupon, CouponData, CouponPreview } from "@/domain/coupon";
 import type { Account, AccountData } from "@/domain/account";
 import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
 import type { AdminRole, AdminUser, AdminUserAccess, NewAdminUser, StaffPermission } from "@/domain/admin-user";
@@ -70,8 +71,23 @@ export interface NewOrder {
   paymentMethod: PaymentMethod;
   /** Valor do primeiro cartão quando o pagamento é dividido; o resto vai na segunda parte. */
   firstPartCents: number | null;
+  /** Cupom digitado; o banco confere e calcula o desconto de novo. */
+  couponCode: string | null;
   /** Termos de Uso e Política de Privacidade aceitos no checkout; o banco grava como prova. */
   consents: LegalConsent[];
+}
+
+/** Prévia do cupom no checkout: o banco confere e devolve o desconto para aquela conta. */
+export interface CouponService {
+  preview(code: string, accountId: string): Promise<CouponPreview>;
+}
+
+export interface AdminCouponRepository {
+  listAll(): Promise<Coupon[]>;
+  findById(id: string): Promise<Coupon | null>;
+  create(data: CouponData): Promise<Coupon>;
+  update(id: string, data: CouponData): Promise<Coupon>;
+  remove(id: string): Promise<void>;
 }
 
 export interface OrderRepository {

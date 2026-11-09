@@ -209,6 +209,11 @@ function OrderCard({ order, guaranteeDays, templates, busy, onAction, onConfirmP
           <dt className="text-xs text-mist">Valor</dt>
           <dd className="mt-0.5 font-display text-lg font-bold text-white tabular-nums">{formatBRL(order.total)}</dd>
           <dd className="text-xs text-mist">{PAYMENT_PLAN_LABEL[order.paymentMethod]}</dd>
+          {order.couponCode && (
+            <dd className="text-xs text-emerald-300">
+              Cupom {order.couponCode} · −{formatBRL(order.discount)}
+            </dd>
+          )}
         </div>
       </dl>
 

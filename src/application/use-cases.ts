@@ -1,6 +1,7 @@
 import type { Account } from "@/domain/account";
 import { isListedInStore, isPurchasable } from "@/domain/account";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
+import type { CouponPreview } from "@/domain/coupon";
 import type { Order } from "@/domain/order";
 import { checkSplit, isSplitPlan } from "@/domain/payment";
 import { DEFAULT_SITE_CONTENT, mergeWithDefaults, type SiteContent } from "@/domain/site-content";
@@ -10,6 +11,7 @@ import type {
   AccountFilter,
   AccountRepository,
   CardPaymentReturn,
+  CouponService,
   OrderRepository,
   PaymentGateway,
   PrivacyService,
@@ -19,7 +21,7 @@ import type {
   TestimonialRepository,
 } from "./ports";
 import { currentLegalConsents } from "./legal-documents";
-import { ValidationError, referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
+import { ValidationError, couponCodeField, parseOrThrow, referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
 
 export interface UseCaseDeps {
   accounts: AccountRepository;
@@ -30,6 +32,7 @@ export interface UseCaseDeps {
   siteContent: SiteContentRepository;
   legal: LegalDocumentRepository;
   privacy: PrivacyService;
+  coupons: CouponService;
 }
 
 /** Textos do site: o que foi salvo por cima do padrão. Se algo salvo não passar na validação, vale o texto original. */
@@ -66,13 +69,20 @@ export interface PlacedOrder {
   order: Order;
 }
 
+/** Desconto do cupom para a conta, conferido no banco. A prévia é só para mostrar: o pedido confere de novo. */
+export function previewCoupon(deps: Pick<UseCaseDeps, "coupons">, rawCode: string, accountId: string): Promise<CouponPreview> {
+  const code = parseOrThrow(couponCodeField, rawCode);
+  return deps.coupons.preview(code, accountId);
+}
+
 export async function placeOrder(deps: UseCaseDeps, accountId: string, data: CheckoutData): Promise<PlacedOrder> {
   const account = await deps.accounts.findById(accountId);
   if (!account) throw new AccountNotFoundError(accountId);
   if (!isPurchasable(account)) throw new AccountUnavailableError(account.handle);
+  const total = data.couponCode ? (await deps.coupons.preview(data.couponCode, account.id)).total : account.price;
   const split = isSplitPlan(data.paymentMethod);
   if (split) {
-    const check = checkSplit(account.price, data.firstPartCents);
+    const check = checkSplit(total, data.firstPartCents);
     if (!check.ok) throw new ValidationError(check.message, { firstPartCents: check.message });
   }
 
@@ -92,6 +102,7 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
     },
     paymentMethod: data.paymentMethod,
     firstPartCents: split ? data.firstPartCents : null,
+    couponCode: data.couponCode,
     consents: await currentLegalConsents(deps),
   });
   return { order };

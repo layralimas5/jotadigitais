@@ -267,3 +267,28 @@ export class SupportDeleteForbiddenError extends Error {
     this.name = "SupportDeleteForbiddenError";
   }
 }
+
+/** Cupom recusado no checkout (não existe, venceu, esgotou...). A mensagem é a que o cliente vê. */
+export class CouponRejectedError extends Error {
+  constructor(
+    readonly reason: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "CouponRejectedError";
+  }
+}
+
+export class CouponNotFoundError extends Error {
+  constructor() {
+    super("Este cupom não existe mais. Ele pode ter sido apagado.");
+    this.name = "CouponNotFoundError";
+  }
+}
+
+export class CouponCodeTakenError extends Error {
+  constructor(code: string) {
+    super(`Já existe um cupom com o código ${code}. Escolha outro.`);
+    this.name = "CouponCodeTakenError";
+  }
+}
