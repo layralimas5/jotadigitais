@@ -7,7 +7,7 @@ import {
   getCartAccounts,
   getOrder,
   listAccounts,
-  listCountries,
+  listStockCountries,
   listTestimonials,
   placeOrder,
   type PlacedOrder,
@@ -29,9 +29,9 @@ export function useCartAccounts(ids: readonly string[]) {
   return useAsync(() => getCartAccounts(store, ids), `cart:${ids.join(",")}`, { keepPrevious: true });
 }
 
-/** Países do filtro da vitrine. */
-export function useCountries() {
-  return useAsync(() => listCountries(store), "countries");
+/** Países que têm conta na vitrine (filtro). */
+export function useStockCountries() {
+  return useAsync(() => listStockCountries(store), "stock-countries");
 }
 
 export function useTestimonials() {

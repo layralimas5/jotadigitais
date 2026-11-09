@@ -11,7 +11,7 @@ import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/Accoun
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
-import { useAccounts, useCountries } from "@/ui/hooks/useStore";
+import { useAccounts, useStockCountries } from "@/ui/hooks/useStore";
 import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
 
@@ -123,7 +123,9 @@ export default function CatalogPage() {
     [platform, country, range, sort],
   );
   const fetched = useAccounts(filter);
-  const countries = useCountries();
+  const countries = useStockCountries();
+  // Com um país só no estoque o filtro não separa nada; volta sozinho quando entrar conta de outro país.
+  const showCountryFilter = (countries.status === "success" && countries.data.length > 1) || country !== undefined;
   const countryOptions = useMemo(() => countryOptionsOf(countries.status === "success" ? countries.data : [], country), [countries, country]);
   const accounts = useMemo(
     () =>
@@ -170,21 +172,23 @@ export default function CatalogPage() {
               </ChipMarquee>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-3 sm:flex">
-              <label className="col-span-2 sm:flex-1 lg:flex-none">
-                <span className="sr-only">País da conta</span>
-                <select
-                  value={country ?? ""}
-                  onChange={(event) => update("pais", event.target.value || undefined)}
-                  className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
-                >
-                  <option value="">Todos os países</option>
-                  {countryOptions.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {option.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {showCountryFilter && (
+                <label className="col-span-2 sm:flex-1 lg:flex-none">
+                  <span className="sr-only">País da conta</span>
+                  <select
+                    value={country ?? ""}
+                    onChange={(event) => update("pais", event.target.value || undefined)}
+                    className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
+                  >
+                    <option value="">Todos os países</option>
+                    {countryOptions.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="sm:flex-1 lg:flex-none">
                 <span className="sr-only">Seguidores ou inscritos</span>
                 <select

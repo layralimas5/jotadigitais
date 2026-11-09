@@ -90,7 +90,6 @@ function supabaseContainer(url: string, anonKey: string): Container {
       payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
       coupons: new SupabaseCouponService(client),
-      countries,
     },
     admin: {
       auth: new SupabaseAuthService(client, passwordChecker),

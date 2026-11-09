@@ -1,5 +1,5 @@
 import type { Account, AccountStatus } from "@/domain/account";
-import { DEFAULT_COUNTRY } from "@/domain/country";
+import { DEFAULT_COUNTRY, sortCountries, type Country } from "@/domain/country";
 import type { AccountFilter, AccountSort } from "./ports";
 
 const sorters: Record<AccountSort, (a: Account, b: Account) => number> = {
@@ -14,6 +14,13 @@ const statusWeight: Record<AccountStatus, number> = { available: 0, reserved: 1,
 export function sortAccounts(accounts: Account[], sort: AccountSort = "recent"): Account[] {
   const compare = sorters[sort];
   return [...accounts].sort((a, b) => statusWeight[a.status] - statusWeight[b.status] || compare(a, b));
+}
+
+/** Países que têm conta na vitrine, sem repetir; Brasil primeiro. */
+export function countriesInStock(accounts: readonly Account[]): Country[] {
+  const byCode = new Map<string, Country>();
+  for (const account of accounts) byCode.set(account.country, { code: account.country, name: account.countryName });
+  return sortCountries([...byCode.values()]);
 }
 
 export function normalizeSearch(text: string): string {
