@@ -1,6 +1,7 @@
-import { ImageOff } from "lucide-react";
+import { Download, ImageOff } from "lucide-react";
 import { useState } from "react";
 import type { SupportAttachment } from "@/domain/support-ticket";
+import { downloadUrlOf } from "./download-url";
 import { ImageLightbox, type LightboxImage } from "./ImageLightbox";
 
 function Unavailable({ name }: { name: string }) {
@@ -9,6 +10,40 @@ function Unavailable({ name }: { name: string }) {
       <ImageOff aria-hidden className="size-5" />
       <span className="line-clamp-2 break-all">{name} indisponível agora</span>
     </span>
+  );
+}
+
+/**
+ * Vídeo que toca no chat, com o botão de baixar. Se o navegador não decodificar (ex.: HEVC de iPhone no Chrome
+ * do Windows, que toca só o som com a tela preta), avisa e deixa baixar para assistir no computador.
+ */
+function VideoAttachment({ url, name }: { url: string; name: string }) {
+  const [unplayable, setUnplayable] = useState(false);
+  return (
+    <>
+      <video
+        src={url}
+        controls
+        playsInline
+        preload="metadata"
+        className="max-h-96 w-full"
+        aria-label={name}
+        onError={() => setUnplayable(true)}
+        onLoadedData={(event) => setUnplayable(event.currentTarget.videoWidth === 0)}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line bg-ink px-3 py-2 text-xs">
+        <span className={unplayable ? "text-amber-200" : "min-w-0 truncate text-mist"}>
+          {unplayable ? "Este navegador não consegue mostrar o vídeo. Baixe para assistir." : name}
+        </span>
+        <a
+          href={downloadUrlOf(url, name)}
+          download={name}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-electric-soft hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-electric"
+        >
+          <Download aria-hidden className="size-3.5" /> Baixar vídeo
+        </a>
+      </div>
+    </>
   );
 }
 
@@ -48,7 +83,7 @@ export function AttachmentGallery({ attachments }: { attachments: readonly Suppo
                 />
               </button>
             ) : (
-              <video src={attachment.url} controls preload="metadata" className="max-h-96 w-full" aria-label={attachment.name} />
+              <VideoAttachment url={attachment.url} name={attachment.name} />
             )}
           </li>
         ))}

@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
+import { downloadUrlOf } from "./download-url";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
 export interface LightboxImage {
@@ -63,10 +64,8 @@ export function ImageLightbox({ images, index, onChange }: ImageLightboxProps) {
       <div className="absolute top-3 right-3 flex gap-2 sm:top-5 sm:right-5">
         {image && (
           <a
-            href={image.url}
+            href={downloadUrlOf(image.url, image.name)}
             download={image.name}
-            target="_blank"
-            rel="noreferrer"
             aria-label={`Baixar ${image?.name ?? "imagem"}`}
             className={controlClass}
           >
