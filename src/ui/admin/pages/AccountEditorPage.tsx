@@ -1,9 +1,10 @@
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteAccount, findAccount, listPartners, saveAccount } from "@/application/admin-use-cases";
+import { deleteAccount, findAccount, findAccountAccess, listPartners, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
+import type { AccountAccess } from "@/domain/email-account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
@@ -13,6 +14,15 @@ import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
+import {
+  AccountAccessSection,
+  accessFormOf,
+  sameAccess,
+  useCanEditAccess,
+  validateAccess,
+  type AccessFormErrors,
+  type AccessFormValues,
+} from "../accounts/AccountAccessSection";
 import { AccountPageSection } from "../accounts/AccountPageSection";
 import { ProfileImport } from "../accounts/ProfileImport";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
@@ -313,13 +323,24 @@ function focusFirstError(form: HTMLFormElement, errors: AccountFormErrors) {
   if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
 }
 
-function AccountEditor({ account }: { account: Account | null }) {
+interface AccountEditorProps {
+  account: Account | null;
+  /** Login salvo na aba E-mails. `undefined` quando quem edita não tem acesso às senhas: a seção nem aparece. */
+  initialAccess: AccountAccess | null | undefined;
+}
+
+function AccountEditor({ account, initialAccess }: AccountEditorProps) {
   const navigate = useNavigate();
   const toast = useToast();
   const form = useAccountForm(account ? fromAccount(account) : emptyAccountForm());
   const { values, errors, set } = form;
   const [sharing, setSharing] = useState(false);
+  const showAccess = initialAccess !== undefined;
+  const [accessStart] = useState(() => accessFormOf(initialAccess ?? null));
+  const [accessValues, setAccessValues] = useState<AccessFormValues>(accessStart);
+  const [accessErrors, setAccessErrors] = useState<AccessFormErrors>({});
   const save = useMutation((deps, data: AccountData) => saveAccount(deps, account?.id ?? null, data));
+  const saveAccess = useMutation((deps, saved: Account, raw: AccessFormValues) => saveAccountAccess(deps, saved, raw));
   const remove = useMutation(async (deps, id: string) => {
     await deleteAccount(deps, id);
     return true;
@@ -330,8 +351,12 @@ function AccountEditor({ account }: { account: Account | null }) {
     event.preventDefault();
     const formElement = event.currentTarget;
     const result = form.validate();
-    if (!result.data) {
-      focusFirstError(formElement, result.errors);
+    const nextAccessErrors = showAccess ? validateAccess(accessValues) : {};
+    setAccessErrors(nextAccessErrors);
+    const accessInvalid = Object.values(nextAccessErrors).some(Boolean);
+    if (!result.data || accessInvalid) {
+      if (!result.data) focusFirstError(formElement, result.errors);
+      else formElement.querySelector<HTMLElement>(`[name="access.${nextAccessErrors.email ? "email" : "password"}"]`)?.focus();
       toast.show("Revise os campos marcados em vermelho.", "error");
       return;
     }
@@ -339,6 +364,14 @@ function AccountEditor({ account }: { account: Account | null }) {
     if (!saved) {
       toast.show("Não foi possível salvar. Veja o aviso no formulário.", "error");
       return;
+    }
+    if (showAccess && !sameAccess(accessValues, accessStart)) {
+      const accessSaved = await saveAccess.run(saved, accessValues);
+      if (accessSaved === undefined) {
+        toast.show(`Conta ${saved.handle} salva, mas o e-mail e a senha não. Tente salvar de novo.`, "error");
+        if (!account) navigate(`/admin/contas/${saved.id}`, { replace: true });
+        return;
+      }
     }
     toast.show(`Conta ${saved.handle} salva. Já aparece no site.`);
     navigate("/admin/contas");
@@ -440,6 +473,17 @@ function AccountEditor({ account }: { account: Account | null }) {
             <PartnerField value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
 
+          {showAccess && (
+            <AccountAccessSection
+              values={accessValues}
+              errors={accessErrors}
+              onChange={(next) => {
+                setAccessValues(next);
+                if (Object.values(accessErrors).some(Boolean)) setAccessErrors(validateAccess(next));
+              }}
+            />
+          )}
+
           <AccountPageSection values={values} errors={errors} set={set} accountId={account?.id ?? "preview"} />
 
           <FormSection title="Prints da conta (opcional)" description="Aparecem na galeria da página da conta. Desfoque dados pessoais antes de enviar.">
@@ -466,11 +510,16 @@ function AccountEditor({ account }: { account: Account | null }) {
           className="lg:col-span-2"
           submitLabel={account ? "Salvar alterações" : "Cadastrar conta"}
           mobileSubmitLabel={account ? "Salvar" : "Cadastrar conta"}
-          pending={save.pending}
+          pending={save.pending || saveAccess.pending}
           onCancel={() => navigate("/admin/contas")}
           onDelete={account ? () => setConfirmOpen(true) : undefined}
           deleteLabel="Apagar conta"
-          errors={[Object.keys(errors).length > 0 ? "Revise os campos marcados em vermelho." : null, save.error?.message, remove.error?.message]}
+          errors={[
+            Object.keys(errors).length > 0 || Object.values(accessErrors).some(Boolean) ? "Revise os campos marcados em vermelho." : null,
+            save.error?.message,
+            saveAccess.error?.message,
+            remove.error?.message,
+          ]}
           extraActions={
             account && (
               <Button variant="secondary" onClick={() => setSharing(true)}>
@@ -504,10 +553,16 @@ function AccountEditor({ account }: { account: Account | null }) {
 
 export default function AccountEditorPage() {
   const { id } = useParams();
+  const canEditAccess = useCanEditAccess();
   const account = useAdminQuery((deps) => (id ? findAccount(deps, id) : Promise.resolve(null)), id ?? "new");
+  const access = useAdminQuery(
+    (deps) => (id && canEditAccess ? findAccountAccess(deps, id) : Promise.resolve(null)),
+    `account-access:${id ?? "new"}:${canEditAccess ? "on" : "off"}`,
+  );
 
-  if (account.status === "loading") return <LoadingBlock />;
+  if (account.status === "loading" || access.status === "loading") return <LoadingBlock />;
   if (account.status === "error") return <ErrorState message={account.error.message} onRetry={account.reload} />;
+  if (access.status === "error") return <ErrorState message={access.error.message} onRetry={access.reload} />;
   if (id && !account.data) {
     return (
       <EmptyState
@@ -521,5 +576,5 @@ export default function AccountEditorPage() {
       />
     );
   }
-  return <AccountEditor key={id ?? "new"} account={account.data} />;
+  return <AccountEditor key={id ?? "new"} account={account.data} initialAccess={canEditAccess ? access.data : undefined} />;
 }

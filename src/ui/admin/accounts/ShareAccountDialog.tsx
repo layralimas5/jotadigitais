@@ -1,9 +1,10 @@
 import { Check, Copy, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { siteConfig } from "@/app/config";
-import { findAccountBuyer, listLeads } from "@/application/admin-use-cases";
+import { findAccountAccess, findAccountBuyer, listLeads } from "@/application/admin-use-cases";
 import type { Account } from "@/domain/account";
 import { offerValuesOf } from "@/domain/account-offer";
+import type { AccountAccess } from "@/domain/email-account";
 import { isOpenLead, type Lead } from "@/domain/lead";
 import { fillTemplate } from "@/domain/message-template";
 import type { Order, OrderStatus } from "@/domain/order";
@@ -42,15 +43,15 @@ const MODE_OPTIONS: readonly (readonly [MessageMode, string])[] = [
   ["offer", "Oferecer a conta"],
 ];
 
-function useShareMessage(account: Account, name: string, mode: MessageMode, buyer: Order | null) {
+function useShareMessage(account: Account, name: string, mode: MessageMode, buyer: Order | null, access: AccountAccess | null) {
   const templates = useMessageTemplates();
   const generated = useMemo(() => {
-    if (mode === "buyer" && buyer) return buyerMessage(templates, buyer);
+    if (mode === "buyer" && buyer) return buyerMessage(templates, buyer, access);
     return fillTemplate(
       templates.account_offer,
       offerValuesOf(account, { recipientName: name ? firstNameOf(name) : GREETING_FALLBACK, siteUrl: siteConfig.url, storeName: siteConfig.name }),
     );
-  }, [templates, account, name, mode, buyer]);
+  }, [templates, account, name, mode, buyer, access]);
   const [edited, setEdited] = useState<string | null>(null);
   return { message: edited ?? generated, edit: setEdited, reset: () => setEdited(null), isEdited: edited !== null };
 }
@@ -109,16 +110,18 @@ interface ShareFormProps {
   account: Account;
   /** Pedido de quem comprou a conta pelo site: nome, WhatsApp e mensagem já vêm dele. */
   buyer: Order | null;
+  /** E-mail e senha da aba E-mails, que entram na mensagem de entrega. */
+  access: AccountAccess | null;
   onClose: () => void;
 }
 
-function ShareForm({ account, buyer, onClose }: ShareFormProps) {
+function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
   const titleId = useId();
   const [name, setName] = useState(buyer?.customer.name ?? "");
   const [phone, setPhone] = useState(buyer?.customer.whatsapp ? formatPhone(buyer.customer.whatsapp) : "");
   const [mode, setMode] = useState<MessageMode>(buyer ? "buyer" : "offer");
   const [copied, setCopied] = useState(false);
-  const offer = useShareMessage(account, name, mode, buyer);
+  const offer = useShareMessage(account, name, mode, buyer, access);
   const buyerMode = mode === "buyer" && buyer !== null;
   const digits = onlyDigits(phone);
   const phoneError = isValidPhone(digits) ? undefined : "Número inválido. Use DDD + número, ex.: 11 91234-5678.";
@@ -195,6 +198,11 @@ function ShareForm({ account, buyer, onClose }: ShareFormProps) {
           onChange={(event) => offer.edit(event.target.value)}
           hint={`O texto padrão fica em Automação, no modelo “${messageModelOf(mode, buyer)}”.`}
         />
+        {buyerMode && buyer && buyer.status !== "awaiting_payment" && !access && (
+          <p className="rounded-xl border border-amber-300/30 bg-amber-300/[0.06] px-4 py-3 text-xs text-amber-100">
+            Esta conta ainda não tem e-mail e senha cadastrados. Preencha em “Acesso da conta”, na ficha dela, para irem na mensagem.
+          </p>
+        )}
         {offer.isEdited && (
           <button type="button" onClick={offer.reset} className="text-xs text-electric-soft underline-offset-4 hover:underline">
             Voltar para o texto padrão
@@ -230,10 +238,11 @@ function messageModelOf(mode: MessageMode, buyer: Order | null): string {
   return buyer.status === "awaiting_payment" ? "Pedido recebido" : "Conta entregue";
 }
 
-/** Busca quem comprou a conta antes de montar o formulário, para ele já abrir preenchido. */
+/** Busca quem comprou a conta (e o login dela) antes de montar o formulário, para ele já abrir preenchido. */
 function ShareContent({ account, onClose }: { account: Account; onClose: () => void }) {
   const buyer = useAdminQuery((deps) => findAccountBuyer(deps, account.id), `account-buyer:${account.id}`);
-  if (buyer.status === "loading") {
+  const access = useAdminQuery((deps) => findAccountAccess(deps, account.id), `account-access-share:${account.id}`);
+  if (buyer.status === "loading" || access.status === "loading") {
     return (
       <p role="status" className="py-10 text-center text-sm text-mist">
         Carregando…
@@ -241,7 +250,15 @@ function ShareContent({ account, onClose }: { account: Account; onClose: () => v
     );
   }
   if (buyer.status === "error") console.error("Não foi possível buscar o comprador da conta", buyer.error);
-  return <ShareForm account={account} buyer={buyer.status === "success" ? buyer.data : null} onClose={onClose} />;
+  if (access.status === "error") console.error("Não foi possível buscar o e-mail e a senha da conta", access.error);
+  return (
+    <ShareForm
+      account={account}
+      buyer={buyer.status === "success" ? buyer.data : null}
+      access={access.status === "success" ? access.data : null}
+      onClose={onClose}
+    />
+  );
 }
 
 /** Janela para mandar os dados da conta para quem quer comprar ou orientar quem já comprou. `<dialog>` nativo: Esc fecha e o foco volta. */

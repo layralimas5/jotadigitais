@@ -980,6 +980,24 @@ export class SupabaseEmailAccountRepository implements AdminEmailAccountReposito
     return data ? toEmailAccount(data) : null;
   }
 
+  async findByAccountId(accountId: string): Promise<EmailAccount | null> {
+    const { data, error } = await this.client
+      .from("email_accounts")
+      .select(EMAIL_ACCOUNT_COLUMNS)
+      .eq("account_id", accountId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) fail(error);
+    return data ? toEmailAccount(data) : null;
+  }
+
+  async findByEmail(email: string): Promise<EmailAccount | null> {
+    const { data, error } = await this.client.from("email_accounts").select(EMAIL_ACCOUNT_COLUMNS).eq("email", email.toLowerCase()).maybeSingle();
+    if (error) fail(error);
+    return data ? toEmailAccount(data) : null;
+  }
+
   async create(input: EmailAccountData): Promise<EmailAccount> {
     const { data, error } = await this.client.from("email_accounts").insert(toEmailAccountRow(input)).select(EMAIL_ACCOUNT_COLUMNS).single();
     if (error) failOnEmailAccountWrite(error, input.email);

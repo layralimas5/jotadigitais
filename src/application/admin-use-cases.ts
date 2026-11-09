@@ -2,12 +2,13 @@ import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { DashboardSource } from "@/domain/dashboard";
-import type { EmailAccount, EmailAccountListItem } from "@/domain/email-account";
+import { accessOf, type AccountAccess, type EmailAccount, type EmailAccountListItem } from "@/domain/email-account";
 import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
 import type { Expense, Revenue } from "@/domain/finance";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { buyerOrderOf, canTransition, type Order, type OrderStatus } from "@/domain/order";
+import { PLATFORM_LABEL } from "@/domain/platform";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import { finalizedSales } from "@/domain/sale";
@@ -47,6 +48,7 @@ import type {
   UploadedImage,
 } from "./ports";
 import {
+  accountAccessSchema,
   accountDataSchema,
   changePasswordSchema,
   passwordResetSchema,
@@ -359,6 +361,41 @@ export function saveEmailAccount(deps: AdminDeps, id: string | null, raw: unknow
   const data = parseOrThrow(emailAccountDataSchema, raw);
   return id ? deps.emailAccounts.update(id, data) : deps.emailAccounts.create(data);
 }
+
+/** Login da conta (e-mail e senha), guardado na aba E-mails e ligado a ela. */
+export async function findAccountAccess(deps: AdminDeps, accountId: string): Promise<AccountAccess | null> {
+  return accessOf(await deps.emailAccounts.findByAccountId(accountId));
+}
+
+/**
+ * Salva o login preenchido na ficha da conta como um e-mail da aba E-mails, ligado à conta.
+ * Já ligado: troca e-mail e senha. Já salvo sem ligação: liga. Novo: cria, com "Onde usa" apontando para a conta.
+ * E-mail vazio desliga o que estava ligado, sem apagar da aba E-mails.
+ */
+export async function saveAccountAccess(deps: AdminDeps, account: Pick<Account, "id" | "handle" | "platform">, raw: unknown): Promise<AccountAccess | null> {
+  const { email, password } = parseOrThrow(accountAccessSchema, raw);
+  const linked = await deps.emailAccounts.findByAccountId(account.id);
+  if (!email) {
+    if (linked) await deps.emailAccounts.update(linked.id, { ...withoutMeta(linked), accountId: null });
+    return null;
+  }
+  if (linked) return accessOf(await deps.emailAccounts.update(linked.id, { ...withoutMeta(linked), email, password }));
+  const existing = await deps.emailAccounts.findByEmail(email);
+  if (existing) return accessOf(await deps.emailAccounts.update(existing.id, { ...withoutMeta(existing), accountId: account.id, password }));
+  return accessOf(
+    await deps.emailAccounts.create({
+      email,
+      password,
+      usedFor: `${PLATFORM_LABEL[account.platform]} ${account.handle}`,
+      recoveryEmail: null,
+      recoveryPhone: null,
+      accountId: account.id,
+      notes: null,
+    }),
+  );
+}
+
+const withoutMeta = ({ id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...data }: EmailAccount) => data;
 
 export function deleteEmailAccount(deps: AdminDeps, id: string): Promise<void> {
   return deps.emailAccounts.remove(id);

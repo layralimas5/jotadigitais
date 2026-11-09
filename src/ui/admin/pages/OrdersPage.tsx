@@ -13,6 +13,7 @@ import { Button } from "@/ui/components/Button";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
+import { SendAccessButton } from "../accounts/SendAccessButton";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { OrderStatusBadge } from "../components/OrderStatusBadge";
@@ -226,6 +227,7 @@ function OrderCard({ order, guaranteeDays, templates, busy, onAction, onConfirmP
 
       {actions.length > 0 && (
         <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+          {order.status === "paid" && <SendAccessButton order={order} templates={templates} />}
           {actions.map((status) => (
             <Button
               key={status}

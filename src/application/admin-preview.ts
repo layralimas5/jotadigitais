@@ -126,7 +126,12 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
     expenses: readOnly(deps.expenses, { listAll: null, findById: null }),
     revenues: readOnly(deps.revenues, { listAll: null, findById: null }),
     partners: readOnly(deps.partners, { listAll: each(maskPartner), findById: maybe(maskPartner) }),
-    emailAccounts: readOnly(deps.emailAccounts, { listAll: each(maskEmailItem), findById: maybe(maskEmailAccount) }),
+    emailAccounts: readOnly(deps.emailAccounts, {
+      listAll: each(maskEmailItem),
+      findById: maybe(maskEmailAccount),
+      findByAccountId: maybe(maskEmailAccount),
+      findByEmail: maybe(maskEmailAccount),
+    }),
     users: readOnly(deps.users, { listAll: each(maskUser) }),
     profiles: readOnly(deps.profiles, { lookup: null }),
     // Apagar do sininho vale só para quem apagou: não mexe no que o Jota vê.

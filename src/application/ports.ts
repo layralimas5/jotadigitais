@@ -286,6 +286,10 @@ export interface AdminEmailAccountRepository {
   /** Sem a senha: ela só é aberta pelo findById. */
   listAll(): Promise<EmailAccountListItem[]>;
   findById(id: string): Promise<EmailAccount | null>;
+  /** E-mail ligado a uma conta do estoque, com a senha. O mais recente, se houver mais de um. */
+  findByAccountId(accountId: string): Promise<EmailAccount | null>;
+  /** Para ligar a uma conta um e-mail que já estava salvo sem ligação. */
+  findByEmail(email: string): Promise<EmailAccount | null>;
   create(data: EmailAccountData): Promise<EmailAccount>;
   update(id: string, data: EmailAccountData): Promise<EmailAccount>;
   remove(id: string): Promise<void>;

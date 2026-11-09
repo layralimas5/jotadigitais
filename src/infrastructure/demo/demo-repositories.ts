@@ -707,6 +707,15 @@ export class DemoEmailAccountRepository implements AdminEmailAccountRepository {
     return (this.db.read().emailAccounts ?? []).find((item) => item.id === id) ?? null;
   }
 
+  async findByAccountId(accountId: string): Promise<EmailAccount | null> {
+    const linked = (this.db.read().emailAccounts ?? []).filter((item) => item.accountId === accountId);
+    return linked.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+  }
+
+  async findByEmail(email: string): Promise<EmailAccount | null> {
+    return (this.db.read().emailAccounts ?? []).find((item) => sameEmail(item.email, email)) ?? null;
+  }
+
   async create(data: EmailAccountData): Promise<EmailAccount> {
     await simulateLatency();
     const now = new Date().toISOString();

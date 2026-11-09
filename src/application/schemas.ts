@@ -346,6 +346,14 @@ export const emailAccountDataSchema = z.object({
   notes: optionalText(2000),
 });
 
+/** Login da conta preenchido na ficha dela. E-mail vazio quer dizer que ainda não foi anotado. */
+export const accountAccessSchema = z.object({
+  email: optionalEmail,
+  password: emailAccountDataSchema.shape.password,
+});
+
+export type AccountAccessInput = z.infer<typeof accountAccessSchema>;
+
 // ---------------------------------------------------------------------------
 // Usuários do sistema
 // ---------------------------------------------------------------------------
