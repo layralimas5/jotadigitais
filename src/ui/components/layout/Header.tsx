@@ -55,7 +55,7 @@ export function Header() {
           <Logo />
         </Link>
 
-        <nav aria-label="Principal" className="hidden items-center gap-1 md:flex">
+        <nav aria-label="Principal" className="hidden items-center gap-1 lg:flex">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}
@@ -90,7 +90,7 @@ export function Header() {
           )}
           <button
             type="button"
-            className="-mr-2 grid size-10 place-items-center rounded-full text-white hover:bg-white/[0.06] md:hidden"
+            className="-mr-2 grid size-10 place-items-center rounded-full text-white hover:bg-white/[0.06] lg:hidden"
             aria-expanded={open}
             aria-controls="mobile-menu"
             aria-label={open ? "Fechar menu" : "Abrir menu"}
@@ -110,7 +110,7 @@ export function Header() {
             animate={{ opacity: 1, height: "auto" }}
             exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
-            className="overflow-hidden md:hidden"
+            className="overflow-hidden lg:hidden"
           >
             <ul className="space-y-0.5 px-4 pt-1 pb-5">
               {NAV_ITEMS.map((item) => (
