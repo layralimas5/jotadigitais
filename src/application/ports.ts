@@ -66,7 +66,8 @@ export interface TestimonialRepository {
 }
 
 export interface NewOrder {
-  accountId: string;
+  /** Uma conta (checkout normal) ou várias (carrinho, um pagamento só). */
+  accountIds: string[];
   customer: Customer;
   paymentMethod: PaymentMethod;
   /** Valor do primeiro cartão quando o pagamento é dividido; o resto vai na segunda parte. */
@@ -77,9 +78,9 @@ export interface NewOrder {
   consents: LegalConsent[];
 }
 
-/** Prévia do cupom no checkout: o banco confere e devolve o desconto para aquela conta. */
+/** Prévia do cupom no checkout: o banco confere e devolve o desconto sobre a soma das contas. */
 export interface CouponService {
-  preview(code: string, accountId: string): Promise<CouponPreview>;
+  preview(code: string, accountIds: string[]): Promise<CouponPreview>;
 }
 
 export interface AdminCouponRepository {
@@ -91,7 +92,10 @@ export interface AdminCouponRepository {
 }
 
 export interface OrderRepository {
-  /** Cria o pedido e reserva a conta numa operação só. Falha se a conta já estiver reservada ou vendida. */
+  /**
+   * Cria o pedido e reserva as contas numa operação só. Falha se alguma já estiver reservada ou vendida.
+   * Com várias contas, devolve o pedido principal do carrinho.
+   */
   place(input: NewOrder): Promise<Order>;
   findByCode(code: string): Promise<Order | null>;
 }

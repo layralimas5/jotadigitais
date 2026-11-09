@@ -1,82 +1,32 @@
-import { ArrowLeft, Lock, MessageCircle } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
-import { formatCount, isPurchasable, type Account } from "@/domain/account";
+import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { acceptsPix } from "@/domain/store-settings";
 import { Button, ButtonLink } from "@/ui/components/Button";
-import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
-import { AccountBadgePill, PlatformTag } from "@/ui/components/account/AccountBadges";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
+import { useCart } from "@/ui/hooks/useCart";
 import { useCheckoutForm } from "@/ui/hooks/useCheckoutForm";
 import { useCoupon, type CouponController } from "@/ui/hooks/useCoupon";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
-import { useAccount, useAccounts, usePlaceOrder } from "@/ui/hooks/useStore";
+import { useAccount, useAccounts, useCartAccounts, usePlaceOrder } from "@/ui/hooks/useStore";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
-import { accountBadge, audienceLabel } from "@/ui/lib/account-presenter";
 import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
-import { CouponField } from "@/ui/sections/checkout/CouponField";
 import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
+import { OrderSummary, subtotalOf } from "@/ui/sections/checkout/OrderSummary";
 
-function OrderSummary({ account, coupon, preview }: { account: Account; coupon: CouponController; preview: boolean }) {
-  return (
-    <aside aria-labelledby="resumo-title" className="rounded-3xl border border-line bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
-      <h2 id="resumo-title" className="font-display text-lg font-semibold text-white">
-        Resumo do pedido
-      </h2>
-      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-line bg-ink/60 p-4">
-        <AccountAvatar account={account} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-white">{account.displayName}</p>
-          <p className="truncate text-sm text-mist">
-            {account.handle} · {formatCount(account.followers)} {audienceLabel(account).toLowerCase()}
-          </p>
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <PlatformTag platform={account.platform} />
-        <AccountBadgePill badge={accountBadge(account)} />
-      </div>
-
-      <dl className="mt-6 space-y-3 border-t border-line pt-5 text-sm">
-        <div className="flex justify-between text-mist">
-          <dt>Conta</dt>
-          <dd className="tabular-nums">{formatBRL(account.price)}</dd>
-        </div>
-        {coupon.state.applied && (
-          <div className="flex justify-between text-emerald-300">
-            <dt>Cupom {coupon.state.applied.code}</dt>
-            <dd className="tabular-nums">−{formatBRL(coupon.state.applied.discount)}</dd>
-          </div>
-        )}
-        <div className="flex justify-between text-mist">
-          <dt>Entrega</dt>
-          <dd>Pelo WhatsApp</dd>
-        </div>
-        <div className="flex items-baseline justify-between border-t border-line pt-4">
-          <dt className="font-semibold text-white">Total</dt>
-          <dd className="flex items-baseline gap-2">
-            {coupon.state.applied && <s className="text-sm text-mist tabular-nums">{formatBRL(account.price)}</s>}
-            <span className="font-display text-2xl font-bold text-white tabular-nums">{formatBRL(coupon.total)}</span>
-          </dd>
-        </div>
-      </dl>
-
-      <div className="mt-5">
-        <CouponField coupon={coupon} disabled={preview} />
-      </div>
-
-      <p className="mt-6 flex items-start gap-2 text-xs leading-relaxed text-mist">
-        <MessageCircle aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
-        Com o pagamento confirmado, login, senha e o passo a passo chegam no seu WhatsApp.
-      </p>
-    </aside>
-  );
+interface CheckoutFormProps {
+  accounts: readonly Account[];
+  coupon: CouponController;
+  preview: boolean;
+  /** Pedido registrado: o carrinho tira as contas compradas. */
+  onPlaced?: (accountIds: string[]) => void;
 }
 
 /** Na prévia da aba Site, o formulário só mostra: finalizar não registra pedido. */
-function CheckoutForm({ account, coupon, preview = false }: { account: Account; coupon: CouponController; preview?: boolean }) {
+function CheckoutForm({ accounts, coupon, preview, onPlaced }: CheckoutFormProps) {
   const navigate = useNavigate();
   const placeOrder = usePlaceOrder();
   const submitting = placeOrder.state.status === "submitting";
@@ -84,8 +34,11 @@ function CheckoutForm({ account, coupon, preview = false }: { account: Account; 
 
   const onValid = async (data: CheckoutData) => {
     if (preview) return;
-    const placed = await placeOrder.submit(account.id, { ...data, couponCode: coupon.code });
-    if (placed) navigate(`/pedido/${placed.order.code}`, { replace: true });
+    const accountIds = accounts.map((account) => account.id);
+    const placed = await placeOrder.submit(accountIds, { ...data, couponCode: coupon.code });
+    if (!placed) return;
+    navigate(`/pedido/${placed.order.code}`, { replace: true });
+    onPlaced?.(accountIds);
   };
   const { values, errors, setField, handleSubmit } = useCheckoutForm(coupon.total, onValid, defaultSource);
   const pixEnabled = acceptsPix(useStoreSettings());
@@ -120,11 +73,31 @@ function CheckoutForm({ account, coupon, preview = false }: { account: Account; 
   );
 }
 
-function CheckoutContent({ account, preview = false }: { account: Account; preview?: boolean }) {
-  useDocumentMeta(`Checkout ${account.handle}`);
-  const coupon = useCoupon(account.id, account.price, preview);
-  if (!preview && !isPurchasable(account)) {
-    return (
+interface CheckoutContentProps {
+  accounts: readonly Account[];
+  preview?: boolean;
+  onPlaced?: (accountIds: string[]) => void;
+}
+
+function CheckoutContent({ accounts, preview = false, onPlaced }: CheckoutContentProps) {
+  const isCart = accounts.length > 1;
+  const [first] = accounts;
+  useDocumentMeta(isCart || !first ? `Checkout de ${accounts.length} contas` : `Checkout ${first.handle}`);
+  const coupon = useCoupon(
+    accounts.map((account) => account.id),
+    subtotalOf(accounts),
+    preview,
+  );
+  const unavailable = preview ? [] : accounts.filter((account) => !isPurchasable(account));
+
+  if (unavailable.length > 0) {
+    return isCart ? (
+      <EmptyState
+        title="Uma conta do carrinho não está mais disponível"
+        description={`Outra pessoa reservou ou comprou antes: ${unavailable.map((account) => account.handle).join(", ")}. Tire do carrinho para seguir com as outras.`}
+        action={<ButtonLink to="/carrinho">Voltar para o carrinho</ButtonLink>}
+      />
+    ) : (
       <EmptyState
         title="Esta conta não está mais disponível"
         description="Outra pessoa reservou ou comprou antes. Escolha outra conta na vitrine."
@@ -134,9 +107,9 @@ function CheckoutContent({ account, preview = false }: { account: Account; previ
   }
   return (
     <div className="grid grid-cols-1 gap-8 sm:gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
-      <CheckoutForm account={account} coupon={coupon} preview={preview} />
+      <CheckoutForm accounts={accounts} coupon={coupon} preview={preview} onPlaced={onPlaced} />
       <div className="order-first lg:order-none">
-        <OrderSummary account={account} coupon={coupon} preview={preview} />
+        <OrderSummary accounts={accounts} coupon={coupon} preview={preview} />
       </div>
     </div>
   );
@@ -151,13 +124,36 @@ function CheckoutSkeleton() {
   );
 }
 
-function LiveCheckout({ slug }: { slug: string }) {
+function SingleCheckout({ slug }: { slug: string }) {
   const account = useAccount(slug);
+  const cart = useCart();
   return (
     <>
       {account.status === "loading" && <CheckoutSkeleton />}
       {account.status === "error" && <ErrorState message={account.error.message} onRetry={account.retry} />}
-      {account.status === "success" && <CheckoutContent account={account.data} />}
+      {account.status === "success" && <CheckoutContent accounts={[account.data]} onPlaced={cart.clear} />}
+    </>
+  );
+}
+
+/** Checkout do carrinho: todas as contas num pedido, um pagamento só. */
+function CartCheckout() {
+  const cart = useCart();
+  const accounts = useCartAccounts(cart.ids);
+  if (cart.count === 0) {
+    return (
+      <EmptyState
+        title="Seu carrinho está vazio"
+        description="Escolha as contas na vitrine e adicione ao carrinho para pagar tudo de uma vez."
+        action={<ButtonLink to="/contas">Ver contas</ButtonLink>}
+      />
+    );
+  }
+  return (
+    <>
+      {accounts.status === "loading" && <CheckoutSkeleton />}
+      {accounts.status === "error" && <ErrorState message={accounts.error.message} onRetry={accounts.retry} />}
+      {accounts.status === "success" && <CheckoutContent accounts={accounts.data} onPlaced={cart.clear} />}
     </>
   );
 }
@@ -173,29 +169,30 @@ function CheckoutPreview() {
       {accounts.status === "success" && !first && (
         <EmptyState title="Nenhuma conta no estoque" description="Cadastre uma conta em Contas para ver o checkout." />
       )}
-      {first && <CheckoutContent account={first} preview />}
+      {first && <CheckoutContent accounts={[first]} preview />}
     </>
   );
 }
 
+/** `/checkout/:slug` compra uma conta; `/checkout` compra o carrinho. */
 export default function CheckoutPage() {
-  const { slug = "" } = useParams();
+  const { slug } = useParams();
   const preview = IS_SITE_PREVIEW && slug === PREVIEW_ACCOUNT_SLUG;
 
   return (
     <div className="relative pt-24 pb-24 md:pt-32">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <Link
-          to={`/contas/${slug}`}
+          to={slug ? `/contas/${slug}` : "/carrinho"}
           className="inline-flex items-center gap-2 text-sm text-mist transition-colors hover:text-white"
         >
-          <ArrowLeft aria-hidden className="size-4" /> Voltar para a conta
+          <ArrowLeft aria-hidden className="size-4" /> {slug ? "Voltar para a conta" : "Voltar para o carrinho"}
         </Link>
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight text-white md:text-4xl">
           Finalizar compra
         </h1>
         <div className="mt-10">
-          {preview ? <CheckoutPreview /> : <LiveCheckout slug={slug} />}
+          {preview ? <CheckoutPreview /> : slug ? <SingleCheckout slug={slug} /> : <CartCheckout />}
         </div>
       </div>
     </div>

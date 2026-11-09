@@ -45,6 +45,7 @@ import {
 import {
   RESERVATION_HOLD_MINUTES,
   canTransition,
+  isCartLead,
   generateOrderCode,
   maskEmail,
   type Order,
@@ -58,6 +59,7 @@ import { formatBRL } from "@/domain/money";
 import type { StoredNotification } from "@/domain/notification";
 import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
+import { splitCouponDiscount } from "@/domain/coupon";
 import { planParts } from "@/domain/payment";
 import type { SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -230,95 +232,194 @@ function isActiveOrder(order: Order, now: number): boolean {
 /** Pedidos salvos no navegador antes do pagamento dividido não têm a lista de cobranças. */
 const withPayments = (order: Order): Order => ({ ...order, payments: order.payments ?? [] });
 
-/** Espelha `place_order` e `sync_order_status` do banco para o modo demonstração. */
+/** Pedidos salvos antes do carrinho não têm os campos dele. */
+const withCart = (order: Order): Order => ({ ...withPayments(order), cartCode: order.cartCode ?? null, cartItems: [] });
+
+/** Como `public_order_json`: só o pedido principal lista as contas do carrinho, ele primeiro. */
+function withCartItems(orders: readonly Order[], order: Order): Order {
+  const base = withCart(order);
+  if (!isCartLead(base)) return base;
+  const members = orders
+    .filter((item) => item.cartCode === base.code)
+    .sort((a, b) => Number(a.code !== base.code) - Number(b.code !== base.code) || b.total - a.total);
+  return {
+    ...base,
+    cartItems: members.map((item) => ({
+      code: item.code,
+      accountHandle: item.accountHandle,
+      accountName: item.accountName,
+      accountPlatform: item.accountPlatform,
+      total: item.total,
+      discount: item.discount,
+      status: item.status,
+    })),
+  };
+}
+
+/** Pedidos que seguem o principal do carrinho (sem ele). */
+const cartMembersOf = (orders: readonly Order[], lead: Order) =>
+  lead.cartCode === lead.code ? orders.filter((item) => item.cartCode === lead.code && item.code !== lead.code) : [];
+
+/** Como `sync_order_status` e `sync_payments_with_order`: muda o pedido, as cobranças e a conta. */
+function applyStatus(state: DemoState, order: Order, status: OrderStatus): void {
+  const previous = order.status;
+  order.status = status;
+  if (status === "delivered") order.deliveredAt = new Date().toISOString();
+  // Cancelar fecha as partes em aberto; pagar à mão dá todas como pagas.
+  for (const payment of order.payments ?? []) {
+    if (payment.status !== "pending") continue;
+    if (status === "canceled") payment.status = "canceled";
+    if (status === "paid" && previous === "awaiting_payment") {
+      payment.status = "paid";
+      payment.paidAt = new Date().toISOString();
+    }
+  }
+
+  const account = state.accounts.find((item) => item.id === order.accountId);
+  if (!account) return;
+  if (status === "paid") {
+    account.status = "reserved";
+    account.reservedUntil = null;
+  } else if (status === "delivered") {
+    account.status = "sold";
+    account.reservedUntil = null;
+  } else if (status === "canceled") {
+    const now = Date.now();
+    const otherActive = state.orders.some(
+      (item) => item.accountId === account.id && item.code !== order.code && isActiveOrder(item, now),
+    );
+    if (!otherActive && account.status === "reserved") {
+      account.status = "available";
+      account.reservedUntil = null;
+    }
+  }
+}
+
+/** Como `sync_cart_orders`: o principal saiu de "aguardando pagamento" para pago ou cancelado, o carrinho acompanha. */
+function followCartLead(state: DemoState, lead: Order, status: OrderStatus): void {
+  if (status !== "paid" && status !== "canceled") return;
+  for (const member of cartMembersOf(state.orders, lead)) {
+    if (member.status === "awaiting_payment") applyStatus(state, member, status);
+  }
+}
+
+/** Espelha `place_order`, `place_cart_order` e `sync_order_status` do banco para o modo demonstração. */
 export class DemoOrderRepository implements OrderRepository, AdminOrderRepository {
   constructor(private readonly db: DemoDatabase) {}
 
   async place(input: NewOrder): Promise<Order> {
     await simulateLatency();
-    const order = this.db.write((state) => {
+    const lead = this.db.write((state) => {
       const now = Date.now();
       const email = input.customer.email?.toLowerCase() ?? null;
       const { whatsapp, document } = input.customer;
-      const open = state.orders.filter(
-        (item) =>
-          item.status === "awaiting_payment" &&
-          new Date(item.expiresAt).getTime() > now &&
-          ((email !== null && item.customer.email === email) || item.customer.whatsapp === whatsapp || item.customer.document === document),
+      // Como no banco, o limite conta carrinhos: várias contas compradas juntas são um pedido em aberto.
+      const openCarts = new Set(
+        state.orders
+          .filter(
+            (item) =>
+              item.status === "awaiting_payment" &&
+              new Date(item.expiresAt).getTime() > now &&
+              ((email !== null && item.customer.email === email) || item.customer.whatsapp === whatsapp || item.customer.document === document),
+          )
+          .map((item) => item.cartCode ?? item.code),
       );
-      if (open.length >= MAX_OPEN_ORDERS_PER_CUSTOMER) throw new TooManyOpenOrdersError();
+      if (openCarts.size >= MAX_OPEN_ORDERS_PER_CUSTOMER) throw new TooManyOpenOrdersError();
 
-      const account = state.accounts.find((item) => item.id === input.accountId);
-      if (!account) throw new AccountNotFoundError(input.accountId);
-      if (!isPurchasable({ status: effectiveStatus(account.status, account.reservedUntil) })) {
-        throw new AccountUnavailableError(account.handle);
-      }
+      const accounts = input.accountIds
+        .map((id) => {
+          const account = state.accounts.find((item) => item.id === id);
+          if (!account) throw new AccountNotFoundError(id);
+          if (!isPurchasable({ status: effectiveStatus(account.status, account.reservedUntil) })) {
+            throw new AccountUnavailableError(account.handle);
+          }
+          return account;
+        })
+        // A mais cara é a principal, como em `place_cart_order`.
+        .sort((a, b) => b.price - a.price);
 
       for (const stale of state.orders) {
-        if (stale.accountId === account.id && stale.status === "awaiting_payment") stale.status = "canceled";
+        if (stale.status === "awaiting_payment" && accounts.some((account) => account.id === stale.accountId)) stale.status = "canceled";
       }
-      const coupon = input.couponCode ? applyDemoCoupon(state, input.couponCode, account.price) : null;
-      const total = account.price - (coupon?.discount ?? 0);
+      const prices = accounts.map((account) => account.price);
+      const subtotal = prices.reduce((sum, price) => sum + price, 0);
+      const coupon = input.couponCode ? applyDemoCoupon(state, input.couponCode, subtotal) : null;
+      const shares = splitCouponDiscount(prices, coupon?.discount ?? 0);
+      const total = subtotal - (coupon?.discount ?? 0);
+      const expiresAt = new Date(now + RESERVATION_HOLD_MINUTES * MINUTE_MS).toISOString();
+      const codes = accounts.map(() => generateOrderCode());
+      const cartCode = accounts.length > 1 ? (codes[0] ?? null) : null;
 
-      const created: Order = {
-        code: generateOrderCode(),
+      const created: Order[] = accounts.map((account, index) => ({
+        code: codes[index] ?? generateOrderCode(),
         accountId: account.id,
         accountHandle: account.handle,
         accountName: account.displayName,
         accountPlatform: account.platform,
         customer: { ...input.customer, email },
         paymentMethod: input.paymentMethod,
-        total,
+        total: account.price - (shares[index] ?? 0),
         couponCode: coupon?.code ?? null,
-        discount: coupon?.discount ?? 0,
+        discount: shares[index] ?? 0,
         status: "awaiting_payment",
-        expiresAt: new Date(now + RESERVATION_HOLD_MINUTES * MINUTE_MS).toISOString(),
+        expiresAt,
         createdAt: new Date(now).toISOString(),
         deliveredAt: null,
-        payments: planParts(input.paymentMethod, total, input.firstPartCents).map((part, index) => ({
-          id: newId("pay"),
-          position: index + 1,
-          method: part.method,
-          amount: part.amount,
-          status: "pending",
-          checkoutUrl: null,
-          paidAt: null,
-          requestedInstallments: null,
-          card: null,
-          pixCode: null,
-          pix: null,
-        })),
-      };
-      state.orders.push(created);
+        // Só o principal cobra, e cobra o carrinho inteiro.
+        payments:
+          index > 0
+            ? []
+            : planParts(input.paymentMethod, total, input.firstPartCents).map((part, position) => ({
+                id: newId("pay"),
+                position: position + 1,
+                method: part.method,
+                amount: part.amount,
+                status: "pending",
+                checkoutUrl: null,
+                paidAt: null,
+                requestedInstallments: null,
+                card: null,
+                pixCode: null,
+                pix: null,
+              })),
+        cartCode,
+        cartItems: [],
+      }));
+      const [first] = created;
+      if (!first) throw new AccountNotFoundError("");
+
+      state.orders.push(...created);
       state.consents = [
         ...(state.consents ?? []),
         ...input.consents.map((consent) => ({
-          orderCode: created.code,
+          orderCode: first.code,
           slug: consent.slug,
           version: consent.version,
           sha256: consent.sha256,
-          acceptedAt: created.createdAt,
+          acceptedAt: first.createdAt,
           // Sem servidor no modo demonstração: não há IP para registrar.
           ipAddress: null,
           userAgent: navigator.userAgent.slice(0, 400),
         })),
       ];
-      state.notifications = [newOrderNotification(created), ...notificationsOf(state)].slice(0, MAX_NOTIFICATIONS);
-      account.status = "reserved";
-      account.reservedUntil = created.expiresAt;
-      return created;
+      state.notifications = [...created.map(newOrderNotification), ...notificationsOf(state)].slice(0, MAX_NOTIFICATIONS);
+      for (const account of accounts) {
+        account.status = "reserved";
+        account.reservedUntil = expiresAt;
+      }
+      return first;
     });
-    return this.toPublic(order);
+    return this.toPublic(withCartItems(this.db.read().orders, lead));
   }
 
   async findByCode(code: string): Promise<Order | null> {
     const order = this.db.read().orders.find((item) => item.code === code.trim().toUpperCase());
-    return order ? this.toPublic(withPayments(order)) : null;
+    return order ? this.toPublic(withCartItems(this.db.read().orders, order)) : null;
   }
 
   async listAll(): Promise<Order[]> {
     await simulateLatency();
-    return [...this.db.read().orders].map(withPayments).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...this.db.read().orders].map(withCart).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async confirmPixPayment(paymentId: string): Promise<void> {
@@ -344,6 +445,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         order.status = "paid";
         const account = state.accounts.find((item) => item.id === order.accountId);
         if (account) account.reservedUntil = null;
+        followCartLead(state, order, "paid");
       }
     });
   }
@@ -355,36 +457,8 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
       if (!order) throw new Error(`Pedido ${code} não encontrado.`);
       if (!canTransition(order.status, status)) throw new InvalidTransitionError();
       const previous = order.status;
-      order.status = status;
-      if (status === "delivered") order.deliveredAt = new Date().toISOString();
-      // Como sync_payments_with_order: cancelar fecha as partes em aberto; pagar à mão dá todas como pagas.
-      for (const payment of order.payments ?? []) {
-        if (payment.status !== "pending") continue;
-        if (status === "canceled") payment.status = "canceled";
-        if (status === "paid" && previous === "awaiting_payment") {
-          payment.status = "paid";
-          payment.paidAt = new Date().toISOString();
-        }
-      }
-
-      const account = state.accounts.find((item) => item.id === order.accountId);
-      if (!account) return;
-      if (status === "paid") {
-        account.status = "reserved";
-        account.reservedUntil = null;
-      } else if (status === "delivered") {
-        account.status = "sold";
-        account.reservedUntil = null;
-      } else if (status === "canceled") {
-        const now = Date.now();
-        const otherActive = state.orders.some(
-          (item) => item.accountId === account.id && item.code !== code && isActiveOrder(item, now),
-        );
-        if (!otherActive && account.status === "reserved") {
-          account.status = "available";
-          account.reservedUntil = null;
-        }
-      }
+      applyStatus(state, order, status);
+      if (previous === "awaiting_payment") followCartLead(state, order, status);
     });
   }
 

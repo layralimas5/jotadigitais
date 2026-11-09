@@ -4,6 +4,7 @@ import type { AccountFilter } from "@/application/ports";
 import type { CheckoutData } from "@/application/schemas";
 import {
   getAccount,
+  getCartAccounts,
   getOrder,
   listAccounts,
   listTestimonials,
@@ -22,6 +23,11 @@ export function useAccount(slug: string) {
   return useAsync(() => getAccount(store, slug), slug);
 }
 
+/** Contas guardadas no carrinho, na ordem em que entraram. */
+export function useCartAccounts(ids: readonly string[]) {
+  return useAsync(() => getCartAccounts(store, ids), `cart:${ids.join(",")}`, { keepPrevious: true });
+}
+
 export function useTestimonials() {
   return useAsync(() => listTestimonials(store), "testimonials");
 }
@@ -36,10 +42,10 @@ type PlaceOrderState = { status: "idle" } | { status: "submitting" } | { status:
 export function usePlaceOrder() {
   const [state, setState] = useState<PlaceOrderState>({ status: "idle" });
 
-  const submit = useCallback(async (accountId: string, data: CheckoutData): Promise<PlacedOrder | null> => {
+  const submit = useCallback(async (accountIds: string[], data: CheckoutData): Promise<PlacedOrder | null> => {
     setState({ status: "submitting" });
     try {
-      const placed = await placeOrder(store, accountId, data);
+      const placed = await placeOrder(store, accountIds, data);
       setState({ status: "idle" });
       return placed;
     } catch (error) {

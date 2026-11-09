@@ -52,7 +52,7 @@ export function matchesOrderQuery(order: Order, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
   const { name, email, whatsapp } = order.customer;
-  return [order.code, name, email, whatsapp, order.accountHandle, order.accountName].some((field) =>
+  return [order.code, order.cartCode, name, email, whatsapp, order.accountHandle, order.accountName].some((field) =>
     field?.toLowerCase().includes(needle),
   );
 }

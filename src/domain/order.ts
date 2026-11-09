@@ -35,6 +35,18 @@ export interface Customer {
   referredBy: string | null;
 }
 
+/** Uma conta do carrinho, como a página pública do pedido mostra (sem dado pessoal). */
+export interface OrderCartItem {
+  code: string;
+  accountHandle: string;
+  accountName: string;
+  accountPlatform: Platform;
+  /** Já com a parte do desconto do cupom que coube a esta conta. */
+  total: Cents;
+  discount: Cents;
+  status: OrderStatus;
+}
+
 export interface Order {
   code: string;
   accountId: string | null;
@@ -57,6 +69,30 @@ export interface Order {
   deliveredAt: string | null;
   /** Cobranças do pedido, na ordem. Pedidos de antes do pagamento dividido chegam sem nenhuma. */
   payments: OrderPayment[];
+  /**
+   * Código do pedido principal quando a conta foi comprada num carrinho (no principal, é o próprio código).
+   * O principal recebe as cobranças do carrinho inteiro; os outros acompanham o status dele.
+   */
+  cartCode: string | null;
+  /** Contas do carrinho, o principal primeiro. Só a página pública do pedido principal recebe; nos outros casos, vazio. */
+  cartItems: OrderCartItem[];
+}
+
+/** Mesmo limite da função `cart_max_items` no banco. */
+export const MAX_CART_ITEMS = 10;
+
+export const isCartLead = (order: Pick<Order, "code" | "cartCode">) => order.cartCode === order.code;
+
+/** Pedido que faz parte de um carrinho mas não é o principal: o pagamento fica no principal. */
+export const isCartMember = (order: Pick<Order, "code" | "cartCode">) => order.cartCode !== null && order.cartCode !== order.code;
+
+/** Total e desconto que o cliente paga: o carrinho inteiro no pedido principal, a conta sozinha nos outros. */
+export function chargedAmounts(order: Pick<Order, "total" | "discount" | "cartItems">): { total: Cents; discount: Cents } {
+  if (order.cartItems.length === 0) return { total: order.total, discount: order.discount };
+  return {
+    total: order.cartItems.reduce((sum, item) => sum + item.total, 0),
+    discount: order.cartItems.reduce((sum, item) => sum + item.discount, 0),
+  };
 }
 
 export const MAX_CARD_INSTALLMENTS = 12;

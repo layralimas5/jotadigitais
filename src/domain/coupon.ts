@@ -45,6 +45,18 @@ export function couponDiscount(coupon: Pick<CouponData, "kind" | "value">, price
   return Math.max(0, Math.min(raw, price - COUPON_MIN_TOTAL_CENTS));
 }
 
+/**
+ * Reparte o desconto do carrinho pelo preço de cada conta, igual à `place_cart_order` no banco.
+ * O primeiro preço é o do pedido principal (a conta mais cara) e fica com o arredondamento.
+ */
+export function splitCouponDiscount(prices: readonly Cents[], discount: Cents): Cents[] {
+  const subtotal = prices.reduce((sum, price) => sum + price, 0);
+  if (subtotal === 0 || discount === 0) return prices.map(() => 0);
+  const shares = prices.map((price, index) => (index === 0 ? 0 : Math.floor((price * discount) / subtotal)));
+  shares[0] = discount - shares.reduce((sum, share) => sum + share, 0);
+  return shares;
+}
+
 export const COUPON_STATUSES = ["active", "inactive", "scheduled", "expired", "exhausted"] as const;
 export type CouponStatus = (typeof COUPON_STATUSES)[number];
 

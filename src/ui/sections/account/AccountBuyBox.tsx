@@ -4,6 +4,7 @@ import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink, buttonClasses } from "@/ui/components/Button";
+import { AddToCartButton } from "@/ui/components/cart/AddToCartButton";
 import type { SiteContent } from "@/domain/site-content";
 import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
@@ -112,9 +113,12 @@ export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
 
       <div ref={ctaRef} className="mt-5 space-y-3">
         {available ? (
-          <ButtonLink to={`/checkout/${account.slug}`} size="lg" className="w-full" {...editable("accountPage.buyButton")}>
-            {accountPage.buyButton}
-          </ButtonLink>
+          <>
+            <ButtonLink to={`/checkout/${account.slug}`} size="lg" className="w-full" {...editable("accountPage.buyButton")}>
+              {accountPage.buyButton}
+            </ButtonLink>
+            <AddToCartButton account={account} />
+          </>
         ) : (
           <ButtonLink to="/contas" size="lg" className="w-full" {...editable("accountPage.otherButton")}>
             {accountPage.otherButton}

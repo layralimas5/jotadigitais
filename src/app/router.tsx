@@ -6,6 +6,7 @@ import HomePage from "@/ui/pages/HomePage";
 
 const CatalogPage = lazy(() => import("@/ui/pages/CatalogPage"));
 const AccountPage = lazy(() => import("@/ui/pages/AccountPage"));
+const CartPage = lazy(() => import("@/ui/pages/CartPage"));
 const CheckoutPage = lazy(() => import("@/ui/pages/CheckoutPage"));
 const OrderPage = lazy(() => import("@/ui/pages/OrderPage"));
 const LegalDocumentPage = lazy(() => import("@/ui/pages/LegalDocumentPage"));
@@ -62,6 +63,8 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "contas", element: <CatalogPage /> },
       { path: "contas/:slug", element: <AccountPage /> },
+      { path: "carrinho", element: <CartPage /> },
+      { path: "checkout", element: <CheckoutPage /> },
       { path: "checkout/:slug", element: <CheckoutPage /> },
       { path: "pedido/:code", element: <OrderPage /> },
       { path: "termos-de-uso", element: <LegalDocumentPage slug="terms" /> },

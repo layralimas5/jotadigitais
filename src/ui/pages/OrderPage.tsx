@@ -1,10 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Clock, Inbox, Sparkles } from "lucide-react";
 import { Fragment, useEffect, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { OrderNotFoundError } from "@/domain/errors";
 import { formatBRL } from "@/domain/money";
-import type { Order } from "@/domain/order";
+import { chargedAmounts, isCartMember, type Order } from "@/domain/order";
 import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -16,6 +16,7 @@ import { useOrder } from "@/ui/hooks/useStore";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 import { editable, IS_SITE_PREVIEW, PREVIEW_ORDER_CODE } from "@/ui/lib/site-preview";
+import { OrderCartItems } from "@/ui/sections/order/OrderCartItems";
 import { OrderPayments } from "@/ui/sections/order/OrderPayments";
 
 /** Pedido fictício da prévia da aba Site: mostra a página já paga, sem tocar no banco. */
@@ -46,20 +47,34 @@ const PREVIEW_ORDER: Order = {
   createdAt: new Date(0).toISOString(),
   deliveredAt: null,
   payments: [],
+  cartCode: null,
+  cartItems: [],
 };
+
+/** O @ da conta ou, no carrinho, "suas 3 contas". */
+const accountsLabel = (order: Order) =>
+  order.cartItems.length > 1 ? `suas ${order.cartItems.length} contas` : order.accountHandle;
 
 /** Troca {nome} e {conta} na página do pedido. */
 const fillOrderTokens = (text: string, order: Order) =>
-  text.replaceAll("{nome}", order.customer.name.split(" ")[0] ?? "").replaceAll("{conta}", order.accountHandle);
+  text.replaceAll("{nome}", order.customer.name.split(" ")[0] ?? "").replaceAll("{conta}", accountsLabel(order));
 
 /** A frase abaixo do título destaca o @ da conta onde estiver {conta}. */
 function ReservedLine({ text, order }: { text: string; order: Order }) {
+  // O texto editável fala de uma conta só; no carrinho a frase é fixa para não sair "a conta suas 3 contas".
+  if (order.cartItems.length > 1) {
+    return (
+      <p className="mx-auto mt-4 max-w-md text-mist">
+        Suas <span className="font-semibold text-white">{order.cartItems.length} contas</span> estão reservadas para você.
+      </p>
+    );
+  }
   const parts = text.replaceAll("{nome}", order.customer.name.split(" ")[0] ?? "").split("{conta}");
   return (
     <p {...editable("orderPage.reserved")} className="mx-auto mt-4 max-w-md text-mist">
       {parts.map((part, index) => (
         <Fragment key={index}>
-          {index > 0 && <span className="font-semibold text-white">{order.accountHandle}</span>}
+          {index > 0 && <span className="font-semibold text-white">{accountsLabel(order)}</span>}
           {part}
         </Fragment>
       ))}
@@ -115,6 +130,7 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
   const { orderPage } = useSiteContent();
   useDocumentMeta(`Pedido ${order.code}`);
   const awaiting = order.status === "awaiting_payment";
+  const charged = chargedAmounts(order);
 
   return (
     <div className="text-center">
@@ -142,10 +158,10 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
         </div>
         <div className="p-4">
           <dt className="text-xs text-mist">Total</dt>
-          <dd className="mt-1 font-semibold text-white tabular-nums">{formatBRL(order.total)}</dd>
-          {order.couponCode && order.discount > 0 && (
+          <dd className="mt-1 font-semibold text-white tabular-nums">{formatBRL(charged.total)}</dd>
+          {order.couponCode && charged.discount > 0 && (
             <dd className="mt-0.5 text-xs text-emerald-300">
-              Cupom {order.couponCode}: −{formatBRL(order.discount)}
+              Cupom {order.couponCode}: −{formatBRL(charged.discount)}
             </dd>
           )}
         </div>
@@ -155,7 +171,20 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
         </div>
       </dl>
 
-      <OrderPayments order={order} onPaid={onPaid} />
+      {isCartMember(order) && order.cartCode ? (
+        <p className="mx-auto mt-8 max-w-md rounded-2xl border border-line bg-surface/70 p-4 text-sm text-fog">
+          Esta conta foi comprada junto com outras. O pagamento e o andamento ficam no pedido{" "}
+          <Link to={`/pedido/${order.cartCode}`} className="font-mono font-semibold text-electric-soft underline-offset-4 hover:underline">
+            {order.cartCode}
+          </Link>
+          .
+        </p>
+      ) : (
+        <>
+          <OrderCartItems items={order.cartItems} />
+          <OrderPayments order={order} onPaid={onPaid} />
+        </>
+      )}
 
       <div className="mx-auto max-w-3xl">
         <NextSteps order={order} />

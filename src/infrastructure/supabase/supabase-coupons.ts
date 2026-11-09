@@ -102,12 +102,16 @@ const previewSchema = z.union([
   z.object({ code: z.string(), discount_cents: z.number(), total_cents: z.number() }),
 ]);
 
-/** Prévia pública do checkout (`preview_coupon`), limitada por visitante no banco. */
+/** Prévia pública do checkout (`preview_coupon` ou, no carrinho, `preview_cart_coupon`), limitada por visitante no banco. */
 export class SupabaseCouponService implements CouponService {
   constructor(private readonly client: SupabaseClient) {}
 
-  async preview(code: string, accountId: string): Promise<CouponPreview> {
-    const { data, error } = await this.client.rpc("preview_coupon", { p_code: code, p_account_id: accountId });
+  async preview(code: string, accountIds: string[]): Promise<CouponPreview> {
+    const [accountId] = accountIds;
+    const { data, error } =
+      accountIds.length === 1 && accountId
+        ? await this.client.rpc("preview_coupon", { p_code: code, p_account_id: accountId })
+        : await this.client.rpc("preview_cart_coupon", { p_code: code, p_account_ids: accountIds });
     if (error) fail(error);
     const result = previewSchema.parse(data);
     if ("error" in result) {

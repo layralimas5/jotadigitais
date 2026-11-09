@@ -3,6 +3,7 @@ import type { Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink } from "@/ui/components/Button";
+import { CartToggleIcon } from "@/ui/components/cart/AddToCartButton";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { cn } from "@/ui/lib/cn";
 
@@ -34,9 +35,12 @@ export function MobileBuyBar({ account, visible }: MobileBuyBarProps) {
               <p className="font-display text-lg font-bold text-white tabular-nums">{formatBRL(account.price)}</p>
               <p className="text-[0.65rem] text-mist">Pix ou até {MAX_CARD_INSTALLMENTS}x</p>
             </div>
-            <ButtonLink to={`/checkout/${account.slug}`} className="shrink-0">
-              Comprar
-            </ButtonLink>
+            <div className="flex shrink-0 items-center gap-2">
+              <CartToggleIcon account={account} />
+              <ButtonLink to={`/checkout/${account.slug}`} className="shrink-0">
+                Comprar
+              </ButtonLink>
+            </div>
           </div>
         </motion.div>
       )}

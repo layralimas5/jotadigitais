@@ -5,6 +5,7 @@ import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { accountBadge, audienceLabel, cardMetric, verifiedLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
+import { CartToggleIcon } from "../cart/AddToCartButton";
 import { PlatformGlyph } from "../PlatformGlyph";
 import { VerifiedBadge } from "../VerifiedBadge";
 import { AccountAvatar, gradientFor } from "./AccountAvatar";
@@ -109,18 +110,21 @@ export function AccountCard({ account }: { account: Account }) {
               </p>
               <p className="text-xs text-mist">Pix ou até {MAX_CARD_INSTALLMENTS}x no cartão</p>
             </div>
-            <span
-              aria-hidden
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-3.5 py-2 text-[0.82rem] font-semibold text-white transition-colors duration-300 sm:px-4 sm:text-sm",
-                available && "group-hover:border-electric group-hover:bg-electric group-hover:text-ink",
-              )}
-            >
-              {available ? "Ver conta" : "Indisponível"}
-              {available && (
-                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-              )}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              <CartToggleIcon account={account} />
+              <span
+                aria-hidden
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-3.5 py-2 text-[0.82rem] font-semibold text-white transition-colors duration-300 sm:px-4 sm:text-sm",
+                  available && "group-hover:border-electric group-hover:bg-electric group-hover:text-ink",
+                )}
+              >
+                {available ? "Ver conta" : "Indisponível"}
+                {available && (
+                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 max-[360px]:hidden" />
+                )}
+              </span>
+            </div>
           </div>
         </div>
       </div>

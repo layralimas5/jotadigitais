@@ -12,13 +12,15 @@ import {
   type CouponStatus,
 } from "@/domain/coupon";
 import { CouponCodeTakenError, CouponNotFoundError, CouponRejectedError } from "@/domain/errors";
-import type { Order } from "@/domain/order";
+import { isCartMember, type Order } from "@/domain/order";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 
 /** No navegador o cupom fica sem a contagem de usos: ela sai dos pedidos, como no banco. */
 export type StoredCoupon = Omit<Coupon, "uses">;
 
-const usesOf = (orders: readonly Order[], code: string) => orders.filter((order) => order.couponCode === code && order.status !== "canceled").length;
+/** Como `coupon_uses`: o carrinho conta um uso só, no pedido principal. */
+const usesOf = (orders: readonly Order[], code: string) =>
+  orders.filter((order) => order.couponCode === code && order.status !== "canceled" && !isCartMember({ code: order.code, cartCode: order.cartCode ?? null })).length;
 
 const withUses = (coupon: StoredCoupon, orders: readonly Order[]): Coupon => ({ ...coupon, uses: usesOf(orders, coupon.code) });
 
@@ -92,12 +94,16 @@ export class DemoCouponRepository implements AdminCouponRepository {
 export class DemoCouponService implements CouponService {
   constructor(private readonly db: DemoDatabase) {}
 
-  async preview(code: string, accountId: string): Promise<CouponPreview> {
+  async preview(code: string, accountIds: string[]): Promise<CouponPreview> {
     await simulateLatency();
     const state = this.db.read();
-    const account = state.accounts.find((item) => item.id === accountId);
-    if (!account || !isPurchasable({ status: effectiveStatus(account.status, account.reservedUntil) })) return reject("account_unavailable");
-    const applied = applyDemoCoupon(state, code, account.price);
-    return { code: applied.code, discount: applied.discount, total: account.price - applied.discount };
+    let subtotal = 0;
+    for (const accountId of accountIds) {
+      const account = state.accounts.find((item) => item.id === accountId);
+      if (!account || !isPurchasable({ status: effectiveStatus(account.status, account.reservedUntil) })) return reject("account_unavailable");
+      subtotal += account.price;
+    }
+    const applied = applyDemoCoupon(state, code, subtotal);
+    return { code: applied.code, discount: applied.discount, total: subtotal - applied.discount };
   }
 }

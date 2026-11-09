@@ -1,11 +1,11 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, CreditCard, Mail, MessageCircle, QrCode } from "lucide-react";
+import { ArrowRight, CreditCard, Mail, MessageCircle, QrCode, ShoppingBag } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { changeOrderStatus, confirmPixPayment, loadOrdersBoard } from "@/application/admin-use-cases";
 import type { MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
-import { ORDER_TRANSITIONS, type Order, type OrderStatus } from "@/domain/order";
+import { ORDER_TRANSITIONS, isCartLead, type Order, type OrderStatus } from "@/domain/order";
 import { paymentPartLabel, PAYMENT_PLAN_LABEL, type OrderPayment } from "@/domain/payment";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ORDER_STAGES, ORDER_STAGE_LABEL, deliveredAtOf, matchesOrderQuery, orderStageOf, type OrderStage } from "@/domain/sale";
@@ -136,8 +136,35 @@ function PaymentParts({ order, busy, onConfirmPix }: PaymentPartsProps) {
   );
 }
 
+/**
+ * Pedido de carrinho: o principal cobra todas as contas (por isso as cobranças passam do valor da conta)
+ * e os outros acompanham o pagamento dele. Buscar o código do principal lista o carrinho inteiro.
+ */
+function CartNote({ order, cartSize, onShowCart }: { order: Order; cartSize: number; onShowCart: (code: string) => void }) {
+  const { cartCode } = order;
+  if (!cartCode) return null;
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-xl border border-electric/25 bg-electric/[0.06] px-3 py-2 text-xs text-fog">
+      <ShoppingBag aria-hidden className="size-3.5 shrink-0 text-electric" />
+      {isCartLead(order) ? (
+        <span>Principal do carrinho de {cartSize} contas: o pagamento abaixo é de todas.</span>
+      ) : (
+        <span>
+          Comprada no carrinho do pedido <span className="font-mono font-semibold text-white">{cartCode}</span>: paga junto com ele.
+        </span>
+      )}
+      <button type="button" onClick={() => onShowCart(cartCode)} className="font-medium text-electric-soft hover:underline">
+        Ver o carrinho
+      </button>
+    </p>
+  );
+}
+
 interface OrderCardProps {
   order: Order;
+  /** Quantas contas tem o carrinho deste pedido (0 fora de carrinho). */
+  cartSize: number;
+  onShowCart: (cartCode: string) => void;
   guaranteeDays: number;
   templates: MessageTemplates;
   busy: boolean;
@@ -145,7 +172,7 @@ interface OrderCardProps {
   onConfirmPix: (order: Order, payment: OrderPayment) => void;
 }
 
-function OrderCard({ order, guaranteeDays, templates, busy, onAction, onConfirmPix }: OrderCardProps) {
+function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy, onAction, onConfirmPix }: OrderCardProps) {
   const whatsapp = whatsappLink(order, templates);
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
@@ -217,6 +244,7 @@ function OrderCard({ order, guaranteeDays, templates, busy, onAction, onConfirmP
         </div>
       </dl>
 
+      <CartNote order={order} cartSize={cartSize} onShowCart={onShowCart} />
       <PaymentParts order={order} busy={busy} onConfirmPix={onConfirmPix} />
 
       {order.status === "delivered" && (
@@ -289,6 +317,17 @@ export default function OrdersPage() {
   );
   const searched = useMemo(() => staged.filter(({ order }) => matchesOrderQuery(order, query)), [staged, query]);
   const visible = useMemo(() => searched.filter(({ stage }) => tab === "all" || stage === tab).map(({ order }) => order), [searched, tab]);
+  const cartSizes = useMemo(() => {
+    const sizes = new Map<string, number>();
+    for (const order of data?.orders ?? []) {
+      if (order.cartCode) sizes.set(order.cartCode, (sizes.get(order.cartCode) ?? 0) + 1);
+    }
+    return sizes;
+  }, [data]);
+  const showCart = (cartCode: string) => {
+    setQuery(cartCode);
+    setTab("all");
+  };
   const countOf = (id: Tab) => (data ? searched.filter(({ stage }) => id === "all" || stage === id).length : null);
 
   const apply = async (order: Order, status: OrderStatus) => {
@@ -367,6 +406,8 @@ export default function OrdersPage() {
               <OrderCard
                 key={order.code}
                 order={order}
+                cartSize={order.cartCode ? (cartSizes.get(order.cartCode) ?? 0) : 0}
+                onShowCart={showCart}
                 guaranteeDays={data?.guaranteeDays ?? 0}
                 templates={templates}
                 busy={change.pending || confirmPix.pending}

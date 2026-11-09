@@ -700,6 +700,7 @@ async function main() {
   await checkoutWithoutEmailChecks();
   await cardInstallmentChecks();
   await couponChecks();
+  await cartChecks();
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
@@ -2083,4 +2084,108 @@ async function couponChecks() {
 
   const plain = (await placeWithCoupon(await newAccount("cupom-sem"), buyer(7), "pix", null, null)).rows[0].data;
   check(plain.total_cents === 37000 && plain.discount_cents === 0 && plain.coupon_code === null, "sem cupom, o pedido segue com o preço cheio");
+}
+
+/** Checkout do carrinho pelos nomes, como o site faz pelo PostgREST. Cada chamada com um IP próprio, como na vida real. */
+function placeCart(accountIds, buyer, plan, { firstPartCents = null, couponCode = null, ip = "10.1.0.1" } = {}) {
+  const [termsVersion, termsSha, privacyVersion, privacySha] = CONSENT.split(", ").map((value) => value.slice(1, -1));
+  return as(
+    "anon",
+    null,
+    () =>
+      db.query(
+        `select public.place_cart_order(p_account_ids => $1::uuid[], p_name => 'Cliente Carrinho', p_whatsapp => $2, p_document => $3,
+           p_payment_method => $4::public.payment_method, p_terms_version => $7, p_terms_sha256 => $8, p_privacy_version => $9,
+           p_privacy_sha256 => $10, p_source => 'instagram', p_referred_by => null, p_first_part_cents => $5::integer,
+           p_installments => null::integer, p_coupon_code => $6::text) as data`,
+        [accountIds, buyer.whatsapp, buyer.document, plan, firstPartCents, couponCode, termsVersion, termsSha, privacyVersion, privacySha],
+      ),
+    { ip },
+  ).then((result) => result.rows[0].data);
+}
+
+async function cartAccounts(prefix, prices) {
+  const ids = [];
+  for (const [index, price] of prices.entries()) {
+    const id = await newAccount(`${prefix}-${index}`);
+    await db.query(`update public.accounts set price_cents = $2 where id = $1`, [id, price]);
+    ids.push(id);
+  }
+  return ids;
+}
+
+const cartOrders = (cartCode) =>
+  db.query(
+    `select o.code, o.status, o.total_cents, o.discount_cents, o.coupon_id is not null as counts_coupon, a.status as account_status
+     from public.orders o join public.accounts a on a.id = o.account_id where o.cart_code = $1 order by o.code = $1 desc, o.code`,
+    [cartCode],
+  ).then((result) => result.rows);
+
+async function cartChecks() {
+  console.log("\ncarrinho");
+  const buyer = (n) => ({ whatsapp: `1195558000${n}`, document: cpfFrom(`6${n}${n}444555`.slice(0, 9)) });
+
+  const ids = await cartAccounts("carrinho-pix", [10000, 30000, 20000]);
+  const lead = await placeCart(ids, buyer(1), "pix", { ip: "10.1.0.1" });
+  check(lead.cart_code === lead.code && lead.account_id === ids[1], "o pedido principal é o da conta mais cara");
+  check(lead.cart_items.length === 3 && lead.cart_items[0].code === lead.code, "página do pedido lista as 3 contas do carrinho");
+  check(lead.payments.length === 1 && lead.payments[0].amount_cents === 60000, "uma cobrança só, com a soma das contas");
+  const orders = await cartOrders(lead.code);
+  check(orders.length === 3 && orders.every((order) => order.account_status === "reserved"), "cada conta vira um pedido e fica reservada");
+  const consents = await db.query(
+    `select count(*)::int as n from public.consent_records r join public.orders o on o.id = r.order_id where o.cart_code = $1`,
+    [lead.code],
+  );
+  check(consents.rows[0].n === 2, "aceite dos termos gravado uma vez, no pedido principal");
+
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.order_payments set status = 'paid' where id = $1`, [lead.payments[0].id]));
+  const paid = await cartOrders(lead.code);
+  check(paid.every((order) => order.status === "paid"), "Pix pago fecha o carrinho inteiro como pago");
+  const sibling = await as("anon", null, () => db.query(`select public.get_order($1) as data`, [paid[1].code]), { ip: "10.1.0.50" });
+  const siblingData = sibling.rows[0].data;
+  check(siblingData.cart_code === lead.code && siblingData.cart_items.length === 0, "pedido de dentro do carrinho aponta para o principal");
+
+  const couponIds = await cartAccounts("carrinho-cupom", [10000, 20000, 33333]);
+  const preview = await as("anon", null, () => db.query(`select public.preview_cart_coupon('DEZ', $1::uuid[]) as data`, [couponIds]), { ip: "10.1.0.2" });
+  check(preview.rows[0].data.discount_cents === 6333 && preview.rows[0].data.total_cents === 57000, "prévia do cupom vale sobre a soma do carrinho");
+  const usesBefore = (await db.query(`select public.coupon_uses(c) as n from public.coupons c where code = 'DEZ'`)).rows[0].n;
+  const withCoupon = await placeCart(couponIds, buyer(2), "card_pix", { couponCode: "dez", firstPartCents: 27000, ip: "10.1.0.2" });
+  const couponOrders = await cartOrders(withCoupon.code);
+  const discountSum = couponOrders.reduce((sum, order) => sum + order.discount_cents, 0);
+  const totalSum = couponOrders.reduce((sum, order) => sum + order.total_cents, 0);
+  check(discountSum === 6333 && totalSum === 57000, "desconto repartido entre as contas fecha com o desconto do cupom");
+  check(couponOrders.every((order) => order.total_cents > 0 && order.discount_cents > 0), "cada conta leva sua parte do desconto");
+  check(
+    withCoupon.payments[0].amount_cents === 27000 && withCoupon.payments[1].amount_cents === 30000,
+    "pagamento dividido usa o total do carrinho com desconto",
+  );
+  const usesAfter = (await db.query(`select public.coupon_uses(c) as n from public.coupons c where code = 'DEZ'`)).rows[0].n;
+  check(usesAfter === usesBefore + 1, "cupom conta um uso por carrinho, não por conta");
+
+  const cancelIds = await cartAccounts("carrinho-cancela", [15000, 15000]);
+  const toCancel = await placeCart(cancelIds, buyer(3), "pix", { ip: "10.1.0.3" });
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.orders set status = 'canceled' where code = $1`, [toCancel.code]));
+  const canceled = await cartOrders(toCancel.code);
+  check(
+    canceled.every((order) => order.status === "canceled" && order.account_status === "available"),
+    "cancelar o principal cancela o carrinho e libera as contas",
+  );
+
+  const [free, taken] = await cartAccounts("carrinho-ocupado", [12000, 12000]);
+  await db.query(`update public.accounts set status = 'sold' where id = $1`, [taken]);
+  check(await rejects(() => placeCart([free, taken], buyer(4), "pix", { ip: "10.1.0.4" }), /account_unavailable/), "conta vendida no carrinho barra o pedido");
+  const untouched = await db.query(`select status from public.accounts where id = $1`, [free]);
+  check(untouched.rows[0].status === "available", "nenhuma conta fica reservada quando o carrinho falha");
+
+  check(await rejects(() => placeCart([free, free], buyer(4), "pix", { ip: "10.1.0.4" }), /invalid_cart/), "conta repetida no carrinho é recusada");
+  check(await rejects(() => placeCart([free], buyer(4), "pix", { ip: "10.1.0.4" }), /invalid_cart/), "carrinho de uma conta só vai pelo checkout normal");
+
+  const single = await placeWithCoupon(await newAccount("carrinho-limite-solo"), { email: null, ...buyer(5) }, "pix", null, null);
+  check(Boolean(single.rows[0].data.code), "cliente com um pedido aberto");
+  const firstCart = await placeCart(await cartAccounts("carrinho-limite-a", [9000, 9000, 9000]), buyer(5), "pix", { ip: "10.1.0.5" });
+  check(firstCart.cart_items.length === 3, "carrinho de 3 contas conta como um pedido em aberto");
+  check(
+    await rejects(async () => placeCart(await cartAccounts("carrinho-limite-b", [9000, 9000]), buyer(5), "pix", { ip: "10.1.0.6" }), /too_many_open_orders/),
+    "terceiro pedido em aberto do mesmo cliente é recusado",
+  );
 }

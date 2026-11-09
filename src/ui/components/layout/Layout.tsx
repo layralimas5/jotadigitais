@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { CookieBanner } from "@/ui/components/cookies/CookieBanner";
 import { CookieConsentProvider } from "@/ui/components/cookies/CookieConsentProvider";
 import { WhatsAppWidget } from "@/ui/components/whatsapp/WhatsAppWidget";
+import { CartProvider } from "@/ui/hooks/useCart";
 import { SiteContentProvider } from "@/ui/hooks/useSiteContent";
 import { StoreSettingsProvider } from "@/ui/hooks/useStoreSettings";
 import { Footer } from "./Footer";
@@ -33,6 +34,7 @@ export function Layout() {
     <StoreSettingsProvider>
       <SiteContentProvider>
       <CookieConsentProvider>
+      <CartProvider>
       <a
         href="#conteudo"
         className="sr-only z-[60] rounded-full bg-electric px-4 py-2 font-semibold text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -49,6 +51,7 @@ export function Layout() {
       <Footer />
       <WhatsAppWidget />
       <CookieBanner />
+      </CartProvider>
       </CookieConsentProvider>
       </SiteContentProvider>
     </StoreSettingsProvider>

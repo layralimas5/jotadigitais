@@ -53,7 +53,7 @@ import {
   TooManyPrivacyAttemptsError,
   CannotChangeAccessError,
 } from "@/domain/errors";
-import { RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
+import { MAX_CART_ITEMS, RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
 import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData } from "@/domain/customer";
 import {
   EXPENSE_CATEGORIES,
@@ -135,6 +135,9 @@ export function failFromRpc(error: PostgrestError): never {
   if (error.message.includes("invalid_transition")) throw new InvalidTransitionError();
   if (error.message.includes("invalid_split")) {
     throw new BackendError(error, "A divisão do pagamento não fecha com o valor da conta. Confira os valores.");
+  }
+  if (error.message.includes("invalid_cart")) {
+    throw new BackendError(error, `O carrinho aceita de 2 a ${MAX_CART_ITEMS} contas diferentes. Confira o carrinho.`);
   }
   return fail(error);
 }
@@ -298,8 +301,15 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
   constructor(private readonly client: SupabaseClient) {}
 
   async place(input: NewOrder): Promise<Order> {
+    const [accountId, ...others] = input.accountIds;
+    if (!accountId) throw new AccountNotFoundError("");
+    return others.length === 0 ? this.placeSingle(accountId, input) : this.placeCart(input);
+  }
+
+  /** Uma conta: a place_order de sempre. */
+  private async placeSingle(accountId: string, input: NewOrder): Promise<Order> {
     const { data, error } = await this.client.rpc("place_order", {
-      p_account_id: input.accountId,
+      p_account_id: accountId,
       p_name: input.customer.name,
       p_email: input.customer.email,
       p_whatsapp: input.customer.whatsapp ?? "",
@@ -318,6 +328,28 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
       p_first_part_cents: input.firstPartCents,
       p_hold_minutes: RESERVATION_HOLD_MINUTES,
       // Versão de 20 argumentos: com eles a chamada nunca cai na de 18 nem na de 19.
+      p_installments: null,
+      p_coupon_code: input.couponCode,
+    });
+    if (error) failFromOrderRpc(error);
+    return toOrder(data);
+  }
+
+  /** Várias contas: todas reservadas numa transação, um pagamento só no pedido principal. */
+  private async placeCart(input: NewOrder): Promise<Order> {
+    const { data, error } = await this.client.rpc("place_cart_order", {
+      p_account_ids: input.accountIds,
+      p_name: input.customer.name,
+      p_whatsapp: input.customer.whatsapp ?? "",
+      p_document: input.customer.document,
+      p_payment_method: input.paymentMethod,
+      p_terms_version: consentOf(input, "terms").version,
+      p_terms_sha256: consentOf(input, "terms").sha256,
+      p_privacy_version: consentOf(input, "privacy").version,
+      p_privacy_sha256: consentOf(input, "privacy").sha256,
+      p_source: input.customer.source,
+      p_referred_by: input.customer.referredBy,
+      p_first_part_cents: input.firstPartCents,
       p_installments: null,
       p_coupon_code: input.couponCode,
     });

@@ -2,7 +2,7 @@ import type { Account } from "@/domain/account";
 import { isListedInStore, isPurchasable } from "@/domain/account";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
 import type { CouponPreview } from "@/domain/coupon";
-import type { Order } from "@/domain/order";
+import { MAX_CART_ITEMS, type Order } from "@/domain/order";
 import { checkSplit, isSplitPlan } from "@/domain/payment";
 import { DEFAULT_SITE_CONTENT, mergeWithDefaults, type SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
@@ -69,17 +69,44 @@ export interface PlacedOrder {
   order: Order;
 }
 
-/** Desconto do cupom para a conta, conferido no banco. A prévia é só para mostrar: o pedido confere de novo. */
-export function previewCoupon(deps: Pick<UseCaseDeps, "coupons">, rawCode: string, accountId: string): Promise<CouponPreview> {
-  const code = parseOrThrow(couponCodeField, rawCode);
-  return deps.coupons.preview(code, accountId);
+/** Contas do carrinho guardado no navegador. As que saíram do estoque (apagadas) somem; vendidas e reservadas voltam para o aviso. */
+export async function getCartAccounts(deps: Pick<UseCaseDeps, "accounts">, ids: readonly string[]): Promise<Account[]> {
+  const found = await Promise.all(ids.map((id) => deps.accounts.findById(id)));
+  return found.filter((account): account is Account => account !== null);
 }
 
-export async function placeOrder(deps: UseCaseDeps, accountId: string, data: CheckoutData): Promise<PlacedOrder> {
-  const account = await deps.accounts.findById(accountId);
-  if (!account) throw new AccountNotFoundError(accountId);
-  if (!isPurchasable(account)) throw new AccountUnavailableError(account.handle);
-  const total = data.couponCode ? (await deps.coupons.preview(data.couponCode, account.id)).total : account.price;
+function checkCartSize(accountIds: readonly string[]): void {
+  const distinct = new Set(accountIds).size;
+  if (distinct === 0 || distinct !== accountIds.length || distinct > MAX_CART_ITEMS) {
+    const message = `O carrinho aceita de 1 a ${MAX_CART_ITEMS} contas diferentes.`;
+    throw new ValidationError(message, { cart: message });
+  }
+}
+
+/** Desconto do cupom sobre as contas, conferido no banco. A prévia é só para mostrar: o pedido confere de novo. */
+export function previewCoupon(deps: Pick<UseCaseDeps, "coupons">, rawCode: string, accountIds: string[]): Promise<CouponPreview> {
+  checkCartSize(accountIds);
+  const code = parseOrThrow(couponCodeField, rawCode);
+  return deps.coupons.preview(code, accountIds);
+}
+
+async function purchasableAccounts(deps: Pick<UseCaseDeps, "accounts">, accountIds: readonly string[]): Promise<Account[]> {
+  checkCartSize(accountIds);
+  return Promise.all(
+    accountIds.map(async (id) => {
+      const account = await deps.accounts.findById(id);
+      if (!account) throw new AccountNotFoundError(id);
+      if (!isPurchasable(account)) throw new AccountUnavailableError(account.handle);
+      return account;
+    }),
+  );
+}
+
+/** Uma conta é o checkout normal; várias são o carrinho, com um pagamento só para todas. */
+export async function placeOrder(deps: UseCaseDeps, accountIds: string[], data: CheckoutData): Promise<PlacedOrder> {
+  const accounts = await purchasableAccounts(deps, accountIds);
+  const subtotal = accounts.reduce((sum, account) => sum + account.price, 0);
+  const total = data.couponCode ? (await deps.coupons.preview(data.couponCode, accountIds)).total : subtotal;
   const split = isSplitPlan(data.paymentMethod);
   if (split) {
     const check = checkSplit(total, data.firstPartCents);
@@ -87,7 +114,7 @@ export async function placeOrder(deps: UseCaseDeps, accountId: string, data: Che
   }
 
   const order = await deps.orders.place({
-    accountId: account.id,
+    accountIds,
     customer: {
       name: data.name,
       email: null,

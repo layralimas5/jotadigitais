@@ -5,6 +5,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useHasAdminSession } from "@/ui/hooks/useHasAdminSession";
 import { cn } from "@/ui/lib/cn";
 import { ButtonLink } from "../Button";
+import { CartLink } from "../cart/CartLink";
 import { Logo } from "../Logo";
 
 const NAV_ITEMS = [
@@ -73,6 +74,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <CartLink />
           <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem]">
             Catálogo
           </ButtonLink>
