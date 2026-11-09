@@ -2,7 +2,7 @@ import { z } from "zod";
 import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
 import { ACCOUNT_STATUSES, EMPTY_MOCKUP, MAX_MOCKUP_POSTS } from "@/domain/account";
 import { BRAZIL_STATES, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/domain/brazil";
-import { ACCOUNT_COUNTRIES, DEFAULT_COUNTRY } from "@/domain/country";
+import { COUNTRY_CODE_PATTERN, DEFAULT_COUNTRY } from "@/domain/country";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
@@ -231,7 +231,7 @@ export const accountBaseSchema = z.object({
     .pipe(z.string().regex(HANDLE_PATTERN, "Use só letras, números, ponto, hífen e sublinhado.")),
   niche: optionalText(40),
   // Contas de antes do país (e o banco antes da migration) chegam sem: valem como Brasil.
-  country: z.enum(ACCOUNT_COUNTRIES).default(DEFAULT_COUNTRY),
+  country: z.string().regex(COUNTRY_CODE_PATTERN, "Escolha o país da conta.").default(DEFAULT_COUNTRY),
   followers: count,
   price: z
     .number({ message: "Informe o preço." })
@@ -257,6 +257,14 @@ export const accountBaseSchema = z.object({
 });
 
 export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);
+
+/** Nome do país criado na ficha da conta. */
+export const countryNameField = z
+  .string()
+  .trim()
+  .min(2, "Escreva o nome do país.")
+  .max(40, "Nome longo demais.")
+  .refine((name) => /\p{L}/u.test(name), "Escreva o nome do país.");
 
 // ---------------------------------------------------------------------------
 // Depoimentos

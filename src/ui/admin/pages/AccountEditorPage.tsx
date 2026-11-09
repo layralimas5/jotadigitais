@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAccount, findAccount, findAccountAccess, listPartners, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
-import { ACCOUNT_COUNTRIES, COUNTRY_LABEL, type CountryCode } from "@/domain/country";
 import type { AccountAccess } from "@/domain/email-account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
@@ -25,6 +24,7 @@ import {
   type AccessFormValues,
 } from "../accounts/AccountAccessSection";
 import { AccountPageSection } from "../accounts/AccountPageSection";
+import { CountryField } from "../accounts/CountryField";
 import { ProfileImport } from "../accounts/ProfileImport";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
 import { ConfirmDialog } from "../components/ConfirmDialog";
@@ -46,7 +46,6 @@ import { formatPercent } from "../lib/percent";
 import { useToast } from "../toast";
 import { useViewAccess } from "../admin-view";
 
-const COUNTRY_OPTIONS = ACCOUNT_COUNTRIES.map((value) => ({ value, label: COUNTRY_LABEL[value] }));
 const STATUS_OPTIONS = ACCOUNT_STATUSES.map((value) => ({ value, label: ACCOUNT_STATUS_LABEL[value] }));
 const platformOption = (value: Platform) => ({
   value,
@@ -458,12 +457,10 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
                 error={errors.slug}
                 hint={values.slug ? `site/contas/${values.slug}` : "Gerado a partir do nome."}
               />
-              <SelectField
-                label="País da conta"
-                name="country"
+              <CountryField
                 value={values.country}
-                options={COUNTRY_OPTIONS}
-                onChange={(event) => set("country", event.target.value as CountryCode)}
+                error={errors.country}
+                onChange={(country) => form.replace({ ...values, country: country.code, countryName: country.name })}
               />
               <TextField label="Nicho (opcional)" name="niche" placeholder="Ex.: Moda, Humor" value={values.niche} onChange={(event) => set("niche", event.target.value)} error={errors.niche} />
             </div>

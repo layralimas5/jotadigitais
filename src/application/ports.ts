@@ -1,5 +1,5 @@
 import type { Coupon, CouponData, CouponPreview } from "@/domain/coupon";
-import type { CountryCode } from "@/domain/country";
+import type { Country } from "@/domain/country";
 import type { Account, AccountData } from "@/domain/account";
 import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
 import type { AdminRole, AdminUser, AdminUserAccess, NewAdminUser, StaffPermission } from "@/domain/admin-user";
@@ -50,11 +50,21 @@ export type AccountSort = "recent" | "price-asc" | "followers-desc";
 export interface AccountFilter {
   query?: string;
   platform?: Platform;
-  country?: CountryCode;
+  country?: string;
   minFollowers?: number;
   maxFollowers?: number;
   sort?: AccountSort;
   onlyAvailable?: boolean;
+}
+
+/** Países que as contas podem ter. A vitrine lê; o painel também cria. */
+export interface CountryRepository {
+  list(): Promise<Country[]>;
+}
+
+export interface AdminCountryRepository extends CountryRepository {
+  /** Falha com `CountryTakenError` se o nome (ou o código que sai dele) já existir. */
+  create(name: string): Promise<Country>;
 }
 
 export interface AccountRepository {

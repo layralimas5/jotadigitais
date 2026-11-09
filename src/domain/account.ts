@@ -1,4 +1,3 @@
-import type { CountryCode } from "./country";
 import type { Cents } from "./money";
 import type { Platform } from "./platform";
 
@@ -62,8 +61,8 @@ export interface AccountBase {
   displayName: string;
   handle: string;
   niche: string | null;
-  /** País em que a conta foi criada. */
-  country: CountryCode;
+  /** Código do país em que a conta foi criada (ver `Country`). */
+  country: string;
   /** Seguidores, ou inscritos no YouTube. */
   followers: number;
   price: Cents;
@@ -103,6 +102,8 @@ export type Account = AccountData & {
   id: string;
   /** Prazo da reserva feita no checkout. `null` quando não há reserva ou o pagamento já foi confirmado. */
   reservedUntil: string | null;
+  /** Nome do país, lido junto com a conta. */
+  countryName: string;
 };
 
 export type AccountOf<P extends Platform> = Extract<Account, { platform: P }>;

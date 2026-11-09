@@ -18,16 +18,19 @@ import type {
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminUserRepository,
+  AdminCountryRepository,
   NewOrder,
   OrderRepository,
   TestimonialRepository,
 } from "@/application/ports";
 import { effectiveStatus, isPurchasable, type Account, type AccountData } from "@/domain/account";
+import { DEFAULT_COUNTRY, SEED_COUNTRIES, countryCodeFrom, fallbackCountryName, type Country } from "@/domain/country";
 import { sameEmail, type AdminRole, type AdminUser, type AdminUserAccess, type NewAdminUser, type StaffPermission } from "@/domain/admin-user";
 import {
   AccountNotFoundError,
   AccountUnavailableError,
   AdminUserEmailTakenError,
+  CountryTakenError,
   CannotChangeAccessError,
   CannotRemoveAdminUserError,
   CustomerEmailTakenError,
@@ -87,8 +90,21 @@ function newOrderNotification(order: Order): StoredNotification {
 const MAX_OPEN_ORDERS_PER_CUSTOMER = 2;
 const MINUTE_MS = 60_000;
 
-function withEffectiveStatus(account: Account): Account {
-  return { ...account, status: effectiveStatus(account.status, account.reservedUntil) };
+const countriesOf = (state: DemoState): Country[] => state.countries ?? [...SEED_COUNTRIES];
+
+function countryNameIn(state: DemoState, code: string): string {
+  return countriesOf(state).find((country) => country.code === code)?.name ?? fallbackCountryName(code);
+}
+
+/** Como o banco devolve a conta: reserva vencida conta como disponível e o nome do país vem junto. */
+const accountView = (state: DemoState) => (account: Account): Account => {
+  const country = account.country ?? DEFAULT_COUNTRY;
+  return { ...account, country, countryName: countryNameIn(state, country), status: effectiveStatus(account.status, account.reservedUntil) };
+};
+
+/** Como a chave estrangeira `accounts_country_fkey`: a conta só aceita país que está na lista. */
+function assertCountryExists(state: DemoState, code: string) {
+  if (!countriesOf(state).some((country) => country.code === code)) throw new Error(`País ${code} não está na lista.`);
 }
 
 /** Mesma regra do gatilho `normalize_reservation`. */
@@ -106,7 +122,8 @@ export class DemoAccountRepository implements AccountRepository, AdminAccountRep
 
   async list(filter: AccountFilter): Promise<Account[]> {
     await simulateLatency();
-    const accounts = this.db.read().accounts.map(withEffectiveStatus);
+    const state = this.db.read();
+    const accounts = state.accounts.map(accountView(state));
     return sortAccounts(
       accounts.filter((account) => matchesFilter(account, filter)),
       filter.sort,
@@ -115,25 +132,29 @@ export class DemoAccountRepository implements AccountRepository, AdminAccountRep
 
   async findBySlug(slug: string): Promise<Account | null> {
     await simulateLatency();
-    const account = this.db.read().accounts.find((item) => item.slug === slug);
-    return account ? withEffectiveStatus(account) : null;
+    const state = this.db.read();
+    const account = state.accounts.find((item) => item.slug === slug);
+    return account ? accountView(state)(account) : null;
   }
 
   async findById(id: string): Promise<Account | null> {
-    const account = this.db.read().accounts.find((item) => item.id === id);
-    return account ? withEffectiveStatus(account) : null;
+    const state = this.db.read();
+    const account = state.accounts.find((item) => item.id === id);
+    return account ? accountView(state)(account) : null;
   }
 
   async listAll(): Promise<Account[]> {
     await simulateLatency();
-    return sortAccounts(this.db.read().accounts.map(withEffectiveStatus), "recent");
+    const state = this.db.read();
+    return sortAccounts(state.accounts.map(accountView(state)), "recent");
   }
 
   async create(data: AccountData): Promise<Account> {
     await simulateLatency();
     return this.db.write((state) => {
       assertSlugFree(state, data.slug, null);
-      const account: Account = { ...data, id: newId("acc"), reservedUntil: null };
+      assertCountryExists(state, data.country);
+      const account: Account = { ...data, id: newId("acc"), reservedUntil: null, countryName: countryNameIn(state, data.country) };
       state.accounts.push(account);
       return account;
     });
@@ -146,7 +167,13 @@ export class DemoAccountRepository implements AccountRepository, AdminAccountRep
       const index = state.accounts.findIndex((account) => account.id === id);
       const current = state.accounts[index];
       if (!current) throw new AccountNotFoundError(id);
-      const account: Account = { ...data, id, reservedUntil: normalizedReservation(data.status, current.reservedUntil) };
+      assertCountryExists(state, data.country);
+      const account: Account = {
+        ...data,
+        id,
+        reservedUntil: normalizedReservation(data.status, current.reservedUntil),
+        countryName: countryNameIn(state, data.country),
+      };
       state.accounts[index] = account;
       return account;
     });
@@ -157,6 +184,29 @@ export class DemoAccountRepository implements AccountRepository, AdminAccountRep
     this.db.write((state) => {
       state.accounts = state.accounts.filter((account) => account.id !== id);
       for (const order of state.orders) if (order.accountId === id) order.accountId = null;
+    });
+  }
+}
+
+/** Espelha a tabela `countries`: lista de fábrica mais o que o painel criar. */
+export class DemoCountryRepository implements AdminCountryRepository {
+  constructor(private readonly db: DemoDatabase) {}
+
+  async list(): Promise<Country[]> {
+    return countriesOf(this.db.read());
+  }
+
+  async create(name: string): Promise<Country> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const countries = countriesOf(state);
+      const country: Country = { code: countryCodeFrom(name), name };
+      const taken = countries.some(
+        (item) => item.code === country.code || item.name.toLocaleLowerCase("pt-BR") === name.toLocaleLowerCase("pt-BR"),
+      );
+      if (taken) throw new CountryTakenError(name);
+      state.countries = [...countries, country];
+      return country;
     });
   }
 }

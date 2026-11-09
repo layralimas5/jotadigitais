@@ -7,6 +7,7 @@ import {
   getCartAccounts,
   getOrder,
   listAccounts,
+  listCountries,
   listTestimonials,
   placeOrder,
   type PlacedOrder,
@@ -26,6 +27,11 @@ export function useAccount(slug: string) {
 /** Contas guardadas no carrinho, na ordem em que entraram. */
 export function useCartAccounts(ids: readonly string[]) {
   return useAsync(() => getCartAccounts(store, ids), `cart:${ids.join(",")}`, { keepPrevious: true });
+}
+
+/** Países do filtro da vitrine. */
+export function useCountries() {
+  return useAsync(() => listCountries(store), "countries");
 }
 
 export function useTestimonials() {

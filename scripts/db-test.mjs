@@ -2202,4 +2202,30 @@ async function accountCountryChecks() {
     await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set country = 'XX' where id = $1`, [id])), /accounts_country/),
     "país fora da lista é recusado",
   );
+
+  const visible = await as("anon", null, () => db.query(`select code, name from public.countries`));
+  check(visible.rows.length === 20 && visible.rows.some((row) => row.name === "Reino Unido"), "visitante lê os 20 países de fábrica (filtro do site)");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`insert into public.countries (code, name) values ('HACK', 'Hack')`)), /permission denied/),
+    "visitante não cria país",
+  );
+  const strangerInsert = rejects(
+    () => as("authenticated", STRANGER_ID, () => db.query(`insert into public.countries (code, name) values ('ESTRANHO', 'Estranho')`)),
+    /row-level security/,
+  );
+  check(await strangerInsert, "usuário de fora do painel não cria país");
+  await as("authenticated", ADMIN_ID, () => db.query(`insert into public.countries (code, name) values ('NOVA-ZELANDIA', 'Nova Zelândia')`));
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set country = 'NOVA-ZELANDIA' where id = $1`, [id]));
+  const embedded = await as("anon", null, () =>
+    db.query(`select c.name from public.accounts a join public.countries c on c.code = a.country where a.id = $1`, [id]),
+  );
+  check(embedded.rows[0]?.name === "Nova Zelândia", "admin cria país na ficha e a conta já usa ele");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`insert into public.countries (code, name) values ('NZ2', 'nova zelândia')`)), /countries_name_key/),
+    "país repetido (mesmo nome, outra caixa) é recusado",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`delete from public.countries where code = 'NOVA-ZELANDIA'`)), /permission denied/),
+    "país não é apagado pelo painel",
+  );
 }

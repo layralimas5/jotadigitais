@@ -1,5 +1,4 @@
 import { shopTierOf, type Account } from "./account";
-import { countryLabelOf } from "./country";
 import { formatBRL } from "./money";
 import { PLATFORM_LABEL } from "./platform";
 import type { TemplateValues } from "./message-template";
@@ -10,7 +9,7 @@ const yesNo = (value: boolean, yes: string, no: string) => (value ? yes : no);
 
 /** Uma linha por número, no formato que fica legível no WhatsApp. */
 export function offerDetailsOf(account: Account): string[] {
-  const placeAndNiche = [`• País: ${countryLabelOf(account.country)}`, ...(account.niche ? [`• Nicho: ${account.niche}`] : [])];
+  const placeAndNiche = [`• País: ${account.countryName}`, ...(account.niche ? [`• Nicho: ${account.niche}`] : [])];
   switch (account.platform) {
     case "tiktok":
       return [

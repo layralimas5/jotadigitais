@@ -2,6 +2,7 @@ import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { Coupon } from "@/domain/coupon";
+import { sortCountries, type Country } from "@/domain/country";
 import type { DashboardSource } from "@/domain/dashboard";
 import { accessOf, type AccountAccess, type EmailAccount, type EmailAccountListItem } from "@/domain/email-account";
 import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
@@ -20,6 +21,7 @@ import type {
   AdminAccountRepository,
   AdminCustomerRepository,
   AdminCouponRepository,
+  AdminCountryRepository,
   AdminEmailAccountRepository,
   AdminExpenseRepository,
   AdminLeadRepository,
@@ -63,6 +65,7 @@ import {
   mfaCodeSchema,
   adminUserAccessSchema,
   newAdminUserSchema,
+  countryNameField,
   parseOrThrow,
   partnerDataSchema,
   profileSchema,
@@ -92,6 +95,7 @@ export interface AdminDeps {
   partners: AdminPartnerRepository;
   emailAccounts: AdminEmailAccountRepository;
   coupons: AdminCouponRepository;
+  countries: AdminCountryRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
   notifications: AdminNotificationRepository;
@@ -381,6 +385,15 @@ export async function listCouponSummaries(deps: AdminDeps): Promise<CouponSummar
     given.set(order.couponCode, (given.get(order.couponCode) ?? 0) + order.discount);
   }
   return coupons.map((coupon) => ({ coupon, discountGiven: given.get(coupon.code) ?? 0 }));
+}
+
+export async function listAccountCountries(deps: AdminDeps): Promise<Country[]> {
+  return sortCountries(await deps.countries.list());
+}
+
+/** País novo criado direto na ficha da conta. */
+export function createCountry(deps: AdminDeps, rawName: unknown): Promise<Country> {
+  return deps.countries.create(parseOrThrow(countryNameField, rawName));
 }
 
 export function findCoupon(deps: AdminDeps, id: string): Promise<Coupon | null> {

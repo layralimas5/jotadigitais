@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { AccountFilter, AccountSort } from "@/application/ports";
 import type { Account } from "@/domain/account";
-import { ACCOUNT_COUNTRIES, COUNTRY_LABEL, isCountryCode } from "@/domain/country";
+import { COUNTRY_CODE_PATTERN, fallbackCountryName, type Country } from "@/domain/country";
 import { OTHER_NETWORKS_FIRST, PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { ChipMarquee } from "@/ui/components/ChipMarquee";
@@ -11,7 +11,7 @@ import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/Accoun
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
-import { useAccounts } from "@/ui/hooks/useStore";
+import { useAccounts, useCountries } from "@/ui/hooks/useStore";
 import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
 
@@ -45,7 +45,7 @@ function useCatalogParams() {
   const rangeParam = params.get("seguidores");
   const sortParam = params.get("ordem");
   const countryParam = params.get("pais")?.toUpperCase();
-  const country = isCountryCode(countryParam) ? countryParam : undefined;
+  const country = countryParam && COUNTRY_CODE_PATTERN.test(countryParam) ? countryParam : undefined;
   const platform = isPlatform(platformParam) ? platformParam : undefined;
   const range: RangeKey = isRange(rangeParam) ? rangeParam : "todas";
   const sort: AccountSort = isSort(sortParam) ? sortParam : "recent";
@@ -64,6 +64,12 @@ function useCatalogParams() {
   };
 
   return { platform, country, range, sort, otherNetworksFirst, update, reset: () => setParams({}, { replace: true }) };
+}
+
+/** Países da lista; o do link continua na caixa enquanto a lista carrega (ou se não estiver nela). */
+function countryOptionsOf(countries: readonly Country[], selected: string | undefined): Country[] {
+  if (!selected || countries.some((item) => item.code === selected)) return [...countries];
+  return [{ code: selected, name: fallbackCountryName(selected) }, ...countries];
 }
 
 /** Agrupa por rede na ordem Instagram, YouTube, TikTok, mantendo a ordem escolhida dentro de cada rede. */
@@ -117,6 +123,8 @@ export default function CatalogPage() {
     [platform, country, range, sort],
   );
   const fetched = useAccounts(filter);
+  const countries = useCountries();
+  const countryOptions = useMemo(() => countryOptionsOf(countries.status === "success" ? countries.data : [], country), [countries, country]);
   const accounts = useMemo(
     () =>
       otherNetworksFirst && fetched.status === "success"
@@ -170,9 +178,9 @@ export default function CatalogPage() {
                   className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
                 >
                   <option value="">Todos os países</option>
-                  {ACCOUNT_COUNTRIES.map((code) => (
-                    <option key={code} value={code}>
-                      {COUNTRY_LABEL[code]}
+                  {countryOptions.map((option) => (
+                    <option key={option.code} value={option.code}>
+                      {option.name}
                     </option>
                   ))}
                 </select>

@@ -2,6 +2,7 @@ import type { Account } from "@/domain/account";
 import { isListedInStore, isPurchasable } from "@/domain/account";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
 import type { CouponPreview } from "@/domain/coupon";
+import { sortCountries, type Country } from "@/domain/country";
 import { MAX_CART_ITEMS, type Order } from "@/domain/order";
 import { checkSplit, isSplitPlan } from "@/domain/payment";
 import { DEFAULT_SITE_CONTENT, mergeWithDefaults, type SiteContent } from "@/domain/site-content";
@@ -12,6 +13,7 @@ import type {
   AccountRepository,
   CardPaymentReturn,
   CouponService,
+  CountryRepository,
   OrderRepository,
   PaymentGateway,
   PrivacyService,
@@ -33,6 +35,7 @@ export interface UseCaseDeps {
   legal: LegalDocumentRepository;
   privacy: PrivacyService;
   coupons: CouponService;
+  countries: CountryRepository;
 }
 
 /** Textos do site: o que foi salvo por cima do padrão. Se algo salvo não passar na validação, vale o texto original. */
@@ -53,6 +56,11 @@ export function getStoreSettings(deps: UseCaseDeps): Promise<StoreSettings> {
 export async function listAccounts(deps: UseCaseDeps, filter: AccountFilter): Promise<Account[]> {
   const accounts = await deps.accounts.list(filter);
   return accounts.filter(isListedInStore);
+}
+
+/** Países da vitrine (filtro), Brasil primeiro. */
+export async function listCountries(deps: Pick<UseCaseDeps, "countries">): Promise<Country[]> {
+  return sortCountries(await deps.countries.list());
 }
 
 export async function getAccount(deps: UseCaseDeps, slug: string): Promise<Account> {

@@ -286,6 +286,13 @@ export class CouponNotFoundError extends Error {
   }
 }
 
+export class CountryTakenError extends Error {
+  constructor(name: string) {
+    super(`O país ${name} já está na lista. Escolha ele na lista.`);
+    this.name = "CountryTakenError";
+  }
+}
+
 export class CouponCodeTakenError extends Error {
   constructor(code: string) {
     super(`Já existe um cupom com o código ${code}. Escolha outro.`);

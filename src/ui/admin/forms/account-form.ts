@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
 import { slugify, type Account, type AccountData, type AccountStatus, type FacebookKind } from "@/domain/account";
-import { DEFAULT_COUNTRY, type CountryCode } from "@/domain/country";
+import { DEFAULT_COUNTRY, fallbackCountryName } from "@/domain/country";
 import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
 import type { ProfileLookup, StoredProfileImages } from "@/domain/profile-lookup";
@@ -18,7 +18,9 @@ export interface AccountFormValues {
   /** Enquanto falso, o endereço acompanha o nome do perfil. */
   slugEdited: boolean;
   niche: string;
-  country: CountryCode;
+  country: string;
+  /** Só para a prévia da vitrine: o banco guarda o código e devolve o nome junto com a conta. */
+  countryName: string;
   followers: string;
   price: string;
   status: AccountStatus;
@@ -57,6 +59,7 @@ export function emptyAccountForm(): AccountFormValues {
     slugEdited: false,
     niche: "",
     country: DEFAULT_COUNTRY,
+    countryName: fallbackCountryName(DEFAULT_COUNTRY),
     followers: "",
     price: "",
     status: "available",
@@ -102,6 +105,7 @@ export function fromAccount(account: Account): AccountFormValues {
     slugEdited: true,
     niche: account.niche ?? "",
     country: account.country ?? DEFAULT_COUNTRY,
+    countryName: account.countryName,
     followers: integerFormat.format(account.followers),
     price: formatCentsInput(account.price),
     status: account.status,
@@ -285,7 +289,7 @@ export function previewAccountOf(values: AccountFormValues, id: string): Account
     const result = validateAccountForm(draft);
     if (result.data) {
       const price = parseMoneyToCents(values.price);
-      return { ...result.data, id, reservedUntil: null, price: Number.isNaN(price) ? 0 : price };
+      return { ...result.data, id, reservedUntil: null, countryName: values.countryName, price: Number.isNaN(price) ? 0 : price };
     }
     for (const key of Object.keys(result.errors)) {
       const fallback = PREVIEW_FALLBACK[key.startsWith("images.") ? "images" : key.startsWith("mockup.posts") ? "mockup.posts" : key];

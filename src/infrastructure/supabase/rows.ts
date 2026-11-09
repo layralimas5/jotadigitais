@@ -2,6 +2,7 @@ import { z } from "zod";
 import { accountBaseSchema, accountMockupSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
 import { ACCOUNT_STATUSES, effectiveStatus, EMPTY_MOCKUP, type Account, type AccountData } from "@/domain/account";
 import { BRAZIL_STATES } from "@/domain/brazil";
+import { fallbackCountryName } from "@/domain/country";
 import { LEAD_SOURCES } from "@/domain/lead";
 import { ORDER_STATUSES, PAYMENT_METHODS, type Order } from "@/domain/order";
 import { PAYMENT_PART_STATUSES } from "@/domain/payment";
@@ -18,6 +19,8 @@ const accountRowSchema = z.object({
   handle: z.string(),
   niche: z.string().nullable(),
   country: z.string().nullish(),
+  // Nome do país pela chave estrangeira accounts.country -> countries.code.
+  country_info: z.object({ name: z.string() }).nullish(),
   followers: z.number(),
   price_cents: z.number(),
   status: z.enum(ACCOUNT_STATUSES),
@@ -36,7 +39,7 @@ const accountRowSchema = z.object({
 
 /** O que a chave anon pode ler de uma conta: sem o parceiro que a forneceu. */
 export const PUBLIC_ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, country, followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup";
+  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup";
 
 export const ACCOUNT_COLUMNS = `${PUBLIC_ACCOUNT_COLUMNS}, partner_id, stats_synced_at`;
 
@@ -62,7 +65,13 @@ export function toAccount(raw: unknown): Account {
     mockup: accountMockupSchema.catch(EMPTY_MOCKUP).parse(row.mockup ?? undefined),
   });
   const platformStats = platformStatsSchema.parse({ platform: row.platform, stats: row.stats });
-  return { ...base, ...platformStats, id: row.id, reservedUntil: row.reserved_until };
+  return {
+    ...base,
+    ...platformStats,
+    id: row.id,
+    reservedUntil: row.reserved_until,
+    countryName: row.country_info?.name ?? fallbackCountryName(base.country),
+  };
 }
 
 export function toAccountRow(data: AccountData) {

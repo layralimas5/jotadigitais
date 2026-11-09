@@ -1,3 +1,4 @@
+import type { Country } from "@/domain/country";
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord } from "@/domain/customer";
@@ -50,6 +51,8 @@ export interface DemoState {
   partners?: Partner[];
   emailAccounts?: EmailAccount[];
   coupons?: StoredCoupon[];
+  /** Sem a lista guardada, valem os países de fábrica. */
+  countries?: Country[];
   adminUsers?: AdminUser[];
   notifications?: StoredNotification[];
   dismissedNotifications?: string[];

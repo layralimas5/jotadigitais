@@ -1,5 +1,6 @@
 import { DemoCouponRepository, DemoCouponService } from "@/infrastructure/demo/demo-coupons";
 import { SupabaseCouponRepository, SupabaseCouponService } from "@/infrastructure/supabase/supabase-coupons";
+import { SupabaseCountryRepository } from "@/infrastructure/supabase/supabase-countries";
 import { createClient } from "@supabase/supabase-js";
 import type { AdminDeps } from "@/application/admin-use-cases";
 import type { UseCaseDeps } from "@/application/use-cases";
@@ -7,6 +8,7 @@ import { DemoDatabase } from "@/infrastructure/demo/demo-database";
 import { DemoLegalDocumentRepository } from "@/infrastructure/demo/demo-legal";
 import {
   DemoAccountRepository,
+  DemoCountryRepository,
   DemoCustomerRepository,
   DemoEmailAccountRepository,
   DemoExpenseRepository,
@@ -75,6 +77,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
   const settings = new SupabaseStoreSettingsRepository(client, defaultStoreSettings);
   const siteContent = new SupabaseSiteContentRepository(client);
   const legal = new SupabaseLegalDocumentRepository(client);
+  const countries = new SupabaseCountryRepository(client);
   return {
     mode: "supabase",
     store: {
@@ -87,6 +90,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
       coupons: new SupabaseCouponService(client),
+      countries,
     },
     admin: {
       auth: new SupabaseAuthService(client, passwordChecker),
@@ -105,6 +109,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       partners: new SupabasePartnerRepository(client),
       emailAccounts: new SupabaseEmailAccountRepository(client),
       coupons: new SupabaseCouponRepository(client),
+      countries,
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
       notifications: new SupabaseNotificationRepository(client),
@@ -128,6 +133,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     settings: new DemoStoreSettingsRepository(db, defaultStoreSettings),
     siteContent: new DemoSiteContentRepository(db),
     legal: new DemoLegalDocumentRepository(db),
+    countries: new DemoCountryRepository(db),
   };
   const admin: AdminDeps = {
     auth,

@@ -102,7 +102,7 @@ function AccountHeader({ account }: { account: Account }) {
     <>
       <div className="flex flex-wrap items-center gap-2">
         <PlatformTag platform={account.platform} />
-        <CountryTag country={account.country} />
+        <CountryTag name={account.countryName} />
         <AccountBadgePill badge={accountBadge(account)} />
         {account.niche && <NicheTag niche={account.niche} />}
         <StatusBadge status={account.status} />

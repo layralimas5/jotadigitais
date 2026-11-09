@@ -10,7 +10,6 @@ import {
   type AccountOf,
   type AccountStatus,
 } from "@/domain/account";
-import { countryLabelOf } from "@/domain/country";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
 import type { DistributivePick } from "@/shared/types";
 
@@ -187,7 +186,7 @@ function platformSpecs(account: Account): Spec[] {
 export function specsOf(account: Account, fixedSpecs: Record<Account["platform"], readonly Spec[]>): Spec[] {
   return [
     { label: "Rede", value: PLATFORM_LABEL[account.platform] },
-    { label: "País", value: countryLabelOf(account.country) },
+    { label: "País", value: account.countryName },
     ...(account.niche ? [{ label: "Nicho atual", value: account.niche }] : []),
     ...platformSpecs(account),
     ...fixedSpecs[account.platform],
