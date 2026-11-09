@@ -77,7 +77,7 @@ export default function UserEditorPage({ backPath = "/admin/usuarios" }: UserEdi
       </div>
       <ExampleUsersNotice className="mt-6 max-w-3xl" />
 
-      <form noValidate onSubmit={onSubmit} aria-busy={create.pending} className="mt-6 grid max-w-3xl gap-6">
+      <form noValidate onSubmit={onSubmit} aria-busy={create.pending} className="mt-6 grid max-w-3xl grid-cols-1 gap-6">
         <FormSection title="Acesso" description="Passe a senha por um canal seguro. Depois do primeiro acesso, a pessoa troca em Configurações.">
           <TextField
             label="Nome"

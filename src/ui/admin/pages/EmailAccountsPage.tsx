@@ -16,7 +16,7 @@ import { useToast } from "../toast";
 const emailPath = (item: EmailAccountListItem) => `/admin/emails/${item.id}`;
 
 function NoPasswordBadge() {
-  return <span className="rounded-full border border-amber-300/30 bg-amber-300/[0.08] px-2 py-0.5 text-[0.68rem] font-semibold text-amber-200">Sem senha</span>;
+  return <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-300/[0.08] px-2 py-0.5 text-[0.68rem] font-semibold text-amber-200">Sem senha</span>;
 }
 
 function EmailRow({ item, account }: { item: EmailAccountListItem; account: Account | undefined }) {
@@ -36,7 +36,7 @@ function EmailRow({ item, account }: { item: EmailAccountListItem; account: Acco
         <p className="flex items-center gap-2">
           <Link
             to={emailPath(item)}
-            className="truncate font-semibold text-white after:absolute after:inset-0 hover:text-electric-soft focus-visible:outline-none"
+            className="min-w-0 truncate font-semibold text-white after:absolute after:inset-0 hover:text-electric-soft focus-visible:outline-none"
           >
             {item.email}
           </Link>
@@ -104,7 +104,7 @@ export default function EmailAccountsPage() {
           {visible.length === 0 ? (
             <EmptyState title="Nada encontrado" description="Confira o que foi digitado na busca." />
           ) : (
-            <ul className="grid gap-2.5 lg:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
               {visible.map((item) => (
                 <EmailRow key={item.id} item={item} account={item.accountId ? accountById.get(item.accountId) : undefined} />
               ))}

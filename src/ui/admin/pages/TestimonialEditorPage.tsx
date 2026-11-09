@@ -94,7 +94,7 @@ function TestimonialEditor({ testimonial }: { testimonial: Testimonial | null })
         <PageHeader title={testimonial ? "Editar depoimento" : "Novo depoimento"} description="Entra na faixa de resultados da página inicial." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
         <div className="space-y-5">
           <FormSection title="Print" description="Desfoque nome, @ e foto de clientes antes de enviar.">
             <SingleImageField

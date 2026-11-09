@@ -300,7 +300,7 @@ export function SiteEditor({ initial, sections = SITE_SECTIONS }: { initial: Sit
         <ul
           ref={listRef}
           onFocus={onEditorFocus}
-          className={cn("space-y-2.5", mobileView === "preview" && "max-lg:hidden")}
+          className={cn("min-w-0 space-y-2.5", mobileView === "preview" && "max-lg:hidden")}
           aria-label="Seções do site"
         >
           {sections.map((section) => (
@@ -313,7 +313,7 @@ export function SiteEditor({ initial, sections = SITE_SECTIONS }: { initial: Sit
             />
           ))}
         </ul>
-        <div className={cn("lg:sticky lg:top-20", mobileView === "edit" && "max-lg:hidden")}>
+        <div className={cn("min-w-0 lg:sticky lg:top-20", mobileView === "edit" && "max-lg:hidden")}>
           <PreviewPane
             draft={draft}
             section={openSection}

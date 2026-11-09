@@ -397,7 +397,7 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
         />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid gap-6 lg:grid-cols-[1fr_20rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="space-y-5">
           <FormSection title="Puxar dados da rede" description="Cole o link do perfil e o sistema preenche nome, @, foto, números, bio e as fotos do mockup.">
             <ProfileImport

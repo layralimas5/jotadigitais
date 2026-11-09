@@ -163,7 +163,7 @@ function AccountsTable({ accounts, onStatusChange, onShare, busy }: ListProps) {
 
 function AccountsCards({ accounts, onStatusChange, onShare, busy }: ListProps) {
   return (
-    <ul className="grid gap-2.5 lg:hidden">
+    <ul className="grid grid-cols-1 gap-2.5 lg:hidden">
       {accounts.map((account) => (
         <li
           key={account.id}
@@ -176,7 +176,7 @@ function AccountsCards({ accounts, onStatusChange, onShare, busy }: ListProps) {
               <SiteLink account={account} />
             </span>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line pt-3 text-sm">
             <span className="text-fog tabular-nums">
               {formatCount(account.followers)} <span className="text-xs text-mist">{audienceLabel(account).toLowerCase()}</span>
             </span>

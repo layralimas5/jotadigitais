@@ -50,7 +50,7 @@ function PermissionsForm({ user, currentEmail, reload }: { user: AdminUser; curr
   };
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid max-w-3xl gap-6">
+    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid max-w-3xl grid-cols-1 gap-6">
       <AccessFields value={access} onChange={setAccess} error={error} />
       <FormFooter
         submitLabel="Salvar o que pode fazer"

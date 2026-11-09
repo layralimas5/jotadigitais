@@ -65,7 +65,7 @@ export function LegalEditor({ slug, library, reload }: LegalEditorProps) {
   };
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={publish.pending} className="grid gap-6">
+    <form noValidate onSubmit={onSubmit} aria-busy={publish.pending} className="grid grid-cols-1 gap-6">
       <p className="max-w-3xl text-sm text-mist">
         Versão no ar: <strong className="font-semibold text-fog">{library[slug].document.version}</strong>. Cada publicação vira uma versão
         nova com a data de hoje. Quem já comprou continua com a prova da versão que aceitou.

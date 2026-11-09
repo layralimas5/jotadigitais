@@ -116,7 +116,7 @@ export default function SupportTicketEditorPage() {
         <PageHeader title="Novo chamado" description="Problema, melhoria ou pendência no sistema ou no site. Quanto mais detalhe, mais rápido sai." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={open.pending} className="mt-6 grid max-w-3xl gap-6">
+      <form noValidate onSubmit={onSubmit} aria-busy={open.pending} className="mt-6 grid max-w-3xl grid-cols-1 gap-6">
         <FormSection title="O que é">
           <SegmentedField legend="Tipo" name="kind" columns={3} value={values.kind} options={KIND_OPTIONS} onChange={(kind) => update({ kind })} />
           <SegmentedField legend="Onde" name="area" value={values.area} options={AREA_OPTIONS} onChange={(area) => update({ area })} />

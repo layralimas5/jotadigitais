@@ -111,7 +111,7 @@ function LeadEditor({ lead }: { lead: Lead | null }) {
         <PageHeader title={lead ? lead.name : "Novo lead"} description="Quem chamou interessado em comprar uma conta." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl grid-cols-1 gap-6">
         <div className="space-y-5">
           <FormSection title="Contato">
             <TextField

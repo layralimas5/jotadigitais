@@ -80,7 +80,7 @@ function TemplateCard({ templateKey, value, error, onChange }: TemplateCardProps
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div>
+        <div className="min-w-0">
           <label htmlFor={id} className="sr-only">
             Mensagem de {info.title}
           </label>
@@ -117,9 +117,9 @@ function TemplateCard({ templateKey, value, error, onChange }: TemplateCardProps
             ))}
           </div>
         </div>
-        <div aria-label="Prévia da mensagem" className="rounded-2xl bg-[#0b141a] p-4">
+        <div aria-label="Prévia da mensagem" className="min-w-0 rounded-2xl bg-[#0b141a] p-4">
           <p className="text-[0.7rem] font-semibold tracking-wide text-emerald-300/80 uppercase">Prévia</p>
-          <p className="mt-2 max-w-[22rem] rounded-xl rounded-tl-sm bg-[#202c33] px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-[#e9edef]">
+          <p className="mt-2 max-w-[22rem] rounded-xl rounded-tl-sm bg-[#202c33] px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-[#e9edef] [overflow-wrap:anywhere]">
             {fillTemplate(value, SAMPLE_VALUES) || "…"}
           </p>
         </div>

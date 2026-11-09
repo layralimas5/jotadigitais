@@ -134,7 +134,7 @@ function ExpenseEditor({ expense }: { expense: Expense | null }) {
         <PageHeader title={expense ? "Editar despesa" : "Nova despesa"} description="Entra no financeiro na data escolhida." />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl gap-6">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid max-w-3xl grid-cols-1 gap-6">
         <FormSection title="Despesa">
           <SegmentedField<ExpenseCategory>
             legend="Categoria"

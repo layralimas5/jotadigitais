@@ -211,10 +211,10 @@ function Entries({ entries }: { entries: Entry[] }) {
 function HeaderActions() {
   return (
     <div className="flex flex-wrap gap-2">
-      <ButtonLink to="/admin/financeiro/receitas/nova" className="max-sm:flex-1">
+      <ButtonLink to="/admin/financeiro/receitas/nova" className="whitespace-nowrap max-sm:flex-1">
         <Plus aria-hidden className="size-4" /> Nova receita
       </ButtonLink>
-      <ButtonLink to="/admin/financeiro/despesas/nova" variant="secondary" className="max-sm:flex-1">
+      <ButtonLink to="/admin/financeiro/despesas/nova" variant="secondary" className="whitespace-nowrap max-sm:flex-1">
         <Plus aria-hidden className="size-4" /> Nova despesa
       </ButtonLink>
     </div>

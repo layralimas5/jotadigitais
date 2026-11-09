@@ -99,7 +99,7 @@ export function AccessProfileForm({ user, viewerRole, reload, onSend, onCancel }
   };
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid max-w-3xl gap-6">
+    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid max-w-3xl grid-cols-1 gap-6">
       <FormSection title="Dados de acesso" description="O que você salvar aqui vale na hora: a pessoa passa a entrar com o e-mail novo.">
         <TextField label="Nome" name="name" autoComplete="off" maxLength={80} value={values.name} onChange={(event) => update({ name: event.target.value })} error={errors.name} />
         <TextField

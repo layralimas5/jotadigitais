@@ -136,7 +136,7 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
   const preview = validate(form).data;
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid gap-6 lg:grid-cols-[1fr_18rem] lg:items-start">
+    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
       <div className="space-y-5">
         <FormSection title="Contato" description="Aparece no rodapé, no botão flutuante, na página de cada conta e na confirmação do pedido.">
           <div className="grid gap-4 xl:grid-cols-2">

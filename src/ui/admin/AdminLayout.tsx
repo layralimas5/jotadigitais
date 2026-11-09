@@ -89,16 +89,24 @@ function SiteLink({ className }: { className?: string }) {
   );
 }
 
-/** Na barra lateral o nome "Sistema" fica centralizado embaixo do logo; no topo do celular, ao lado. */
+/**
+ * Na barra lateral o nome "Sistema" fica centralizado embaixo do logo; no topo do celular, ao lado.
+ * Em celular estreito (até 400px) o nome sai: logo, busca, sininho e menu não cabem juntos.
+ */
 function Brand({ home, stacked = false }: { home: string; stacked?: boolean }) {
   return (
     <Link
       to={home}
       aria-label="Sistema Jota Digitais, início"
-      className={cn("flex rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
+      className={cn("flex min-w-0 rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}
     >
       <Logo />
-      <span className="flex items-center gap-1.5 font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase">
+      <span
+        className={cn(
+          "flex items-center gap-1.5 font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase",
+          !stacked && "max-[400px]:hidden",
+        )}
+      >
         <MonitorCog aria-hidden className="size-3.5 text-electric" />
         Sistema
       </span>
@@ -162,7 +170,7 @@ function MobileTopBar({ access }: { access: StaffAccess }) {
     <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
       <div className="flex h-14 items-center justify-between gap-2 px-4">
         <Brand home={homePathFor(access)} />
-        <div className="flex items-center">
+        <div className="flex shrink-0 items-center">
           {search && <MobileSearch />}
           {bell && <NotificationBell />}
           <UserMenu />
