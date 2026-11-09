@@ -9,7 +9,6 @@ import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { AccountCard } from "@/ui/components/account/AccountCard";
-import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -263,10 +262,6 @@ function LivePreview({ values, accountId }: { values: AccountFormValues; account
         <AccountCard account={preview} />
       </div>
       <p className="mt-2 text-xs text-mist">Atualiza enquanto você preenche. Campos vazios aparecem com um exemplo.</p>
-      <p className="mt-6 text-sm font-medium text-fog">Mockup na página da conta</p>
-      <div className="pointer-events-none mt-3 flex justify-center">
-        <PhoneProfile account={preview} />
-      </div>
     </div>
   );
 }
