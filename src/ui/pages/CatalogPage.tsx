@@ -219,7 +219,7 @@ export default function CatalogPage() {
             />
           )}
           {accounts.status === "success" && accounts.data.length > 0 && (
-            <Reveal as="ul" stagger key={`${JSON.stringify(filter)}-${otherNetworksFirst}`} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Reveal as="ul" stagger trigger="mount" key={`${JSON.stringify(filter)}-${otherNetworksFirst}`} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {accounts.data.map((account) => (
                 <RevealItem as="li" key={account.id}>
                   <AccountCard account={account} />
