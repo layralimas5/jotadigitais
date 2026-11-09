@@ -10,6 +10,7 @@ import {
   type AccountOf,
   type AccountStatus,
 } from "@/domain/account";
+import { countryLabelOf } from "@/domain/country";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
 import type { DistributivePick } from "@/shared/types";
 
@@ -64,6 +65,7 @@ export function verifiedLabel(account: Pick<Account, "platform">): string {
 export function accountBadge(account: Account): AccountBadge {
   switch (account.platform) {
     case "tiktok":
+      if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
       return shopTierOf(account) === "full"
         ? { label: "TikTok Shop ativo", tone: "electric" }
         : { label: "Shop piloto", tone: "pink" };
@@ -185,6 +187,7 @@ function platformSpecs(account: Account): Spec[] {
 export function specsOf(account: Account, fixedSpecs: Record<Account["platform"], readonly Spec[]>): Spec[] {
   return [
     { label: "Rede", value: PLATFORM_LABEL[account.platform] },
+    { label: "País", value: countryLabelOf(account.country) },
     ...(account.niche ? [{ label: "Nicho atual", value: account.niche }] : []),
     ...platformSpecs(account),
     ...fixedSpecs[account.platform],
@@ -194,10 +197,14 @@ export function specsOf(account: Account, fixedSpecs: Record<Account["platform"]
 
 function platformParagraph(account: Account): string {
   switch (account.platform) {
-    case "tiktok":
-      return shopTierOf(account) === "pilot"
-        ? `O Shop está em modo piloto, como em toda conta com menos de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores. Funciona normalmente; alguns produtos liberam conforme a conta cresce.`
-        : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação.";
+    case "tiktok": {
+      const monetization = account.stats.monetized ? "A conta é monetizada: já recebe pelo Programa de Recompensas para Criadores. " : "";
+      const shop =
+        shopTierOf(account) === "pilot"
+          ? `O Shop está em modo piloto, como em toda conta com menos de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores. Funciona normalmente; alguns produtos liberam conforme a conta cresce.`
+          : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação.";
+      return monetization + shop;
+    }
     case "instagram":
       return account.stats.professional
         ? "É uma conta profissional: você já tem o painel com alcance, visitas ao perfil e dados do público para planejar o conteúdo."

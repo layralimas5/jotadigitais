@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAccount, findAccount, findAccountAccess, listPartners, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
+import { ACCOUNT_COUNTRIES, COUNTRY_LABEL, type CountryCode } from "@/domain/country";
 import type { AccountAccess } from "@/domain/email-account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
@@ -45,6 +46,7 @@ import { formatPercent } from "../lib/percent";
 import { useToast } from "../toast";
 import { useViewAccess } from "../admin-view";
 
+const COUNTRY_OPTIONS = ACCOUNT_COUNTRIES.map((value) => ({ value, label: COUNTRY_LABEL[value] }));
 const STATUS_OPTIONS = ACCOUNT_STATUSES.map((value) => ({ value, label: ACCOUNT_STATUS_LABEL[value] }));
 const platformOption = (value: Platform) => ({
   value,
@@ -445,7 +447,7 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
                 error={errors.handle}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <TextField
                 label="Endereço da página"
                 name="slug"
@@ -455,6 +457,13 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
                 onChange={(event) => set("slug", event.target.value.toLowerCase())}
                 error={errors.slug}
                 hint={values.slug ? `site/contas/${values.slug}` : "Gerado a partir do nome."}
+              />
+              <SelectField
+                label="País da conta"
+                name="country"
+                value={values.country}
+                options={COUNTRY_OPTIONS}
+                onChange={(event) => set("country", event.target.value as CountryCode)}
               />
               <TextField label="Nicho (opcional)" name="niche" placeholder="Ex.: Moda, Humor" value={values.niche} onChange={(event) => set("niche", event.target.value)} error={errors.niche} />
             </div>

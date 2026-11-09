@@ -701,6 +701,7 @@ async function main() {
   await cardInstallmentChecks();
   await couponChecks();
   await cartChecks();
+  await accountCountryChecks();
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
@@ -2187,5 +2188,18 @@ async function cartChecks() {
   check(
     await rejects(async () => placeCart(await cartAccounts("carrinho-limite-b", [9000, 9000]), buyer(5), "pix", { ip: "10.1.0.6" }), /too_many_open_orders/),
     "terceiro pedido em aberto do mesmo cliente é recusado",
+  );
+}
+
+async function accountCountryChecks() {
+  console.log("\npaís da conta");
+  const id = await newAccount("pais-padrao");
+  const fallback = await as("anon", null, () => db.query(`select country from public.accounts where id = $1`, [id]));
+  check(fallback.rows[0]?.country === "BR", "conta sem país escolhido vale como Brasil e o visitante lê o país");
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set country = 'US' where id = $1`, [id]));
+  check((await db.query(`select country from public.accounts where id = $1`, [id])).rows[0].country === "US", "admin troca o país da conta");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set country = 'XX' where id = $1`, [id])), /accounts_country/),
+    "país fora da lista é recusado",
   );
 }

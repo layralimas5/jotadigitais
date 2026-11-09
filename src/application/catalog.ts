@@ -1,4 +1,5 @@
 import type { Account, AccountStatus } from "@/domain/account";
+import { countryLabelOf } from "@/domain/country";
 import type { AccountFilter, AccountSort } from "./ports";
 
 const sorters: Record<AccountSort, (a: Account, b: Account) => number> = {
@@ -25,7 +26,7 @@ export function matchesFilter(account: Account, filter: AccountFilter): boolean 
   if (filter.minFollowers !== undefined && account.followers < filter.minFollowers) return false;
   if (filter.maxFollowers !== undefined && account.followers >= filter.maxFollowers) return false;
   if (filter.query) {
-    const haystack = normalizeSearch(`${account.displayName} ${account.handle} ${account.niche ?? ""}`);
+    const haystack = normalizeSearch(`${account.displayName} ${account.handle} ${account.niche ?? ""} ${countryLabelOf(account.country)}`);
     if (!haystack.includes(normalizeSearch(filter.query))) return false;
   }
   return true;

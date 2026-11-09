@@ -1,4 +1,5 @@
 import { shopTierOf, type Account } from "./account";
+import { countryLabelOf } from "./country";
 import { formatBRL } from "./money";
 import { PLATFORM_LABEL } from "./platform";
 import type { TemplateValues } from "./message-template";
@@ -9,7 +10,7 @@ const yesNo = (value: boolean, yes: string, no: string) => (value ? yes : no);
 
 /** Uma linha por número, no formato que fica legível no WhatsApp. */
 export function offerDetailsOf(account: Account): string[] {
-  const niche = account.niche ? [`• Nicho: ${account.niche}`] : [];
+  const placeAndNiche = [`• País: ${countryLabelOf(account.country)}`, ...(account.niche ? [`• Nicho: ${account.niche}`] : [])];
   switch (account.platform) {
     case "tiktok":
       return [
@@ -17,7 +18,7 @@ export function offerDetailsOf(account: Account): string[] {
         `• ${number.format(account.stats.likes)} curtidas`,
         `• TikTok Shop: ${shopTierOf(account) === "full" ? "completo" : "piloto"}`,
         `• Monetização: ${yesNo(account.stats.monetized, "ativa", "não ativa")}`,
-        ...niche,
+        ...placeAndNiche,
       ];
     case "instagram":
       return [
@@ -25,7 +26,7 @@ export function offerDetailsOf(account: Account): string[] {
         `• ${number.format(account.stats.posts)} publicações`,
         `• Conta ${yesNo(account.stats.professional, "profissional", "pessoal")}`,
         `• Monetização: ${yesNo(account.stats.monetized, "ativa", "não ativa")}`,
-        ...niche,
+        ...placeAndNiche,
       ];
     case "youtube":
       return [
@@ -34,7 +35,7 @@ export function offerDetailsOf(account: Account): string[] {
         `• ${number.format(account.stats.videos)} vídeos`,
         `• ${number.format(account.stats.watchHours)} horas de exibição`,
         `• Monetização: ${yesNo(account.stats.monetized, "ativa (Programa de Parcerias)", "não ativa")}`,
-        ...niche,
+        ...placeAndNiche,
       ];
     case "facebook":
       return [
@@ -42,7 +43,7 @@ export function offerDetailsOf(account: Account): string[] {
         `• ${number.format(account.stats.likes)} curtidas`,
         `• ${account.stats.kind === "page" ? "Página" : "Perfil"}`,
         `• Monetização: ${yesNo(account.stats.monetized, "ativa", "não ativa")}`,
-        ...niche,
+        ...placeAndNiche,
       ];
   }
 }

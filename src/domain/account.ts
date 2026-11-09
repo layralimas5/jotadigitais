@@ -1,3 +1,4 @@
+import type { CountryCode } from "./country";
 import type { Cents } from "./money";
 import type { Platform } from "./platform";
 
@@ -61,6 +62,8 @@ export interface AccountBase {
   displayName: string;
   handle: string;
   niche: string | null;
+  /** País em que a conta foi criada. */
+  country: CountryCode;
   /** Seguidores, ou inscritos no YouTube. */
   followers: number;
   price: Cents;

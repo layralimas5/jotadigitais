@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
 import { slugify, type Account, type AccountData, type AccountStatus, type FacebookKind } from "@/domain/account";
+import { DEFAULT_COUNTRY, type CountryCode } from "@/domain/country";
 import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
 import type { ProfileLookup, StoredProfileImages } from "@/domain/profile-lookup";
@@ -17,6 +18,7 @@ export interface AccountFormValues {
   /** Enquanto falso, o endereço acompanha o nome do perfil. */
   slugEdited: boolean;
   niche: string;
+  country: CountryCode;
   followers: string;
   price: string;
   status: AccountStatus;
@@ -54,6 +56,7 @@ export function emptyAccountForm(): AccountFormValues {
     slug: "",
     slugEdited: false,
     niche: "",
+    country: DEFAULT_COUNTRY,
     followers: "",
     price: "",
     status: "available",
@@ -98,6 +101,7 @@ export function fromAccount(account: Account): AccountFormValues {
     slug: account.slug,
     slugEdited: true,
     niche: account.niche ?? "",
+    country: account.country ?? DEFAULT_COUNTRY,
     followers: integerFormat.format(account.followers),
     price: formatCentsInput(account.price),
     status: account.status,
@@ -179,6 +183,7 @@ export function toRawAccount(values: AccountFormValues) {
     displayName: values.displayName,
     handle: values.handle,
     niche: values.niche,
+    country: values.country,
     followers: parseInteger(values.followers),
     price: parseMoneyToCents(values.price),
     status: values.status,
@@ -298,6 +303,7 @@ export const ACCOUNT_FIELD_ORDER = [
   "handle",
   "slug",
   "niche",
+  "country",
   "followers",
   "stats.likes",
   "stats.posts",

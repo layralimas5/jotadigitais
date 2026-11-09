@@ -1,4 +1,6 @@
+import { Globe } from "lucide-react";
 import type { AccountStatus } from "@/domain/account";
+import { countryLabelOf, type CountryCode } from "@/domain/country";
 import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import type { AccountBadge, BadgeTone } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
@@ -50,6 +52,24 @@ export function PlatformTag({ platform, className }: { platform: Platform; class
     >
       <PlatformGlyph platform={platform} className="size-3.5" />
       {PLATFORM_LABEL[platform]}
+    </span>
+  );
+}
+
+/** País da conta, ao lado da rede: o cliente sabe de onde é o público antes de abrir a conta. */
+export function CountryTag({ country, className }: { country: CountryCode | null | undefined; className?: string }) {
+  const label = countryLabelOf(country);
+  return (
+    <span
+      title={`Conta do país: ${label}`}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-2.5 py-1 text-[0.7rem] font-semibold text-white backdrop-blur",
+        className,
+      )}
+    >
+      <Globe aria-hidden className="size-3.5" />
+      <span className="sr-only">País: </span>
+      {label}
     </span>
   );
 }

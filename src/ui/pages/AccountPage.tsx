@@ -8,7 +8,7 @@ import { AccountNotFoundError } from "@/domain/errors";
 import { formatBRL } from "@/domain/money";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
-import { AccountBadgePill, NicheTag, PlatformTag, StatusBadge } from "@/ui/components/account/AccountBadges";
+import { AccountBadgePill, CountryTag, NicheTag, PlatformTag, StatusBadge } from "@/ui/components/account/AccountBadges";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
@@ -102,6 +102,7 @@ function AccountHeader({ account }: { account: Account }) {
     <>
       <div className="flex flex-wrap items-center gap-2">
         <PlatformTag platform={account.platform} />
+        <CountryTag country={account.country} />
         <AccountBadgePill badge={accountBadge(account)} />
         {account.niche && <NicheTag niche={account.niche} />}
         <StatusBadge status={account.status} />

@@ -9,7 +9,7 @@ import { CartToggleIcon } from "../cart/AddToCartButton";
 import { PlatformGlyph } from "../PlatformGlyph";
 import { VerifiedBadge } from "../VerifiedBadge";
 import { AccountAvatar, gradientFor } from "./AccountAvatar";
-import { AccountBadgePill, PlatformTag, StatusBadge } from "./AccountBadges";
+import { AccountBadgePill, CountryTag, PlatformTag, StatusBadge } from "./AccountBadges";
 
 function CardCover({ account }: { account: Account }) {
   const available = isPurchasable(account);
@@ -28,7 +28,10 @@ function CardCover({ account }: { account: Account }) {
         className="absolute -right-3 -bottom-6 size-20 text-white/[0.06] transition-transform duration-500 group-hover:-rotate-6 sm:size-28"
       />
       <div className="absolute top-3 right-3 left-3 flex items-center justify-between sm:top-4 sm:right-4 sm:left-4">
-        <PlatformTag platform={account.platform} />
+        <div className="flex min-w-0 items-center gap-1.5">
+          <PlatformTag platform={account.platform} />
+          <CountryTag country={account.country} className="min-w-0 truncate" />
+        </div>
         {available && isNewListing(account) ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[0.7rem] font-semibold text-ink">
             <span className="relative flex size-1.5">
