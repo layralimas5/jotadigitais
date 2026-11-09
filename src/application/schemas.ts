@@ -732,6 +732,8 @@ export const supportTicketDataSchema = z.object({
 
 export const supportReplySchema = z.object({
   body: z.string().trim().min(1, "Escreva a resposta.").max(SUPPORT_TEXT_MAX, `Use no máximo ${SUPPORT_TEXT_MAX} caracteres.`),
+  /** Mensagem que está sendo respondida, quando a resposta cita uma. */
+  replyToId: z.string().min(1).max(64).nullable().default(null),
 });
 
 export const supportStatusSchema = z.enum(SUPPORT_STATUSES);

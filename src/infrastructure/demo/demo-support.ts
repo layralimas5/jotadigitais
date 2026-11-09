@@ -108,10 +108,10 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     return { saved: this.withUrls(ticket), failedUploads: [] };
   }
 
-  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>> {
+  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[], replyToId: string | null): Promise<SupportSubmitResult<SupportReply>> {
     await simulateLatency();
     const author = await this.currentAuthor();
-    const reply: SupportReply = { id: newId("rep"), body, author, createdAt: new Date().toISOString() };
+    const reply: SupportReply = { id: newId("rep"), body, author, createdAt: new Date().toISOString(), replyToId };
     const attachments = this.store(uploads, reply.id);
     this.updateTicket(ticketId, (ticket) => {
       // Igual ao banco: resposta do Jota num chamado que esperava por ele volta para a fila (troca automática, sem autor).

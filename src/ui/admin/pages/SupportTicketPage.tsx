@@ -1,5 +1,5 @@
-import { ArrowLeft, Eye, EyeOff, Hourglass, RefreshCw, Send } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowLeft, CornerUpLeft, Eye, EyeOff, Hourglass, RefreshCw, Send } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SUPPORT_TEXT_MAX } from "@/application/schemas";
 import {
@@ -38,6 +38,9 @@ import {
   SUPPORT_PRIORITIES,
   SUPPORT_PRIORITY_LABEL,
   type SupportPriority,
+  SUPPORT_OPENING_ID,
+  quotedMessageOf,
+  type SupportQuote,
 } from "@/domain/support-ticket";
 import { Button } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -55,6 +58,7 @@ import { AttachmentPicker, pasteFilesInto, uploadsOf, usePickedFiles } from "../
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { SeenMark } from "../support/SeenIndicator";
 import { LabelPicker } from "../support/LabelPicker";
+import { messageAnchorOf, QuoteInMessage, ReplyingTo, scrollToMessage } from "../support/ReplyQuote";
 import { statusEventText } from "../support/TicketProgress";
 import {
   ApprovedByAdminBadge,
@@ -82,6 +86,8 @@ const statusOptionsFor = (ticket: SupportTicket) =>
   }));
 
 interface MessageProps {
+  /** Id da resposta, ou `SUPPORT_OPENING_ID` para a mensagem que abriu o chamado. */
+  id: string;
   author: SupportAuthor | null;
   body: string;
   createdAt: string;
@@ -90,17 +96,34 @@ interface MessageProps {
   own: boolean;
   /** Só nas mensagens de quem está vendo: a outra pessoa já viu? Nulo em chamado interno. */
   seen: { seen: boolean; by: string; seenAt: string | null } | null;
+  /** Mensagem que esta responde: `undefined` quando não cita nenhuma, `null` quando a citada sumiu. */
+  quote?: SupportQuote | null;
+  /** Está selecionada para responder ou acabou de ser aberta pela citação. */
+  highlighted: boolean;
+  onReply: () => void;
+  onOpenQuote: (id: string) => void;
 }
 
-function Message({ author, body, createdAt, attachments, own, seen }: MessageProps) {
+/** Duplo clique no balão também responde; o clique duplo seleciona uma palavra, então a seleção sai. */
+function replyOnDoubleClick(onReply: () => void) {
+  return () => {
+    window.getSelection()?.removeAllRanges();
+    onReply();
+  };
+}
+
+function Message({ id, author, body, createdAt, attachments, own, seen, quote, highlighted, onReply, onOpenQuote }: MessageProps) {
   const name = authorNameOf(author);
   return (
-    <li className={cn("flex gap-3", own && "flex-row-reverse")}>
+    <li id={messageAnchorOf(id)} tabIndex={-1} className={cn("flex scroll-mt-24 gap-3 outline-none", own && "flex-row-reverse")}>
       <PersonAvatar name={name} />
       <div
+        onDoubleClick={replyOnDoubleClick(onReply)}
+        title="Clique duas vezes para responder"
         className={cn(
-          "min-w-0 flex-1 rounded-2xl border p-4 sm:max-w-[85%] sm:flex-none",
+          "min-w-0 flex-1 rounded-2xl border p-4 transition-shadow duration-300 sm:max-w-[85%] sm:flex-none",
           own ? "rounded-tr-md border-electric/25 bg-electric/[0.07]" : "rounded-tl-md border-line bg-surface/60",
+          highlighted && "ring-2 ring-electric/70",
         )}
       >
         <p className="flex flex-wrap items-center gap-2 text-sm">
@@ -109,7 +132,18 @@ function Message({ author, body, createdAt, attachments, own, seen }: MessagePro
           <time dateTime={createdAt} title={formatDate(createdAt)} className="text-xs text-mist">
             {formatRelative(createdAt)}
           </time>
+          <button
+            type="button"
+            onClick={onReply}
+            aria-label={`Responder a mensagem de ${name}`}
+            title="Responder esta mensagem"
+            className="ml-auto inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs text-mist transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-electric"
+          >
+            <CornerUpLeft aria-hidden className="size-3.5" />
+            <span className="sr-only sm:not-sr-only">Responder</span>
+          </button>
         </p>
+        {quote !== undefined && <QuoteInMessage quote={quote} onOpen={onOpenQuote} />}
         <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-fog">{body}</p>
         <AttachmentGallery attachments={attachments} />
         {seen && <SeenMark {...seen} className="mt-3" />}
@@ -282,25 +316,43 @@ function WaitingNotice({ ticket, role, onApproved }: { ticket: SupportTicket; ro
 
 interface ReplyInput {
   body: string;
+  replyToId: string | null;
   uploads: SupportUpload[];
   askAdmin: boolean;
   notifyAdmin: boolean;
 }
 
-function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: SupportRole; onSent: () => void }) {
+interface ReplyFormProps {
+  ticket: SupportTicket;
+  role: SupportRole;
+  /** Mensagem escolhida para responder; nula quando a resposta é para a conversa toda. */
+  replyingTo: SupportQuote | null;
+  onCancelReply: () => void;
+  onSent: () => void;
+}
+
+function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFormProps) {
   const toast = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
   const [body, setBody] = useState("");
   const [askAdmin, setAskAdmin] = useState(false);
   const [notifyAdmin, setNotifyAdmin] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const picked = usePickedFiles();
   const reply = useMutation(async (deps, input: ReplyInput) => {
-    const result = await replyToSupportTicket(deps, role, ticket, { body: input.body }, input.uploads, { notifyAdmin: input.notifyAdmin });
+    const result = await replyToSupportTicket(deps, role, ticket, { body: input.body, replyToId: input.replyToId }, input.uploads, {
+      notifyAdmin: input.notifyAdmin,
+    });
     if (input.askAdmin) await changeSupportStatus(deps, role, ticket.id, "waiting");
     return result;
   });
   const canAskAdmin = canChangeSupportStatus(role) && ticket.status !== "waiting" && !ticket.internal;
   const canNotify = canNotifyAdmin(ticket, role);
+
+  // Escolheu uma mensagem para responder: o cursor já vai para o campo.
+  useEffect(() => {
+    if (replyingTo) formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="body"]')?.focus();
+  }, [replyingTo]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -311,6 +363,7 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Supp
     setError(null);
     const sent = await reply.run({
       body,
+      replyToId: replyingTo?.id ?? null,
       uploads: uploadsOf(picked.files),
       askAdmin: canAskAdmin && askAdmin,
       notifyAdmin: canNotify && notifyAdmin,
@@ -321,11 +374,13 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Supp
     setBody("");
     setAskAdmin(false);
     picked.clear();
+    onCancelReply();
     onSent();
   };
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={reply.pending} className="rounded-3xl border border-line bg-surface/60 p-5">
+    <form ref={formRef} noValidate onSubmit={onSubmit} aria-busy={reply.pending} className="rounded-3xl border border-line bg-surface/60 p-5">
+      {replyingTo && <ReplyingTo quote={replyingTo} onCancel={onCancelReply} className="mb-4" />}
       <TextAreaField
         label="Responder"
         name="body"
@@ -334,6 +389,9 @@ function ReplyForm({ ticket, role, onSent }: { ticket: SupportTicket; role: Supp
         placeholder="Escreva uma atualização, uma dúvida ou mais detalhes."
         value={body}
         onChange={(event) => setBody(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && replyingTo) onCancelReply();
+        }}
         onPaste={pasteFilesInto(picked.addFiles)}
         error={error ?? reply.error?.message}
       />
@@ -391,6 +449,20 @@ function useMarkSeen(ticket: SupportTicket | null, role: SupportRole, onMarked: 
   }, [ticket, previewing, run, onMarked]);
 }
 
+const FLASH_MS = 1600;
+
+/** Destaque rápido na mensagem aberta pela citação. */
+function useFlash() {
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    const timer = window.setTimeout(() => setId(null), FLASH_MS);
+    return () => window.clearTimeout(timer);
+  }, [id]);
+  const show = useCallback((next: string) => setId(next), []);
+  return { id, show };
+}
+
 interface TicketViewProps {
   ticket: SupportTicket;
   labels: readonly SupportLabel[];
@@ -407,6 +479,15 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
       ? { seen: wasSeenBy(ticket, other, sentAt), by: SUPPORT_ROLE_NAME[other], seenAt: otherSeenAt }
       : null;
   const attachmentsOf = (replyId: string | null) => ticket.attachments.filter((attachment) => attachment.replyId === replyId);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const replyingTo = quotedMessageOf(ticket, replyingToId);
+  const flash = useFlash();
+  const messageProps = (id: string) => ({
+    id,
+    highlighted: flash.id === id || replyingToId === id,
+    onReply: () => setReplyingToId(id),
+    onOpenQuote: (target: string) => scrollToMessage(target, flash.show),
+  });
   return (
     <div className="mt-4 grid gap-6">
       <header>
@@ -460,6 +541,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
         </h2>
         <ol className="grid gap-4">
           <Message
+            {...messageProps(SUPPORT_OPENING_ID)}
             author={ticket.author}
             body={ticket.description}
             createdAt={ticket.createdAt}
@@ -473,6 +555,8 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
             ) : (
               <Message
                 key={item.reply.id}
+                {...messageProps(item.reply.id)}
+                quote={item.reply.replyToId ? quotedMessageOf(ticket, item.reply.replyToId) : undefined}
                 author={item.reply.author}
                 body={item.reply.body}
                 createdAt={item.reply.createdAt}
@@ -485,7 +569,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
         </ol>
       </section>
 
-      <ReplyForm ticket={ticket} role={role} onSent={reload} />
+      <ReplyForm ticket={ticket} role={role} replyingTo={replyingTo} onCancelReply={() => setReplyingToId(null)} onSent={reload} />
     </div>
   );
 }

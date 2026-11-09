@@ -19,6 +19,7 @@ import {
   canManageSupportLabels,
   canNotifyAdmin,
   hasUnseenFrom,
+  isQuotableIn,
   isVisibleTo,
   seenAtBy,
   type SupportNotifyEvent,
@@ -106,14 +107,16 @@ export function setSupportTicketVisibility(deps: AdminDeps, role: AdminRole, tic
 export async function replyToSupportTicket(
   deps: AdminDeps,
   role: AdminRole,
-  ticket: Pick<SupportTicket, "id" | "internal">,
+  ticket: Pick<SupportTicket, "id" | "internal" | "replies">,
   raw: unknown,
   uploads: readonly SupportUpload[] = [],
   option: SupportNotifyOption = {},
 ): Promise<SupportSubmitResult<SupportReply> & { notified: boolean }> {
-  const { body } = parseOrThrow(supportReplySchema, raw);
+  const { body, replyToId } = parseOrThrow(supportReplySchema, raw);
   checkUploads(uploads);
-  const result = await deps.support.reply(ticket.id, body, uploads);
+  // Mensagem citada que sumiu (ou de outro chamado) não trava o envio: a resposta vai sem a citação.
+  const target = replyToId && isQuotableIn(ticket, replyToId) ? replyToId : null;
+  const result = await deps.support.reply(ticket.id, body, uploads, target);
   return { ...result, notified: await notifyAdminIfAsked(deps, role, ticket, "replied", option) };
 }
 

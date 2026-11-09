@@ -323,7 +323,7 @@ export interface SupportTicketRepository {
   findById(id: string): Promise<SupportTicket | null>;
   /** Salva o texto e depois sobe os anexos; arquivo que falhar volta em `failedUploads`. */
   open(data: SupportTicketData, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportTicket>>;
-  reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>>;
+  reply(ticketId: string, body: string, uploads: readonly SupportUpload[], replyToId: string | null): Promise<SupportSubmitResult<SupportReply>>;
   changeStatus(ticketId: string, status: SupportStatus): Promise<void>;
   /** Jota ou a desenvolvedora, em chamado ainda não finalizado. */
   changePriority(ticketId: string, priority: SupportPriority): Promise<void>;

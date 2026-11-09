@@ -14,6 +14,7 @@ import {
   type SupportLabelData,
   type SupportNotifyEvent,
   type SupportStatusEvent,
+  SUPPORT_OPENING_ID,
   type SupportReply,
   type SupportStatus,
   type SupportPriority,
@@ -43,7 +44,7 @@ const EXTENSION: Record<string, string> = {
 // O autor vem de admin_users pela chave estrangeira: nome e papel de quem escreveu.
 // No chamado a chave vai explícita: support_ticket_views também liga chamado e usuário.
 const AUTHOR = "author:admin_users(name, role)";
-const REPLY_COLUMNS = `id, body, created_at, ${AUTHOR}`;
+const REPLY_COLUMNS = `id, body, created_at, reply_to_id, quotes_opening, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
@@ -57,6 +58,8 @@ const replyRowSchema = z.object({
   id: z.string(),
   body: z.string(),
   created_at: z.string(),
+  reply_to_id: z.string().nullable(),
+  quotes_opening: z.boolean(),
   author: authorSchema,
 });
 
@@ -108,7 +111,13 @@ const toAuthor = (row: z.infer<typeof authorSchema>): SupportAuthor | null => (r
 
 function toReply(raw: unknown): SupportReply {
   const row = replyRowSchema.parse(raw);
-  return { id: row.id, body: row.body, author: toAuthor(row.author), createdAt: row.created_at };
+  return {
+    id: row.id,
+    body: row.body,
+    author: toAuthor(row.author),
+    createdAt: row.created_at,
+    replyToId: row.quotes_opening ? SUPPORT_OPENING_ID : row.reply_to_id,
+  };
 }
 
 const toAttachment = (row: AttachmentRow, urls: ReadonlyMap<string, string>): SupportAttachment => ({
@@ -183,10 +192,11 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     return { saved: ticket, failedUploads: await this.attach(ticket.id, null, uploads) };
   }
 
-  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[]): Promise<SupportSubmitResult<SupportReply>> {
+  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[], replyToId: string | null): Promise<SupportSubmitResult<SupportReply>> {
+    const quotesOpening = replyToId === SUPPORT_OPENING_ID;
     const { data, error } = await this.client
       .from("support_replies")
-      .insert({ ticket_id: ticketId, body })
+      .insert({ ticket_id: ticketId, body, reply_to_id: quotesOpening ? null : replyToId, quotes_opening: quotesOpening })
       .select(REPLY_COLUMNS)
       .single();
     if (error) fail(error);

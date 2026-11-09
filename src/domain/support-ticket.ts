@@ -101,13 +101,35 @@ export interface SupportTicketData {
   internal: boolean;
 }
 
+/** Id da mensagem que abriu o chamado, para citá-la numa resposta: ela não é uma resposta, mora no próprio chamado. */
+export const SUPPORT_OPENING_ID = "opening";
+
 export interface SupportReply {
   id: string;
   body: string;
   /** Nulo quando o usuário que respondeu foi removido do sistema. */
   author: SupportAuthor | null;
   createdAt: string;
+  /** Mensagem respondida: id de outra resposta, `SUPPORT_OPENING_ID` para a abertura, nulo quando não cita nenhuma. */
+  replyToId: string | null;
 }
+
+/** Mensagem citada numa resposta, como aparece no chat. Nula quando a original foi apagada. */
+export interface SupportQuote {
+  id: string;
+  author: SupportAuthor | null;
+  body: string;
+}
+
+export function quotedMessageOf(ticket: Pick<SupportTicket, "author" | "description" | "replies">, replyToId: string | null): SupportQuote | null {
+  if (!replyToId) return null;
+  if (replyToId === SUPPORT_OPENING_ID) return { id: SUPPORT_OPENING_ID, author: ticket.author, body: ticket.description };
+  const reply = ticket.replies.find((item) => item.id === replyToId);
+  return reply ? { id: reply.id, author: reply.author, body: reply.body } : null;
+}
+
+export const isQuotableIn = (ticket: Pick<SupportTicket, "replies">, replyToId: string): boolean =>
+  replyToId === SUPPORT_OPENING_ID || ticket.replies.some((item) => item.id === replyToId);
 
 export interface SupportTicket extends SupportTicketData {
   id: string;
