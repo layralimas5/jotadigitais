@@ -75,7 +75,7 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <CartLink />
-          <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem]">
+          <ButtonLink to="/contas" className="max-sm:h-9 max-sm:px-4 max-sm:text-[0.8rem] max-[359px]:hidden">
             Catálogo
           </ButtonLink>
           {/* Atalho para o painel só para quem já entrou nele neste navegador: o cliente não vê. */}

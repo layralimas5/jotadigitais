@@ -35,7 +35,7 @@ export function RelatedAccounts({ account }: { account: Account }) {
           Ver todas <ArrowRight aria-hidden className="size-4" />
         </ButtonLink>
       </div>
-      <Reveal as="ul" stagger className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <Reveal as="ul" stagger className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {related.map((item) => (
           <RevealItem as="li" key={item.id}>
             <AccountCard account={item} />

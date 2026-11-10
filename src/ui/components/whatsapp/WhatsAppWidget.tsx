@@ -53,8 +53,9 @@ export function WhatsAppWidget() {
 
   if (!whatsappUrl) return null;
 
+  // Com a barra de compra do celular aberta (body[data-buybar]), o botão sobe para cima dela.
   return (
-    <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+    <div className="fixed right-4 bottom-4 z-40 flex flex-col items-end gap-3 transition-[bottom] duration-300 sm:right-6 sm:bottom-6 max-lg:[body[data-buybar]_&]:bottom-[5.5rem]">
       <AnimatePresence>
         {open && <WhatsAppChatPanel key="panel" id={panelId} whatsappUrl={whatsappUrl} onClose={closeChat} />}
       </AnimatePresence>

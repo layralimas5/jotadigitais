@@ -229,7 +229,7 @@ export default function CatalogPage() {
 
         <div className="mt-6">
           {accounts.status === "loading" && (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true">
               {Array.from({ length: 6 }, (_, index) => (
                 <AccountCardSkeleton key={index} />
               ))}
@@ -250,7 +250,7 @@ export default function CatalogPage() {
             />
           )}
           {accounts.status === "success" && accounts.data.length > 0 && (
-            <Reveal as="ul" stagger trigger="mount" key={`${JSON.stringify(filter)}-${otherNetworksFirst}`} className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <Reveal as="ul" stagger trigger="mount" key={`${JSON.stringify(filter)}-${otherNetworksFirst}`} className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {accounts.data.map((account) => (
                 <RevealItem as="li" key={account.id}>
                   <AccountCard account={account} />

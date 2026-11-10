@@ -84,7 +84,7 @@ function GalleryTabs({ views, activeId, onSelect }: { views: GalleryView[]; acti
   return (
     <div className="relative mt-4">
       {strip.edges.start && (
-        <button type="button" onClick={() => strip.page(-1)} aria-label="Ver imagens anteriores" className={cn(ARROW, "-left-3")}>
+        <button type="button" onClick={() => strip.page(-1)} aria-label="Ver imagens anteriores" className={cn(ARROW, "left-1")}>
           <ChevronLeft aria-hidden className="size-4" />
         </button>
       )}
@@ -121,7 +121,7 @@ function GalleryTabs({ views, activeId, onSelect }: { views: GalleryView[]; acti
         ))}
       </div>
       {strip.edges.end && (
-        <button type="button" onClick={() => strip.page(1)} aria-label="Ver mais imagens" className={cn(ARROW, "-right-3")}>
+        <button type="button" onClick={() => strip.page(1)} aria-label="Ver mais imagens" className={cn(ARROW, "right-1")}>
           <ChevronRight aria-hidden className="size-4" />
         </button>
       )}

@@ -110,7 +110,7 @@ export function Footer() {
                   rel="noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-mist transition-colors hover:text-white"
                 >
-                  <WhatsAppGlyph className="size-4 shrink-0" /> <span className="whitespace-nowrap">Suporte no WhatsApp</span>
+                  <WhatsAppGlyph className="size-4 shrink-0" /> <span>Suporte no WhatsApp</span>
                 </a>
               </li>
             )}

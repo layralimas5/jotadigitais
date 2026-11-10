@@ -129,27 +129,29 @@ export function AccountCard({ account }: { account: Account }) {
             ))}
           </ul>
 
-          <div className="mt-4 flex items-end justify-between gap-3 border-t border-line pt-4 sm:mt-6 sm:pt-5">
-            <div>
-              <p className="font-display text-xl font-bold tracking-tight text-white tabular-nums sm:text-2xl">
-                {formatBRL(account.price)}
-              </p>
-              <p className="text-xs text-mist">Pix ou até {MAX_CARD_INSTALLMENTS}x no cartão</p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <CartToggleIcon account={account} />
-              <span
-                aria-hidden
-                className={cn(
-                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line-strong px-3.5 py-2 text-[0.82rem] font-semibold text-white transition-colors duration-300 sm:px-4 sm:text-sm",
-                  available && "group-hover:border-electric group-hover:bg-electric group-hover:text-ink",
-                )}
-              >
-                {available ? "Ver conta" : "Indisponível"}
-                {available && (
-                  <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 max-[360px]:hidden" />
-                )}
-              </span>
+          {/* Container query: em card estreito o preço encolhe e o "Ver conta" vira só a seta (o card inteiro já é o link). */}
+          <div className="@container mt-4 border-t border-line pt-4 sm:mt-6 sm:pt-5">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-display text-[clamp(1.05rem,8cqi,1.5rem)] font-bold tracking-tight whitespace-nowrap text-white tabular-nums">
+                  {formatBRL(account.price)}
+                </p>
+                <p className="text-xs text-mist">Pix ou até {MAX_CARD_INSTALLMENTS}x no cartão</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <CartToggleIcon account={account} />
+                <span
+                  aria-hidden
+                  className={cn(
+                    "inline-flex size-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-strong text-[0.82rem] font-semibold text-white transition-colors duration-300 @[22rem]:size-auto @[22rem]:px-4 @[22rem]:py-2 @[22rem]:text-sm",
+                    !available && "size-auto px-3.5 py-2",
+                    available && "group-hover:border-electric group-hover:bg-electric group-hover:text-ink",
+                  )}
+                >
+                  <span className={cn(available && "hidden @[22rem]:inline")}>{available ? "Ver conta" : "Indisponível"}</span>
+                  {available && <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />}
+                </span>
+              </div>
             </div>
           </div>
         </div>
