@@ -22,6 +22,7 @@ import {
   type AccessFormErrors,
   type AccessFormValues,
 } from "../accounts/AccountAccessSection";
+import { AccountExpensesSection } from "../accounts/AccountExpensesSection";
 import { AccountPageSection } from "../accounts/AccountPageSection";
 import { AccountTagsField } from "../accounts/AccountTagsField";
 import { CountryField } from "../accounts/CountryField";
@@ -466,6 +467,8 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
             </div>
             <PartnerField value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
+
+          <AccountExpensesSection accountId={account?.id ?? null} handle={account?.handle ?? values.handle} />
 
           {showAccess && (
             <AccountAccessSection
