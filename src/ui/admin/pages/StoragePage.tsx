@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, CheckCircle2, Database, FolderOpen, HardDrive, OctagonAlert, Plus, RefreshCw, type LucideIcon } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Database, ExternalLink, FolderOpen, HardDrive, OctagonAlert, Plus, RefreshCw, type LucideIcon } from "lucide-react";
 import { loadStorageUsage, type StorageReading } from "@/application/storage-use-cases";
 import {
   STORAGE_PROVIDER_LABEL,
@@ -32,6 +32,29 @@ const LEVEL: Record<UsageLevel, { label: string; icon: LucideIcon; text: string;
   warning: { label: "Atenção", icon: AlertTriangle, text: "text-amber-200", stroke: "#fbbf24", badge: "border-amber-300/40 bg-amber-300/10 text-amber-200" },
   critical: { label: "Perto do limite", icon: OctagonAlert, text: "text-[#ff9a9a]", stroke: "#ff3131", badge: "border-alert/40 bg-alert/10 text-[#ff9a9a]" },
 };
+
+/** O tráfego do mês (egress) não sai por API: só no painel do Supabase, onde a desenvolvedora tem login. */
+const SUPABASE_USAGE_URL = "https://supabase.com/dashboard/org/_/usage";
+
+function TrafficNote() {
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-line bg-ink/40 px-4 py-3 text-xs text-mist">
+      <span>
+        <span className="font-medium text-fog">Tráfego do mês:</span> o grátis libera cerca de 5 GB de dados saindo para os visitantes (fotos da
+        vitrine contam). O Supabase só mostra esse número no painel dele.
+      </span>
+      <a
+        href={SUPABASE_USAGE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 font-medium text-electric-soft underline-offset-4 hover:underline"
+      >
+        Ver no Supabase <ExternalLink aria-hidden className="size-3" />
+        <span className="sr-only">(abre em outra aba)</span>
+      </a>
+    </p>
+  );
+}
 
 const RING = 112;
 const RING_STROKE = 10;
@@ -127,7 +150,7 @@ function SizeBars<T>({ title, items, keyOf, labelOf, bytesOf, noteOf }: {
   );
 }
 
-function DatabaseCard({ usage }: { usage: DatabaseUsage }) {
+function DatabaseCard({ usage, showTraffic }: { usage: DatabaseUsage; showTraffic: boolean }) {
   return (
     <section aria-labelledby={`banco-${usage.id}`} className="space-y-5 rounded-3xl border border-line bg-surface/60 p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -151,6 +174,7 @@ function DatabaseCard({ usage }: { usage: DatabaseUsage }) {
         <MeterCard title="Banco de dados" icon={HardDrive} meter={usage.database} />
         <MeterCard title="Arquivos (fotos e anexos)" icon={FolderOpen} meter={usage.files} detail={`${count.format(usage.files.count)} arquivos`} />
       </div>
+      {showTraffic && usage.provider === "supabase" && <TrafficNote />}
 
       <div className="grid gap-6 border-t border-line pt-5 lg:grid-cols-2 lg:gap-10">
         <SizeBars<TableUsage>
@@ -219,7 +243,7 @@ export default function StoragePage() {
       {readings.status === "success" &&
         readings.data.map((reading, index) =>
           reading.status === "ok" ? (
-            <DatabaseCard key={reading.usage.id} usage={reading.usage} />
+            <DatabaseCard key={reading.usage.id} usage={reading.usage} showTraffic={role === "developer"} />
           ) : (
             <FailedDatabase key={`${reading.name}-${index}`} reading={reading} onRetry={readings.reload} />
           ),
