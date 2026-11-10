@@ -6,7 +6,7 @@ import type { Cents } from "@/domain/money";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
 import type { AccountAccess } from "@/domain/email-account";
-import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
+import { ACCOUNT_STATUS_LABEL, galleryPlanOf, printLabelOf } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { AccountCard } from "@/ui/components/account/AccountCard";
@@ -503,7 +503,10 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
 
           <AccountPageSection values={values} errors={errors} set={set} accountId={account?.id ?? "preview"} />
 
-          <FormSection title="Prints da conta (opcional)" description="Aparecem na galeria da página da conta. Desfoque dados pessoais antes de enviar.">
+          <FormSection
+            title="Prints da conta (opcional)"
+            description="Aparecem na galeria da página da conta, cada um numa aba com o nome que está embaixo dele. Suba na ordem. Desfoque dados pessoais antes de enviar."
+          >
             <GalleryField
               label="Imagens"
               folder="accounts"
@@ -511,7 +514,8 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
               max={MAX_IMAGES}
               onChange={(images) => set("images", images)}
               error={errors.images}
-              hint={`Até ${MAX_IMAGES} prints. São reduzidos e convertidos automaticamente.`}
+              itemLabel={(index) => printLabelOf(galleryPlanOf({ platform: values.platform, monetized: values.monetized }), index)}
+              hint={`Até ${MAX_IMAGES} prints. Os nomes mudam conforme a rede e a monetização marcadas acima. São reduzidos e convertidos automaticamente.`}
             />
           </FormSection>
 

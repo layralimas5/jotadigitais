@@ -144,20 +144,25 @@ interface GalleryFieldProps {
   images: string[];
   max: number;
   onChange: (images: string[]) => void;
+  /** Nome de cada posição (ex.: a aba em que o print aparece no site). Sem ele, "Print N". */
+  itemLabel?: (index: number) => string;
 }
 
-export function GalleryField({ label, hint, error, folder, images, max, onChange }: GalleryFieldProps) {
+const defaultItemLabel = (index: number) => `Print ${index + 1}`;
+
+export function GalleryField({ label, hint, error, folder, images, max, onChange, itemLabel = defaultItemLabel }: GalleryFieldProps) {
   return (
     <div>
       <p className="text-sm font-medium text-fog">{label}</p>
       <ul className="mt-2 grid grid-cols-3 gap-3 sm:grid-cols-4">
         {images.map((src, index) => (
           <li key={src} className="relative">
-            <img src={src} alt={`Print ${index + 1}`} className="aspect-[9/16] w-full rounded-xl border border-line object-cover object-top" />
+            <img src={src} alt={itemLabel(index)} className="aspect-[9/16] w-full rounded-xl border border-line object-cover object-top" />
+            <p className="mt-1.5 truncate text-center text-xs font-medium text-fog">{itemLabel(index)}</p>
             <button
               type="button"
               onClick={() => onChange(images.filter((item) => item !== src))}
-              aria-label={`Remover print ${index + 1}`}
+              aria-label={`Remover ${itemLabel(index)}`}
               className="absolute top-1.5 right-1.5 grid size-8 place-items-center rounded-full bg-black/75 text-white backdrop-blur hover:bg-alert"
             >
               <X aria-hidden className="size-4" />
@@ -172,9 +177,10 @@ export function GalleryField({ label, hint, error, folder, images, max, onChange
               label="Adicionar print"
               className="aspect-[9/16]"
             >
-              <span className="flex flex-col items-center gap-1.5 px-2 text-xs text-mist">
+              <span className="flex flex-col items-center gap-1.5 px-2 text-center text-xs text-mist">
                 <ImagePlus aria-hidden className="size-5 text-electric" />
                 Adicionar
+                <span className="font-medium text-fog">{itemLabel(images.length)}</span>
               </span>
             </DropZone>
           </li>

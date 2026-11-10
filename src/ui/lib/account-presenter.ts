@@ -94,6 +94,35 @@ export function allBadges(account: Account): AccountBadge[] {
   return [...fixed, ...account.tags.map((label): AccountBadge => ({ label, tone: "mist" }))];
 }
 
+/** Como a galeria da página da conta se organiza: nome da primeira aba, se entra a Central ilustrativa e o nome de cada print. */
+export interface GalleryPlan {
+  profileLabel: string;
+  /** Imagem ilustrativa da Central de Criadores (TikTok com Shop, sem monetização). */
+  showCentral: boolean;
+  /** Nome de cada print, na ordem em que o Jota sobe. Os que passarem da lista viram "Print N". */
+  printLabels: readonly string[];
+}
+
+/** Abas focadas por tipo de conta, do jeito que o Jota anuncia cada uma. */
+export function galleryPlanOf(account: { platform: Account["platform"]; monetized: boolean }): GalleryPlan {
+  switch (account.platform) {
+    case "tiktok":
+      return account.monetized
+        ? { profileLabel: "Perfil", showCentral: false, printLabels: ["Monetização", "Informações", "Outras informações"] }
+        : { profileLabel: "Perfil", showCentral: true, printLabels: ["Informações", "Outras informações"] };
+    case "youtube":
+      return account.monetized
+        ? { profileLabel: "Canal", showCentral: false, printLabels: ["Receita", "Monetizações", "Informações"] }
+        : { profileLabel: "Canal", showCentral: false, printLabels: ["Resumos", "Informações", "Outras informações"] };
+    case "instagram":
+      return { profileLabel: "Perfil", showCentral: false, printLabels: ["Receita", "Análises", "Informações"] };
+    case "facebook":
+      return { profileLabel: "Perfil", showCentral: false, printLabels: [] };
+  }
+}
+
+export const printLabelOf = (plan: GalleryPlan, index: number): string => plan.printLabels[index] ?? `Print ${index + 1}`;
+
 export function cardMetric(account: Account): CardMetric {
   switch (account.platform) {
     case "tiktok":
