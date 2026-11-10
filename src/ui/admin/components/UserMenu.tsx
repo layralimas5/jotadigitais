@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
 import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
 import { SETTINGS_PATH } from "../navigation";
-import { useAdminView } from "../admin-view";
+import { JOTA_SUBJECT, useAdminView } from "../admin-view";
 import { usePreviewToggle } from "../preview/PreviewControls";
 import { useAdminSession } from "../session";
 import { RoleBadge } from "./RoleBadge";
@@ -114,7 +114,7 @@ export function UserMenu() {
               <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>
                 <Settings aria-hidden className="size-4" /> Configurações
               </Link>
-              {role === "developer" && preview.asJota && (
+              {role === "developer" && preview.asSomeone && (
                 <button
                   role="menuitem"
                   tabIndex={-1}
@@ -128,7 +128,7 @@ export function UserMenu() {
                   <EyeOff aria-hidden className="size-4" /> Voltar ao meu painel
                 </button>
               )}
-              {role === "developer" && !preview.asJota && (
+              {role === "developer" && !preview.asSomeone && (
                 <>
                   <button
                     role="menuitem"
@@ -136,7 +136,7 @@ export function UserMenu() {
                     type="button"
                     onClick={() => {
                       close();
-                      preview.enter();
+                      preview.enter(JOTA_SUBJECT);
                     }}
                     className={itemClass}
                   >
@@ -148,7 +148,7 @@ export function UserMenu() {
                     type="button"
                     onClick={() => {
                       close();
-                      preview.enterSandbox();
+                      preview.enterSandbox(JOTA_SUBJECT);
                     }}
                     className={itemClass}
                   >

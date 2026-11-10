@@ -1,11 +1,12 @@
-import { ChevronRight, UserPlus } from "lucide-react";
+import { ChevronRight, Eye, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { container } from "@/app/container";
 import { listAccessUsers } from "@/application/access-use-cases";
+import { listAdminUsers } from "@/application/admin-use-cases";
 import type { AccessUser } from "@/domain/access-user";
-import { sameEmail, type AdminRole } from "@/domain/admin-user";
-import { ButtonLink } from "@/ui/components/Button";
+import { sameEmail, type AdminRole, type StaffPermission } from "@/domain/admin-user";
+import { Button, ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { PersonAvatar } from "../components/PersonAvatar";
@@ -15,6 +16,8 @@ import { formatPhone } from "../lib/whatsapp";
 import { AccessFacts, accessPath, displayName } from "../access/AccessParts";
 import { SendAccessDialog, type AccessToSend } from "../access/SendAccessDialog";
 import { NEW_ACCESS_PATH } from "../navigation";
+import { usePreviewToggle } from "../preview/PreviewControls";
+import type { ViewSubject } from "../admin-view";
 import { useAdminSession } from "../session";
 
 const IS_DEMO = container.mode === "demo";
@@ -29,8 +32,20 @@ function createdAccessOf(state: unknown): AccessToSend | null {
   return { name: typeof name === "string" ? name : null, email, password, whatsapp: null };
 }
 
-/** Cartão inteiro clicável: abre a ficha do usuário. */
-function AccessCard({ user, isYou }: { user: AccessUser; isYou: boolean }) {
+/** Áreas liberadas de cada ajudante, pelo id: a lista de acessos não traz as permissões. */
+type PermissionsById = ReadonlyMap<string, readonly StaffPermission[]>;
+
+/** Com quem dá para "ver como": o Jota e os ajudantes (a desenvolvedora já vê o próprio painel). */
+function subjectOf(user: AccessUser, permissionsById: PermissionsById | null): ViewSubject | null {
+  if (user.role === "developer") return null;
+  if (user.role === "admin") return { name: displayName(user), access: { role: "admin", permissions: [] } };
+  const permissions = permissionsById?.get(user.id);
+  return permissions ? { name: displayName(user), access: { role: "helper", permissions } } : null;
+}
+
+/** Cartão inteiro clicável: abre a ficha do usuário. "Ver como" fica por cima do link. */
+function AccessCard({ user, isYou, subject }: { user: AccessUser; isYou: boolean; subject: ViewSubject | null }) {
+  const { enter } = usePreviewToggle();
   return (
     <li className="relative rounded-3xl border border-line bg-surface/60 p-4 transition-colors hover:border-line-strong hover:bg-surface sm:p-5">
       <div className="flex items-center gap-4">
@@ -59,11 +74,18 @@ function AccessCard({ user, isYou }: { user: AccessUser; isYou: boolean }) {
       <div className="mt-4">
         <AccessFacts user={user} />
       </div>
+      {subject && (
+        <div className="relative z-10 mt-4 flex justify-end border-t border-line pt-4">
+          <Button variant="secondary" onClick={() => enter(subject)} aria-label={`Ver o painel como ${subject.name}`}>
+            <Eye aria-hidden className="size-4" /> Ver como
+          </Button>
+        </div>
+      )}
     </li>
   );
 }
 
-function AccessList({ users }: { users: AccessUser[] }) {
+function AccessList({ users, permissionsById }: { users: AccessUser[]; permissionsById: PermissionsById | null }) {
   const { state } = useAdminSession();
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,7 +102,7 @@ function AccessList({ users }: { users: AccessUser[] }) {
     <>
       <ul aria-label="Usuários" className="grid gap-3">
         {users.map((user) => (
-          <AccessCard key={user.id} user={user} isYou={sameEmail(user.email, currentEmail)} />
+          <AccessCard key={user.id} user={user} isYou={sameEmail(user.email, currentEmail)} subject={subjectOf(user, permissionsById)} />
         ))}
       </ul>
       <SendAccessDialog access={sending} onClose={closeSending} />
@@ -93,12 +115,15 @@ export default function AccessPage() {
   const { state } = useAdminSession();
   const role: AdminRole = state.status === "signed-in" ? state.session.role : "admin";
   const users = useAdminQuery((deps) => listAccessUsers(deps, role), `access-users-${role}`);
+  const staff = useAdminQuery(listAdminUsers, "access-staff-permissions");
+  const permissionsById: PermissionsById | null =
+    staff.status === "success" ? new Map(staff.data.map((user) => [user.id, user.permissions])) : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Acessos"
-        description="Sua área de TI: clique num usuário para trocar e-mail e senha, mandar o acesso pelo WhatsApp e cuidar das sessões."
+        description="Sua área de TI: clique num usuário para trocar e-mail e senha, mandar o acesso pelo WhatsApp e cuidar das sessões. Em “Ver como” você abre o painel exatamente como a pessoa vê."
         action={
           <ButtonLink to={NEW_ACCESS_PATH}>
             <UserPlus aria-hidden className="size-4" /> Novo usuário
@@ -113,7 +138,7 @@ export default function AccessPage() {
       {users.status === "loading" && <LoadingBlock />}
       {users.status === "error" && <ErrorState message={users.error.message} onRetry={users.reload} />}
       {users.status === "success" && users.data.length === 0 && <EmptyState title="Nenhum usuário" description="Cadastre quem vai usar o sistema." />}
-      {users.status === "success" && users.data.length > 0 && <AccessList users={users.data} />}
+      {users.status === "success" && users.data.length > 0 && <AccessList users={users.data} permissionsById={permissionsById} />}
     </div>
   );
 }
