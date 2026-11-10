@@ -1,10 +1,11 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, ImageIcon, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
+import { BadgeDollarSign, BarChart3, ChevronLeft, ChevronRight, ImageIcon, Info, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
 import { useDragScroll } from "@/ui/hooks/useDragScroll";
+import { galleryPlanOf, printLabelOf } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 
@@ -39,17 +40,26 @@ function ScreenshotStage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+/** Ícone pelo assunto do print: dinheiro, números ou informação. */
+function printIconOf(label: string): LucideIcon {
+  if (/receita|monetiza/i.test(label)) return BadgeDollarSign;
+  if (/an[aá]lise|resumo/i.test(label)) return BarChart3;
+  if (/informa/i.test(label)) return Info;
+  return ImageIcon;
+}
+
 function viewsOf(account: Account): GalleryView[] {
+  const plan = galleryPlanOf({ platform: account.platform, monetized: account.stats.monetized });
   const views: GalleryView[] = [
     {
       id: "profile",
-      label: "Perfil",
+      label: plan.profileLabel,
       icon: UserRound,
       caption: `Prévia do perfil no ${PLATFORM_LABEL[account.platform]} com os números reais da conta.`,
       stage: <PhoneProfile account={account} />,
     },
   ];
-  if (account.platform === "tiktok") {
+  if (plan.showCentral) {
     views.push({
       id: "central",
       label: "Central de Criadores",
@@ -59,12 +69,12 @@ function viewsOf(account: Account): GalleryView[] {
     });
   }
   account.images.forEach((src, index) => {
-    const label = `Print ${index + 1}`;
+    const label = printLabelOf(plan, index);
     views.push({
       id: `print-${index}`,
       label,
-      icon: ImageIcon,
-      caption: "Print real da conta enviado pela Jota Digitais.",
+      icon: printIconOf(label),
+      caption: `${label}: print real da conta enviado pela Jota Digitais.`,
       stage: <ScreenshotStage src={src} alt={`${label} da conta ${account.handle}`} />,
     });
   });
