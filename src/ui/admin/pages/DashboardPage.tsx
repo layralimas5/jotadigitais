@@ -13,6 +13,7 @@ import { DashboardPeriodPicker } from "../dashboard/DashboardPeriodPicker";
 import { FinanceOverview } from "../dashboard/FinanceOverview";
 import { PendingStrip } from "../dashboard/PendingStrip";
 import { RecentOrders } from "../dashboard/RecentOrders";
+import { SupportDashboard } from "../dashboard/SupportDashboard";
 import { BlockHeading } from "../dashboard/StatCard";
 import { TikTokOverview } from "../dashboard/TikTokOverview";
 import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
@@ -76,10 +77,22 @@ function DashboardContent({ dashboard, period, chartViews, linked }: DashboardCo
   );
 }
 
+/** O dashboard da desenvolvedora é o do suporte; vendo ou testando como o Jota, ela vê o da loja. */
 export default function DashboardPage() {
-  const { viewRole, previewing } = useAdminView();
-  const linked = viewRole === "admin";
-  const canPreview = viewRole === "developer" && !previewing;
+  const { viewRole } = useAdminView();
+  return viewRole === "developer" ? <DeveloperDashboardPage /> : <StoreDashboardPage linked={viewRole === "admin"} />;
+}
+
+function DeveloperDashboardPage() {
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Dashboard" description="Como está o suporte: o que espera por você, o que está com o Jota e o ritmo das entregas." action={<EnterPreviewButton />} />
+      <SupportDashboard />
+    </div>
+  );
+}
+
+function StoreDashboardPage({ linked }: { linked: boolean }) {
   const source = useAdminQuery(loadDashboardSource, "admin-dashboard");
   const [period, setPeriod] = useDashboardPeriod();
   const sourceData = source.status === "success" ? source.data : null;
@@ -93,7 +106,6 @@ export default function DashboardPage() {
         description="Como a loja está no período escolhido e o que está esperando por você."
         action={
           <div className="flex flex-wrap items-center gap-2">
-            {canPreview && <EnterPreviewButton />}
             <DashboardPeriodPicker value={period} onChange={setPeriod} />
           </div>
         }

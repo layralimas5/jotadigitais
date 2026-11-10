@@ -1,4 +1,5 @@
 import type { AdminRole } from "@/domain/admin-user";
+import { buildSupportOverview, type SupportOverview } from "@/domain/support-overview";
 import {
   SupportApprovalError,
   SupportPriorityForbiddenError,
@@ -50,6 +51,11 @@ function checkUploads(uploads: readonly SupportUpload[]): void {
 /** O banco já esconde os internos do Jota; o filtro aqui cobre o "ver como o Jota" da desenvolvedora. */
 export async function listSupportTickets(deps: AdminDeps, role: AdminRole): Promise<SupportTicket[]> {
   return sortTickets((await deps.support.listAll()).filter((ticket) => isVisibleTo(ticket, role)));
+}
+
+/** Números do suporte para o dashboard de quem mantém o sistema. */
+export async function loadSupportOverview(deps: AdminDeps, role: AdminRole): Promise<SupportOverview> {
+  return buildSupportOverview(await listSupportTickets(deps, role));
 }
 
 export async function findSupportTicket(deps: AdminDeps, role: AdminRole, id: string): Promise<SupportTicket | null> {
