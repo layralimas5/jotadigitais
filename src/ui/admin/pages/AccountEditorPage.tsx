@@ -2,7 +2,7 @@ import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { deleteAccount, findAccount, findAccountAccess, listPartners, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
-import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus, type ShopTier } from "@/domain/account";
+import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
 import type { AccountAccess } from "@/domain/email-account";
 import { ACCOUNT_STATUS_LABEL } from "@/ui/lib/account-presenter";
@@ -60,10 +60,6 @@ const platformOptionsFor = (current: Platform) =>
     : [...MONETIZED_PLATFORMS, current].map(platformOption);
 const MAX_IMAGES = 8;
 
-const SHOP_OPTIONS: { value: ShopTier; label: string }[] = [
-  { value: "pilot", label: "Shop piloto" },
-  { value: "full", label: "Shop ativo" },
-];
 
 type SetField = <K extends keyof AccountFormValues>(field: K, value: AccountFormValues[K]) => void;
 
@@ -109,19 +105,6 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
             <NumberInput label="Curtidas" name="stats.likes" value={values.likes} error={errors["stats.likes"]} onChange={(value) => set("likes", value)} />
             <NumberInput label="Seguindo" name="stats.following" value={values.following} error={errors["stats.following"]} onChange={(value) => set("following", value)} />
           </div>
-          <SegmentedField<ShopTier>
-            legend="TikTok Shop"
-            name="stats.shop"
-            value={values.shop}
-            options={SHOP_OPTIONS}
-            onChange={(value) => set("shop", value)}
-          />
-          <ToggleField
-            label="Conta monetizada"
-            description="Recebe pelo Programa de Recompensas para Criadores ou outro recurso de monetização. Na vitrine, o selo Monetizada vem na frente do Shop."
-            checked={values.monetized}
-            onChange={(checked) => set("monetized", checked)}
-          />
         </>
       );
     case "instagram":
@@ -137,12 +120,6 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
             description="Criador ou comercial, com painel de estatísticas."
             checked={values.professional}
             onChange={(checked) => set("professional", checked)}
-          />
-          <ToggleField
-            label="Conta monetizada"
-            description="Recebe por bônus, assinaturas, presentes ou parcerias pagas."
-            checked={values.monetized}
-            onChange={(checked) => set("monetized", checked)}
           />
         </>
       );
@@ -162,12 +139,6 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
               onChange={(value) => set("watchHours", value)}
             />
           </div>
-          <ToggleField
-            label="Canal monetizado"
-            description="Já está no Programa de Parcerias do YouTube."
-            checked={values.monetized}
-            onChange={(checked) => set("monetized", checked)}
-          />
         </>
       );
     case "facebook":
@@ -187,12 +158,6 @@ function PlatformStatsFields({ values, errors, set }: FieldsProps) {
             {followers}
             <NumberInput label="Curtidas" name="stats.likes" value={values.likes} error={errors["stats.likes"]} onChange={(value) => set("likes", value)} />
           </div>
-          <ToggleField
-            label="Monetização ativa"
-            description="A conta já recebe pelo Facebook."
-            checked={values.monetized}
-            onChange={(checked) => set("monetized", checked)}
-          />
         </>
       );
   }
@@ -484,11 +449,12 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
             <PlatformStatsFields values={values} errors={errors} set={set} />
           </FormSection>
 
-          <FormSection title="Etiquetas (opcional)" description="Selos seus, que aparecem no card da vitrine e na página da conta, ao lado do selo da rede.">
+          <FormSection title="Tags" description="As marcadas aparecem no card da vitrine e na página da conta.">
             <AccountTagsField
-              tags={values.tags}
+              platform={values.platform}
+              value={{ shop: values.shop, monetized: values.monetized, tags: values.tags }}
               error={errors.tags ?? Object.entries(errors).find(([key]) => key.startsWith("tags."))?.[1]}
-              onChange={(tags) => set("tags", tags)}
+              onChange={(next) => form.replace({ ...values, ...next })}
             />
           </FormSection>
 

@@ -14,7 +14,7 @@ import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useAccount, useAccounts } from "@/ui/hooks/useStore";
-import { accountBadge, audienceLabel, profileStats, tagBadges, verifiedLabel } from "@/ui/lib/account-presenter";
+import { allBadges, audienceLabel, profileStats, verifiedLabel } from "@/ui/lib/account-presenter";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 import { editable, IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { AccountBuyBox } from "@/ui/sections/account/AccountBuyBox";
@@ -103,9 +103,8 @@ function AccountHeader({ account }: { account: Account }) {
       <div className="flex flex-wrap items-center gap-2">
         <PlatformTag platform={account.platform} />
         <CountryTag name={account.countryName} />
-        <AccountBadgePill badge={accountBadge(account)} />
-        {tagBadges(account).map((tag) => (
-          <AccountBadgePill key={tag.label} badge={tag} />
+        {allBadges(account).map((badge) => (
+          <AccountBadgePill key={badge.label} badge={badge} />
         ))}
         {account.niche && <NicheTag niche={account.niche} />}
         <StatusBadge status={account.status} />

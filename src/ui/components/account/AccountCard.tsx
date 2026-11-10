@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { formatCount, isNewListing, isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
-import { accountBadge, audienceLabel, cardMetric, tagBadges, verifiedLabel } from "@/ui/lib/account-presenter";
+import { allBadges, audienceLabel, cardMetric, verifiedLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import { CartToggleIcon } from "../cart/AddToCartButton";
 import { PlatformGlyph } from "../PlatformGlyph";
@@ -50,8 +50,7 @@ function CardCover({ account }: { account: Account }) {
 
 export function AccountCard({ account }: { account: Account }) {
   const available = isPurchasable(account);
-  const badge = accountBadge(account);
-  const tags = tagBadges(account);
+  const [badge, ...otherBadges] = allBadges(account);
   const metric = cardMetric(account);
   return (
     <article
@@ -95,7 +94,7 @@ export function AccountCard({ account }: { account: Account }) {
               </dd>
             </dl>
             <div className="flex flex-col items-end gap-2 text-right">
-              <AccountBadgePill badge={badge} className="sm:hidden" />
+              {badge && <AccountBadgePill badge={badge} className="sm:hidden" />}
               <p className="flex items-center gap-1.5 text-sm font-medium text-fog tabular-nums">
                 <metric.icon aria-hidden className="size-3.5 text-pink" />
                 {metric.text}
@@ -103,18 +102,18 @@ export function AccountCard({ account }: { account: Account }) {
             </div>
           </div>
 
-          {/* No mobile o selo da rede já subiu: aqui ficam só as etiquetas do Jota. */}
-          {tags.length > 0 && (
-            <ul aria-label="Etiquetas" className="mt-3 flex flex-wrap gap-1.5 sm:hidden">
-              {tags.map((tag) => (
+          {/* No mobile a primeira tag já subiu: aqui ficam as outras. */}
+          {otherBadges.length > 0 && (
+            <ul aria-label="Tags" className="mt-3 flex flex-wrap gap-1.5 sm:hidden">
+              {otherBadges.map((tag) => (
                 <li key={tag.label}>
                   <AccountBadgePill badge={tag} />
                 </li>
               ))}
             </ul>
           )}
-          <ul aria-label="Selos da conta" className="mt-4 flex flex-wrap gap-1.5 max-sm:hidden">
-            {[badge, ...tags].map((item) => (
+          <ul aria-label="Tags da conta" className="mt-4 flex flex-wrap gap-1.5 max-sm:hidden">
+            {allBadges(account).map((item) => (
               <li key={item.label}>
                 <AccountBadgePill badge={item} />
               </li>
