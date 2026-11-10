@@ -80,7 +80,18 @@ export interface AccountBase {
   statsSyncedAt: string | null;
   /** O que o Jota escolhe para enfeitar o mockup do celular na página da conta. */
   mockup: AccountMockup;
+  /** Ficha técnica escrita na ficha da conta. Nula = automática (rede, números e linhas fixas da aba Site). */
+  specs: AccountSpec[] | null;
 }
+
+/** Uma linha da ficha técnica na página da conta. */
+export interface AccountSpec {
+  label: string;
+  value: string;
+}
+
+/** Mesmo limite da checagem `accounts_specs` no banco. */
+export const MAX_ACCOUNT_SPECS = 20;
 
 /** Fotos de posts que cabem no mockup: a grade do Instagram tem 9. */
 export const MAX_MOCKUP_POSTS = 9;

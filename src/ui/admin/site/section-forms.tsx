@@ -364,7 +364,7 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
       {copy("nicheNote", "Aviso abaixo da descrição (contas com nicho)", 240, { multiline: true, hint: "Opcional." })}
       {copy("specsTitle", "Título da ficha técnica", 60)}
       <p className="text-xs text-mist">
-        Rede, nicho, números, monetização e data do anúncio vêm de cada conta, na aba Contas. Abaixo, as linhas fixas de cada rede, que entram depois dos números.
+        A ficha técnica de cada conta se edita na própria conta, na aba Contas. Abaixo, as linhas fixas que entram na ficha automática (contas em que a ficha não foi editada), depois dos números.
       </p>
       {PLATFORMS.map((platform) => (
         <Repeater

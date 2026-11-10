@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountBaseSchema, accountMockupSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
+import { accountBaseSchema, accountMockupSchema, accountSpecsSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
 import { ACCOUNT_STATUSES, effectiveStatus, EMPTY_MOCKUP, type Account, type AccountData } from "@/domain/account";
 import { BRAZIL_STATES } from "@/domain/brazil";
 import { fallbackCountryName } from "@/domain/country";
@@ -35,11 +35,13 @@ const accountRowSchema = z.object({
   profile_url: z.string().nullable(),
   stats_synced_at: z.string().nullish(),
   mockup: z.unknown(),
+  // Contas de antes da ficha técnica própria vêm sem: valem como automática.
+  specs: z.unknown().optional(),
 });
 
 /** O que a chave anon pode ler de uma conta: sem o parceiro que a forneceu. */
 export const PUBLIC_ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup";
+  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup, specs";
 
 export const ACCOUNT_COLUMNS = `${PUBLIC_ACCOUNT_COLUMNS}, partner_id, stats_synced_at`;
 
@@ -63,6 +65,8 @@ export function toAccount(raw: unknown): Account {
     statsSyncedAt: row.stats_synced_at ? new Date(row.stats_synced_at).toISOString() : null,
     // Mockup com algum campo fora do formato não derruba a página: volta ao mockup vazio.
     mockup: accountMockupSchema.catch(EMPTY_MOCKUP).parse(row.mockup ?? undefined),
+    // Ficha fora do formato não derruba a página: volta à automática.
+    specs: accountSpecsSchema.catch(null).parse(row.specs ?? null),
   });
   const platformStats = platformStatsSchema.parse({ platform: row.platform, stats: row.stats });
   return {
@@ -94,6 +98,7 @@ export function toAccountRow(data: AccountData) {
     profile_url: data.profileUrl,
     stats_synced_at: data.statsSyncedAt,
     mockup: data.mockup,
+    specs: data.specs,
   };
 }
 

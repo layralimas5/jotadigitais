@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
-import { ACCOUNT_STATUSES, EMPTY_MOCKUP, MAX_MOCKUP_POSTS } from "@/domain/account";
+import { ACCOUNT_STATUSES, EMPTY_MOCKUP, MAX_ACCOUNT_SPECS, MAX_MOCKUP_POSTS } from "@/domain/account";
 import { BRAZIL_STATES, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/domain/brazil";
 import { COUNTRY_CODE_PATTERN, DEFAULT_COUNTRY } from "@/domain/country";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
@@ -180,6 +180,19 @@ export const accountMockupSchema = z
   })
   .default(EMPTY_MOCKUP);
 
+/** Ficha técnica escrita na conta; nula = automática. */
+export const accountSpecsSchema = z
+  .array(
+    z.object({
+      label: z.string().trim().min(1, "Escreva o nome da linha.").max(40, "Use no máximo 40 caracteres."),
+      value: z.string().trim().min(1, "Escreva o valor da linha.").max(120, "Use no máximo 120 caracteres."),
+    }),
+  )
+  .min(1, "Deixe pelo menos uma linha ou volte à ficha automática.")
+  .max(MAX_ACCOUNT_SPECS, `Use no máximo ${MAX_ACCOUNT_SPECS} linhas.`)
+  .nullable()
+  .default(null);
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -254,6 +267,7 @@ export const accountBaseSchema = z.object({
     .refine((value) => value === null || /^https:\/\/[^\s]+$/.test(value), "Use o link completo, começando com https://."),
   statsSyncedAt: z.iso.datetime({ offset: true }).nullable().default(null),
   mockup: accountMockupSchema,
+  specs: accountSpecsSchema,
 });
 
 export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);

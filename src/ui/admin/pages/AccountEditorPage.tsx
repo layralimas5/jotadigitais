@@ -314,9 +314,15 @@ function PartnerSelect({ value, onChange }: { value: string; onChange: (partnerI
   );
 }
 
+/** Leva ao primeiro campo com erro; nas listas (specs.0.label), ao item exato. */
 function focusFirstError(form: HTMLFormElement, errors: AccountFormErrors) {
-  const first = ACCOUNT_FIELD_ORDER.find((field) => errors[field]);
-  if (first) form.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
+  const keys = Object.keys(errors);
+  for (const field of ACCOUNT_FIELD_ORDER) {
+    const key = keys.find((item) => item === field || item.startsWith(`${field}.`));
+    if (!key) continue;
+    (form.querySelector<HTMLElement>(`[name="${key}"]`) ?? form.querySelector<HTMLElement>(`[name^="${field}."]`))?.focus();
+    return;
+  }
 }
 
 interface AccountEditorProps {

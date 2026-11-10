@@ -2228,4 +2228,22 @@ async function accountCountryChecks() {
     await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`delete from public.countries where code = 'NOVA-ZELANDIA'`)), /permission denied/),
     "país não é apagado pelo painel",
   );
+
+  console.log("\nficha técnica da conta");
+  const sheet = JSON.stringify([{ label: "Seguidores", value: "1.259" }, { label: "Garantia", value: "7 dias" }]);
+  const fresh = await as("anon", null, () => db.query(`select specs from public.accounts where id = $1`, [id]));
+  check(fresh.rows[0] && fresh.rows[0].specs === null, "conta nova nasce com a ficha automática e o visitante lê a coluna");
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set specs = $2::jsonb where id = $1`, [id, sheet]));
+  const written = await as("anon", null, () => db.query(`select specs from public.accounts where id = $1`, [id]));
+  check(written.rows[0]?.specs?.[1]?.value === "7 dias", "admin grava a ficha da conta e a vitrine lê");
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set specs = '[]'::jsonb where id = $1`, [id])), /accounts_specs/),
+    "ficha vazia é recusada (vazia = voltar à automática)",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set specs = '{"a":1}'::jsonb where id = $1`, [id])), /accounts_specs/),
+    "ficha fora do formato de lista é recusada",
+  );
+  await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set specs = null where id = $1`, [id]));
+  check((await db.query(`select specs from public.accounts where id = $1`, [id])).rows[0].specs === null, "voltar à automática apaga a ficha escrita");
 }

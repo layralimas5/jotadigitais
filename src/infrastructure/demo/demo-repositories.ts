@@ -99,7 +99,7 @@ function countryNameIn(state: DemoState, code: string): string {
 /** Como o banco devolve a conta: reserva vencida conta como disponível e o nome do país vem junto. */
 const accountView = (state: DemoState) => (account: Account): Account => {
   const country = account.country ?? DEFAULT_COUNTRY;
-  return { ...account, country, countryName: countryNameIn(state, country), status: effectiveStatus(account.status, account.reservedUntil) };
+  return { ...account, specs: account.specs ?? null, country, countryName: countryNameIn(state, country), status: effectiveStatus(account.status, account.reservedUntil) };
 };
 
 /** Como a chave estrangeira `accounts_country_fkey`: a conta só aceita país que está na lista. */

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
-import { slugify, type Account, type AccountData, type AccountStatus, type FacebookKind } from "@/domain/account";
+import { slugify, type Account, type AccountData, type AccountSpec, type AccountStatus, type FacebookKind } from "@/domain/account";
 import { DEFAULT_COUNTRY, fallbackCountryName } from "@/domain/country";
 import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
@@ -44,6 +44,8 @@ export interface AccountFormValues {
   mockupBio: string;
   mockupCoverUrl: string;
   mockupPosts: string[];
+  /** Ficha técnica escrita para esta conta; nula = automática. */
+  specs: AccountSpec[] | null;
 }
 
 export type AccountFormErrors = Record<string, string>;
@@ -82,6 +84,7 @@ export function emptyAccountForm(): AccountFormValues {
     mockupBio: "",
     mockupCoverUrl: "",
     mockupPosts: [],
+    specs: null,
   };
 }
 
@@ -120,6 +123,7 @@ export function fromAccount(account: Account): AccountFormValues {
     mockupBio: account.mockup?.bio ?? "",
     mockupCoverUrl: account.mockup?.coverUrl ?? "",
     mockupPosts: account.mockup?.posts ?? [],
+    specs: account.specs ?? null,
   };
   switch (account.platform) {
     case "tiktok":
@@ -199,6 +203,7 @@ export function toRawAccount(values: AccountFormValues) {
     profileUrl: values.profileUrl || null,
     statsSyncedAt: values.statsSyncedAt,
     mockup: { bio: values.mockupBio || null, coverUrl: values.mockupCoverUrl || null, posts: values.mockupPosts },
+    specs: values.specs,
   };
 }
 
@@ -269,6 +274,8 @@ const PREVIEW_FALLBACK: Record<string, Partial<AccountFormValues>> = {
   "mockup.bio": { mockupBio: "" },
   "mockup.coverUrl": { mockupCoverUrl: "" },
   "mockup.posts": { mockupPosts: [] },
+  // Linha da ficha ainda vazia: a prévia mostra a ficha automática até ela ser preenchida.
+  specs: { specs: null },
   "stats.likes": { likes: "0" },
   "stats.following": { following: "0" },
   "stats.posts": { posts: "0" },
@@ -278,6 +285,14 @@ const PREVIEW_FALLBACK: Record<string, Partial<AccountFormValues>> = {
 };
 
 const MAX_PREVIEW_PASSES = 3;
+
+/** Erros de item de lista (images.2, specs.0.label) usam o substituto da lista inteira. */
+function previewFallbackKey(key: string): string {
+  if (key.startsWith("images.")) return "images";
+  if (key.startsWith("mockup.posts")) return "mockup.posts";
+  if (key.startsWith("specs")) return "specs";
+  return key;
+}
 
 /**
  * Conta de mentira para a prévia da vitrine: usa o que já foi digitado e completa o resto com exemplos,
@@ -292,7 +307,7 @@ export function previewAccountOf(values: AccountFormValues, id: string): Account
       return { ...result.data, id, reservedUntil: null, countryName: values.countryName, price: Number.isNaN(price) ? 0 : price };
     }
     for (const key of Object.keys(result.errors)) {
-      const fallback = PREVIEW_FALLBACK[key.startsWith("images.") ? "images" : key.startsWith("mockup.posts") ? "mockup.posts" : key];
+      const fallback = PREVIEW_FALLBACK[previewFallbackKey(key)];
       if (!fallback) return null;
       draft = { ...draft, ...fallback };
     }
@@ -322,6 +337,7 @@ export const ACCOUNT_FIELD_ORDER = [
   "mockup.bio",
   "mockup.coverUrl",
   "mockup.posts",
+  "specs",
 ] as const;
 
 export function useAccountForm(initial: AccountFormValues) {

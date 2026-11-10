@@ -5,7 +5,8 @@ import type { Account } from "@/domain/account";
 import { SiteContentProvider, useSiteContent } from "@/ui/hooks/useSiteContent";
 import { StoreSettingsProvider } from "@/ui/hooks/useStoreSettings";
 import { automaticDescriptionOf } from "@/ui/lib/account-presenter";
-import { AccountIncluded, AccountSpecs } from "@/ui/sections/account/AccountDetails";
+import { AccountIncluded } from "@/ui/sections/account/AccountDetails";
+import { AccountSpecsField } from "./AccountSpecsField";
 import { FormSection } from "../components/AdminUi";
 import { TextAreaField } from "../components/FormControls";
 import { previewAccountOf, type AccountFormErrors, type AccountFormValues } from "../forms/account-form";
@@ -89,21 +90,13 @@ export function AccountPageSection({ values, errors, set, accountId }: AccountPa
       <SiteContentProvider>
         <FormSection
           title="Página da conta"
-          description="O que aparece na página desta conta no site. O texto você edita aqui; as partes iguais em toda conta ficam na aba Site."
+          description="O que aparece na página desta conta no site. O texto e a ficha técnica você edita aqui; as partes iguais em toda conta ficam na aba Site."
         >
           <AboutField values={values} errors={errors} set={set} automatic={automatic} />
           {preview && <NicheNote account={preview} />}
+          <AccountSpecsField specs={values.specs} preview={preview} errors={errors} onChange={(specs) => set("specs", specs)} />
           {preview ? (
             <>
-              <ReadOnlyBlock
-                caption={
-                  <>
-                    Rede, nicho e números vêm dos campos acima e a data, de “Anunciada em”. As linhas fixas e o título ficam em <SiteTabLink />.
-                  </>
-                }
-              >
-                <AccountSpecs account={preview} />
-              </ReadOnlyBlock>
               <ReadOnlyBlock
                 caption={
                   <>
@@ -115,7 +108,7 @@ export function AccountPageSection({ values, errors, set, accountId }: AccountPa
               </ReadOnlyBlock>
             </>
           ) : (
-            <p className="text-sm text-mist">Preencha os dados da conta para ver a ficha técnica e o que está incluso.</p>
+            <p className="text-sm text-mist">Preencha os dados da conta para ver o que está incluso.</p>
           )}
         </FormSection>
       </SiteContentProvider>

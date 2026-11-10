@@ -8,6 +8,7 @@ import {
   shopTierOf,
   type Account,
   type AccountOf,
+  type AccountSpec,
   type AccountStatus,
 } from "@/domain/account";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
@@ -38,10 +39,7 @@ export interface ProfileStat {
   value: string;
 }
 
-export interface Spec {
-  label: string;
-  value: string;
-}
+export type Spec = AccountSpec;
 
 const number = new Intl.NumberFormat("pt-BR");
 const date = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric", timeZone: "UTC" });
@@ -182,8 +180,13 @@ function platformSpecs(account: Account): Spec[] {
   }
 }
 
-/** Rede, nicho e números saem de cada conta; as linhas fixas vêm da aba Site. */
+/** Ficha técnica da página da conta: a escrita na ficha da conta ou, sem ela, a automática. */
 export function specsOf(account: Account, fixedSpecs: Record<Account["platform"], readonly Spec[]>): Spec[] {
+  return account.specs ?? automaticSpecsOf(account, fixedSpecs);
+}
+
+/** Rede, nicho e números saem de cada conta; as linhas fixas vêm da aba Site. */
+export function automaticSpecsOf(account: Account, fixedSpecs: Record<Account["platform"], readonly Spec[]>): Spec[] {
   return [
     { label: "Rede", value: PLATFORM_LABEL[account.platform] },
     { label: "País", value: account.countryName },
