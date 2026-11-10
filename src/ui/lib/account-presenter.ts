@@ -10,6 +10,7 @@ import {
   type AccountOf,
   type AccountSpec,
   type AccountStatus,
+  type ShopTier,
 } from "@/domain/account";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
 import type { DistributivePick } from "@/shared/types";
@@ -63,9 +64,7 @@ export function accountBadge(account: Account): AccountBadge {
   switch (account.platform) {
     case "tiktok":
       if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
-      return shopTierOf(account) === "full"
-        ? { label: "TikTok Shop ativo", tone: "electric" }
-        : { label: "Shop piloto", tone: "pink" };
+      return SHOP_BADGE[shopTierOf(account)];
     case "instagram":
       if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
       return account.stats.professional
@@ -81,9 +80,18 @@ export function accountBadge(account: Account): AccountBadge {
   }
 }
 
-/** Etiquetas criadas pelo Jota, no mesmo formato do selo da rede. */
-export function tagBadges(account: Pick<Account, "tags">): AccountBadge[] {
-  return account.tags.map((label) => ({ label, tone: "mist" }));
+const SHOP_BADGE: Record<ShopTier, AccountBadge> = {
+  full: { label: "TikTok Shop ativo", tone: "electric" },
+  pilot: { label: "Shop piloto", tone: "pink" },
+};
+
+/** Todas as tags da conta: as fixas (no TikTok, Monetizada e o Shop juntos) e as criadas pelo Jota. */
+export function allBadges(account: Account): AccountBadge[] {
+  const fixed =
+    account.platform === "tiktok"
+      ? [...(account.stats.monetized ? [accountBadge(account)] : []), SHOP_BADGE[shopTierOf(account)]]
+      : [accountBadge(account)];
+  return [...fixed, ...account.tags.map((label): AccountBadge => ({ label, tone: "mist" }))];
 }
 
 export function cardMetric(account: Account): CardMetric {
