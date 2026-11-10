@@ -19,9 +19,11 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { OrderStatusBadge } from "../components/OrderStatusBadge";
 import { SearchInput } from "../components/SearchInput";
 import { WarrantyBadge } from "../components/WarrantyBadge";
+import { useViewAccess } from "../admin-view";
 import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
+import { canOpen, FINALIZED_PATH } from "../navigation";
 import { whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
@@ -170,9 +172,11 @@ interface OrderCardProps {
   busy: boolean;
   onAction: (order: Order, status: OrderStatus) => void;
   onConfirmPix: (order: Order, payment: OrderPayment) => void;
+  /** Mostra o atalho para Finalizados: só para quem pode abrir a tela. */
+  showFinalized: boolean;
 }
 
-function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy, onAction, onConfirmPix }: OrderCardProps) {
+function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy, onAction, onConfirmPix, showFinalized }: OrderCardProps) {
   const whatsapp = whatsappLink(order, templates);
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
@@ -247,10 +251,10 @@ function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy
       <CartNote order={order} cartSize={cartSize} onShowCart={onShowCart} />
       <PaymentParts order={order} busy={busy} onConfirmPix={onConfirmPix} />
 
-      {order.status === "delivered" && (
+      {order.status === "delivered" && showFinalized && (
         <div className="mt-4 flex justify-end border-t border-line pt-4">
           <Link
-            to={`/admin/finalizados?busca=${encodeURIComponent(order.code)}`}
+            to={`${FINALIZED_PATH}?busca=${encodeURIComponent(order.code)}`}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-electric-soft hover:underline"
           >
             Ver em Finalizados <ArrowRight aria-hidden className="size-4" />
@@ -283,6 +287,8 @@ export default function OrdersPage() {
   const board = useAdminQuery(loadOrdersBoard, "admin-orders");
   const templates = useMessageTemplates();
   const toast = useToast();
+  const access = useViewAccess();
+  const showFinalized = access !== null && canOpen(access, FINALIZED_PATH);
   const change = useMutation(async (deps, order: Order, status: OrderStatus) => {
     await changeOrderStatus(deps, order, status);
     return true;
@@ -352,12 +358,16 @@ export default function OrdersPage() {
         title="Pedidos"
         description={
           <>
-            Todos os clientes e suas contas: pendentes, entregues (garantia valendo) e finalizadas (garantia encerrada). Entregues e
-            finalizadas também ficam em{" "}
-            <Link to="/admin/finalizados" className="text-electric-soft underline-offset-4 hover:underline">
-              Finalizados
-            </Link>
-            .
+            Todos os clientes e suas contas: pendentes, entregues (garantia valendo) e finalizadas (garantia encerrada).
+            {showFinalized && (
+              <>
+                {" "}Entregues e finalizadas também ficam em{" "}
+                <Link to={FINALIZED_PATH} className="text-electric-soft underline-offset-4 hover:underline">
+                  Finalizados
+                </Link>
+                .
+              </>
+            )}
           </>
         }
       />
@@ -413,6 +423,7 @@ export default function OrdersPage() {
                 busy={change.pending || confirmPix.pending}
                 onAction={onAction}
                 onConfirmPix={(order, payment) => setPixToConfirm({ order, payment })}
+                showFinalized={showFinalized}
               />
             ))}
           </AnimatePresence>
