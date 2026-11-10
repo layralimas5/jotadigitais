@@ -12,6 +12,7 @@ import {
   type SupportTicket,
 } from "@/domain/support-ticket";
 import { ErrorState } from "@/ui/components/StateViews";
+import { cn } from "@/ui/lib/cn";
 import { fadeUp, staggerContainer } from "@/ui/lib/motion";
 import { LoadingBlock } from "../components/AdminUi";
 import { useAdminQuery } from "../hooks";
@@ -19,13 +20,14 @@ import { SUPPORT_PATH } from "../navigation";
 import { PRIORITY_TONE } from "../support/priority-tone";
 import { PriorityDot, SupportKindBadge, SupportStatusBadge } from "../support/SupportBadges";
 import { QueueAgeBadge } from "../support/QueueAgeBadge";
+import { StatusDonut, WeeklyChart } from "./SupportCharts";
 import { BlockHeading, StatCard } from "./StatCard";
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
 function Block({ id, title, link, children, className }: { id: string; title: string; link?: { to: string; label: string }; children: ReactNode; className?: string }) {
   return (
-    <motion.section variants={fadeUp} aria-labelledby={id} className={className}>
+    <motion.section variants={fadeUp} aria-labelledby={id} className={cn("min-w-0", className)}>
       <BlockHeading id={id} title={title} link={link} />
       {children}
     </motion.section>
@@ -147,10 +149,18 @@ function SupportContent({ overview }: { overview: SupportOverview }) {
         <Headline overview={overview} />
       </motion.div>
       <div className="grid gap-8 lg:grid-cols-5 lg:gap-4">
+        <Block id="bloco-ritmo" title="Ritmo por semana" className="lg:col-span-3">
+          <WeeklyChart weeks={overview.weeks} />
+        </Block>
+        <Block id="bloco-situacao" title="Em aberto por situação" className="lg:col-span-2">
+          <StatusDonut items={overview.byStatus} />
+        </Block>
+      </div>
+      <div className="grid gap-8 lg:grid-cols-5 lg:gap-4">
         <Block id="bloco-fila" title="Precisa de você" link={{ to: SUPPORT_PATH, label: "Abrir suporte" }} className="lg:col-span-3">
           <Queue overview={overview} />
         </Block>
-        <Block id="bloco-abertos" title="Em aberto" className="lg:col-span-2">
+        <Block id="bloco-abertos" title="Distribuição" className="lg:col-span-2">
           <OpenBreakdown overview={overview} />
         </Block>
       </div>
