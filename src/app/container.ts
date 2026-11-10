@@ -28,6 +28,8 @@ import { DemoPrivacyRepository, DemoPrivacyService } from "@/infrastructure/demo
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { DemoSupportTicketRepository } from "@/infrastructure/demo/demo-support";
 import { DemoAccessRepository } from "@/infrastructure/demo/demo-access";
+import { DemoStorageUsageReader } from "@/infrastructure/demo/demo-storage-usage";
+import { SupabaseStorageUsageReader } from "@/infrastructure/supabase/supabase-storage-usage";
 import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { DemoPaymentGateway } from "@/infrastructure/demo/demo-payment-gateway";
 import { SupabasePaymentGateway } from "@/infrastructure/supabase/supabase-payment-gateway";
@@ -117,6 +119,8 @@ function supabaseContainer(url: string, anonKey: string): Container {
       privacy: new SupabasePrivacyRepository(client),
       support: new SupabaseSupportTicketRepository(client),
       access: new SupabaseAccessRepository(client),
+      // Banco novo: acrescente aqui o leitor dele e a aba Armazenamento passa a mostrar os dois.
+      storage: [new SupabaseStorageUsageReader(client, backendConfig.supabasePlan)],
     },
   };
 }
@@ -154,6 +158,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     privacy: new DemoPrivacyRepository(db),
     support: new DemoSupportTicketRepository(db, auth),
     access: new DemoAccessRepository(db, users, auth),
+    storage: [new DemoStorageUsageReader()],
   };
   return { store, admin };
 }

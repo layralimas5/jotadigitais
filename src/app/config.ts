@@ -1,3 +1,4 @@
+import type { SupabasePlan } from "@/domain/storage";
 import type { StoreSettings } from "@/domain/store-settings";
 
 export const siteConfig = {
@@ -22,7 +23,11 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 /** ID do app do Google (público por desenho): sem ele, o Google Agenda aparece como "falta preparar". */
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || null;
 
+/** Plano do Supabase, para a aba Armazenamento mostrar o limite certo. Sem a variável, o grátis. */
+const supabasePlan: SupabasePlan = import.meta.env.VITE_SUPABASE_PLAN?.trim() === "pro" ? "pro" : "free";
+
 export const backendConfig = {
   supabase: supabaseUrl && supabaseAnonKey ? { url: supabaseUrl, anonKey: supabaseAnonKey } : null,
+  supabasePlan,
   googleClientId,
 } as const;

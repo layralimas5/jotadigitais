@@ -299,3 +299,10 @@ export class CouponCodeTakenError extends Error {
     this.name = "CouponCodeTakenError";
   }
 }
+
+export class StorageForbiddenError extends Error {
+  constructor() {
+    super("Só o admin e a desenvolvedora veem o armazenamento.");
+    this.name = "StorageForbiddenError";
+  }
+}

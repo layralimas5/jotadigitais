@@ -1,6 +1,7 @@
 import {
   CircleCheckBig,
   Globe,
+  HardDrive,
   Handshake,
   ImageIcon,
   KeyRound,
@@ -91,6 +92,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/depoimentos", label: "Depoimentos", icon: ImageIcon, inBottomNav: false, description: "Prints da faixa de resultados", roles: STORE, area: "site" },
       { to: "/admin/usuarios", label: "Usuários", icon: ShieldUser, inBottomNav: false, description: "Quem acessa o sistema", roles: STORE },
       { to: "/admin/privacidade", label: "Privacidade", icon: ShieldCheck, inBottomNav: false, description: "LGPD e pedidos dos titulares", roles: STORE },
+      { to: "/admin/armazenamento", label: "Armazenamento", icon: HardDrive, inBottomNav: false, description: "Quanto o banco e os arquivos ocupam", roles: EVERYONE },
       { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "Google Agenda e outras conexões", roles: STORE },
       { to: SUPPORT_PATH, label: "Suporte", icon: LifeBuoy, inBottomNav: false, description: "Chamados de ajustes no sistema e no site", roles: EVERYONE },
       { to: ACCESS_PATH, label: "Acessos", icon: KeyRound, inBottomNav: false, description: "TI: e-mail, senha e sessões de cada usuário", roles: DEVELOPER },
