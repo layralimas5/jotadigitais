@@ -324,8 +324,8 @@ export function entriesOf(source: FinanceSource, range: DateRange): Entry[] {
   return [...orders, ...revenues, ...outflows].sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/** Categorias que fazem sentido no gasto de uma conta específica (lançado pela ficha da conta). */
-export const ACCOUNT_EXPENSE_CATEGORIES = ["growth", "ai", "account_purchase", "ads", "tools", "other"] as const satisfies readonly ExpenseCategory[];
+/** Categoria do gasto lançado pela ficha da conta: só o valor, sem classificar. */
+export const ACCOUNT_EXPENSE_CATEGORY: ExpenseCategory = "other";
 
 /** Quanto uma conta custou e quanto rendeu: gastos ligados a ela contra vendas pagas e receitas dela. */
 export interface AccountBalance {
