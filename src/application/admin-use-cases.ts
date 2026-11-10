@@ -6,7 +6,8 @@ import { sortCountries, type Country } from "@/domain/country";
 import type { DashboardSource } from "@/domain/dashboard";
 import { accessOf, type AccountAccess, type EmailAccount, type EmailAccountListItem } from "@/domain/email-account";
 import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
-import { accountBalanceOf, type AccountBalance, type Expense, type Revenue } from "@/domain/finance";
+import { ACCOUNT_EXPENSE_CATEGORY, accountBalanceOf, type AccountBalance, type Expense, type Revenue } from "@/domain/finance";
+import type { Cents } from "@/domain/money";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
 import { buyerOrderOf, canTransition, type Order, type OrderStatus } from "@/domain/order";
@@ -289,6 +290,20 @@ export function findExpense(deps: AdminDeps, id: string): Promise<Expense | null
 export function saveExpense(deps: AdminDeps, id: string | null, raw: unknown): Promise<Expense> {
   const data = parseOrThrow(expenseDataSchema, raw);
   return id ? deps.expenses.update(id, data) : deps.expenses.create(data);
+}
+
+/** Gasto lançado pela ficha da conta: só o valor e o dia; vira despesa ligada à conta. */
+export function logAccountExpense(deps: AdminDeps, account: Pick<Account, "id" | "handle">, amount: Cents, date: string): Promise<Expense> {
+  return saveExpense(deps, null, {
+    description: `Gasto da conta ${account.handle}`,
+    category: ACCOUNT_EXPENSE_CATEGORY,
+    amount,
+    date,
+    supplier: null,
+    paymentMethod: null,
+    accountId: account.id,
+    notes: null,
+  });
 }
 
 export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {

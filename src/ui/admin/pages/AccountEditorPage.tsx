@@ -1,7 +1,8 @@
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteAccount, findAccount, findAccountAccess, listPartners, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
+import { deleteAccount, findAccount, findAccountAccess, listPartners, logAccountExpense, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
+import type { Cents } from "@/domain/money";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
 import type { AccountAccess } from "@/domain/email-account";
@@ -43,6 +44,7 @@ import {
   type AccountFormValues,
 } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
+import { localIsoDate } from "../lib/dates";
 import { formatPercent } from "../lib/percent";
 import { useToast } from "../toast";
 import { useViewAccess } from "../admin-view";
@@ -327,6 +329,12 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
     return true;
   });
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [draftExpenses, setDraftExpenses] = useState<Cents[]>([]);
+  const logDraftExpenses = useMutation(async (deps, saved: Account, amounts: Cents[]) => {
+    const today = localIsoDate();
+    for (const amount of amounts) await logAccountExpense(deps, saved, amount, today);
+    return true;
+  });
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -354,6 +362,14 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
         return;
       }
     }
+    if (!account && draftExpenses.length > 0) {
+      const logged = await logDraftExpenses.run(saved, draftExpenses);
+      if (!logged) {
+        toast.show(`Conta ${saved.handle} salva, mas os gastos não entraram. Confira na ficha e lance de novo.`, "error");
+        navigate(`/admin/contas/${saved.id}`, { replace: true });
+        return;
+      }
+    }
     toast.show(`Conta ${saved.handle} salva. Já aparece no site.`);
     navigate("/admin/contas");
   };
@@ -378,7 +394,7 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
         />
       </div>
 
-      <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <form noValidate onSubmit={onSubmit} aria-busy={save.pending || logDraftExpenses.pending} className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
         <div className="space-y-5">
           <FormSection title="Puxar dados da rede" description="Cole o link do perfil e o sistema preenche nome, @, foto, números, bio e as fotos do mockup.">
             <ProfileImport
@@ -468,7 +484,11 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
             <PartnerField value={values.partnerId} onChange={(partnerId) => set("partnerId", partnerId)} />
           </FormSection>
 
-          <AccountExpensesSection accountId={account?.id ?? null} handle={account?.handle ?? values.handle} />
+          {account ? (
+            <AccountExpensesSection mode="saved" accountId={account.id} handle={account.handle} />
+          ) : (
+            <AccountExpensesSection mode="draft" amounts={draftExpenses} onChange={setDraftExpenses} />
+          )}
 
           {showAccess && (
             <AccountAccessSection
@@ -507,7 +527,7 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
           className="lg:col-span-2"
           submitLabel={account ? "Salvar alterações" : "Cadastrar conta"}
           mobileSubmitLabel={account ? "Salvar" : "Cadastrar conta"}
-          pending={save.pending || saveAccess.pending}
+          pending={save.pending || saveAccess.pending || logDraftExpenses.pending}
           onCancel={() => navigate("/admin/contas")}
           onDelete={account ? () => setConfirmOpen(true) : undefined}
           deleteLabel="Apagar conta"
