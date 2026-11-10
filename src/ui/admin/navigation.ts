@@ -53,6 +53,7 @@ const STORE: readonly AdminRole[] = ["admin"];
 /** TI: só a desenvolvedora. */
 const DEVELOPER: readonly AdminRole[] = ["developer"];
 
+export const FINALIZED_PATH = "/admin/finalizados";
 export const ACCESS_PATH = "/admin/acessos";
 export const NEW_ACCESS_PATH = `${ACCESS_PATH}/novo`;
 
@@ -69,7 +70,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/contas", label: "Contas", icon: Package, inBottomNav: true, description: "Estoque da vitrine", roles: STORE, area: "accounts" },
       { to: "/admin/emails", label: "E-mails", icon: Mail, inBottomNav: false, description: "Senhas das contas em crescimento", roles: STORE, area: "emails" },
       { to: "/admin/pedidos", label: "Pedidos", icon: Receipt, inBottomNav: true, description: "Pagamentos e entregas", roles: STORE, area: "orders" },
-      { to: "/admin/finalizados", label: "Finalizados", icon: CircleCheckBig, inBottomNav: false, description: "Vendas entregues e garantia", roles: STORE, area: "orders" },
+      { to: FINALIZED_PATH, label: "Finalizados", icon: CircleCheckBig, inBottomNav: false, description: "Vendas entregues e garantia", roles: STORE, area: "finance" },
       { to: "/admin/financeiro", label: "Financeiro", icon: Wallet, inBottomNav: false, description: "Receitas, despesas e lucro", roles: STORE, area: "finance" },
       { to: "/admin/cupons", label: "Cupons", icon: TicketPercent, inBottomNav: false, description: "Códigos de desconto do checkout", roles: STORE },
     ],

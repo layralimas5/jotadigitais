@@ -22,7 +22,7 @@ export const STAFF_PERMISSION_LABEL: Record<StaffPermission, string> = {
   partners: "Parceiros",
   crm: "CRM",
   automation: "Automação",
-  finance: "Dashboard e financeiro",
+  finance: "Dashboard, financeiro e finalizados",
   site: "Site e depoimentos",
 };
 
@@ -34,7 +34,7 @@ export const STAFF_PERMISSION_HINT: Record<StaffPermission, string> = {
   partners: "Ver os parceiros, as contas de cada um e as comissões.",
   crm: "Ver e mover os leads até fechar.",
   automation: "Editar as mensagens prontas do WhatsApp.",
-  finance: "Ver o dashboard com o faturamento e lançar receitas e despesas.",
+  finance: "Ver o dashboard com o faturamento, os finalizados com os valores das vendas e lançar receitas e despesas.",
   site: "Editar os textos, o contato e os depoimentos do site.",
 };
 

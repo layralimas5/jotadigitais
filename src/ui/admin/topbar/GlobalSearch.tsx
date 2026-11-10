@@ -3,7 +3,9 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type Keyboard
 import { useNavigate } from "react-router-dom";
 import { SEARCH_GROUPS, SEARCH_GROUP_LABEL, searchItems, type SearchItem } from "@/application/search";
 import { cn } from "@/ui/lib/cn";
+import { useViewAccess } from "../admin-view";
 import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
+import { canOpen } from "../navigation";
 import { PAGE_ITEMS, useSearchIndex } from "./useSearchIndex";
 
 /** Com o campo vazio, sugere as telas mais usadas. */
@@ -73,6 +75,7 @@ function ResultGroups({ results, activeId, optionId, onPick, onHover }: {
 export function GlobalSearch({ autoFocus = false, withShortcut = false, onNavigate, className }: GlobalSearchProps) {
   const navigate = useNavigate();
   const index = useSearchIndex();
+  const access = useViewAccess();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(autoFocus);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -85,8 +88,11 @@ export function GlobalSearch({ autoFocus = false, withShortcut = false, onNaviga
   useCloseOnOutsideClick(open, close, rootRef);
 
   const results = useMemo(
-    () => (query.trim() ? searchItems([...PAGE_ITEMS, ...index.records], query) : SUGGESTED),
-    [query, index.records],
+    () =>
+      (query.trim() ? searchItems([...PAGE_ITEMS, ...index.records], query) : SUGGESTED).filter(
+        (item) => access !== null && canOpen(access, item.to.split("?")[0] ?? item.to),
+      ),
+    [query, index.records, access],
   );
   const optionId = useCallback((raw: string) => `${baseId}-${raw.replace(/[^a-zA-Z0-9_-]/g, "_")}`, [baseId]);
   const active = results[Math.min(activeIndex, results.length - 1)] ?? null;
