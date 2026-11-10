@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { accountBaseSchema, accountMockupSchema, accountSpecsSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
+import { accountBaseSchema, accountMockupSchema, accountSpecsSchema, accountTagsSchema, platformStatsSchema, testimonialDataSchema } from "@/application/schemas";
 import { ACCOUNT_STATUSES, effectiveStatus, EMPTY_MOCKUP, type Account, type AccountData } from "@/domain/account";
 import { BRAZIL_STATES } from "@/domain/brazil";
 import { fallbackCountryName } from "@/domain/country";
@@ -37,11 +37,12 @@ const accountRowSchema = z.object({
   mockup: z.unknown(),
   // Contas de antes da ficha técnica própria vêm sem: valem como automática.
   specs: z.unknown().optional(),
+  tags: z.array(z.string()).nullish(),
 });
 
 /** O que a chave anon pode ler de uma conta: sem o parceiro que a forneceu. */
 export const PUBLIC_ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup, specs";
+  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup, specs, tags";
 
 export const ACCOUNT_COLUMNS = `${PUBLIC_ACCOUNT_COLUMNS}, partner_id, stats_synced_at`;
 
@@ -67,6 +68,7 @@ export function toAccount(raw: unknown): Account {
     mockup: accountMockupSchema.catch(EMPTY_MOCKUP).parse(row.mockup ?? undefined),
     // Ficha fora do formato não derruba a página: volta à automática.
     specs: accountSpecsSchema.catch(null).parse(row.specs ?? null),
+    tags: accountTagsSchema.catch([]).parse(row.tags ?? []),
   });
   const platformStats = platformStatsSchema.parse({ platform: row.platform, stats: row.stats });
   return {
@@ -99,6 +101,7 @@ export function toAccountRow(data: AccountData) {
     stats_synced_at: data.statsSyncedAt,
     mockup: data.mockup,
     specs: data.specs,
+    tags: data.tags,
   };
 }
 

@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
-import { ACCOUNT_STATUSES, EMPTY_MOCKUP, MAX_ACCOUNT_SPECS, MAX_MOCKUP_POSTS } from "@/domain/account";
+import {
+  ACCOUNT_STATUSES,
+  EMPTY_MOCKUP,
+  MAX_ACCOUNT_SPECS,
+  MAX_ACCOUNT_TAG_LENGTH,
+  MAX_ACCOUNT_TAGS,
+  MAX_MOCKUP_POSTS,
+  normalizeAccountTags,
+  SHOP_TIERS,
+} from "@/domain/account";
 import { BRAZIL_STATES, OLDEST_BIRTH_DATE, ageOn, isValidDocument } from "@/domain/brazil";
 import { COUNTRY_CODE_PATTERN, DEFAULT_COUNTRY } from "@/domain/country";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
@@ -194,6 +203,19 @@ export const accountSpecsSchema = z
   .nullable()
   .default(null);
 
+/** Etiquetas da conta; contas de antes delas vêm sem e valem como nenhuma. */
+export const accountTagsSchema = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(1, "Escreva a etiqueta.")
+      .max(MAX_ACCOUNT_TAG_LENGTH, `Cada etiqueta pode ter até ${MAX_ACCOUNT_TAG_LENGTH} caracteres.`),
+  )
+  .max(MAX_ACCOUNT_TAGS, `Use no máximo ${MAX_ACCOUNT_TAGS} etiquetas.`)
+  .default([])
+  .transform(normalizeAccountTags);
+
 const optionalText = (max: number) =>
   z
     .string()
@@ -203,7 +225,13 @@ const optionalText = (max: number) =>
     .transform((value) => (value ? value : null));
 
 // Contas salvas antes da monetização no TikTok e no Instagram chegam sem o campo: valem como não monetizadas.
-export const tiktokStatsSchema = z.object({ likes: count, following: count, monetized: z.boolean().default(false) });
+// O Shop marcado na ficha entrou depois: conta sem o campo segue a regra dos seguidores (ver shopTierOf).
+export const tiktokStatsSchema = z.object({
+  likes: count,
+  following: count,
+  monetized: z.boolean().default(false),
+  shop: z.enum(SHOP_TIERS).optional(),
+});
 export const instagramStatsSchema = z.object({
   posts: count,
   following: count,
@@ -269,6 +297,7 @@ export const accountBaseSchema = z.object({
   statsSyncedAt: z.iso.datetime({ offset: true }).nullable().default(null),
   mockup: accountMockupSchema,
   specs: accountSpecsSchema,
+  tags: accountTagsSchema,
 });
 
 export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
-import { slugify, type Account, type AccountData, type AccountSpec, type AccountStatus, type FacebookKind } from "@/domain/account";
+import { shopTierOf, slugify, type Account, type AccountData, type AccountSpec, type AccountStatus, type FacebookKind, type ShopTier } from "@/domain/account";
 import { DEFAULT_COUNTRY, fallbackCountryName } from "@/domain/country";
 import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
@@ -36,6 +36,8 @@ export interface AccountFormValues {
   videos: string;
   watchHours: string;
   monetized: boolean;
+  /** TikTok Shop piloto ou ativo, marcado pelo Jota. */
+  shop: ShopTier;
   facebookKind: FacebookKind;
   /** Vazio quando a conta é da própria loja. */
   partnerId: string;
@@ -46,6 +48,7 @@ export interface AccountFormValues {
   mockupPosts: string[];
   /** Ficha técnica escrita para esta conta; nula = automática. */
   specs: AccountSpec[] | null;
+  tags: string[];
 }
 
 export type AccountFormErrors = Record<string, string>;
@@ -77,6 +80,7 @@ export function emptyAccountForm(): AccountFormValues {
     videos: "",
     watchHours: "",
     monetized: false,
+    shop: "pilot",
     facebookKind: "page",
     partnerId: "",
     profileUrl: "",
@@ -85,6 +89,7 @@ export function emptyAccountForm(): AccountFormValues {
     mockupCoverUrl: "",
     mockupPosts: [],
     specs: null,
+    tags: [],
   };
 }
 
@@ -124,6 +129,7 @@ export function fromAccount(account: Account): AccountFormValues {
     mockupCoverUrl: account.mockup?.coverUrl ?? "",
     mockupPosts: account.mockup?.posts ?? [],
     specs: account.specs ?? null,
+    tags: account.tags ?? [],
   };
   switch (account.platform) {
     case "tiktok":
@@ -132,6 +138,7 @@ export function fromAccount(account: Account): AccountFormValues {
         likes: integerFormat.format(account.stats.likes),
         following: integerFormat.format(account.stats.following),
         monetized: account.stats.monetized === true,
+        shop: shopTierOf(account),
       };
     case "instagram":
       return {
@@ -162,7 +169,12 @@ export function fromAccount(account: Account): AccountFormValues {
 function statsOf(values: AccountFormValues) {
   switch (values.platform) {
     case "tiktok":
-      return { likes: parseInteger(values.likes), following: parseInteger(values.following), monetized: values.monetized };
+      return {
+        likes: parseInteger(values.likes),
+        following: parseInteger(values.following),
+        monetized: values.monetized,
+        shop: values.shop,
+      };
     case "instagram":
       return {
         posts: parseInteger(values.posts),
@@ -204,6 +216,7 @@ export function toRawAccount(values: AccountFormValues) {
     statsSyncedAt: values.statsSyncedAt,
     mockup: { bio: values.mockupBio || null, coverUrl: values.mockupCoverUrl || null, posts: values.mockupPosts },
     specs: values.specs,
+    tags: values.tags,
   };
 }
 
@@ -276,6 +289,7 @@ const PREVIEW_FALLBACK: Record<string, Partial<AccountFormValues>> = {
   "mockup.posts": { mockupPosts: [] },
   // Linha da ficha ainda vazia: a prévia mostra a ficha automática até ela ser preenchida.
   specs: { specs: null },
+  tags: { tags: [] },
   "stats.likes": { likes: "0" },
   "stats.following": { following: "0" },
   "stats.posts": { posts: "0" },
@@ -291,6 +305,7 @@ function previewFallbackKey(key: string): string {
   if (key.startsWith("images.")) return "images";
   if (key.startsWith("mockup.posts")) return "mockup.posts";
   if (key.startsWith("specs")) return "specs";
+  if (key.startsWith("tags")) return "tags";
   return key;
 }
 
@@ -330,6 +345,7 @@ export const ACCOUNT_FIELD_ORDER = [
   "stats.views",
   "stats.videos",
   "stats.watchHours",
+  "tags",
   "price",
   "listedAt",
   "description",

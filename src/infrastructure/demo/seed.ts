@@ -4,10 +4,10 @@ import type { StoredNotification } from "@/domain/notification";
 import type { Testimonial } from "@/domain/testimonial";
 import type { DistributiveOmit } from "@/shared/types";
 
-type SeedAccount = DistributiveOmit<Account, "country" | "countryName" | "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId" | "profileUrl" | "statsSyncedAt" | "mockup" | "specs">;
+type SeedAccount = DistributiveOmit<Account, "country" | "countryName" | "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId" | "profileUrl" | "statsSyncedAt" | "mockup" | "specs" | "tags">;
 
 function account(seed: SeedAccount): Account {
-  return { country: DEFAULT_COUNTRY, countryName: "Brasil", description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, profileUrl: null, statsSyncedAt: null, mockup: EMPTY_MOCKUP, specs: null, ...seed };
+  return { country: DEFAULT_COUNTRY, countryName: "Brasil", description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, profileUrl: null, statsSyncedAt: null, mockup: EMPTY_MOCKUP, specs: null, tags: [], ...seed };
 }
 
 /** Estoque de demonstração com perfis fictícios. Só aparece quando o Supabase não está configurado. */
