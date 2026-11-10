@@ -121,7 +121,20 @@ export function galleryPlanOf(account: { platform: Account["platform"]; monetize
   }
 }
 
-export const printLabelOf = (plan: GalleryPlan, index: number): string => plan.printLabels[index] ?? `Print ${index + 1}`;
+const EXTRA_PRINTS = "Outras informações";
+
+/**
+ * Nome do print na posição. Os que passam da lista entram como "Outras informações" (2, 3...), a última aba do
+ * padrão do Jota; rede sem padrão (Facebook) continua com "Print N".
+ */
+export function printLabelOf(plan: GalleryPlan, index: number): string {
+  const named = plan.printLabels[index];
+  if (named) return named;
+  if (plan.printLabels.length === 0) return `Print ${index + 1}`;
+  const extrasBefore = plan.printLabels.filter((label) => label === EXTRA_PRINTS).length;
+  const number = extrasBefore + (index - plan.printLabels.length) + 1;
+  return number === 1 ? EXTRA_PRINTS : `${EXTRA_PRINTS} ${number}`;
+}
 
 export function cardMetric(account: Account): CardMetric {
   switch (account.platform) {
