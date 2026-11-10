@@ -183,6 +183,15 @@ export interface SiteContent {
     reserved: string;
     sold: string;
     buyButton: string;
+    /** Botão "Comprar" da barra fixa no celular, que aparece quando o botão principal sai da tela. */
+    mobileBuyButton: string;
+    cartButton: string;
+    /** Depois que a conta entrou no carrinho, o mesmo botão leva até ele. */
+    inCartButton: string;
+    /** {canal} vira WhatsApp ou Instagram, conforme o contato cadastrado. */
+    questionButton: string;
+    /** Mensagem que já vai escrita no WhatsApp. {conta} vira o @ da conta. */
+    questionMessage: string;
     otherButton: string;
     perkDelivery: TextCard;
     perkGuarantee: PlatformCard;
@@ -456,6 +465,11 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     reserved: "Esta conta está reservada por outro cliente.",
     sold: "Esta conta já foi vendida.",
     buyButton: "Comprar esta conta",
+    mobileBuyButton: "Comprar",
+    cartButton: "Adicionar ao carrinho",
+    inCartButton: "No carrinho · ver carrinho",
+    questionButton: "Tirar dúvida no {canal}",
+    questionMessage: "Olá! Tenho uma dúvida sobre a conta {conta}.",
     otherButton: "Ver outras contas",
     perkDelivery: { title: "Entrega pelo WhatsApp", text: "Login, senha e passo a passo logo após a confirmação do pagamento." },
     perkGuarantee: {
