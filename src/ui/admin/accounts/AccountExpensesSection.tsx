@@ -2,7 +2,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
 import { deleteExpense, loadAccountBalance, saveExpense } from "@/application/admin-use-cases";
 import { canUseStoreArea } from "@/domain/admin-user";
-import { ACCOUNT_EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABEL, type Expense, type ExpenseCategory } from "@/domain/finance";
+import { ACCOUNT_EXPENSE_CATEGORY, type Expense } from "@/domain/finance";
 import { formatBRL } from "@/domain/money";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
@@ -11,23 +11,12 @@ import { cn } from "@/ui/lib/cn";
 import { useViewAccess } from "../admin-view";
 import { FormSection, LoadingBlock } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { SelectField } from "../components/FormControls";
 import { parseMoneyToCents } from "../forms/account-form";
 import { useAdminQuery, useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
 import { useToast } from "../toast";
 
-const CATEGORY_OPTIONS = ACCOUNT_EXPENSE_CATEGORIES.map((category) => ({ value: category, label: EXPENSE_CATEGORY_LABEL[category] }));
 const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" });
-
-interface Draft {
-  amount: string;
-  category: ExpenseCategory;
-  description: string;
-  date: string;
-}
-
-const emptyDraft = (): Draft => ({ amount: "", category: "growth", description: "", date: localIsoDate(new Date()) });
 
 function BalanceTile({ label, value, tone }: { label: string; value: string; tone?: "good" | "bad" }) {
   return (
@@ -41,18 +30,15 @@ function BalanceTile({ label, value, tone }: { label: string; value: string; ton
 }
 
 function ExpenseRow({ expense, onRemove }: { expense: Expense; onRemove: () => void }) {
+  const day = shortDate.format(new Date(expense.date));
   return (
     <li className="flex items-center gap-3 py-3">
-      <span className="w-14 shrink-0 text-xs text-mist tabular-nums">{shortDate.format(new Date(expense.date))}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-white">{expense.description}</span>
-        <span className="block text-xs text-mist">{EXPENSE_CATEGORY_LABEL[expense.category]}</span>
-      </span>
+      <span className="flex-1 text-sm text-mist tabular-nums">{day}</span>
       <span className="text-sm font-semibold text-white tabular-nums">{formatBRL(expense.amount)}</span>
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`Apagar o gasto ${expense.description}`}
+        aria-label={`Apagar o gasto de ${formatBRL(expense.amount)} do dia ${day}`}
         className="grid size-8 shrink-0 place-items-center rounded-lg text-mist hover:bg-white/5 hover:text-[#ff7a7a] focus-visible:outline-2 focus-visible:outline-electric"
       >
         <Trash2 aria-hidden className="size-4" />
@@ -61,11 +47,11 @@ function ExpenseRow({ expense, onRemove }: { expense: Expense; onRemove: () => v
   );
 }
 
-/** Gastos lançados direto na ficha: cada um vira uma despesa do Financeiro ligada à conta. */
+/** Gastos lançados direto na ficha: só o valor; cada um vira uma despesa do Financeiro ligada à conta. */
 function AccountExpenses({ accountId, handle }: { accountId: string; handle: string }) {
   const toast = useToast();
   const balance = useAdminQuery((deps) => loadAccountBalance(deps, accountId), `account-balance:${accountId}`);
-  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [amountText, setAmountText] = useState("");
   const [amountError, setAmountError] = useState<string>();
   const [removing, setRemoving] = useState<Expense | null>(null);
   const create = useMutation((deps, raw: unknown) => saveExpense(deps, null, raw));
@@ -75,17 +61,17 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
   });
 
   const submit = async () => {
-    const amount = parseMoneyToCents(draft.amount);
+    const amount = parseMoneyToCents(amountText);
     if (Number.isNaN(amount) || amount <= 0) {
       setAmountError("Informe o valor. Ex.: 50 ou 1.250,00.");
       return;
     }
     setAmountError(undefined);
     const saved = await create.run({
-      description: draft.description.trim() || `${EXPENSE_CATEGORY_LABEL[draft.category]} · ${handle}`,
-      category: draft.category,
+      description: `Gasto da conta ${handle}`,
+      category: ACCOUNT_EXPENSE_CATEGORY,
       amount,
-      date: draft.date,
+      date: localIsoDate(new Date()),
       supplier: null,
       paymentMethod: null,
       accountId,
@@ -93,7 +79,7 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
     });
     if (!saved) return;
     toast.show(`Gasto de ${formatBRL(saved.amount)} lançado. Já está no Financeiro.`);
-    setDraft({ ...emptyDraft(), category: draft.category });
+    setAmountText("");
     balance.reload();
   };
 
@@ -128,39 +114,25 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
         </dl>
       )}
 
-      <div onKeyDown={onEnter} className="grid gap-3 rounded-2xl border border-line bg-ink/40 p-3 sm:grid-cols-[8rem_minmax(0,1fr)_10rem] sm:p-4">
+      <div
+        onKeyDown={onEnter}
+        className="grid gap-3 rounded-2xl border border-line bg-ink/40 p-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:p-4"
+      >
         <TextField
-          label="Valor (R$)"
+          label="Valor gasto (R$)"
           name="expense.amount"
           inputMode="decimal"
           placeholder="50,00"
-          value={draft.amount}
+          value={amountText}
           error={amountError}
-          onChange={(event) => setDraft({ ...draft, amount: event.target.value })}
-        />
-        <SelectField
-          label="Com o quê"
-          name="expense.category"
-          value={draft.category}
-          options={CATEGORY_OPTIONS}
-          onChange={(event) => setDraft({ ...draft, category: event.target.value as ExpenseCategory })}
-        />
-        <TextField label="Data" name="expense.date" type="date" value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} />
-        <TextField
-          className="sm:col-span-2"
-          label="Descrição (opcional)"
-          name="expense.description"
-          maxLength={120}
-          placeholder="Ex.: Pacote de seguidores, assinatura de IA"
-          value={draft.description}
-          onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+          onChange={(event) => setAmountText(event.target.value)}
         />
         <div className="flex items-end">
           <Button type="button" className="w-full" onClick={() => void submit()} disabled={create.pending}>
             <Plus aria-hidden className="size-4" /> {create.pending ? "Lançando…" : "Lançar gasto"}
           </Button>
         </div>
-        {create.error && <p className="text-xs font-medium text-[#ff7a7a] sm:col-span-3">{create.error.message}</p>}
+        {create.error && <p className="text-xs font-medium text-[#ff7a7a] sm:col-span-2">{create.error.message}</p>}
       </div>
 
       {balance.status === "success" &&
@@ -177,7 +149,7 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
       <ConfirmDialog
         open={removing !== null}
         title="Apagar este gasto?"
-        description={removing ? `${removing.description} (${formatBRL(removing.amount)}) sai da conta e do Financeiro.` : ""}
+        description={removing ? `O gasto de ${formatBRL(removing.amount)} sai da conta e do Financeiro.` : ""}
         confirmLabel="Apagar"
         pending={remove.pending}
         onConfirm={() => void confirmRemove()}
@@ -199,7 +171,7 @@ export function AccountExpensesSection({ accountId, handle }: AccountExpensesSec
   return (
     <FormSection
       title="Gastos da conta"
-      description="IA, gente para crescer o perfil e o que mais sair por esta conta. Cada gasto entra sozinho no Financeiro, em Despesas, ligado a ela. O ganho soma as vendas pagas desta conta."
+      description="Coloque o valor que saiu por esta conta. Ele entra sozinho no Financeiro, em Despesas, com a data de hoje. O ganho soma as vendas pagas desta conta."
     >
       {accountId ? <AccountExpenses accountId={accountId} handle={handle} /> : <p className="text-sm text-mist">Cadastre a conta primeiro; depois os gastos dela são lançados aqui.</p>}
     </FormSection>
