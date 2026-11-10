@@ -1,5 +1,5 @@
 import { ExternalLink, RotateCcw } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { Account } from "@/domain/account";
 import { SiteContentProvider, useSiteContent } from "@/ui/hooks/useSiteContent";
@@ -25,13 +25,26 @@ const SiteTabLink = () => (
 );
 
 /**
- * "Sobre esta conta": mostra o texto que está no site. Sem edição, é o automático, que acompanha os números;
- * depois de editado, vale o texto escrito até o Jota voltar ao automático.
+ * "Sobre esta conta": começa mostrando o texto automático, que acompanha os números. Ao mexer, o campo vira do Jota
+ * e fica como ele deixar, inclusive vazio para escrever do zero; em branco, o site volta a usar o automático.
  */
 function AboutField({ values, errors, set, automatic }: Omit<AccountPageSectionProps, "accountId"> & { automatic: string | null }) {
   const written = values.description.trim() !== "";
-  const shown = written || !automatic ? values.description : automatic;
-  const onChange = (text: string) => set("description", automatic !== null && text.trim() === automatic.trim() ? "" : text);
+  const [editing, setEditing] = useState(written);
+  const shown = editing || !automatic ? values.description : automatic;
+  const onChange = (text: string) => {
+    setEditing(true);
+    set("description", text);
+  };
+  const backToAutomatic = () => {
+    setEditing(false);
+    set("description", "");
+  };
+  const hint = written
+    ? "Texto escrito por você. Deixe uma linha em branco entre os parágrafos."
+    : editing
+      ? "Em branco, o site mostra o texto automático. Escreva o seu; linha em branco separa parágrafos."
+      : "Texto automático: acompanha os números da conta. Edite à vontade ou apague tudo para escrever do zero.";
   return (
     <div>
       <TextAreaField
@@ -40,18 +53,15 @@ function AboutField({ values, errors, set, automatic }: Omit<AccountPageSectionP
         rows={6}
         maxLength={2000}
         value={shown}
+        placeholder={automatic ?? undefined}
         onChange={(event) => onChange(event.target.value)}
         error={errors.description}
-        hint={
-          written
-            ? "Texto escrito por você. Deixe uma linha em branco entre os parágrafos."
-            : "Texto automático: acompanha os números da conta. Escreva por cima para trocar; linha em branco separa parágrafos."
-        }
+        hint={hint}
       />
-      {written && automatic && (
+      {editing && automatic && (
         <button
           type="button"
-          onClick={() => set("description", "")}
+          onClick={backToAutomatic}
           className="mt-2 inline-flex items-center gap-1.5 rounded-lg text-xs text-mist hover:text-white focus-visible:outline-2 focus-visible:outline-electric"
         >
           <RotateCcw aria-hidden className="size-3.5" /> Voltar ao texto automático
