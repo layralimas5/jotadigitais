@@ -125,11 +125,6 @@ export function Header() {
                   </Link>
                 </li>
               ))}
-              <li className="pt-3">
-                <ButtonLink to="/contas" size="lg" className="w-full">
-                  Catálogo
-                </ButtonLink>
-              </li>
             </ul>
           </motion.nav>
         )}
