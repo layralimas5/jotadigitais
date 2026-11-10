@@ -81,6 +81,11 @@ export function accountBadge(account: Account): AccountBadge {
   }
 }
 
+/** Etiquetas criadas pelo Jota, no mesmo formato do selo da rede. */
+export function tagBadges(account: Pick<Account, "tags">): AccountBadge[] {
+  return account.tags.map((label) => ({ label, tone: "mist" }));
+}
+
 export function cardMetric(account: Account): CardMetric {
   switch (account.platform) {
     case "tiktok":
@@ -139,7 +144,9 @@ function platformSpecs(account: Account): Spec[] {
           value:
             shopTierOf(account) === "full"
               ? "Ativo, com todos os produtos liberados"
-              : `Piloto (completo a partir de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores, faltam ${number.format(followersToFullShop(account))})`,
+              : followersToFullShop(account) > 0
+                ? `Piloto (completo a partir de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores, faltam ${number.format(followersToFullShop(account))})`
+                : "Piloto",
         },
         { label: "Monetização", value: account.stats.monetized ? "Ativa" : "Não ativa" },
       ];
@@ -203,7 +210,7 @@ function platformParagraph(account: Account): string {
       const monetization = account.stats.monetized ? "A conta é monetizada: já recebe pelo Programa de Recompensas para Criadores. " : "";
       const shop =
         shopTierOf(account) === "pilot"
-          ? `O Shop está em modo piloto, como em toda conta com menos de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores. Funciona normalmente; alguns produtos liberam conforme a conta cresce.`
+          ? "O Shop está em modo piloto. Funciona normalmente; alguns produtos liberam conforme a conta cresce."
           : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação.";
       return monetization + shop;
     }

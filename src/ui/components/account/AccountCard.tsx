@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { formatCount, isNewListing, isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
-import { accountBadge, audienceLabel, cardMetric, verifiedLabel } from "@/ui/lib/account-presenter";
+import { accountBadge, audienceLabel, cardMetric, tagBadges, verifiedLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import { CartToggleIcon } from "../cart/AddToCartButton";
 import { PlatformGlyph } from "../PlatformGlyph";
@@ -51,6 +51,7 @@ function CardCover({ account }: { account: Account }) {
 export function AccountCard({ account }: { account: Account }) {
   const available = isPurchasable(account);
   const badge = accountBadge(account);
+  const tags = tagBadges(account);
   const metric = cardMetric(account);
   return (
     <article
@@ -102,9 +103,23 @@ export function AccountCard({ account }: { account: Account }) {
             </div>
           </div>
 
-          <div className="mt-4 max-sm:hidden">
-            <AccountBadgePill badge={badge} />
-          </div>
+          {/* No mobile o selo da rede já subiu: aqui ficam só as etiquetas do Jota. */}
+          {tags.length > 0 && (
+            <ul aria-label="Etiquetas" className="mt-3 flex flex-wrap gap-1.5 sm:hidden">
+              {tags.map((tag) => (
+                <li key={tag.label}>
+                  <AccountBadgePill badge={tag} />
+                </li>
+              ))}
+            </ul>
+          )}
+          <ul aria-label="Selos da conta" className="mt-4 flex flex-wrap gap-1.5 max-sm:hidden">
+            {[badge, ...tags].map((item) => (
+              <li key={item.label}>
+                <AccountBadgePill badge={item} />
+              </li>
+            ))}
+          </ul>
 
           <div className="mt-4 flex items-end justify-between gap-3 border-t border-line pt-4 sm:mt-6 sm:pt-5">
             <div>

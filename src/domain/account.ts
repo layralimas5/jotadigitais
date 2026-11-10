@@ -5,8 +5,10 @@ export const ACCOUNT_STATUSES = ["available", "reserved", "sold"] as const;
 
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
-/** Abaixo de 2 mil seguidores o TikTok Shop roda em modo piloto (alguns produtos ainda bloqueados). */
-export type ShopTier = "pilot" | "full";
+/** TikTok Shop em modo piloto (alguns produtos ainda bloqueados) ou ativo por completo. O Jota marca na ficha. */
+export const SHOP_TIERS = ["pilot", "full"] as const;
+
+export type ShopTier = (typeof SHOP_TIERS)[number];
 
 export const FULL_SHOP_MIN_FOLLOWERS = 2000;
 
@@ -19,6 +21,8 @@ export interface TikTokStats {
   following: number;
   /** Recebe pelo Programa de Recompensas para Criadores (ou outro recurso de monetização do TikTok). */
   monetized: boolean;
+  /** Situação do TikTok Shop marcada na ficha. Contas de antes da marcação vêm sem: vale a regra dos seguidores. */
+  shop?: ShopTier;
 }
 
 export interface InstagramStats {
@@ -82,7 +86,13 @@ export interface AccountBase {
   mockup: AccountMockup;
   /** Ficha técnica escrita na ficha da conta. Nula = automática (rede, números e linhas fixas da aba Site). */
   specs: AccountSpec[] | null;
+  /** Etiquetas que o Jota cria (ex.: "Nicho quente", "Pronta pra live"). Aparecem no card e na página da conta. */
+  tags: string[];
 }
+
+/** Mesmo limite da checagem `accounts_tags` no banco. */
+export const MAX_ACCOUNT_TAGS = 5;
+export const MAX_ACCOUNT_TAG_LENGTH = 24;
 
 /** Uma linha da ficha técnica na página da conta. */
 export interface AccountSpec {
@@ -136,8 +146,22 @@ export function effectiveStatus(
   return status;
 }
 
-export function shopTierOf(account: Pick<Account, "followers">): ShopTier {
-  return account.followers >= FULL_SHOP_MIN_FOLLOWERS ? "full" : "pilot";
+/** O que o Jota marcou na ficha; sem marcação (conta antiga), a regra dos 2 mil seguidores. */
+export function shopTierOf(account: { followers: number; stats: Pick<TikTokStats, "shop"> }): ShopTier {
+  return account.stats.shop ?? (account.followers >= FULL_SHOP_MIN_FOLLOWERS ? "full" : "pilot");
+}
+
+/** "nicho quente, Nicho Quente , live" vira ["nicho quente", "live"]: espaços sobrando e repetidas saem. */
+export function normalizeAccountTags(tags: readonly string[]): string[] {
+  const seen = new Set<string>();
+  return tags
+    .map((tag) => tag.trim().replace(/\s+/g, " "))
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+      if (!tag || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 export function followersToFullShop(account: Pick<Account, "followers">): number {
