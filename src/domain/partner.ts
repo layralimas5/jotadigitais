@@ -2,7 +2,7 @@ import type { Account } from "./account";
 import type { CustomerSummary } from "./customer";
 import type { Cents } from "./money";
 import type { Order } from "./order";
-import { matchReferralPartner } from "./referral";
+import { POINTS_PER_REFERRED_PURCHASE, matchReferralPartner } from "./referral";
 
 /** Quem fornece contas para a loja e recebe uma parte de cada venda finalizada. */
 export interface PartnerData {
@@ -10,6 +10,8 @@ export interface PartnerData {
   /** Só dígitos, com DDD (o DDI 55 é opcional). */
   whatsapp: string | null;
   instagram: string | null;
+  /** Apelidos que o cliente pode escrever em "quem indicou" (ex.: "gi" para Gimena). */
+  tags: string[];
   /** Chave Pix para o repasse. */
   pixKey: string | null;
   /** Parte do valor de cada venda finalizada, de 0 a 100. */
@@ -38,6 +40,25 @@ export interface PartnerSummary {
   /** Compras feitas por esses clientes (pedidos pagos ou entregues e vendas lançadas). */
   referredPurchases: number;
   referredRevenue: Cents;
+  /** Pontos por indicação: cada compra paga de um cliente indicado soma `POINTS_PER_REFERRED_PURCHASE`. */
+  points: number;
+}
+
+/** Mesmo limite da checagem `partners_tags` no banco. */
+export const MAX_PARTNER_TAGS = 10;
+
+/** "gi, Gih ,gimena" vira ["gi", "Gih", "gimena"]: vírgula separa, espaços nas pontas e repetidos saem. */
+export function parsePartnerTags(text: string): string[] {
+  const seen = new Set<string>();
+  return text
+    .split(",")
+    .map((tag) => tag.trim().replace(/\s+/g, " "))
+    .filter((tag) => {
+      const key = tag.toLowerCase();
+      if (!tag || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 export const commissionOf = (revenue: Cents, percent: number): Cents => Math.round((revenue * percent) / 100);
@@ -66,6 +87,7 @@ export function summarizePartners(
   const referrals = referralsByPartner(partners, customers);
   return partners.map((partner) => {
     const referredCustomers = referrals.get(partner.id) ?? [];
+    const referredPurchases = referredCustomers.reduce((sum, customer) => sum + customer.purchases, 0);
     const owned = accounts.filter((account) => account.partnerId === partner.id);
     const ownedIds = new Set(owned.map((account) => account.id));
     const revenue = orders
@@ -79,7 +101,8 @@ export function summarizePartners(
       revenue,
       commission: commissionOf(revenue, partner.commissionPercent),
       referredCustomers,
-      referredPurchases: referredCustomers.reduce((sum, customer) => sum + customer.purchases, 0),
+      referredPurchases,
+      points: referredPurchases * POINTS_PER_REFERRED_PURCHASE,
       referredRevenue: referredCustomers.reduce((sum, customer) => sum + customer.totalSpent, 0),
     };
   });

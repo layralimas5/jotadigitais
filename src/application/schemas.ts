@@ -16,6 +16,7 @@ import {
 } from "@/domain/coupon";
 import { CONTROLLER_FIELDS, LEGAL_DOCUMENT_SLUGS } from "@/domain/legal/legal-document";
 import { LEGAL_LIMITS } from "@/domain/legal/legal-editing";
+import { MAX_PARTNER_TAGS } from "@/domain/partner";
 import { PAYMENT_PLANS } from "@/domain/payment";
 import { PLATFORMS } from "@/domain/platform";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
@@ -348,6 +349,10 @@ export const partnerDataSchema = z.object({
   name: personName,
   whatsapp: optionalWhatsapp,
   instagram: optionalInstagram,
+  tags: z
+    .array(z.string().trim().min(2, "Cada apelido precisa de pelo menos 2 letras.").max(30, "Apelido longo demais."))
+    .max(MAX_PARTNER_TAGS, `Use no máximo ${MAX_PARTNER_TAGS} apelidos.`)
+    .default([]),
   pixKey: optionalText(140),
   commissionPercent: z
     .number({ message: "Informe a porcentagem. Ex.: 30." })

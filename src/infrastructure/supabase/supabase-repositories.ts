@@ -872,13 +872,14 @@ export class SupabaseRevenueRepository implements AdminRevenueRepository {
   }
 }
 
-const PARTNER_COLUMNS = "id, name, whatsapp, instagram, pix_key, commission_percent, notes, active, created_at";
+const PARTNER_COLUMNS = "id, name, whatsapp, instagram, tags, pix_key, commission_percent, notes, active, created_at";
 
 const partnerRowSchema = z.object({
   id: z.string(),
   name: z.string(),
   whatsapp: z.string().nullable(),
   instagram: z.string().nullable(),
+  tags: z.array(z.string()).nullish(),
   pix_key: z.string().nullable(),
   // numeric pode chegar como texto, conforme a versão do PostgREST.
   commission_percent: z.coerce.number(),
@@ -894,6 +895,7 @@ function toPartner(raw: unknown): Partner {
     name: row.name,
     whatsapp: row.whatsapp,
     instagram: row.instagram,
+    tags: row.tags ?? [],
     pixKey: row.pix_key,
     commissionPercent: row.commission_percent,
     notes: row.notes,
@@ -906,6 +908,7 @@ const toPartnerRow = (data: PartnerData) => ({
   name: data.name,
   whatsapp: data.whatsapp,
   instagram: data.instagram,
+  tags: data.tags,
   pix_key: data.pixKey,
   commission_percent: data.commissionPercent,
   notes: data.notes,

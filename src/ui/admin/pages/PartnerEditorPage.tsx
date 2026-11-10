@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { deletePartner, findPartnerSummary, savePartner } from "@/application/admin-use-cases";
 import { fieldErrorsOf, partnerDataSchema } from "@/application/schemas";
 import { formatBRL } from "@/domain/money";
-import type { Partner, PartnerSummary } from "@/domain/partner";
+import { parsePartnerTags, type Partner, type PartnerSummary } from "@/domain/partner";
+import { POINTS_PER_REFERRED_PURCHASE } from "@/domain/referral";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -23,18 +24,21 @@ interface PartnerFormValues {
   name: string;
   whatsapp: string;
   instagram: string;
+  /** Apelidos separados por vírgula, como o Jota digita. */
+  tags: string;
   pixKey: string;
   commissionPercent: string;
   active: boolean;
   notes: string;
 }
 
-const FIELD_ORDER = ["name", "whatsapp", "instagram", "pixKey", "commissionPercent", "notes"] as const;
+const FIELD_ORDER = ["name", "whatsapp", "instagram", "tags", "pixKey", "commissionPercent", "notes"] as const;
 
 const EMPTY: PartnerFormValues = {
   name: "",
   whatsapp: "",
   instagram: "",
+  tags: "",
   pixKey: "",
   commissionPercent: "",
   active: true,
@@ -45,13 +49,18 @@ const fromPartner = (partner: Partner): PartnerFormValues => ({
   name: partner.name,
   whatsapp: partner.whatsapp ?? "",
   instagram: partner.instagram ?? "",
+  tags: partner.tags.join(", "),
   pixKey: partner.pixKey ?? "",
   commissionPercent: String(partner.commissionPercent).replace(".", ","),
   active: partner.active,
   notes: partner.notes ?? "",
 });
 
-const toRaw = (values: PartnerFormValues) => ({ ...values, commissionPercent: parsePercent(values.commissionPercent) });
+const toRaw = (values: PartnerFormValues) => ({
+  ...values,
+  tags: parsePartnerTags(values.tags),
+  commissionPercent: parsePercent(values.commissionPercent),
+});
 
 function validate(values: PartnerFormValues) {
   const result = partnerDataSchema.safeParse(toRaw(values));
@@ -88,7 +97,7 @@ function ReferredCustomers({ summary }: { summary: PartnerSummary }) {
   return (
     <FormSection
       title="Clientes indicados"
-      description={`Quem escreveu ${summary.partner.name} (ou o @ dele) em “quem indicou”, no checkout ou no cadastro do cliente.`}
+      description={`Quem citou ${summary.partner.name} (nome, @ ou apelido, mesmo no meio da frase, como “vim pela…”) em “quem indicou”, no checkout ou no cadastro do cliente. Cada compra paga deles vale ${POINTS_PER_REFERRED_PURCHASE} ponto.`}
     >
       {referredCustomers.length === 0 ? (
         <p className="text-sm text-mist">Nenhuma indicação ainda.</p>
@@ -140,6 +149,10 @@ function SummaryCard({ summary }: { summary: PartnerSummary }) {
           <dd className="font-semibold text-white tabular-nums">{formatBRL(summary.commission)}</dd>
         </div>
         <div className="flex justify-between gap-3 border-t border-line pt-2">
+          <dt className="text-mist">Pontos por indicação</dt>
+          <dd className="font-semibold text-white tabular-nums">{summary.points}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
           <dt className="text-mist">Clientes indicados</dt>
           <dd className="text-white tabular-nums">{summary.referredCustomers.length}</dd>
         </div>
@@ -263,6 +276,18 @@ function PartnerEditor({ summary }: { summary: PartnerSummary | null }) {
                 error={errors.instagram}
               />
             </div>
+            <TextField
+              label="Apelidos para indicação"
+              name="tags"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="Ex.: gi, gih, gimena"
+              value={values.tags}
+              onChange={(event) => update({ tags: event.target.value })}
+              error={errors.tags ?? Object.entries(errors).find(([key]) => key.startsWith("tags."))?.[1]}
+              hint="Separe por vírgula. Quando o cliente escrever “vim pela gi” em quem indicou, a indicação e os pontos vão para este parceiro."
+            />
           </FormSection>
 
           <FormSection title="Repasse">

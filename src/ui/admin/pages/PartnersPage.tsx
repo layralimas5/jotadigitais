@@ -60,6 +60,7 @@ function PartnersTable({ summaries }: { summaries: PartnerSummary[] }) {
           <tr>
             <th scope="col" className="px-5 py-3 font-medium">Parceiro</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Indicados</th>
+            <th scope="col" className="px-4 py-3 text-right font-medium">Pontos</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">No estoque</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Vendidas</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Vendas finalizadas</th>
@@ -71,6 +72,7 @@ function PartnersTable({ summaries }: { summaries: PartnerSummary[] }) {
             <tr key={summary.partner.id} className="relative transition-colors hover:bg-white/[0.02]">
               <td className="px-5 py-3"><PartnerIdentity summary={summary} /></td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.referredCustomers.length}</td>
+              <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{summary.points}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.inStock}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.sold}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{formatBRL(summary.revenue)}</td>
@@ -92,6 +94,7 @@ function PartnersCards({ summaries }: { summaries: PartnerSummary[] }) {
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
             <span className="text-fog">
               {summary.referredCustomers.length} {summary.referredCustomers.length === 1 ? "indicado" : "indicados"} ·{" "}
+              {summary.points} {summary.points === 1 ? "ponto" : "pontos"} ·{" "}
               {summary.inStock} no estoque · {summary.sold} vendidas
             </span>
             <span className="font-semibold text-white tabular-nums">{formatBRL(summary.commission)}</span>
@@ -135,12 +138,17 @@ export default function PartnersPage() {
       )}
       {data && data.length > 0 && (
         <>
-          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <Kpi label="Parceiros ativos" value={String(data.filter((summary) => summary.partner.active).length)} />
             <Kpi
               label="Clientes indicados"
               value={String(data.reduce((sum, summary) => sum + summary.referredCustomers.length, 0))}
               hint="Quem citou um parceiro no “quem indicou”"
+            />
+            <Kpi
+              label="Pontos por indicação"
+              value={String(data.reduce((sum, summary) => sum + summary.points, 0))}
+              hint="1 ponto por compra paga de cliente indicado"
             />
             <Kpi label="Contas de parceiros no estoque" value={String(data.reduce((sum, summary) => sum + summary.inStock, 0))} />
             <Kpi label="Comissão total" value={formatBRL(data.reduce((sum, summary) => sum + summary.commission, 0))} hint="Sobre todas as vendas finalizadas" />

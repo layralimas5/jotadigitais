@@ -780,15 +780,19 @@ export class DemoRevenueRepository implements AdminRevenueRepository {
 
 const byName = (a: Partner, b: Partner) => a.name.localeCompare(b.name, "pt-BR");
 
+/** Parceiros salvos no navegador antes dos apelidos não têm a lista. */
+const withTags = (partner: Partner): Partner => ({ ...partner, tags: partner.tags ?? [] });
+
 export class DemoPartnerRepository implements AdminPartnerRepository {
   constructor(private readonly db: DemoDatabase) {}
 
   async listAll(): Promise<Partner[]> {
-    return [...(this.db.read().partners ?? [])].sort(byName);
+    return [...(this.db.read().partners ?? [])].map(withTags).sort(byName);
   }
 
   async findById(id: string): Promise<Partner | null> {
-    return (this.db.read().partners ?? []).find((partner) => partner.id === id) ?? null;
+    const partner = (this.db.read().partners ?? []).find((item) => item.id === id);
+    return partner ? withTags(partner) : null;
   }
 
   async create(data: PartnerData): Promise<Partner> {

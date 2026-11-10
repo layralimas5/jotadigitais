@@ -702,6 +702,7 @@ async function main() {
   await couponChecks();
   await cartChecks();
   await accountCountryChecks();
+  await partnerTagChecks();
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
@@ -2246,4 +2247,23 @@ async function accountCountryChecks() {
   );
   await as("authenticated", ADMIN_ID, () => db.query(`update public.accounts set specs = null where id = $1`, [id]));
   check((await db.query(`select specs from public.accounts where id = $1`, [id])).rows[0].specs === null, "voltar à automática apaga a ficha escrita");
+}
+
+async function partnerTagChecks() {
+  console.log("\napelidos do parceiro");
+  const created = await as("authenticated", ADMIN_ID, () =>
+    db.query(`insert into public.partners (name, commission_percent, tags) values ('Gimena Souza', 10, array['gi', 'gih']) returning id, tags`),
+  );
+  check(created.rows[0]?.tags?.join(",") === "gi,gih", "admin cadastra os apelidos do parceiro");
+  const fresh = await as("authenticated", ADMIN_ID, () => db.query(`insert into public.partners (name, commission_percent) values ('Sem Apelido', 10) returning tags`));
+  check(Array.isArray(fresh.rows[0]?.tags) && fresh.rows[0].tags.length === 0, "parceiro sem apelido nasce com a lista vazia");
+  const tooMany = `array[${Array.from({ length: 11 }, (_, i) => `'t${i}'`).join(", ")}]`;
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`update public.partners set tags = ${tooMany} where id = $1`, [created.rows[0].id])), /partners_tags/),
+    "mais de 10 apelidos é recusado",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select tags from public.partners`)), /permission denied/),
+    "visitante não vê os apelidos dos parceiros",
+  );
 }
