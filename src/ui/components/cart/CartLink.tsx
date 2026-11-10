@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/ui/hooks/useCart";
 import { cn } from "@/ui/lib/cn";
@@ -21,7 +21,7 @@ export function CartLink({ className }: { className?: string }) {
         className,
       )}
     >
-      <ShoppingBag aria-hidden className="size-4" />
+      <ShoppingCart aria-hidden className="size-4" />
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={count}

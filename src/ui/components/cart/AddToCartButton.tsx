@@ -1,4 +1,4 @@
-import { Check, ShoppingBag } from "lucide-react";
+import { Check, ShoppingCart } from "lucide-react";
 import { isPurchasable, type Account } from "@/domain/account";
 import { MAX_CART_ITEMS } from "@/domain/order";
 import { Button, ButtonLink } from "@/ui/components/Button";
@@ -34,7 +34,7 @@ export function CartToggleIcon({ account, className }: { account: Account; class
         className,
       )}
     >
-      {inCart ? <Check aria-hidden className="size-4" /> : <ShoppingBag aria-hidden className="size-4" />}
+      {inCart ? <Check aria-hidden className="size-4" /> : <ShoppingCart aria-hidden className="size-4" />}
     </button>
   );
 }
@@ -55,7 +55,7 @@ export function AddToCartButton({ account, className }: { account: Account; clas
   return (
     <div className={className}>
       <Button variant="secondary" size="lg" className="w-full" disabled={cart.full} onClick={() => cart.add(account.id)}>
-        <ShoppingBag aria-hidden className="size-4" />
+        <ShoppingCart aria-hidden className="size-4" />
         Adicionar ao carrinho
       </Button>
       {cart.full && <p className="mt-2 text-center text-xs text-mist">{FULL_MESSAGE}</p>}
