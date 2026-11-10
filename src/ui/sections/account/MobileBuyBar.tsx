@@ -4,6 +4,8 @@ import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
 import { ButtonLink } from "@/ui/components/Button";
 import { CartToggleIcon } from "@/ui/components/cart/AddToCartButton";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
+import { editable } from "@/ui/lib/site-preview";
 import { useEffect } from "react";
 
 interface MobileBuyBarProps {
@@ -17,6 +19,7 @@ const BUY_BAR_FLAG = "buybar";
 /** Aparece no celular quando o botão de compra principal sai da tela. */
 export function MobileBuyBar({ account, visible }: MobileBuyBarProps) {
   const reduceMotion = useReducedMotion();
+  const { accountPage } = useSiteContent();
   useEffect(() => {
     if (!visible) return;
     document.body.dataset[BUY_BAR_FLAG] = "on";
@@ -42,8 +45,8 @@ export function MobileBuyBar({ account, visible }: MobileBuyBarProps) {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <CartToggleIcon account={account} />
-              <ButtonLink to={`/checkout/${account.slug}`} className="shrink-0">
-                Comprar
+              <ButtonLink to={`/checkout/${account.slug}`} className="shrink-0" {...editable("accountPage.mobileBuyButton")}>
+                {accountPage.mobileBuyButton}
               </ButtonLink>
             </div>
           </div>

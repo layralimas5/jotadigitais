@@ -59,9 +59,9 @@ function Availability({ account }: { account: Account }) {
 
 function SupportLink({ account }: { account: Account }) {
   const { whatsappUrl, instagramUrl } = useStoreSettings();
-  const href = whatsappUrl
-    ? `${whatsappUrl}?text=${encodeURIComponent(`Olá! Tenho uma dúvida sobre a conta ${account.handle}.`)}`
-    : instagramUrl;
+  const { accountPage } = useSiteContent();
+  const message = accountPage.questionMessage.replaceAll("{conta}", account.handle);
+  const href = whatsappUrl ? `${whatsappUrl}?text=${encodeURIComponent(message)}` : instagramUrl;
   return (
     <a
       href={href}
@@ -70,7 +70,7 @@ function SupportLink({ account }: { account: Account }) {
       className={buttonClasses({ variant: "secondary", size: "lg", className: "w-full" })}
     >
       <MessageCircle aria-hidden className="size-4" />
-      Tirar dúvida {whatsappUrl ? "no WhatsApp" : "no Instagram"}
+      <span {...editable("accountPage.questionButton")}>{accountPage.questionButton.replaceAll("{canal}", whatsappUrl ? "WhatsApp" : "Instagram")}</span>
     </a>
   );
 }
@@ -117,7 +117,7 @@ export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
             <ButtonLink to={`/checkout/${account.slug}`} size="lg" className="w-full" {...editable("accountPage.buyButton")}>
               {accountPage.buyButton}
             </ButtonLink>
-            <AddToCartButton account={account} />
+            <AddToCartButton account={account} labels={{ add: accountPage.cartButton, inCart: accountPage.inCartButton }} />
           </>
         ) : (
           <ButtonLink to="/contas" size="lg" className="w-full" {...editable("accountPage.otherButton")}>

@@ -39,8 +39,15 @@ export function CartToggleIcon({ account, className }: { account: Account; class
   );
 }
 
+interface AddToCartButtonProps {
+  account: Account;
+  /** Textos vêm da aba Site; o componente só desenha. */
+  labels: { add: string; inCart: string };
+  className?: string;
+}
+
 /** Botão largo da página da conta: adiciona e, depois de adicionada, leva ao carrinho. */
-export function AddToCartButton({ account, className }: { account: Account; className?: string }) {
+export function AddToCartButton({ account, labels, className }: AddToCartButtonProps) {
   const cart = useOptionalCart();
   if (!cart || !isPurchasable(account)) return null;
 
@@ -48,7 +55,7 @@ export function AddToCartButton({ account, className }: { account: Account; clas
     return (
       <ButtonLink to="/carrinho" variant="secondary" size="lg" className={cn("w-full", className)}>
         <Check aria-hidden className="size-4 text-emerald-300" />
-        No carrinho · ver carrinho
+        {labels.inCart}
       </ButtonLink>
     );
   }
@@ -56,7 +63,7 @@ export function AddToCartButton({ account, className }: { account: Account; clas
     <div className={className}>
       <Button variant="secondary" size="lg" className="w-full" disabled={cart.full} onClick={() => cart.add(account.id)}>
         <ShoppingCart aria-hidden className="size-4" />
-        Adicionar ao carrinho
+        {labels.add}
       </Button>
       {cart.full && <p className="mt-2 text-center text-xs text-mist">{FULL_MESSAGE}</p>}
     </div>

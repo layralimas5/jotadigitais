@@ -347,7 +347,13 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
       {copy("available", "Conta disponível", 140, { multiline: true })}
       {copy("reserved", "Conta reservada por outro cliente", 140)}
       {copy("sold", "Conta vendida", 140)}
+      <GroupTitle>Botões</GroupTitle>
       {copy("buyButton", "Botão de comprar", 32)}
+      {copy("mobileBuyButton", "Botão de comprar na barra do celular", 20, { hint: "A barra fixa que aparece embaixo no celular quando o botão principal sai da tela." })}
+      {copy("cartButton", "Botão de adicionar ao carrinho", 32)}
+      {copy("inCartButton", "Mesmo botão, com a conta já no carrinho", 40, { hint: "Leva a pessoa até o carrinho." })}
+      {copy("questionButton", "Botão de tirar dúvida", 40, { hint: "Use {canal} para WhatsApp ou Instagram, conforme o contato cadastrado." })}
+      {copy("questionMessage", "Mensagem que já vai escrita no WhatsApp", 300, { multiline: true, hint: "Use {conta} para o @ da conta." })}
       {copy("otherButton", "Botão quando não está à venda", 32)}
       <fieldset className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
         <legend className="sr-only">Card de entrega</legend>
