@@ -26,6 +26,7 @@ import type {
 } from "@/domain/privacy";
 import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
+import type { DatabaseUsage } from "@/domain/storage";
 import type { StoreSettings } from "@/domain/store-settings";
 import type {
   SupportLabel,
@@ -390,6 +391,13 @@ export interface AccessRepository {
   endSessions(userId: string): Promise<void>;
   /** Desliga a verificação em duas etapas (ex.: perdeu o celular); ela cadastra de novo em Configurações. */
   resetMfa(userId: string): Promise<void>;
+}
+
+/** Lê quanto um banco conectado ocupa. Cada banco novo entra no sistema com o seu leitor. */
+export interface StorageUsageReader {
+  /** Nome do banco na tela, para apontar qual falhou se a leitura der erro. */
+  readonly name: string;
+  read(): Promise<DatabaseUsage>;
 }
 
 /** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */

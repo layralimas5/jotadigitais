@@ -40,6 +40,7 @@ import type {
   AdminPrivacyRepository,
   AdminUserRepository,
   AccessRepository,
+  StorageUsageReader,
   AuthService,
   SupportTicketRepository,
   AuthState,
@@ -105,6 +106,8 @@ export interface AdminDeps {
   privacy: AdminPrivacyRepository;
   support: SupportTicketRepository;
   access: AccessRepository;
+  /** Um leitor por banco conectado: a aba Armazenamento soma todos. */
+  storage: readonly StorageUsageReader[];
 }
 
 export function signIn(deps: AdminDeps, raw: unknown): Promise<AuthState> {
