@@ -1,11 +1,13 @@
 import type { Cents } from "./money";
 import { isReservationExpired, type Order } from "./order";
 
-export const EXPENSE_CATEGORIES = ["account_purchase", "ads", "tools", "fees", "other"] as const;
+export const EXPENSE_CATEGORIES = ["account_purchase", "growth", "ai", "ads", "tools", "fees", "other"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
   account_purchase: "Compra de conta",
+  growth: "Crescimento do perfil",
+  ai: "IA",
   ads: "Anúncios",
   tools: "Ferramentas",
   fees: "Taxas",
@@ -320,4 +322,27 @@ export function entriesOf(source: FinanceSource, range: DateRange): Entry[] {
     .filter((expense) => inRange(expense.date, range))
     .map((expense) => ({ kind: "expense", id: expense.id, date: expense.date, amount: expense.amount, expense }));
   return [...orders, ...revenues, ...outflows].sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Categorias que fazem sentido no gasto de uma conta específica (lançado pela ficha da conta). */
+export const ACCOUNT_EXPENSE_CATEGORIES = ["growth", "ai", "account_purchase", "ads", "tools", "other"] as const satisfies readonly ExpenseCategory[];
+
+/** Quanto uma conta custou e quanto rendeu: gastos ligados a ela contra vendas pagas e receitas dela. */
+export interface AccountBalance {
+  expenses: Expense[];
+  spent: Cents;
+  earned: Cents;
+}
+
+export function accountBalanceOf(accountId: string, source: FinanceSource): AccountBalance {
+  const expenses = source.expenses
+    .filter((expense) => expense.accountId === accountId)
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const sales = source.orders.filter((order) => order.accountId === accountId && isPaid(order));
+  const revenues = source.revenues.filter((revenue) => revenue.accountId === accountId);
+  return {
+    expenses,
+    spent: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+    earned: sales.reduce((sum, order) => sum + order.total, 0) + revenues.reduce((sum, revenue) => sum + revenue.amount, 0),
+  };
 }
