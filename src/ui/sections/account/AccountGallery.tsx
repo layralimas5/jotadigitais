@@ -1,9 +1,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ImageIcon, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, ImageIcon, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
+import { useDragScroll } from "@/ui/hooks/useDragScroll";
 import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 
@@ -70,6 +71,64 @@ function viewsOf(account: Account): GalleryView[] {
   return views;
 }
 
+const ARROW =
+  "absolute top-1/2 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full border border-line-strong bg-surface-2/95 text-white shadow-lg backdrop-blur transition-colors hover:border-electric hover:text-electric-soft focus-visible:outline-2 focus-visible:outline-electric";
+
+/** Fileira de cards da galeria: arrasta com o mouse ou o dedo, e as setas aparecem quando tem card escondido. */
+function GalleryTabs({ views, activeId, onSelect }: { views: GalleryView[]; activeId: string; onSelect: (id: string) => void }) {
+  const strip = useDragScroll<HTMLDivElement>();
+  // Esmaece só o lado em que ainda tem card escondido.
+  const left = strip.edges.start ? "transparent 0, black 3rem" : "black 0";
+  const right = strip.edges.end ? "black calc(100% - 3rem), transparent 100%" : "black 100%";
+
+  return (
+    <div className="relative mt-4">
+      {strip.edges.start && (
+        <button type="button" onClick={() => strip.page(-1)} aria-label="Ver imagens anteriores" className={cn(ARROW, "-left-3")}>
+          <ChevronLeft aria-hidden className="size-4" />
+        </button>
+      )}
+      <div
+        ref={strip.ref}
+        {...strip.handlers}
+        role="group"
+        aria-label="Imagens da conta"
+        className={cn("flex gap-3 overflow-x-auto pb-1 select-none [scrollbar-width:none]", strip.dragging ? "cursor-grabbing" : "cursor-grab")}
+        style={{ maskImage: `linear-gradient(to right, ${left}, ${right})` }}
+      >
+        {views.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={activeId === id}
+            onClick={(event) => {
+              onSelect(id);
+              event.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+            }}
+            draggable={false}
+            className={cn(
+              "flex min-w-fit flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-colors",
+              activeId === id
+                ? "border-electric/60 bg-electric/10 text-white"
+                : "border-line bg-surface/60 text-mist hover:border-line-strong hover:text-white",
+            )}
+          >
+            <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", activeId === id ? "bg-electric text-ink" : "bg-white/[0.06]")}>
+              <Icon aria-hidden className="size-4" />
+            </span>
+            {label}
+          </button>
+        ))}
+      </div>
+      {strip.edges.end && (
+        <button type="button" onClick={() => strip.page(1)} aria-label="Ver mais imagens" className={cn(ARROW, "-right-3")}>
+          <ChevronRight aria-hidden className="size-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function AccountGallery({ account }: { account: Account }) {
   const views = viewsOf(account);
   const [activeId, setActiveId] = useState(views[0]?.id ?? "profile");
@@ -98,34 +157,7 @@ export function AccountGallery({ account }: { account: Account }) {
         </AnimatePresence>
       </div>
 
-      {views.length > 1 && (
-        <div className="mt-4 flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none]" role="group" aria-label="Imagens da conta">
-          {views.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={activeId === id}
-              onClick={() => setActiveId(id)}
-              className={cn(
-                "flex min-w-fit flex-1 items-center gap-3 rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-colors",
-                activeId === id
-                  ? "border-electric/60 bg-electric/10 text-white"
-                  : "border-line bg-surface/60 text-mist hover:border-line-strong hover:text-white",
-              )}
-            >
-              <span
-                className={cn(
-                  "grid size-9 shrink-0 place-items-center rounded-xl",
-                  activeId === id ? "bg-electric text-ink" : "bg-white/[0.06]",
-                )}
-              >
-                <Icon aria-hidden className="size-4" />
-              </span>
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      {views.length > 1 && <GalleryTabs views={views} activeId={active?.id ?? ""} onSelect={setActiveId} />}
       <p className="mt-3 text-xs text-mist" aria-live="polite">
         {active?.caption}
       </p>
