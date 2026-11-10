@@ -118,11 +118,12 @@ function AccountHeader({ account }: { account: Account }) {
         <ProfileLink account={account} />
       </div>
 
-      <dl className="mt-8 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60">
+      {/* O número acompanha a largura do bloco (container query): nunca invade a coluna do lado. */}
+      <dl className="@container mt-8 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60">
         {profileStats(account).map((stat) => (
-          <div key={stat.label} className="px-2 py-4 text-center sm:px-4 sm:py-5">
-            <dt className="text-xs text-mist">{stat.label}</dt>
-            <dd className="mt-1 font-display text-xl font-semibold text-white tabular-nums sm:text-2xl">{stat.value}</dd>
+          <div key={stat.label} className="min-w-0 px-1.5 py-4 text-center sm:px-3 sm:py-5">
+            <dt className="truncate text-xs text-mist">{stat.label}</dt>
+            <dd className="mt-1 font-display text-[clamp(0.8rem,6cqi,1.5rem)] font-semibold whitespace-nowrap text-white tabular-nums">{stat.value}</dd>
           </div>
         ))}
       </dl>
@@ -165,11 +166,11 @@ function AccountDetail({ account }: { account: Account }) {
   return (
     <>
       <ProductJsonLd account={account} />
-      <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-        <motion.div {...enter(0)}>
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-16">
+        <motion.div {...enter(0)} className="min-w-0">
           <AccountGallery account={account} />
         </motion.div>
-        <motion.div {...enter(0.08)}>
+        <motion.div {...enter(0.08)} className="min-w-0">
           <AccountHeader account={account} />
           <div className="mt-8">
             <AccountBuyBox account={account} ctaRef={ctaRef} />
@@ -177,12 +178,12 @@ function AccountDetail({ account }: { account: Account }) {
         </motion.div>
       </div>
 
-      <div className="mt-20 grid gap-14 border-t border-line pt-16 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16">
-        <div className="space-y-14">
+      <div className="mt-20 grid grid-cols-1 gap-14 border-t border-line pt-16 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:gap-16">
+        <div className="min-w-0 space-y-14">
           <AccountDescription account={account} />
           <AccountSpecs account={account} />
         </div>
-        <div className="space-y-14">
+        <div className="min-w-0 space-y-14">
           <AccountIncluded account={account} />
           <AccountDelivery />
         </div>

@@ -121,7 +121,7 @@ function CartContent() {
     return (
       <EmptyState
         title="Seu carrinho está vazio"
-        description="Na vitrine, toque no ícone de sacola de cada conta para juntar várias e pagar tudo de uma vez."
+        description="Na vitrine, toque no ícone de carrinho de cada conta para juntar várias e pagar tudo de uma vez."
         action={<ButtonLink to="/contas">Ver contas</ButtonLink>}
       />
     );

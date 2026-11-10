@@ -59,7 +59,7 @@ export function FeaturedAccounts() {
 
         <div className="mt-6 sm:mt-12">
           {accounts.status === "loading" && (
-            <div className="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3" aria-busy="true">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3" aria-busy="true">
               {Array.from({ length: 3 }, (_, index) => (
                 <AccountCardSkeleton key={index} />
               ))}
@@ -67,7 +67,7 @@ export function FeaturedAccounts() {
           )}
           {accounts.status === "error" && <ErrorState message={accounts.error.message} onRetry={accounts.retry} />}
           {accounts.status === "success" && (
-            <Reveal as="ul" stagger className="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+            <Reveal as="ul" stagger className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
               {accounts.data.slice(0, FEATURED_COUNT).map((account, index) => (
                 <RevealItem as="li" key={account.id} className={index >= MOBILE_COUNT ? "hidden sm:block" : undefined}>
                   <AccountCard account={account} />
