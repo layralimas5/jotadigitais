@@ -8,8 +8,17 @@ import { cn } from "@/ui/lib/cn";
 import { CartToggleIcon } from "../cart/AddToCartButton";
 import { PlatformGlyph } from "../PlatformGlyph";
 import { VerifiedBadge } from "../VerifiedBadge";
-import { AccountAvatar, gradientFor } from "./AccountAvatar";
+import type { Platform } from "@/domain/platform";
+import { AccountAvatar } from "./AccountAvatar";
 import { AccountBadgePill, CountryTag, PlatformTag, StatusBadge } from "./AccountBadges";
+
+/** Cor do topo do card por rede: quem compra reconhece a plataforma antes de ler o nome. */
+const PLATFORM_COVER: Record<Platform, string> = {
+  tiktok: "from-electric via-blue-500 to-sky-400",
+  instagram: "from-pink via-fuchsia-500 to-rose-400",
+  youtube: "from-red-500 via-red-400 to-rose-300",
+  facebook: "from-indigo-500 via-blue-600 to-violet-500",
+};
 
 function CardCover({ account }: { account: Account }) {
   const available = isPurchasable(account);
@@ -17,8 +26,8 @@ function CardCover({ account }: { account: Account }) {
     <div aria-hidden className="relative h-[4.5rem] overflow-hidden sm:h-24">
       <div
         className={cn(
-          "absolute inset-0 bg-gradient-to-br opacity-35 transition-opacity duration-500 group-hover:opacity-60",
-          gradientFor(account.id),
+          "absolute inset-0 bg-gradient-to-br opacity-50 transition-opacity duration-500 group-hover:opacity-75",
+          PLATFORM_COVER[account.platform],
         )}
       />
       <div className="absolute inset-0 bg-grid opacity-60" />
