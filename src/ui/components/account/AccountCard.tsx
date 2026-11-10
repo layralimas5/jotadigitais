@@ -26,7 +26,7 @@ function CardCover({ account }: { account: Account }) {
     <div aria-hidden className="relative h-[4.5rem] overflow-hidden sm:h-24">
       <div
         className={cn(
-          "absolute inset-0 bg-gradient-to-br opacity-50 transition-opacity duration-500 group-hover:opacity-75",
+          "absolute inset-0 bg-gradient-to-br opacity-50 transition-opacity duration-500 ease-out group-hover:opacity-65",
           PLATFORM_COVER[account.platform],
         )}
       />
@@ -34,7 +34,7 @@ function CardCover({ account }: { account: Account }) {
       <div className="absolute inset-0 bg-gradient-to-b from-transparent to-surface" />
       <PlatformGlyph
         platform={account.platform}
-        className="absolute -right-3 -bottom-6 size-20 text-white/[0.06] transition-transform duration-500 group-hover:-rotate-6 sm:size-28"
+        className="absolute -right-3 -bottom-6 size-20 text-white/[0.06] transition-transform duration-700 ease-out group-hover:-rotate-3 sm:size-28"
       />
       <div className="absolute top-3 right-3 left-3 flex items-center justify-between sm:top-4 sm:right-4 sm:left-4">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -64,11 +64,17 @@ export function AccountCard({ account }: { account: Account }) {
   return (
     <article
       className={cn(
-        "group relative h-full rounded-3xl bg-line p-px transition-[background,transform,box-shadow] duration-300",
-        available &&
-          "hover:-translate-y-1 hover:bg-gradient-brand hover:shadow-[0_30px_80px_-30px_rgb(39_153_255/0.45)]",
+        "group relative h-full rounded-3xl bg-line p-px transition-[transform,box-shadow] duration-500 ease-out motion-reduce:transition-none",
+        available && "hover:-translate-y-0.5 hover:shadow-[0_24px_60px_-34px_rgb(39_153_255/0.35)]",
       )}
     >
+      {/* A borda colorida acende devagar por opacidade: trocar o fundo direto para o degradê dava um "piscar". */}
+      {available && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-brand opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
+        />
+      )}
       <div
         className={cn(
           "relative flex h-full flex-col overflow-hidden rounded-[calc(1.5rem-1px)] bg-surface",
@@ -143,7 +149,7 @@ export function AccountCard({ account }: { account: Account }) {
                 <span
                   aria-hidden
                   className={cn(
-                    "inline-flex size-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-strong text-[0.82rem] font-semibold text-white transition-colors duration-300 @[22rem]:size-auto @[22rem]:px-4 @[22rem]:py-2 @[22rem]:text-sm",
+                    "inline-flex size-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-line-strong text-[0.82rem] font-semibold text-white transition-colors duration-500 ease-out @[22rem]:size-auto @[22rem]:px-4 @[22rem]:py-2 @[22rem]:text-sm",
                     !available && "size-auto px-3.5 py-2",
                     available && "group-hover:border-electric group-hover:bg-electric group-hover:text-ink",
                   )}
