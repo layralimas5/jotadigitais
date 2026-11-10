@@ -1,9 +1,9 @@
 import { Plus, Trash2 } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
-import { deleteExpense, loadAccountBalance, saveExpense } from "@/application/admin-use-cases";
+import { deleteExpense, loadAccountBalance, logAccountExpense } from "@/application/admin-use-cases";
 import { canUseStoreArea } from "@/domain/admin-user";
-import { ACCOUNT_EXPENSE_CATEGORY, type Expense } from "@/domain/finance";
-import { formatBRL } from "@/domain/money";
+import type { Expense } from "@/domain/finance";
+import { formatBRL, type Cents } from "@/domain/money";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { ErrorState } from "@/ui/components/StateViews";
@@ -29,16 +29,15 @@ function BalanceTile({ label, value, tone }: { label: string; value: string; ton
   );
 }
 
-function ExpenseRow({ expense, onRemove }: { expense: Expense; onRemove: () => void }) {
-  const day = shortDate.format(new Date(expense.date));
+function ExpenseRow({ day, amount, onRemove }: { day: string; amount: Cents; onRemove: () => void }) {
   return (
     <li className="flex items-center gap-3 py-3">
       <span className="flex-1 text-sm text-mist tabular-nums">{day}</span>
-      <span className="text-sm font-semibold text-white tabular-nums">{formatBRL(expense.amount)}</span>
+      <span className="text-sm font-semibold text-white tabular-nums">{formatBRL(amount)}</span>
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`Apagar o gasto de ${formatBRL(expense.amount)} do dia ${day}`}
+        aria-label={`Apagar o gasto de ${formatBRL(amount)} (${day})`}
         className="grid size-8 shrink-0 place-items-center rounded-lg text-mist hover:bg-white/5 hover:text-[#ff7a7a] focus-visible:outline-2 focus-visible:outline-electric"
       >
         <Trash2 aria-hidden className="size-4" />
@@ -47,46 +46,65 @@ function ExpenseRow({ expense, onRemove }: { expense: Expense; onRemove: () => v
   );
 }
 
-/** Gastos lançados direto na ficha: só o valor; cada um vira uma despesa do Financeiro ligada à conta. */
-function AccountExpenses({ accountId, handle }: { accountId: string; handle: string }) {
-  const toast = useToast();
-  const balance = useAdminQuery((deps) => loadAccountBalance(deps, accountId), `account-balance:${accountId}`);
-  const [amountText, setAmountText] = useState("");
-  const [amountError, setAmountError] = useState<string>();
-  const [removing, setRemoving] = useState<Expense | null>(null);
-  const create = useMutation((deps, raw: unknown) => saveExpense(deps, null, raw));
-  const remove = useMutation(async (deps, id: string) => {
-    await deleteExpense(deps, id);
-    return true;
-  });
+/** Campo único de valor: Enter ou o botão lançam. Não é um form próprio porque já vive dentro do form da conta. */
+function AmountEntry({ pending, error, onAdd }: { pending: boolean; error?: string; onAdd: (amount: Cents) => Promise<boolean> }) {
+  const [text, setText] = useState("");
+  const [invalid, setInvalid] = useState<string>();
 
-  const submit = async () => {
-    const amount = parseMoneyToCents(amountText);
+  const add = async () => {
+    const amount = parseMoneyToCents(text);
     if (Number.isNaN(amount) || amount <= 0) {
-      setAmountError("Informe o valor. Ex.: 50 ou 1.250,00.");
+      setInvalid("Informe o valor. Ex.: 50 ou 1.250,00.");
       return;
     }
-    setAmountError(undefined);
-    const saved = await create.run({
-      description: `Gasto da conta ${handle}`,
-      category: ACCOUNT_EXPENSE_CATEGORY,
-      amount,
-      date: localIsoDate(new Date()),
-      supplier: null,
-      paymentMethod: null,
-      accountId,
-      notes: null,
-    });
-    if (!saved) return;
-    toast.show(`Gasto de ${formatBRL(saved.amount)} lançado. Já está no Financeiro.`);
-    setAmountText("");
-    balance.reload();
+    setInvalid(undefined);
+    if (await onAdd(amount)) setText("");
   };
 
   const onEnter = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) return;
     event.preventDefault();
-    void submit();
+    void add();
+  };
+
+  return (
+    <div onKeyDown={onEnter} className="grid gap-3 rounded-2xl border border-line bg-ink/40 p-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:p-4">
+      <TextField
+        label="Valor gasto (R$)"
+        name="expense.amount"
+        inputMode="decimal"
+        placeholder="50,00"
+        value={text}
+        error={invalid}
+        onChange={(event) => setText(event.target.value)}
+      />
+      <div className="flex items-end">
+        <Button type="button" className="w-full" onClick={() => void add()} disabled={pending}>
+          <Plus aria-hidden className="size-4" /> {pending ? "Lançando…" : "Lançar gasto"}
+        </Button>
+      </div>
+      {error && <p className="text-xs font-medium text-[#ff7a7a] sm:col-span-2">{error}</p>}
+    </div>
+  );
+}
+
+/** Conta já salva: cada valor vira na hora uma despesa do Financeiro ligada a ela. */
+function SavedAccountExpenses({ accountId, handle }: { accountId: string; handle: string }) {
+  const toast = useToast();
+  const balance = useAdminQuery((deps) => loadAccountBalance(deps, accountId), `account-balance:${accountId}`);
+  const [removing, setRemoving] = useState<Expense | null>(null);
+  const create = useMutation((deps, amount: Cents) => logAccountExpense(deps, { id: accountId, handle }, amount, localIsoDate()));
+  const remove = useMutation(async (deps, id: string) => {
+    await deleteExpense(deps, id);
+    return true;
+  });
+
+  const add = async (amount: Cents) => {
+    const saved = await create.run(amount);
+    if (!saved) return false;
+    toast.show(`Gasto de ${formatBRL(saved.amount)} lançado. Já está no Financeiro.`);
+    balance.reload();
+    return true;
   };
 
   const confirmRemove = async () => {
@@ -114,26 +132,7 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
         </dl>
       )}
 
-      <div
-        onKeyDown={onEnter}
-        className="grid gap-3 rounded-2xl border border-line bg-ink/40 p-3 sm:grid-cols-[minmax(0,1fr)_10rem] sm:p-4"
-      >
-        <TextField
-          label="Valor gasto (R$)"
-          name="expense.amount"
-          inputMode="decimal"
-          placeholder="50,00"
-          value={amountText}
-          error={amountError}
-          onChange={(event) => setAmountText(event.target.value)}
-        />
-        <div className="flex items-end">
-          <Button type="button" className="w-full" onClick={() => void submit()} disabled={create.pending}>
-            <Plus aria-hidden className="size-4" /> {create.pending ? "Lançando…" : "Lançar gasto"}
-          </Button>
-        </div>
-        {create.error && <p className="text-xs font-medium text-[#ff7a7a] sm:col-span-2">{create.error.message}</p>}
-      </div>
+      <AmountEntry pending={create.pending} error={create.error?.message} onAdd={add} />
 
       {balance.status === "success" &&
         (balance.data.expenses.length === 0 ? (
@@ -141,7 +140,7 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
         ) : (
           <ul aria-label="Gastos lançados" className="divide-y divide-line">
             {balance.data.expenses.map((expense) => (
-              <ExpenseRow key={expense.id} expense={expense} onRemove={() => setRemoving(expense)} />
+              <ExpenseRow key={expense.id} day={shortDate.format(new Date(expense.date))} amount={expense.amount} onRemove={() => setRemoving(expense)} />
             ))}
           </ul>
         ))}
@@ -159,13 +158,42 @@ function AccountExpenses({ accountId, handle }: { accountId: string; handle: str
   );
 }
 
-interface AccountExpensesSectionProps {
-  /** Nulo enquanto a conta ainda não foi salva. */
-  accountId: string | null;
-  handle: string;
+/** Conta nova: os valores ficam guardados no formulário e entram no Financeiro quando a conta é salva. */
+function DraftAccountExpenses({ amounts, onChange }: { amounts: Cents[]; onChange: (amounts: Cents[]) => void }) {
+  const total = amounts.reduce((sum, amount) => sum + amount, 0);
+  const add = async (amount: Cents) => {
+    onChange([...amounts, amount]);
+    return true;
+  };
+  return (
+    <>
+      <dl className="grid grid-cols-3 gap-2 sm:gap-3">
+        <BalanceTile label="Gasto" value={formatBRL(total)} />
+        <BalanceTile label="Ganho" value={formatBRL(0)} />
+        <BalanceTile label="Resultado" value={formatBRL(-total)} tone={total > 0 ? "bad" : "good"} />
+      </dl>
+      <AmountEntry pending={false} onAdd={add} />
+      {amounts.length === 0 ? (
+        <p className="text-sm text-mist">Nenhum gasto lançado ainda.</p>
+      ) : (
+        <>
+          <ul aria-label="Gastos a lançar" className="divide-y divide-line">
+            {amounts.map((amount, index) => (
+              <ExpenseRow key={index} day="Hoje" amount={amount} onRemove={() => onChange(amounts.filter((_, at) => at !== index))} />
+            ))}
+          </ul>
+          <p className="text-xs text-mist">Entram no Financeiro assim que você salvar a conta.</p>
+        </>
+      )}
+    </>
+  );
 }
 
-export function AccountExpensesSection({ accountId, handle }: AccountExpensesSectionProps) {
+type AccountExpensesSectionProps =
+  | { mode: "saved"; accountId: string; handle: string }
+  | { mode: "draft"; amounts: Cents[]; onChange: (amounts: Cents[]) => void };
+
+export function AccountExpensesSection(props: AccountExpensesSectionProps) {
   const access = useViewAccess();
   if (!access || !canUseStoreArea(access, "finance")) return null;
   return (
@@ -173,7 +201,11 @@ export function AccountExpensesSection({ accountId, handle }: AccountExpensesSec
       title="Gastos da conta"
       description="Coloque o valor que saiu por esta conta. Ele entra sozinho no Financeiro, em Despesas, com a data de hoje. O ganho soma as vendas pagas desta conta."
     >
-      {accountId ? <AccountExpenses accountId={accountId} handle={handle} /> : <p className="text-sm text-mist">Cadastre a conta primeiro; depois os gastos dela são lançados aqui.</p>}
+      {props.mode === "saved" ? (
+        <SavedAccountExpenses accountId={props.accountId} handle={props.handle} />
+      ) : (
+        <DraftAccountExpenses amounts={props.amounts} onChange={props.onChange} />
+      )}
     </FormSection>
   );
 }
