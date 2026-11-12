@@ -5,6 +5,7 @@ import { BackupSection } from "../settings/BackupSection";
 import { MfaSection } from "../settings/MfaSection";
 import { PasswordResetSection } from "../settings/PasswordResetSection";
 import { PasswordSection } from "../settings/PasswordSection";
+import { PushSection } from "../settings/PushSection";
 import { ProfileSection } from "../settings/ProfileSection";
 import { HAS_REAL_AUTH } from "../settings/settings-links";
 
@@ -44,6 +45,7 @@ export default function SettingsPage() {
         ) : (
           <DemoPasswordNotice />
         )}
+        <PushSection access={{ role: session.role, permissions: session.permissions }} />
         <MfaSection />
         {/* O backup baixa os dados da loja inteira: é do Jota. */}
         {session.role === "admin" && <BackupSection />}

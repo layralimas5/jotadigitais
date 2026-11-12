@@ -41,6 +41,12 @@ const SUPABASE_STUBS = `
     returns uuid language sql as $$
     insert into vault.secrets (secret, name, description) values (new_secret, new_name, new_description) returning id
   $$;
+  create schema net;
+  create table net.requests (id bigserial primary key, url text, body jsonb, headers jsonb);
+  create function net.http_post(url text, body jsonb, headers jsonb, timeout_milliseconds integer)
+    returns bigint language sql as $$
+    insert into net.requests (url, body, headers) values (url, body, headers) returning id
+  $$;
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
@@ -710,6 +716,7 @@ async function main() {
   await legalEditingChecks();
   await supportForwardChecks();
   await supportPriorityChecks();
+  await webPushChecks();
   await deliveryMessageChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
@@ -1813,7 +1820,7 @@ async function helperChecks() {
   check((await count(asHelper, `select 1 from public.data_requests`)) === 0, "ajudante não vê pedidos de LGPD");
   const siteEdit = await asHelper(() => db.query(`update public.store_settings set guarantee_days = guarantee_days returning 1`));
   check(siteEdit.rows.length === 0, "ajudante sem Site não muda as configurações da loja");
-  check((await count(asHelper, `select 1 from public.notifications where kind <> 'order'`)) === 0, "sininho do ajudante só mostra pedido novo");
+  check((await count(asHelper, `select 1 from public.notifications where kind not in ('order', 'payment')`)) === 0, "sininho do ajudante só mostra pedido novo e pagamento confirmado");
   await asHelper(() => db.query(`select public.update_my_profile('Ajudante Novo')`));
   const renamed = await db.query(`select name from public.admin_users where user_id = $1`, [HELPER_ID]);
   check(renamed.rows[0].name === "Ajudante Novo", "ajudante muda o próprio nome");
@@ -2267,6 +2274,67 @@ async function partnerTagChecks() {
     await rejects(() => as("anon", null, () => db.query(`select tags from public.partners`)), /permission denied/),
     "visitante não vê os apelidos dos parceiros",
   );
+}
+
+async function webPushChecks() {
+  console.log("\npush no celular");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const endpoint = "https://fcm.googleapis.com/fcm/send/aparelho-do-jota";
+  const requestsCount = async () => (await db.query(`select count(*)::int as n from net.requests`)).rows[0].n;
+
+  await asAdmin(() => db.query(`select public.save_push_subscription($1, 'chave', 'segredo', 'Android')`, [endpoint]));
+  const own = await asAdmin(() => db.query(`select endpoint, device from public.push_subscriptions`));
+  check(own.rows.length === 1 && own.rows[0].device === "Android", "admin liga o aviso no aparelho e vê a inscrição");
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.save_push_subscription('https://x.example/a', 'k', 'a')`)), /forbidden/),
+    "quem não é do sistema não inscreve aparelho",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.push_subscriptions (user_id, endpoint, p256dh, auth) values ($1, 'https://x.example/b', 'k', 'a')`, [ADMIN_ID])), /permission denied/),
+    "inscrição só entra pela função",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.save_push_subscription('http://inseguro.example/a', 'k', 'a')`)), /push_subscriptions_endpoint/),
+    "endereço sem https é recusado",
+  );
+
+  await asAdmin(() => db.query(`insert into public.push_preferences (kinds) values (array['order', 'payment'])`));
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.push_preferences set kinds = array['spam']`)), /push_preferences_kinds/),
+    "tipo de aviso desconhecido é recusado",
+  );
+
+  const before = await requestsCount();
+  await db.query(`insert into public.notifications (kind, title) values ('news', 'Sem segredo no Vault')`);
+  check((await requestsCount()) === before, "sem os segredos no Vault nenhum envio sai");
+
+  await db.query(`select vault.create_secret('https://exemplo.supabase.co/functions/v1/push-send', 'push_send_url')`);
+  await db.query(`select vault.create_secret('segredo-de-teste', 'push_send_secret')`);
+  await db.exec(`
+    insert into public.orders (code, account_handle, account_name, account_platform, customer_name, customer_email, payment_method, total_cents, status, expires_at)
+    values ('JD-PUSH01', '@pago.sozinho', 'Pago', 'tiktok', 'Carla Push', 'carla@exemplo.com', 'pix', 25000, 'awaiting_payment', now() + interval '1 hour'),
+           ('JD-PUSH02', '@pago.na.mao', 'Na mão', 'tiktok', 'Davi Push', 'davi@exemplo.com', 'pix', 9900, 'awaiting_payment', now() + interval '1 hour');
+  `);
+  const queued = await db.query(`select url, body, headers from net.requests order by id desc limit 1`);
+  check(
+    queued.rows[0]?.url.endsWith("/push-send") && queued.rows[0]?.headers["x-push-secret"] === "segredo-de-teste" && queued.rows[0]?.body.notification_id,
+    "venda nova chama a push-send com o segredo",
+  );
+
+  // Como a Edge Function do pagamento: sem usuário logado.
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-PUSH01'`));
+  const paid = await db.query(`select title, body from public.notifications where kind = 'payment' and title like '%JD-PUSH01'`);
+  check(paid.rows.length === 1 && paid.rows[0].body.includes("R$ 250,00"), "pagamento confirmado sozinho vira aviso com o valor");
+
+  await asAdmin(() => db.query(`update public.orders set status = 'paid' where code = 'JD-PUSH02'`));
+  const manual = await db.query(`select 1 from public.notifications where kind = 'payment' and title like '%JD-PUSH02'`);
+  check(manual.rows.length === 0, "quem marca como pago no painel não recebe aviso do próprio clique");
+
+  const seen = await asAdmin(() => db.query(`select 1 from public.notifications where kind = 'payment' and title like '%JD-PUSH01'`));
+  check(seen.rows.length === 1, "admin vê o pagamento confirmado no sininho");
+
+  await asAdmin(() => db.query(`select public.delete_push_subscription($1)`, [endpoint]));
+  check((await db.query(`select count(*)::int as n from public.push_subscriptions`)).rows[0].n === 0, "desligar apaga a inscrição do aparelho");
 }
 
 /** Entrega da conta: mensagens salvas para quem cuida dos pedidos e login do perfil com a senha cifrada. */

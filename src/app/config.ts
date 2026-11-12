@@ -26,8 +26,13 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() || null;
 /** Plano do Supabase, para a aba Armazenamento mostrar o limite certo. Sem a variável, o grátis. */
 const supabasePlan: SupabasePlan = import.meta.env.VITE_SUPABASE_PLAN?.trim() === "pro" ? "pro" : "free";
 
+/** Chave pública do push (VAPID). Pública por desenho; a privada fica só nos segredos da função push-send. */
+const vapidPublicKey =
+  import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim() || "BJCjR3E-2K5XerRSWTSFMikZepDkfykN3QhozP20mvVkT5UNMi_-9EA1SakwZqPG7x3G6txENo9Yk7nVWIIjiyI";
+
 export const backendConfig = {
   supabase: supabaseUrl && supabaseAnonKey ? { url: supabaseUrl, anonKey: supabaseAnonKey } : null,
   supabasePlan,
   googleClientId,
+  vapidPublicKey,
 } as const;

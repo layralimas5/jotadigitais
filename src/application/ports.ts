@@ -13,6 +13,7 @@ import type { MessageTemplates } from "@/domain/message-template";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import type { ProfileLogin } from "@/domain/delivery-login";
 import type { StoredNotification } from "@/domain/notification";
+import type { PushDeviceStatus, PushKind } from "@/domain/push";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
 import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
@@ -420,6 +421,21 @@ export interface StorageUsageReader {
 /** Lê os números públicos de um perfil pelo link. Falha com `ProfileLookupError`. */
 export interface ProfileLookupService {
   lookup(url: string): Promise<ProfileLookup>;
+}
+
+/**
+ * Notificação push neste aparelho (painel instalado como app). Ligar pede a permissão do navegador e registra o
+ * aparelho para quem está logado; as preferências dizem quais tipos de aviso chegam no celular.
+ */
+export interface PushNotificationService {
+  status(): Promise<PushDeviceStatus>;
+  enable(): Promise<void>;
+  disable(): Promise<void>;
+  /** Manda um aviso de teste para os aparelhos de quem está logado. */
+  sendTest(): Promise<void>;
+  /** Nulo quando a pessoa nunca escolheu: recebe todos os tipos que pode ver. */
+  loadPreferences(): Promise<PushKind[] | null>;
+  savePreferences(kinds: readonly PushKind[]): Promise<void>;
 }
 
 /** Notificações do sininho guardadas no banco, e o que cada usuário já apagou. */

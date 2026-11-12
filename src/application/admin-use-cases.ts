@@ -42,6 +42,7 @@ import type {
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
   AdminNotificationRepository,
+  PushNotificationService,
   AdminPrivacyRepository,
   AdminUserRepository,
   AccessRepository,
@@ -110,6 +111,7 @@ export interface AdminDeps {
   users: AdminUserRepository;
   profiles: ProfileLookupService;
   notifications: AdminNotificationRepository;
+  push: PushNotificationService;
   calendar: CalendarService;
   images: ImageStorage;
   privacy: AdminPrivacyRepository;
