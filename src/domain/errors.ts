@@ -306,3 +306,17 @@ export class StorageForbiddenError extends Error {
     this.name = "StorageForbiddenError";
   }
 }
+
+export class TooManyDeliveryMessagesError extends Error {
+  constructor(limit: number) {
+    super(`Dá para guardar até ${limit} mensagens. Apague uma que não usa mais para salvar outra.`);
+    this.name = "TooManyDeliveryMessagesError";
+  }
+}
+
+export class DeliveryMessageNotFoundError extends Error {
+  constructor() {
+    super("Essa mensagem não existe mais. Pode ter sido apagada em outra aba.");
+    this.name = "DeliveryMessageNotFoundError";
+  }
+}

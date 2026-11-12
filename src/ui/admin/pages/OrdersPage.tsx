@@ -251,20 +251,23 @@ function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy
       <CartNote order={order} cartSize={cartSize} onShowCart={onShowCart} />
       <PaymentParts order={order} busy={busy} onConfirmPix={onConfirmPix} />
 
-      {order.status === "delivered" && showFinalized && (
-        <div className="mt-4 flex justify-end border-t border-line pt-4">
-          <Link
-            to={`${FINALIZED_PATH}?busca=${encodeURIComponent(order.code)}`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-electric-soft hover:underline"
-          >
-            Ver em Finalizados <ArrowRight aria-hidden className="size-4" />
-          </Link>
+      {order.status === "delivered" && (order.customer.whatsapp || showFinalized) && (
+        <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end">
+          <SendAccessButton order={order} resend />
+          {showFinalized && (
+            <Link
+              to={`${FINALIZED_PATH}?busca=${encodeURIComponent(order.code)}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-electric-soft hover:underline"
+            >
+              Ver em Finalizados <ArrowRight aria-hidden className="size-4" />
+            </Link>
+          )}
         </div>
       )}
 
       {actions.length > 0 && (
         <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
-          {order.status === "paid" && <SendAccessButton order={order} templates={templates} />}
+          {order.status === "paid" && <SendAccessButton order={order} />}
           {actions.map((status) => (
             <Button
               key={status}

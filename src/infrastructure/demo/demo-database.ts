@@ -4,6 +4,8 @@ import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord } from "@/domain/customer";
 import type { StoredCoupon } from "./demo-coupons";
 import type { EmailAccount } from "@/domain/email-account";
+import type { ProfileLogin } from "@/domain/delivery-login";
+import type { DeliveryMessage } from "@/domain/delivery-message";
 import type { Expense, Revenue } from "@/domain/finance";
 import type { Lead } from "@/domain/lead";
 import type { LegalController, LegalDocument, LegalDocumentSlug } from "@/domain/legal/legal-document";
@@ -50,6 +52,9 @@ export interface DemoState {
   revenues?: Revenue[];
   partners?: Partner[];
   emailAccounts?: EmailAccount[];
+  /** Login do perfil de cada conta, pelo id dela. */
+  profileLogins?: Record<string, ProfileLogin>;
+  deliveryMessages?: DeliveryMessage[];
   coupons?: StoredCoupon[];
   /** Sem a lista guardada, valem os países de fábrica. */
   countries?: Country[];

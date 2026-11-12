@@ -11,7 +11,20 @@ export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
 
 export type MessageTemplates = Record<MessageTemplateKey, string>;
 
-export const TEMPLATE_VARIABLES = ["nome", "pedido", "conta", "valor", "loja", "rede", "detalhes", "link", "email", "senha"] as const;
+export const TEMPLATE_VARIABLES = [
+  "nome",
+  "pedido",
+  "conta",
+  "valor",
+  "loja",
+  "rede",
+  "detalhes",
+  "link",
+  "email",
+  "senha",
+  "usuario",
+  "senha_perfil",
+] as const;
 
 export type TemplateVariable = (typeof TEMPLATE_VARIABLES)[number];
 
@@ -30,8 +43,8 @@ export const MESSAGE_TEMPLATE_INFO: Record<MessageTemplateKey, { title: string; 
   },
   order_delivered: {
     title: "Conta entregue",
-    when: "Pedido pago ou entregue: leva o e-mail e a senha da conta",
-    variables: ["nome", "pedido", "conta", "email", "senha", "loja"],
+    when: "Pedido pago ou entregue: leva o e-mail e o login do perfil",
+    variables: ["nome", "pedido", "conta", "rede", "email", "senha", "usuario", "senha_perfil", "loja"],
   },
   crm_follow_up: {
     title: "Retorno do CRM",
@@ -58,8 +71,11 @@ export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplates = {
   order_delivered: [
     "Pronto, {nome}! A conta {conta} é sua (pedido {pedido}).",
     "",
-    "*E-mail:* {email}",
-    "*Senha:* {senha}",
+    "*E-mail da conta:* {email}",
+    "*Senha do e-mail:* {senha}",
+    "",
+    "*Usuário do perfil:* {usuario}",
+    "*Senha do perfil:* {senha_perfil}",
     "",
     "Assim que entrar, troque a senha e o e-mail para os seus. Qualquer dúvida na troca de nome, @ ou foto, me chama aqui.",
   ].join("\n"),
@@ -85,19 +101,48 @@ export function fillTemplate(body: string, values: TemplateValues): string {
   return body.replace(/\{(\w+)\}/g, (match, name: string) => values[name as TemplateVariable] ?? match);
 }
 
-const ACCESS_VARIABLES = /\{(email|senha)\}/;
+/** O que cada variável vira na mensagem, para quem está editando. */
+export const VARIABLE_LABEL: Record<TemplateVariable, string> = {
+  nome: "Primeiro nome do cliente",
+  pedido: "Código do pedido",
+  conta: "@ da conta",
+  valor: "Valor",
+  loja: "Nome da loja",
+  rede: "Rede social",
+  detalhes: "Detalhes da conta",
+  link: "Link da conta",
+  email: "E-mail da conta",
+  senha: "Senha do e-mail",
+  usuario: "Usuário do perfil",
+  senha_perfil: "Senha do perfil",
+};
+
+const LOGIN_VARIABLES = ["email", "senha", "usuario", "senha_perfil"] as const;
+type LoginVariable = (typeof LOGIN_VARIABLES)[number];
+
+const usesVariable = (text: string, name: LoginVariable) => text.includes(`{${name}}`);
+
+export interface DeliveryLoginValues {
+  email: { email: string; password: string | null } | null;
+  profile: { username: string | null; password: string | null } | null;
+}
 
 /**
- * Modelo de entrega com o login da conta. Sem e-mail cadastrado, as linhas de {email} e {senha} saem da mensagem
- * (e sem senha, só a linha da senha). Modelo personalizado antigo, sem essas variáveis, ganha o login no final.
+ * Modelo de entrega com o login da conta. Linha com variável de login sem valor (e-mail, senha, usuário ou senha do
+ * perfil não anotados) sai da mensagem, para não chegar "{senha}" ao cliente. Modelo antigo, sem nenhuma variável de
+ * login, ganha o e-mail e a senha no final.
  */
-export function fillDeliveryTemplate(body: string, values: TemplateValues, access: { email: string; password: string | null } | null): string {
-  const lines = body.split("\n").filter((line) => {
-    if (!access) return !ACCESS_VARIABLES.test(line);
-    return access.password !== null || !line.includes("{senha}");
-  });
-  const filled = fillTemplate(lines.join("\n"), { ...values, email: access?.email, senha: access?.password ?? undefined }).replace(/\n{3,}/g, "\n\n");
-  if (!access || ACCESS_VARIABLES.test(body)) return filled;
+export function fillDeliveryTemplate(body: string, values: TemplateValues, login: DeliveryLoginValues): string {
+  const loginValues: Record<LoginVariable, string | undefined> = {
+    email: login.email?.email,
+    senha: login.email?.password ?? undefined,
+    usuario: login.profile?.username ?? undefined,
+    senha_perfil: login.profile?.password ?? undefined,
+  };
+  const lines = body.split("\n").filter((line) => LOGIN_VARIABLES.every((name) => !usesVariable(line, name) || loginValues[name] !== undefined));
+  const filled = fillTemplate(lines.join("\n"), { ...values, ...loginValues }).replace(/\n{3,}/g, "\n\n").trim();
+  const access = login.email;
+  if (!access || LOGIN_VARIABLES.some((name) => usesVariable(body, name))) return filled;
   const block = [`*E-mail:* ${access.email}`, access.password ? `*Senha:* ${access.password}` : null].filter(Boolean).join("\n");
   return `${filled}\n\n${block}`;
 }
