@@ -215,63 +215,131 @@ interface TikTokEmbedVideo {
   originCoverUrl?: string;
 }
 
+/** Dados do perfil na página de incorporação oficial: os mesmos do perfil, sem o total de vídeos. */
+interface TikTokEmbedUser {
+  uniqueId?: string;
+  nickname?: string;
+  avatarThumbUrl?: string;
+  verified?: boolean;
+  signature?: string;
+  followerCount?: number;
+  followingCount?: number;
+  heartCount?: number;
+}
+
+interface TikTokEmbed {
+  user: TikTokEmbedUser | null;
+  videos: TikTokEmbedVideo[];
+}
+
+/** Texto que o TikTok põe no lugar da bio vazia. */
+const TIKTOK_EMPTY_BIO = new Set(["No bio yet", "Ainda não há bio."]);
+
+const tiktokBio = (signature: string | undefined) => (signature && !TIKTOK_EMPTY_BIO.has(signature.trim()) ? signature : null);
+
 /**
- * O perfil não traz os vídeos (eles chegam depois, por uma API assinada); a página de incorporação
- * oficial do perfil traz. Se ela falhar, a ficha só fica sem as capas.
+ * Página de incorporação oficial do perfil (a que sites usam para mostrar um perfil do TikTok). Traz o perfil e os
+ * vídeos recentes. Sob carga ela responde 429, 503 ou "overload-protect triggered"; na tentativa seguinte costuma vir.
  */
-async function tiktokEmbedState(handle: string): Promise<string | null> {
+async function tiktokEmbed(handle: string): Promise<TikTokEmbed | null> {
   for (let attempt = 1; attempt <= EMBED_ATTEMPTS; attempt++) {
-    // Sob carga a página responde 429, 503 ou "overload-protect triggered"; na tentativa seguinte costuma vir inteira.
-    const html = await getText(`https://www.tiktok.com/embed/@${encodeURIComponent(handle)}`, { "User-Agent": DESKTOP_USER_AGENT }).catch(() => "");
+    // Conta que não existe vem com status 400, mas com a página inteira (isError): por isso não passa pelo getText.
+    const response = await get(`https://www.tiktok.com/embed/@${encodeURIComponent(handle)}`, { "User-Agent": DESKTOP_USER_AGENT }).catch(() => null);
+    const html = response && (response.ok || response.status === 400) ? await response.text().catch(() => "") : "";
     const json = html.match(/<script id="__FRONTITY_CONNECT_STATE__"[^>]*>([\s\S]*?)<\/script>/)?.[1];
-    if (json) return json;
+    if (json) {
+      try {
+        const data = JSON.parse(json)?.source?.data?.[`/embed/@${handle}`];
+        if (data?.isError) return { user: null, videos: [] };
+        return { user: data?.userInfo ?? null, videos: data?.videoList ?? [] };
+      } catch {
+        return null;
+      }
+    }
     if (attempt < EMBED_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, 800 * attempt));
   }
   return null;
 }
 
-async function tiktokRecentCovers(handle: string): Promise<string[]> {
+function tiktokCovers(embed: TikTokEmbed | null): Promise<string[]> {
+  const covers = (embed?.videos ?? []).map((video) => video.originCoverUrl ?? video.coverUrl).filter((cover): cover is string => Boolean(cover));
+  return fetchImages(covers.slice(0, RECENT_POSTS.tiktok));
+}
+
+/**
+ * Página do perfil: traz também o total de vídeos e se a conta é comercial. O TikTok passou a responder com uma tela
+ * de verificação para servidores; nesse caso devolve nulo e vale a página de incorporação.
+ */
+async function tiktokProfileInfo(handle: string): Promise<TikTokUserInfo | null> {
+  const html = await getText(`https://www.tiktok.com/@${handle}?lang=en`).catch((error: unknown) => {
+    if (error instanceof LookupError && error.code === "not_found") throw error;
+    return "";
+  });
+  const json = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/)?.[1];
+  if (!json) return null;
   try {
-    const json = await tiktokEmbedState(handle);
-    if (!json) return [];
-    const videos: TikTokEmbedVideo[] | undefined = JSON.parse(json)?.source?.data?.[`/embed/@${handle}`]?.videoList;
-    const covers = (videos ?? []).map((video) => video.originCoverUrl ?? video.coverUrl).filter((cover): cover is string => Boolean(cover));
-    return fetchImages(covers.slice(0, RECENT_POSTS.tiktok));
+    const info: TikTokUserInfo | undefined = JSON.parse(json)?.__DEFAULT_SCOPE__?.["webapp.user-detail"]?.userInfo;
+    return info?.user?.uniqueId && info.stats ? info : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-async function lookupTikTok(url: URL): Promise<ProfileLookup> {
-  const handle = tiktokHandleOf(url);
-  if (!handle) throw new LookupError("invalid_url");
-  const html = await getText(`https://www.tiktok.com/@${handle}?lang=en`);
-  const json = html.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>([\s\S]*?)<\/script>/)?.[1];
-  if (!json) throw new LookupError("blocked");
-  let info: TikTokUserInfo | undefined;
-  try {
-    info = JSON.parse(json)?.__DEFAULT_SCOPE__?.["webapp.user-detail"]?.userInfo;
-  } catch {
-    throw new LookupError("failed");
-  }
-  if (!info?.user?.uniqueId || !info.stats) throw new LookupError("not_found");
-  const { user, stats } = info;
+function fromProfileInfo(info: TikTokUserInfo, handle: string) {
+  const { user = {}, stats = {} } = info;
   const text = info.statsV2 ?? {};
-  const [avatarDataUrl, postDataUrls] = await Promise.all([fetchImage(user.avatarLarger ?? null), tiktokRecentCovers(user.uniqueId ?? handle)]);
+  const uniqueId = user.uniqueId ?? handle;
   return {
-    ...empty,
-    platform: "tiktok",
-    handle: `@${user.uniqueId}`,
-    displayName: user.nickname || user.uniqueId || handle,
-    profileUrl: `https://www.tiktok.com/@${user.uniqueId}`,
-    followers: tiktokCount(text.followerCount, stats.followerCount) ?? 0,
-    approximate: false,
+    uniqueId,
+    displayName: user.nickname || uniqueId,
+    avatarUrl: user.avatarLarger ?? null,
+    followers: tiktokCount(text.followerCount, stats.followerCount),
     following: tiktokCount(text.followingCount, stats.followingCount),
     likes: tiktokCount(text.heartCount, stats.heartCount),
     videos: tiktokCount(text.videoCount, stats.videoCount),
     verified: user.verified ?? null,
     professional: user.commerceUserInfo?.commerceUser ?? null,
-    bio: user.signature || null,
+    bio: tiktokBio(user.signature),
+  };
+}
+
+function fromEmbedUser(user: TikTokEmbedUser, handle: string) {
+  const uniqueId = user.uniqueId ?? handle;
+  return {
+    uniqueId,
+    displayName: user.nickname || uniqueId,
+    avatarUrl: user.avatarThumbUrl ?? null,
+    followers: tiktokCount(undefined, user.followerCount),
+    following: tiktokCount(undefined, user.followingCount),
+    likes: tiktokCount(undefined, user.heartCount),
+    videos: null,
+    verified: user.verified ?? null,
+    professional: null,
+    bio: tiktokBio(user.signature),
+  };
+}
+
+async function lookupTikTok(url: URL): Promise<ProfileLookup> {
+  const handle = tiktokHandleOf(url);
+  if (!handle) throw new LookupError("invalid_url");
+  const [info, embed] = await Promise.all([tiktokProfileInfo(handle), tiktokEmbed(handle)]);
+  const profile = info ? fromProfileInfo(info, handle) : embed?.user?.uniqueId ? fromEmbedUser(embed.user, handle) : null;
+  if (!profile) throw new LookupError(embed ? "not_found" : "blocked");
+  const [avatarDataUrl, postDataUrls] = await Promise.all([fetchImage(profile.avatarUrl), tiktokCovers(embed)]);
+  return {
+    ...empty,
+    platform: "tiktok",
+    handle: `@${profile.uniqueId}`,
+    displayName: profile.displayName,
+    profileUrl: `https://www.tiktok.com/@${profile.uniqueId}`,
+    followers: profile.followers ?? 0,
+    approximate: false,
+    following: profile.following,
+    likes: profile.likes,
+    videos: profile.videos,
+    verified: profile.verified,
+    professional: profile.professional,
+    bio: profile.bio,
     avatarDataUrl,
     postDataUrls,
     fetchedAt: new Date().toISOString(),
