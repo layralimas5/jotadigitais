@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, ChevronDown, Crosshair, FilterX, ListTodo, MessageSquare, Paperclip, Plus, type LucideIcon } from "lucide-react";
+import { CheckCircle2, ChevronDown, Crosshair, FilterX, Layers, ListTodo, MessageSquare, Paperclip, Plus, type LucideIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listSupportLabels, listSupportTickets } from "@/application/support-use-cases";
@@ -7,6 +7,7 @@ import {
   canChangeSupportStatus,
   canDeleteSupportTicket,
   canManageSupportLabels,
+  canMergeSupportTickets,
   inPeriod,
   isPendingTicket,
   supportRoleOf,
@@ -66,6 +67,8 @@ import {
   SupportStatusBadge,
 } from "../support/SupportBadges";
 import { DeleteTicketButton } from "../support/DeleteTicketButton";
+import { MergeDialog } from "../support/MergeDialog";
+import { useToast } from "../toast";
 import { TicketProgress } from "../support/TicketProgress";
 
 type StatusFilter = "mine" | "active" | SupportStatus | "all";
@@ -235,6 +238,12 @@ function FilterBar({ filters, onChange, tickets, labels, role }: FilterBarProps)
 // Lista
 // ---------------------------------------------------------------------------
 
+/** Marcação para juntar chamados: só existe com o modo de juntar ligado. */
+interface RowSelection {
+  checked: boolean;
+  onChange: () => void;
+}
+
 interface RowProps {
   ticket: SupportTicket;
   role: SupportRole;
@@ -242,9 +251,10 @@ interface RowProps {
   expanded: boolean;
   onToggle: () => void;
   onChanged: () => void;
+  selection?: RowSelection;
 }
 
-function LabelCell({ ticket, role, labels, onChanged }: Omit<RowProps, "expanded" | "onToggle">) {
+function LabelCell({ ticket, role, labels, onChanged }: Omit<RowProps, "expanded" | "onToggle" | "selection">) {
   if (canManageSupportLabels(role)) {
     return <LabelPicker ticketId={ticket.id} ticketTitle={ticket.title} labelId={ticket.labelId} labels={labels} role={role} onChanged={onChanged} />;
   }
@@ -260,7 +270,16 @@ const ROW_BORDER: Record<SupportStatus, string> = {
   done: "border-line",
 };
 
-function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowProps) {
+function MergedCountBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-electric/30 bg-electric/10 px-2 py-0.5 text-[0.7rem] font-medium text-electric-soft">
+      <Layers aria-hidden className="size-3" /> +{count} juntado{count > 1 ? "s" : ""}
+    </span>
+  );
+}
+
+function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged, selection }: RowProps) {
   const reduceMotion = useReducedMotion();
   const KindIcon = KIND_ICON[ticket.kind];
   const panelId = `andamento-${ticket.id}`;
@@ -268,13 +287,30 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged }: RowP
   const files = ticket.attachments.length;
 
   return (
-    <li className={cn("rounded-2xl border bg-surface/60 transition-colors", ROW_BORDER[ticket.status], expanded && "bg-surface")}>
+    <li
+      className={cn(
+        "rounded-2xl border bg-surface/60 transition-colors",
+        ROW_BORDER[ticket.status],
+        expanded && "bg-surface",
+        selection?.checked && "border-electric bg-electric/[0.06]",
+      )}
+    >
       <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_7.5rem_11.5rem_13rem_2.5rem] lg:items-center lg:gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            {selection && (
+              <input
+                type="checkbox"
+                checked={selection.checked}
+                onChange={selection.onChange}
+                aria-label={`Juntar “${ticket.title}”`}
+                className="size-4 cursor-pointer accent-[#2799ff]"
+              />
+            )}
             <span className="inline-flex items-center gap-1 text-xs text-mist">
               <KindIcon aria-hidden className="size-3.5" /> {SUPPORT_KIND_LABEL[ticket.kind]}
             </span>
+            <MergedCountBadge count={ticket.merged.length} />
             <SupportAreaBadge area={ticket.area} />
             {ticket.internal && <InternalBadge />}
             {needsActionFrom(ticket, role) && <NeedsYouBadge />}
@@ -410,14 +446,16 @@ function groupByStatus(tickets: readonly SupportTicket[]): { status: SupportStat
   );
 }
 
-interface StatusGroupProps extends Omit<RowProps, "ticket" | "expanded" | "onToggle"> {
+interface StatusGroupProps extends Omit<RowProps, "ticket" | "expanded" | "onToggle" | "selection"> {
   status: SupportStatus;
   tickets: SupportTicket[];
   expanded: ReadonlySet<string>;
   onToggle: (id: string) => void;
+  /** Com o modo de juntar ligado: os marcados e como marcar. */
+  selection: { selected: ReadonlySet<string>; onToggle: (id: string) => void } | null;
 }
 
-function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChanged }: StatusGroupProps) {
+function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChanged, selection }: StatusGroupProps) {
   const { icon: Icon, hint, tone, iconClassName } = STATUS_GROUP[status];
   const headingId = `grupo-${status}`;
   return (
@@ -440,6 +478,7 @@ function StatusGroup({ status, tickets, role, labels, expanded, onToggle, onChan
             expanded={expanded.has(ticket.id)}
             onToggle={() => onToggle(ticket.id)}
             onChanged={onChanged}
+            selection={selection ? { checked: selection.selected.has(ticket.id), onChange: () => selection.onToggle(ticket.id) } : undefined}
           />
         ))}
       </ul>
@@ -476,6 +515,9 @@ export default function SupportPage() {
     labels.reload();
   };
 
+  const merging = useMergeSelection(data ?? [], reloadAll);
+  const canMerge = canMergeSupportTickets(role) && data !== null && data.length > 1;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -483,6 +525,11 @@ export default function SupportPage() {
         description={DESCRIPTION[role]}
         action={
           <div className="flex flex-wrap items-center gap-2">
+            {canMerge && (
+              <Button variant="secondary" aria-pressed={merging.active} onClick={merging.active ? merging.stop : merging.start}>
+                <Layers aria-hidden className="size-4" /> {merging.active ? "Cancelar juntar" : "Juntar chamados"}
+              </Button>
+            )}
             {canManageSupportLabels(role) && <LabelManager labels={labelList} role={role} onChanged={reloadAll} />}
             <ButtonLink to={NEW_TICKET_PATH} className="max-md:hidden">
               <Plus aria-hidden className="size-4" /> Novo chamado
@@ -507,6 +554,11 @@ export default function SupportPage() {
       {data && data.length > 0 && (
         <>
           <FilterBar filters={filters} onChange={setFilters} tickets={data} labels={labelList} role={role} />
+          {merging.active && (
+            <p role="status" className="rounded-2xl border border-electric/30 bg-electric/[0.06] px-4 py-3 text-sm text-fog">
+              Marque os chamados que pedem a mesma coisa. Depois é só escolher qual fica como principal.
+            </p>
+          )}
           {visible.length === 0 ? (
             <EmptyState
               title="Nenhum chamado com esses filtros"
@@ -529,13 +581,70 @@ export default function SupportPage() {
                   expanded={expanded}
                   onToggle={toggle}
                   onChanged={reloadAll}
+                  selection={merging.active ? { selected: merging.selected, onToggle: merging.toggle } : null}
                 />
               ))}
             </div>
           )}
         </>
       )}
-      <Fab to={NEW_TICKET_PATH} label="Novo chamado" />
+      {merging.active ? (
+        <MergeBar count={merging.selected.size} onCancel={merging.stop} onMerge={merging.review} />
+      ) : (
+        <Fab to={NEW_TICKET_PATH} label="Novo chamado" />
+      )}
+      <MergeDialog tickets={merging.reviewing} role={role} onClose={merging.closeReview} onMerged={merging.done} />
+    </div>
+  );
+}
+
+/** Modo de juntar: marca os chamados, revisa na janela e, juntando, volta para a lista normal. */
+function useMergeSelection(tickets: readonly SupportTicket[], onMerged: () => void) {
+  const toast = useToast();
+  const [active, setActive] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [reviewing, setReviewing] = useState<SupportTicket[] | null>(null);
+  const stop = () => {
+    setActive(false);
+    setSelected(new Set());
+    setReviewing(null);
+  };
+  return {
+    active,
+    selected,
+    reviewing,
+    start: () => setActive(true),
+    stop,
+    toggle: (id: string) =>
+      setSelected((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    review: () => setReviewing(tickets.filter((ticket) => selected.has(ticket.id))),
+    closeReview: () => setReviewing(null),
+    done: (target: SupportTicket, count: number) => {
+      toast.show(`${count} chamado${count > 1 ? "s" : ""} juntado${count > 1 ? "s" : ""} em “${target.title}”.`);
+      stop();
+      onMerged();
+    },
+  };
+}
+
+function MergeBar({ count, onCancel, onMerge }: { count: number; onCancel: () => void; onMerge: () => void }) {
+  return (
+    <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 flex flex-wrap items-center gap-3 rounded-2xl border border-line-strong bg-surface/95 p-3 shadow-2xl backdrop-blur md:bottom-6">
+      <p className="flex-1 text-sm text-fog" aria-live="polite">
+        {count === 0 ? "Nenhum chamado marcado" : `${count} marcado${count > 1 ? "s" : ""}`}
+        {count === 1 && <span className="text-mist"> · marque mais um</span>}
+      </p>
+      <Button variant="ghost" onClick={onCancel}>
+        Cancelar
+      </Button>
+      <Button onClick={onMerge} disabled={count < 2}>
+        <Layers aria-hidden className="size-4" /> Juntar
+      </Button>
     </div>
   );
 }

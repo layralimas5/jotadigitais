@@ -2,6 +2,8 @@ import type { AuthService, SupportTicketRepository } from "@/application/ports";
 import {
   SupportApprovalError,
   SupportDeleteForbiddenError,
+  SupportMergeError,
+  SupportMergeForbiddenError,
   SupportLabelForbiddenError,
   SupportLabelNameTakenError,
   SupportStatusForbiddenError,
@@ -15,6 +17,7 @@ import {
   canChangeSupportPriority,
   canChangeSupportVisibility,
   canDeleteSupportTicket,
+  canMergeSupportTickets,
   canManageSupportLabels,
   isVisibleTo,
   type SupportLabel,
@@ -40,6 +43,8 @@ import { MAX_NOTIFICATIONS, notificationsOf } from "./demo-repositories";
 
 /** Responder avisando e encaminhar no mesmo envio vira um aviso só. */
 const FORWARD_NOTICE_WINDOW_MS = 2 * 60_000;
+
+const MERGED_REPLY_MESSAGE = "Este chamado foi juntado a outro. Responda no chamado principal.";
 
 /** Troca a última vez que esse papel viu o chamado. */
 const withView = (views: readonly SupportView[], role: AdminRole, seenAt: string): SupportView[] => [
@@ -101,6 +106,9 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       labelId: null,
       events: [],
       views: [{ role: (await this.currentAuthor()).role, seenAt: now }],
+      mergedInto: null,
+      mergedAt: null,
+      merged: [],
     };
     this.db.write((state) => {
       state.supportTickets = [ticket, ...(state.supportTickets ?? [])];
@@ -111,6 +119,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   async reply(ticketId: string, body: string, uploads: readonly SupportUpload[], replyToId: string | null): Promise<SupportSubmitResult<SupportReply>> {
     await simulateLatency();
     const author = await this.currentAuthor();
+    if (this.db.read().supportTickets?.find((item) => item.id === ticketId)?.mergedInto) throw new SupportMergeError(MERGED_REPLY_MESSAGE);
     const reply: SupportReply = { id: newId("rep"), body, author, createdAt: new Date().toISOString(), replyToId };
     const attachments = this.store(uploads, reply.id);
     this.updateTicket(ticketId, (ticket) => {
@@ -277,6 +286,40 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     });
   }
 
+  async listMergedInto(ticketId: string): Promise<SupportTicket[]> {
+    return (await this.listAll()).filter((ticket) => ticket.mergedInto === ticketId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  /** Mesma regra da função merge_support_tickets do banco. */
+  async merge(targetId: string, sourceIds: readonly string[]): Promise<void> {
+    await simulateLatency();
+    if (!canMergeSupportTickets((await this.currentAuthor()).role)) throw new SupportMergeForbiddenError();
+    const now = new Date().toISOString();
+    this.db.write((state) => {
+      const tickets = state.supportTickets ?? [];
+      const target = tickets.find((ticket) => ticket.id === targetId);
+      if (!target || sourceIds.some((id) => !tickets.some((ticket) => ticket.id === id))) throw new SupportTicketNotFoundError();
+      if (target.mergedInto) throw new SupportMergeError();
+      const sources = new Set(sourceIds);
+      const moved = tickets.map((ticket) => {
+        if (sources.has(ticket.id)) return { ...ticket, mergedInto: targetId, mergedAt: now, updatedAt: now };
+        if (ticket.mergedInto && sources.has(ticket.mergedInto)) return { ...ticket, mergedInto: targetId };
+        return ticket;
+      });
+      const opensToAdmin = target.internal && moved.some((ticket) => ticket.mergedInto === targetId && !ticket.internal);
+      state.supportTickets = moved.map((ticket) => (ticket.id === targetId && opensToAdmin ? { ...ticket, internal: false } : ticket));
+    });
+  }
+
+  async unmerge(ticketId: string): Promise<void> {
+    await simulateLatency();
+    if (!canMergeSupportTickets((await this.currentAuthor()).role)) throw new SupportMergeForbiddenError();
+    this.updateTicket(ticketId, (ticket) => {
+      if (!ticket.mergedInto) throw new SupportTicketNotFoundError();
+      return { ...ticket, mergedInto: null, mergedAt: null };
+    });
+  }
+
   private async requireLabelManager(): Promise<void> {
     if (!canManageSupportLabels((await this.currentAuthor()).role)) throw new SupportLabelForbiddenError();
   }
@@ -293,7 +336,18 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   private withUrls(ticket: SupportTicket): SupportTicket {
     // Chamados salvos antes dos anexos existirem chegam sem a lista.
     const attachments = ticket.attachments ?? [];
-    return { ...ticket, kind: ticket.kind ?? "task", internal: ticket.internal ?? false, views: ticket.views ?? [], labelId: ticket.labelId ?? null, events: ticket.events ?? [], attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })) };
+    return {
+      ...ticket,
+      kind: ticket.kind ?? "task",
+      internal: ticket.internal ?? false,
+      views: ticket.views ?? [],
+      labelId: ticket.labelId ?? null,
+      events: ticket.events ?? [],
+      mergedInto: ticket.mergedInto ?? null,
+      mergedAt: ticket.mergedAt ?? null,
+      merged: [],
+      attachments: attachments.map((attachment) => ({ ...attachment, url: this.files.get(attachment.id) ?? null })),
+    };
   }
 
   private updateTicket(id: string, change: (ticket: SupportTicket) => SupportTicket): void {

@@ -261,6 +261,20 @@ export class AccessForbiddenError extends Error {
   }
 }
 
+export class SupportMergeForbiddenError extends Error {
+  constructor() {
+    super("Só a desenvolvedora junta e separa chamados.");
+    this.name = "SupportMergeForbiddenError";
+  }
+}
+
+export class SupportMergeError extends Error {
+  constructor(message = "Não deu para juntar esses chamados. Atualize a página e tente de novo.") {
+    super(message);
+    this.name = "SupportMergeError";
+  }
+}
+
 export class SupportDeleteForbiddenError extends Error {
   constructor() {
     super("Só a desenvolvedora apaga chamados.");

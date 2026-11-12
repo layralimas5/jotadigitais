@@ -1,7 +1,7 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SupportTicketRepository } from "@/application/ports";
-import { SupportApprovalError, SupportLabelNameTakenError, SupportTicketNotFoundError } from "@/domain/errors";
+import { SupportApprovalError, SupportLabelNameTakenError, SupportMergeError, SupportTicketNotFoundError } from "@/domain/errors";
 import {
   SUPPORT_AREAS,
   SUPPORT_KINDS,
@@ -48,7 +48,7 @@ const REPLY_COLUMNS = `id, body, created_at, reply_to_id, quotes_opening, ${AUTH
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const UNIQUE_VIOLATION = "23505";
 
@@ -95,6 +95,8 @@ const ticketRowSchema = z.object({
   internal: z.boolean(),
   status: z.enum(SUPPORT_STATUSES),
   label_id: z.string().nullable(),
+  merged_into: z.string().nullable(),
+  merged_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
   resolved_at: z.string().nullable(),
@@ -158,7 +160,24 @@ function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): 
       )
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     views: row.views.flatMap((view) => (view.viewer ? [{ role: view.viewer.role, seenAt: new Date(view.seen_at).toISOString() }] : [])),
+    mergedInto: row.merged_into,
+    mergedAt: row.merged_at,
+    merged: [],
   };
+}
+
+const MERGE_MESSAGES: Record<string, string> = {
+  target_merged: "O chamado principal já foi juntado a outro. Escolha outro como principal.",
+  ticket_merged: "Este chamado foi juntado a outro. Responda no chamado principal.",
+  invalid_sources: "Escolha pelo menos dois chamados para juntar.",
+};
+
+/** Traduz os erros das funções de juntar e da trava de resposta; o resto segue o caminho comum. */
+function failOnMerge(error: PostgrestError): never {
+  if (error.code === "P0002") throw new SupportTicketNotFoundError();
+  const known = Object.keys(MERGE_MESSAGES).find((code) => error.message.includes(code));
+  if (known) throw new SupportMergeError(MERGE_MESSAGES[known]);
+  return fail(error);
 }
 
 function failOnLabel(error: PostgrestError, name: string): never {
@@ -199,7 +218,7 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
       .insert({ ticket_id: ticketId, body, reply_to_id: quotesOpening ? null : replyToId, quotes_opening: quotesOpening })
       .select(REPLY_COLUMNS)
       .single();
-    if (error) fail(error);
+    if (error) failOnMerge(error);
     const reply = toReply(data);
     return { saved: reply, failedUploads: await this.attach(ticketId, reply.id, uploads) };
   }
@@ -283,6 +302,24 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
       // O chamado já saiu; arquivo que sobrar no bucket não aparece em lugar nenhum.
       if (storageError) console.error("Falha ao apagar anexos do chamado", storageError);
     }
+  }
+
+  async listMergedInto(ticketId: string): Promise<SupportTicket[]> {
+    const { data, error } = await this.client.from("support_tickets").select(TICKET_COLUMNS).eq("merged_into", ticketId).order("created_at");
+    if (error) fail(error);
+    const paths = data.flatMap((row) => ticketRowSchema.parse(row).attachments.map((attachment) => attachment.path));
+    const urls = await this.signedUrls(paths);
+    return data.map((row) => toTicket(row, urls));
+  }
+
+  async merge(targetId: string, sourceIds: readonly string[]): Promise<void> {
+    const { error } = await this.client.rpc("merge_support_tickets", { p_target: targetId, p_sources: [...sourceIds] });
+    if (error) failOnMerge(error);
+  }
+
+  async unmerge(ticketId: string): Promise<void> {
+    const { error } = await this.client.rpc("unmerge_support_ticket", { p_ticket_id: ticketId });
+    if (error) failOnMerge(error);
   }
 
   /** Sobe um arquivo por vez e registra no chamado. Devolve o nome dos que falharam. */

@@ -148,6 +148,11 @@ export interface SupportTicket extends SupportTicketData {
   events: SupportStatusEvent[];
   /** Última vez que cada pessoa abriu o chamado. */
   views: SupportView[];
+  /** Chamado principal quando este foi juntado a ele; nulo nos chamados soltos. */
+  mergedInto: string | null;
+  mergedAt: string | null;
+  /** Chamados juntados neste, do mais antigo para o mais novo. Vazio nos que não têm nenhum. */
+  merged: SupportTicket[];
 }
 
 /** O suporte é só entre o Jota e a desenvolvedora: ajudante não abre a aba. */
@@ -257,6 +262,28 @@ export const canManageSupportLabels = (role: AdminRole): boolean => role === "de
 
 /** Apagar um chamado (com conversa e anexos) é só da desenvolvedora. */
 export const canDeleteSupportTicket = (role: AdminRole): boolean => role === "developer";
+
+/** Juntar chamados parecidos num só (e separar de novo) é só da desenvolvedora. */
+export const canMergeSupportTickets = (role: AdminRole): boolean => role === "developer";
+
+export const isMergedTicket = (ticket: Pick<SupportTicket, "mergedInto">): boolean => ticket.mergedInto !== null;
+
+/**
+ * Lista com os juntados dentro do principal. Juntado cujo principal não aparece para quem vê (não deveria acontecer:
+ * o banco abre o principal para o Jota) volta a aparecer solto, para nada sumir.
+ */
+export function nestMergedTickets(tickets: readonly SupportTicket[]): SupportTicket[] {
+  const ids = new Set(tickets.map((ticket) => ticket.id));
+  const isChild = (ticket: SupportTicket) => ticket.mergedInto !== null && ids.has(ticket.mergedInto);
+  const byOldest = (a: SupportTicket, b: SupportTicket) => a.createdAt.localeCompare(b.createdAt);
+  return tickets
+    .filter((ticket) => !isChild(ticket))
+    .map((ticket) => ({ ...ticket, merged: tickets.filter((child) => isChild(child) && child.mergedInto === ticket.id).sort(byOldest) }));
+}
+
+/** Principal sugerido ao juntar: o mais antigo, que normalmente tem a conversa mais longa. */
+export const suggestedMergeTarget = (tickets: readonly SupportTicket[]): SupportTicket | null =>
+  [...tickets].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0] ?? null;
 
 // ---------------------------------------------------------------------------
 // Andamento: cada troca de situação fica registrada (quem, de onde, para onde, quando).
