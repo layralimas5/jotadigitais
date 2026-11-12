@@ -5,6 +5,8 @@ import {
   SupportPriorityForbiddenError,
   SupportAttachmentError,
   SupportDeleteForbiddenError,
+  SupportMergeError,
+  SupportMergeForbiddenError,
   SupportLabelForbiddenError,
   SupportStatusForbiddenError,
   SupportVisibilityForbiddenError,
@@ -18,6 +20,8 @@ import {
   canDeleteSupportTicket,
   canChangeSupportVisibility,
   canManageSupportLabels,
+  canMergeSupportTickets,
+  nestMergedTickets,
   canNotifyAdmin,
   hasUnseenFrom,
   isQuotableIn,
@@ -50,7 +54,7 @@ function checkUploads(uploads: readonly SupportUpload[]): void {
 
 /** O banco já esconde os internos do Jota; o filtro aqui cobre o "ver como o Jota" da desenvolvedora. */
 export async function listSupportTickets(deps: AdminDeps, role: AdminRole): Promise<SupportTicket[]> {
-  return sortTickets((await deps.support.listAll()).filter((ticket) => isVisibleTo(ticket, role)));
+  return sortTickets(nestMergedTickets((await deps.support.listAll()).filter((ticket) => isVisibleTo(ticket, role))));
 }
 
 /** Números do suporte para o dashboard de quem mantém o sistema. */
@@ -58,9 +62,25 @@ export async function loadSupportOverview(deps: AdminDeps, role: AdminRole): Pro
   return buildSupportOverview(await listSupportTickets(deps, role));
 }
 
+/** Com os chamados juntados nele, para a conversa deles aparecer dentro do principal. */
 export async function findSupportTicket(deps: AdminDeps, role: AdminRole, id: string): Promise<SupportTicket | null> {
   const ticket = await deps.support.findById(id);
-  return ticket && isVisibleTo(ticket, role) ? ticket : null;
+  if (!ticket || !isVisibleTo(ticket, role)) return null;
+  const merged = await deps.support.listMergedInto(ticket.id);
+  return { ...ticket, merged: merged.filter((child) => isVisibleTo(child, role)) };
+}
+
+/** Junta os chamados escolhidos no principal. Precisa de pelo menos um além dele. */
+export function mergeSupportTickets(deps: AdminDeps, role: AdminRole, targetId: string, sourceIds: readonly string[]): Promise<void> {
+  if (!canMergeSupportTickets(role)) throw new SupportMergeForbiddenError();
+  const sources = [...new Set(sourceIds)].filter((id) => id !== targetId);
+  if (sources.length === 0) throw new SupportMergeError("Escolha pelo menos dois chamados para juntar.");
+  return deps.support.merge(targetId, sources);
+}
+
+export function unmergeSupportTicket(deps: AdminDeps, role: AdminRole, ticketId: string): Promise<void> {
+  if (!canMergeSupportTickets(role)) throw new SupportMergeForbiddenError();
+  return deps.support.unmerge(ticketId);
 }
 
 export interface SupportNotifyOption {

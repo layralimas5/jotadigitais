@@ -395,6 +395,12 @@ export interface SupportTicketRepository {
   setLabel(ticketId: string, labelId: string | null): Promise<void>;
   /** Apaga o chamado com conversa, anexos e histórico. Só a desenvolvedora (o banco confere). */
   remove(ticketId: string): Promise<void>;
+  /** Chamados juntados neste, com endereço temporário dos anexos, para ver a conversa deles dentro do principal. */
+  listMergedInto(ticketId: string): Promise<SupportTicket[]>;
+  /** Junta `sourceIds` em `targetId`. Só a desenvolvedora (o banco confere). */
+  merge(targetId: string, sourceIds: readonly string[]): Promise<void>;
+  /** Solta um chamado juntado: ele volta para a lista como estava. */
+  unmerge(ticketId: string): Promise<void>;
 }
 
 /**

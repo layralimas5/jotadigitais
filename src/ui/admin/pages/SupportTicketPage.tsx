@@ -58,6 +58,7 @@ import { AttachmentPicker, pasteFilesInto, uploadsOf, usePickedFiles } from "../
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { SeenMark } from "../support/SeenIndicator";
 import { LabelPicker } from "../support/LabelPicker";
+import { MergedIntoNotice, MergedTicketsSection } from "../support/MergedTickets";
 import { messageAnchorOf, QuoteInMessage, ReplyingTo, scrollToMessage } from "../support/ReplyQuote";
 import { statusEventText } from "../support/TicketProgress";
 import {
@@ -490,6 +491,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
   });
   return (
     <div className="mt-4 grid gap-6">
+      <MergedIntoNotice ticket={ticket} role={role} onChanged={reload} />
       <header>
         <div className="flex flex-wrap items-center gap-2">
           <SupportStatusBadge status={ticket.status} />
@@ -534,6 +536,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
         </section>
       )}
       {role === "admin" && ticket.status === "waiting" && <WaitingNotice ticket={ticket} role={role} onApproved={reload} />}
+      <MergedTicketsSection ticket={ticket} role={role} onChanged={reload} />
 
       <section aria-labelledby="conversa">
         <h2 id="conversa" className="mb-3 text-xs font-semibold tracking-[0.16em] text-mist uppercase">
@@ -569,7 +572,9 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
         </ol>
       </section>
 
-      <ReplyForm ticket={ticket} role={role} replyingTo={replyingTo} onCancelReply={() => setReplyingToId(null)} onSent={reload} />
+      {!ticket.mergedInto && (
+        <ReplyForm ticket={ticket} role={role} replyingTo={replyingTo} onCancelReply={() => setReplyingToId(null)} onSent={reload} />
+      )}
     </div>
   );
 }

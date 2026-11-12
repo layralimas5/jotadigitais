@@ -718,6 +718,7 @@ async function main() {
   await supportPriorityChecks();
   await webPushChecks();
   await deliveryMessageChecks();
+  await supportMergeChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -2382,4 +2383,61 @@ async function deliveryMessageChecks() {
     await rejects(() => as("anon", null, () => db.query(`select account_id from public.account_profile_logins`)), /permission denied/),
     "visitante não acessa o login dos perfis",
   );
+}
+
+/** Juntar chamados: só a desenvolvedora; juntado não recebe resposta; separar volta como era. */
+async function supportMergeChecks() {
+  console.log("\njuntar chamados");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asDeveloper = (fn) => as("authenticated", DEVELOPER_ID, fn, { sessionId: DEVELOPER_SESSION });
+  const ticket = async (title, createdBy, internal = false) =>
+    (
+      await db.query(
+        `insert into public.support_tickets (title, description, area, created_by, internal) values ($1, 'Descrição do chamado de teste.', 'system', $2, $3) returning id`,
+        [title, createdBy, internal],
+      )
+    ).rows[0].id;
+  const mergedInto = async (id) => (await db.query(`select merged_into from public.support_tickets where id = $1`, [id])).rows[0].merged_into;
+
+  const a = await ticket("Botão de enviar acesso", ADMIN_ID);
+  const b = await ticket("Mensagem de acesso fixa", ADMIN_ID);
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.merge_support_tickets($1, array[$2]::uuid[])`, [a, b])), /forbidden/),
+    "o Jota não junta chamados",
+  );
+  await asDeveloper(() => db.query(`select public.merge_support_tickets($1, array[$2]::uuid[])`, [a, b]));
+  check((await mergedInto(b)) === a, "a desenvolvedora junta um chamado no principal");
+  const visible = await asAdmin(() => db.query(`select id from public.support_tickets where id = $1`, [b]));
+  check(visible.rows.length === 1, "o Jota continua vendo o chamado juntado");
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'mais uma')`, [b])), /ticket_merged/),
+    "chamado juntado não recebe resposta nova",
+  );
+  check(
+    await rejects(() => asDeveloper(() => db.query(`select public.merge_support_tickets($1, array[$2]::uuid[])`, [b, a])), /target_merged/),
+    "não dá para juntar dentro de um chamado já juntado",
+  );
+  check(
+    await rejects(() => asDeveloper(() => db.query(`select public.merge_support_tickets($1, array[$1]::uuid[])`, [a])), /invalid_sources/),
+    "não dá para juntar um chamado nele mesmo",
+  );
+
+  const c = await ticket("Tarefa interna da Lay", DEVELOPER_ID, true);
+  await asDeveloper(() => db.query(`select public.merge_support_tickets($1, array[$2]::uuid[])`, [c, a]));
+  check((await mergedInto(a)) === c && (await mergedInto(b)) === c, "juntar um principal leva junto os que já estavam nele");
+  const opened = await db.query(`select internal from public.support_tickets where id = $1`, [c]);
+  check(opened.rows[0].internal === false, "principal interno passa a ser visto pelo Jota quando recebe chamado dele");
+
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.unmerge_support_ticket($1)`, [b])), /forbidden/),
+    "o Jota não separa chamados",
+  );
+  await asDeveloper(() => db.query(`select public.unmerge_support_ticket($1)`, [b]));
+  const loose = await db.query(`select merged_into, merged_at from public.support_tickets where id = $1`, [b]);
+  check(loose.rows[0].merged_into === null && loose.rows[0].merged_at === null, "separar devolve o chamado para a lista");
+  await asAdmin(() => db.query(`insert into public.support_replies (ticket_id, body) values ($1, 'Voltou a conversar aqui.')`, [b]));
+  check(true, "chamado separado volta a receber resposta");
+
+  await db.query(`delete from public.support_tickets where id = $1`, [c]);
+  check((await mergedInto(a)) === null, "apagar o principal solta os chamados juntados nele");
 }
