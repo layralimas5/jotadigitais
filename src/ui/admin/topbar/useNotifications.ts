@@ -2,10 +2,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAdminDeps } from "../admin-view";
 import { dismissNotifications, loadNotifications } from "@/application/workspace-use-cases";
 import type { AppNotification } from "@/domain/notification";
+import { playPlim, plimEnabled } from "../pwa/plim";
+import { usePushReceived } from "../pwa/usePanelApp";
 
 const REFRESH_MS = 60_000;
 
 type State = { status: "loading" } | { status: "ready"; items: AppNotification[] } | { status: "error" };
+
+/**
+ * Toca o "plim" quando aparece aviso guardado no banco que não estava na leitura anterior.
+ * A primeira leitura só memoriza (abrir o painel não toca); lembretes calculados na hora não tocam.
+ */
+function useNewNotificationChime() {
+  const known = useRef<Set<string> | null>(null);
+  return useCallback((items: readonly AppNotification[]) => {
+    const keys = items.filter((item) => item.kind !== "reminder").map((item) => item.key);
+    const previous = known.current;
+    if (previous && keys.some((key) => !previous.has(key)) && plimEnabled()) playPlim();
+    known.current = new Set([...(previous ?? []), ...keys]);
+  }, []);
+}
 
 /**
  * Notificações do sininho. Atualiza sozinho a cada minuto e quando a aba volta a ficar visível.
@@ -16,6 +32,7 @@ export function useNotifications(onError: (message: string) => void) {
   const [state, setState] = useState<State>({ status: "loading" });
   const mounted = useRef(true);
   const onErrorRef = useRef(onError);
+  const chimeOnNew = useNewNotificationChime();
 
   useEffect(() => {
     onErrorRef.current = onError;
@@ -24,6 +41,7 @@ export function useNotifications(onError: (message: string) => void) {
   const refresh = useCallback(async () => {
     try {
       const items = await loadNotifications(deps);
+      chimeOnNew(items);
       if (mounted.current) setState({ status: "ready", items });
     } catch (error) {
       console.error("Falha ao carregar as notificações", error);
@@ -43,6 +61,8 @@ export function useNotifications(onError: (message: string) => void) {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refresh]);
+
+  usePushReceived(() => void refresh());
 
   const dismiss = useCallback(
     async (keys: readonly string[]) => {

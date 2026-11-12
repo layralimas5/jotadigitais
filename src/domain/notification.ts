@@ -5,12 +5,13 @@ import type { Order } from "./order";
 /**
  * O sininho junta três origens:
  * - `order`: pedido novo do site, gravado pelo banco na hora em que entra;
+ * - `payment`: pagamento confirmado sozinho (cartão ou Pix automático), gravado pelo banco;
  * - `news`: novidades do sistema, publicadas por quem cuida dele;
  * - `privacy`: solicitação LGPD aberta em Meus dados, gravada pelo banco;
  * - `support`: a Layra abriu, respondeu ou viu um chamado (só para o Jota);
  * - `reminder`: lembretes calculados na hora a partir dos pedidos e do CRM.
  */
-export type NotificationKind = "order" | "news" | "privacy" | "security" | "support" | "reminder";
+export type NotificationKind = "order" | "payment" | "news" | "privacy" | "security" | "support" | "reminder";
 
 export interface AppNotification {
   /** Identifica a notificação para apagar: o mesmo aviso não volta depois de apagado. */
@@ -26,7 +27,7 @@ export interface AppNotification {
 /** Notificação guardada no banco (pedido novo, novidade ou solicitação LGPD). */
 export interface StoredNotification {
   id: string;
-  kind: Extract<NotificationKind, "order" | "news" | "privacy" | "security" | "support">;
+  kind: Exclude<NotificationKind, "reminder">;
   title: string;
   body: string | null;
   link: string | null;

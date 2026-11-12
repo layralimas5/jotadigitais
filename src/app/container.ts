@@ -29,6 +29,8 @@ import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-se
 import { DemoSupportTicketRepository } from "@/infrastructure/demo/demo-support";
 import { DemoAccessRepository } from "@/infrastructure/demo/demo-access";
 import { DemoStorageUsageReader } from "@/infrastructure/demo/demo-storage-usage";
+import { DemoPushService } from "@/infrastructure/demo/demo-push";
+import { SupabasePushService } from "@/infrastructure/supabase/supabase-push";
 import { SupabaseStorageUsageReader } from "@/infrastructure/supabase/supabase-storage-usage";
 import { GoogleCalendarService } from "@/infrastructure/google-calendar";
 import { DemoPaymentGateway } from "@/infrastructure/demo/demo-payment-gateway";
@@ -114,6 +116,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
       notifications: new SupabaseNotificationRepository(client),
+      push: new SupabasePushService(client, backendConfig.vapidPublicKey),
       calendar: new GoogleCalendarService(backendConfig.googleClientId),
       images: new SupabaseImageStorage(client),
       privacy: new SupabasePrivacyRepository(client),
@@ -153,6 +156,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     users,
     profiles: new DevServerProfileLookupService(),
     notifications: new DemoNotificationRepository(db),
+    push: new DemoPushService(),
     calendar: new GoogleCalendarService(backendConfig.googleClientId),
     images: new DemoImageStorage(),
     privacy: new DemoPrivacyRepository(db),

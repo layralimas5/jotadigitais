@@ -18,6 +18,7 @@ import { AttentionCount, SupportAttentionProvider, useSupportAttention } from ".
 import { AdminViewProvider, useAdminView } from "./admin-view";
 import { PreviewBanner, SidebarPreviewEntry } from "./preview/PreviewControls";
 import { usePreviewSubmitGuard } from "./preview/usePreviewSubmitGuard";
+import { usePanelApp } from "./pwa/usePanelApp";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 
@@ -309,6 +310,7 @@ export function AdminProtected() {
 
 export function AdminRoot() {
   useNoIndex();
+  usePanelApp();
   return (
     <AdminSessionProvider>
       <AdminViewProvider>

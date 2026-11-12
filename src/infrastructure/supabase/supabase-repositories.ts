@@ -1151,7 +1151,7 @@ const MAX_NOTIFICATIONS = 50;
 
 const notificationRowSchema = z.object({
   id: z.string(),
-  kind: z.enum(["order", "news", "privacy", "security", "support"]),
+  kind: z.enum(["order", "payment", "news", "privacy", "security", "support"]),
   title: z.string(),
   body: z.string().nullable(),
   link: z.string().nullable(),
