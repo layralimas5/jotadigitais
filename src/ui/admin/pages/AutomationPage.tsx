@@ -1,5 +1,5 @@
 import { Clock, MessageCircle, RotateCcw } from "lucide-react";
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { siteConfig } from "@/app/config";
 import { getMessageTemplates, saveMessageTemplates } from "@/application/admin-use-cases";
 import { fieldErrorsOf, messageTemplatesSchema } from "@/application/schemas";
@@ -19,6 +19,7 @@ import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
+import { useInsertAtCursor } from "../lib/use-insert-at-cursor";
 import { useToast } from "../toast";
 
 const SAMPLE_VALUES: TemplateValues = {
@@ -30,6 +31,10 @@ const SAMPLE_VALUES: TemplateValues = {
   rede: "TikTok",
   detalhes: ["• 1.259 seguidores", "• 2.123 curtidas", "• TikTok Shop: piloto", "• Monetização: não ativa"].join("\n"),
   link: `${siteConfig.url}/contas/achadinhos-da-bia`,
+  email: "achadinhos.dabia@gmail.com",
+  senha: "Exemplo#2026",
+  usuario: "achadinhos.dabia",
+  senha_perfil: "Perfil#2026",
 };
 
 interface TemplateCardProps {
@@ -42,22 +47,9 @@ interface TemplateCardProps {
 function TemplateCard({ templateKey, value, error, onChange }: TemplateCardProps) {
   const info = MESSAGE_TEMPLATE_INFO[templateKey];
   const id = useId();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { ref: textareaRef, insert: insertToken } = useInsertAtCursor(value, onChange);
   const isDefault = value === DEFAULT_MESSAGE_TEMPLATES[templateKey];
-
-  /** Coloca a variável onde está o cursor, sem apagar o que foi escrito. */
-  const insert = (variable: TemplateVariable) => {
-    const field = textareaRef.current;
-    const token = `{${variable}}`;
-    if (!field) return onChange(`${value}${token}`);
-    const start = field.selectionStart ?? value.length;
-    const end = field.selectionEnd ?? value.length;
-    onChange(`${value.slice(0, start)}${token}${value.slice(end)}`);
-    requestAnimationFrame(() => {
-      field.focus();
-      field.setSelectionRange(start + token.length, start + token.length);
-    });
-  };
+  const insert = (variable: TemplateVariable) => insertToken(`{${variable}}`);
 
   return (
     <section aria-labelledby={`${id}-title`} className="rounded-3xl border border-line bg-surface/60 p-5 sm:p-6">

@@ -1,11 +1,20 @@
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteAccount, findAccount, findAccountAccess, listPartners, logAccountExpense, saveAccount, saveAccountAccess } from "@/application/admin-use-cases";
+import {
+  deleteAccount,
+  findAccount,
+  findDeliveryLogin,
+  listPartners,
+  logAccountExpense,
+  saveAccount,
+  saveAccountAccess,
+  saveProfileLogin,
+} from "@/application/admin-use-cases";
 import type { Cents } from "@/domain/money";
 import { ACCOUNT_STATUSES, MAX_MOCKUP_POSTS, MONETIZED_PLATFORMS, type Account, type AccountData, type AccountStatus } from "@/domain/account";
 import { helperCan } from "@/domain/admin-user";
-import type { AccountAccess } from "@/domain/email-account";
+import { EMPTY_DELIVERY_LOGIN, type DeliveryLogin } from "@/domain/delivery-login";
 import { ACCOUNT_STATUS_LABEL, galleryPlanOf, printLabelOf } from "@/ui/lib/account-presenter";
 import { AUDIENCE_LABEL, PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
@@ -16,8 +25,12 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
 import {
   AccountAccessSection,
+  ACCESS_FIELD_ORDER,
   accessFormOf,
-  sameAccess,
+  emailAccessInputOf,
+  profileLoginInputOf,
+  sameEmailAccess,
+  sameProfileLogin,
   useCanEditAccess,
   validateAccess,
   type AccessFormErrors,
@@ -308,8 +321,8 @@ function focusFirstError(form: HTMLFormElement, errors: AccountFormErrors) {
 
 interface AccountEditorProps {
   account: Account | null;
-  /** Login salvo na aba E-mails. `undefined` quando quem edita não tem acesso às senhas: a seção nem aparece. */
-  initialAccess: AccountAccess | null | undefined;
+  /** E-mail e login do perfil. `undefined` quando quem edita não tem acesso às senhas: a seção nem aparece. */
+  initialAccess: DeliveryLogin | undefined;
 }
 
 function AccountEditor({ account, initialAccess }: AccountEditorProps) {
@@ -323,7 +336,11 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
   const [accessValues, setAccessValues] = useState<AccessFormValues>(accessStart);
   const [accessErrors, setAccessErrors] = useState<AccessFormErrors>({});
   const save = useMutation((deps, data: AccountData) => saveAccount(deps, account?.id ?? null, data));
-  const saveAccess = useMutation((deps, saved: Account, raw: AccessFormValues) => saveAccountAccess(deps, saved, raw));
+  const saveAccess = useMutation(async (deps, saved: Account, values: AccessFormValues) => {
+    if (!sameEmailAccess(values, accessStart)) await saveAccountAccess(deps, saved, emailAccessInputOf(values));
+    if (!sameProfileLogin(values, accessStart)) await saveProfileLogin(deps, saved.id, profileLoginInputOf(values));
+    return true;
+  });
   const remove = useMutation(async (deps, id: string) => {
     await deleteAccount(deps, id);
     return true;
@@ -345,7 +362,10 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
     const accessInvalid = Object.values(nextAccessErrors).some(Boolean);
     if (!result.data || accessInvalid) {
       if (!result.data) focusFirstError(formElement, result.errors);
-      else formElement.querySelector<HTMLElement>(`[name="access.${nextAccessErrors.email ? "email" : "password"}"]`)?.focus();
+      else {
+        const field = ACCESS_FIELD_ORDER.find((name) => nextAccessErrors[name]);
+        if (field) formElement.querySelector<HTMLElement>(`[name="access.${field}"]`)?.focus();
+      }
       toast.show("Revise os campos marcados em vermelho.", "error");
       return;
     }
@@ -354,10 +374,10 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
       toast.show("Não foi possível salvar. Veja o aviso no formulário.", "error");
       return;
     }
-    if (showAccess && !sameAccess(accessValues, accessStart)) {
+    if (showAccess && !(sameEmailAccess(accessValues, accessStart) && sameProfileLogin(accessValues, accessStart))) {
       const accessSaved = await saveAccess.run(saved, accessValues);
       if (accessSaved === undefined) {
-        toast.show(`Conta ${saved.handle} salva, mas o e-mail e a senha não. Tente salvar de novo.`, "error");
+        toast.show(`Conta ${saved.handle} salva, mas o login dela não. Tente salvar de novo.`, "error");
         if (!account) navigate(`/admin/contas/${saved.id}`, { replace: true });
         return;
       }
@@ -577,7 +597,7 @@ export default function AccountEditorPage() {
   const canEditAccess = useCanEditAccess();
   const account = useAdminQuery((deps) => (id ? findAccount(deps, id) : Promise.resolve(null)), id ?? "new");
   const access = useAdminQuery(
-    (deps) => (id && canEditAccess ? findAccountAccess(deps, id) : Promise.resolve(null)),
+    (deps) => (id && canEditAccess ? findDeliveryLogin(deps, id) : Promise.resolve(EMPTY_DELIVERY_LOGIN)),
     `account-access:${id ?? "new"}:${canEditAccess ? "on" : "off"}`,
   );
 

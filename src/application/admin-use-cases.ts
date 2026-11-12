@@ -10,6 +10,9 @@ import { ACCOUNT_EXPENSE_CATEGORY, accountBalanceOf, type AccountBalance, type E
 import type { Cents } from "@/domain/money";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
+import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
+import { TooManyDeliveryMessagesError } from "@/domain/errors";
 import { buyerOrderOf, canTransition, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
@@ -23,7 +26,9 @@ import type {
   AdminCustomerRepository,
   AdminCouponRepository,
   AdminCountryRepository,
+  AdminDeliveryMessageRepository,
   AdminEmailAccountRepository,
+  AdminProfileLoginRepository,
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
@@ -55,6 +60,8 @@ import type {
 } from "./ports";
 import {
   accountAccessSchema,
+  deliveryMessageSchema,
+  profileLoginSchema,
   accountDataSchema,
   couponDataSchema,
   changePasswordSchema,
@@ -96,6 +103,8 @@ export interface AdminDeps {
   revenues: AdminRevenueRepository;
   partners: AdminPartnerRepository;
   emailAccounts: AdminEmailAccountRepository;
+  profileLogins: AdminProfileLoginRepository;
+  deliveryMessages: AdminDeliveryMessageRepository;
   coupons: AdminCouponRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;
@@ -250,6 +259,29 @@ export function getMessageTemplates(deps: AdminDeps): Promise<MessageTemplates> 
 
 export function saveMessageTemplates(deps: AdminDeps, raw: unknown): Promise<MessageTemplates> {
   return deps.templates.save(parseOrThrow(messageTemplatesSchema, raw));
+}
+
+/** Troca só a mensagem padrão de entrega ("Conta entregue"), mantendo as outras como estão. */
+export async function saveDefaultDeliveryMessage(deps: AdminDeps, body: unknown): Promise<MessageTemplates> {
+  const current = await deps.templates.getAll();
+  return saveMessageTemplates(deps, { ...current, order_delivered: body });
+}
+
+export function listDeliveryMessages(deps: AdminDeps): Promise<DeliveryMessage[]> {
+  return deps.deliveryMessages.listAll();
+}
+
+/** Nova mensagem salva, ou troca o texto de uma que já existe (com `id`). */
+export async function saveDeliveryMessage(deps: AdminDeps, id: string | null, raw: unknown): Promise<DeliveryMessage> {
+  const data = parseOrThrow(deliveryMessageSchema, raw);
+  if (id) return deps.deliveryMessages.update(id, data);
+  const saved = await deps.deliveryMessages.listAll();
+  if (saved.length >= MAX_SAVED_DELIVERY_MESSAGES) throw new TooManyDeliveryMessagesError(MAX_SAVED_DELIVERY_MESSAGES);
+  return deps.deliveryMessages.create(data);
+}
+
+export function deleteDeliveryMessage(deps: AdminDeps, id: string): Promise<void> {
+  return deps.deliveryMessages.remove(id);
 }
 
 export interface FinanceData {
@@ -435,6 +467,27 @@ export function deleteCoupon(deps: AdminDeps, id: string): Promise<void> {
 /** Login da conta (e-mail e senha), guardado na aba E-mails e ligado a ela. */
 export async function findAccountAccess(deps: AdminDeps, accountId: string): Promise<AccountAccess | null> {
   return accessOf(await deps.emailAccounts.findByAccountId(accountId));
+}
+
+/** Usuário e senha do perfil na rede. */
+export function findProfileLogin(deps: AdminDeps, accountId: string): Promise<ProfileLogin | null> {
+  return deps.profileLogins.findByAccountId(accountId);
+}
+
+/** Usuário e senha do perfil na ficha da conta. Os dois vazios apagam o que estava anotado. */
+export async function saveProfileLogin(deps: AdminDeps, accountId: string, raw: unknown): Promise<ProfileLogin | null> {
+  const login = parseOrThrow(profileLoginSchema, raw);
+  if (login.username === null && login.password === null) {
+    await deps.profileLogins.remove(accountId);
+    return null;
+  }
+  return deps.profileLogins.save(accountId, login);
+}
+
+/** Tudo que vai na mensagem de entrega: e-mail da conta com a senha dele e o login do perfil. */
+export async function findDeliveryLogin(deps: AdminDeps, accountId: string): Promise<DeliveryLogin> {
+  const [email, profile] = await Promise.all([findAccountAccess(deps, accountId), findProfileLogin(deps, accountId)]);
+  return { email, profile };
 }
 
 /**

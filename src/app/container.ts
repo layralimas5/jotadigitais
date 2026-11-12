@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { AdminDeps } from "@/application/admin-use-cases";
 import type { UseCaseDeps } from "@/application/use-cases";
 import { DemoDatabase } from "@/infrastructure/demo/demo-database";
+import { DemoDeliveryMessageRepository, DemoProfileLoginRepository } from "@/infrastructure/demo/demo-delivery";
+import { SupabaseDeliveryMessageRepository, SupabaseProfileLoginRepository } from "@/infrastructure/supabase/supabase-delivery";
 import { DemoLegalDocumentRepository } from "@/infrastructure/demo/demo-legal";
 import {
   DemoAccountRepository,
@@ -109,6 +111,8 @@ function supabaseContainer(url: string, anonKey: string): Container {
       revenues: new SupabaseRevenueRepository(client),
       partners: new SupabasePartnerRepository(client),
       emailAccounts: new SupabaseEmailAccountRepository(client),
+      profileLogins: new SupabaseProfileLoginRepository(client),
+      deliveryMessages: new SupabaseDeliveryMessageRepository(client),
       coupons: new SupabaseCouponRepository(client),
       countries,
       users: new SupabaseAdminUserRepository(client),
@@ -149,6 +153,8 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     revenues: new DemoRevenueRepository(db),
     partners: new DemoPartnerRepository(db),
     emailAccounts: new DemoEmailAccountRepository(db),
+    profileLogins: new DemoProfileLoginRepository(db),
+    deliveryMessages: new DemoDeliveryMessageRepository(db),
     coupons: new DemoCouponRepository(db),
     users,
     profiles: new DevServerProfileLookupService(),
