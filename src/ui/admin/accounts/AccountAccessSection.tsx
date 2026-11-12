@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { canUseStoreArea } from "@/domain/admin-user";
-import type { AccountAccess } from "@/domain/email-account";
-import { accountAccessSchema, fieldErrorsOf } from "@/application/schemas";
+import type { DeliveryLogin } from "@/domain/delivery-login";
+import { accountAccessSchema, fieldErrorsOf, profileLoginSchema } from "@/application/schemas";
 import { TextField } from "@/ui/components/form/Fields";
 import { FormSection } from "../components/AdminUi";
 import { CopyButton } from "../emails/CopyButton";
@@ -12,22 +12,38 @@ import { useViewAccess } from "../admin-view";
 export interface AccessFormValues {
   email: string;
   password: string;
+  username: string;
+  profilePassword: string;
 }
 
 export type AccessFormErrors = Partial<Record<keyof AccessFormValues, string>>;
 
-export const accessFormOf = (access: AccountAccess | null): AccessFormValues => ({
-  email: access?.email ?? "",
-  password: access?.password ?? "",
+export const accessFormOf = (login: DeliveryLogin | null): AccessFormValues => ({
+  email: login?.email?.email ?? "",
+  password: login?.email?.password ?? "",
+  username: login?.profile?.username ?? "",
+  profilePassword: login?.profile?.password ?? "",
 });
 
-export const sameAccess = (a: AccessFormValues, b: AccessFormValues) => a.email.trim().toLowerCase() === b.email.trim().toLowerCase() && a.password === b.password;
+export const sameEmailAccess = (a: AccessFormValues, b: AccessFormValues) =>
+  a.email.trim().toLowerCase() === b.email.trim().toLowerCase() && a.password === b.password;
+
+export const sameProfileLogin = (a: AccessFormValues, b: AccessFormValues) =>
+  a.username.trim() === b.username.trim() && a.profilePassword === b.profilePassword;
+
+export const emailAccessInputOf = (values: AccessFormValues) => ({ email: values.email, password: values.password });
+
+export const profileLoginInputOf = (values: AccessFormValues) => ({ username: values.username, password: values.profilePassword });
+
+/** Ordem dos campos na tela, para levar o foco ao primeiro com erro. */
+export const ACCESS_FIELD_ORDER = ["email", "password", "username", "profilePassword"] as const;
 
 export function validateAccess(values: AccessFormValues): AccessFormErrors {
-  const result = accountAccessSchema.safeParse(values);
-  if (result.success) return {};
-  const errors = fieldErrorsOf(result.error);
-  return { email: errors.email, password: errors.password };
+  const email = accountAccessSchema.safeParse(emailAccessInputOf(values));
+  const profile = profileLoginSchema.safeParse(profileLoginInputOf(values));
+  const emailErrors = email.success ? {} : fieldErrorsOf(email.error);
+  const profileErrors = profile.success ? {} : fieldErrorsOf(profile.error);
+  return { email: emailErrors.email, password: emailErrors.password, username: profileErrors.username, profilePassword: profileErrors.password };
 }
 
 /** Só quem abre a aba E-mails (admin ou ajudante com essa área) vê e edita o login da conta. */
@@ -42,18 +58,22 @@ interface AccountAccessSectionProps {
   onChange: (values: AccessFormValues) => void;
 }
 
-/** E-mail e senha da conta. Salvos na aba E-mails, ligados a esta conta, e enviados a quem comprar. */
+/**
+ * Login da conta: o e-mail (salvo na aba E-mails, ligado a esta conta) e o usuário e a senha do perfil na rede.
+ * Tudo vai para quem comprar, na mensagem de entrega do WhatsApp.
+ */
 export function AccountAccessSection({ values, errors, onChange }: AccountAccessSectionProps) {
   const copy = useCopy();
   const email = values.email.trim();
+  const username = values.username.trim();
   return (
     <FormSection
       title="Acesso da conta"
-      description="O e-mail e a senha que vão para quem comprar, na mensagem de entrega do WhatsApp. Ficam guardados na aba E-mails, ligados a esta conta, com a senha cifrada."
+      description="O que vai para quem comprar, na mensagem de entrega do WhatsApp. As senhas ficam guardadas cifradas."
     >
       <div className="flex items-end gap-1.5">
         <TextField
-          label="E-mail de login"
+          label="E-mail da conta"
           name="access.email"
           type="email"
           inputMode="email"
@@ -71,12 +91,37 @@ export function AccountAccessSection({ values, errors, onChange }: AccountAccess
         {email && !errors.email && <CopyButton label="Copiar e-mail" className="mb-1.5" onCopy={() => void copy(email, "E-mail copiado.")} />}
       </div>
       <SecretField
-        label="Senha"
+        label="Senha do e-mail"
         name="access.password"
         value={values.password}
         onChange={(password) => onChange({ ...values, password })}
         error={errors.password}
         hint="Pode deixar em branco e anotar depois."
+      />
+      <div className="flex items-end gap-1.5 border-t border-line pt-4">
+        <TextField
+          label="Usuário do perfil"
+          name="access.username"
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={100}
+          placeholder="usuario.do.perfil"
+          className="min-w-0 flex-1"
+          value={values.username}
+          onChange={(event) => onChange({ ...values, username: event.target.value })}
+          error={errors.username}
+        />
+        {username && !errors.username && <CopyButton label="Copiar usuário" className="mb-1.5" onCopy={() => void copy(username, "Usuário copiado.")} />}
+      </div>
+      <SecretField
+        label="Senha do perfil"
+        name="access.profilePassword"
+        value={values.profilePassword}
+        onChange={(profilePassword) => onChange({ ...values, profilePassword })}
+        error={errors.profilePassword}
+        hint="A senha de entrar na rede. Pode deixar em branco e anotar depois."
       />
       <p className="text-xs text-mist">
         Recuperação e anotações ficam na{" "}

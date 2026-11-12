@@ -10,6 +10,8 @@ import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
+import type { ProfileLogin } from "@/domain/delivery-login";
 import type { StoredNotification } from "@/domain/notification";
 import type { PushDeviceStatus, PushKind } from "@/domain/push";
 import type { Customer, Order, OrderStatus, PaymentMethod } from "@/domain/order";
@@ -314,6 +316,21 @@ export interface AdminPartnerRepository {
   update(id: string, data: PartnerData): Promise<Partner>;
   /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
   remove(id: string): Promise<void>;
+}
+
+/** Mensagens de entrega salvas pelo Jota, além da padrão. */
+export interface AdminDeliveryMessageRepository {
+  listAll(): Promise<DeliveryMessage[]>;
+  create(data: DeliveryMessageData): Promise<DeliveryMessage>;
+  update(id: string, data: DeliveryMessageData): Promise<DeliveryMessage>;
+  remove(id: string): Promise<void>;
+}
+
+/** Usuário e senha do perfil na rede, um por conta do estoque. */
+export interface AdminProfileLoginRepository {
+  findByAccountId(accountId: string): Promise<ProfileLogin | null>;
+  save(accountId: string, login: ProfileLogin): Promise<ProfileLogin>;
+  remove(accountId: string): Promise<void>;
 }
 
 export interface AdminEmailAccountRepository {

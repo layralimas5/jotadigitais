@@ -717,6 +717,7 @@ async function main() {
   await supportForwardChecks();
   await supportPriorityChecks();
   await webPushChecks();
+  await deliveryMessageChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -2334,4 +2335,51 @@ async function webPushChecks() {
 
   await asAdmin(() => db.query(`select public.delete_push_subscription($1)`, [endpoint]));
   check((await db.query(`select count(*)::int as n from public.push_subscriptions`)).rows[0].n === 0, "desligar apaga a inscrição do aparelho");
+}
+
+/** Entrega da conta: mensagens salvas para quem cuida dos pedidos e login do perfil com a senha cifrada. */
+async function deliveryMessageChecks() {
+  console.log("\nmensagens de entrega e login do perfil");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asDeveloper = (fn) => as("authenticated", DEVELOPER_ID, fn, { sessionId: DEVELOPER_SESSION });
+
+  const message = await asAdmin(() =>
+    db.query(`insert into public.delivery_messages (name, body) values ('Instagram', 'Oi, {nome}! *Usuário:* {usuario}') returning id, created_by`),
+  );
+  check(Boolean(message.rows[0]?.id) && message.rows[0].created_by === ADMIN_ID, "admin salva uma mensagem de entrega com autor");
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.delivery_messages (name, body) values ('   ', 'texto')`)), /check constraint/),
+    "mensagem sem nome é recusada",
+  );
+  const strangerMessages = await as("authenticated", STRANGER_ID, () => db.query(`select id from public.delivery_messages`));
+  check(strangerMessages.rows.length === 0, "quem não é da equipe não vê as mensagens salvas");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select id from public.delivery_messages`)), /permission denied/),
+    "visitante não acessa as mensagens salvas",
+  );
+
+  const account = (await db.query(`select id from public.accounts limit 1`)).rows[0];
+  const saved = await asAdmin(() =>
+    db.query(
+      `insert into public.account_profile_logins (account_id, username, password) values ($1, 'perfil.teste', ' Perf!l 2026 ') returning password`,
+      [account.id],
+    ),
+  );
+  check(saved.rows[0]?.password === null, "senha do perfil não fica aberta na tabela");
+  const stored = await db.query(`select password_encrypted is not null as encrypted from public.account_profile_logins where account_id = $1`, [account.id]);
+  check(stored.rows[0]?.encrypted === true, "senha do perfil fica gravada cifrada");
+  const plain = (runner) =>
+    runner(() => db.query(`select l.username, l.profile_password_plain as password from public.account_profile_logins l where account_id = $1`, [account.id]));
+  const opened = (await plain(asAdmin)).rows[0];
+  check(opened?.username === "perfil.teste" && opened.password === " Perf!l 2026 ", "admin lê usuário e senha do perfil como foram digitados");
+  await asAdmin(() => db.query(`update public.account_profile_logins set username = 'perfil.novo' where account_id = $1`, [account.id]));
+  check((await plain(asAdmin)).rows[0]?.password === " Perf!l 2026 ", "trocar o usuário não apaga a senha do perfil");
+  const developerView = (await plain(asDeveloper)).rows[0];
+  check(developerView?.password === null, "a desenvolvedora não abre a senha do perfil");
+  const strangerLogins = await as("authenticated", STRANGER_ID, () => db.query(`select account_id from public.account_profile_logins`));
+  check(strangerLogins.rows.length === 0, "quem não é da equipe não vê o login dos perfis");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select account_id from public.account_profile_logins`)), /permission denied/),
+    "visitante não acessa o login dos perfis",
+  );
 }

@@ -15,6 +15,7 @@ import { COUNTRY_CODE_PATTERN, DEFAULT_COUNTRY } from "@/domain/country";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
+import { MAX_DELIVERY_MESSAGE_NAME } from "@/domain/delivery-message";
 import {
   COUPON_CODE_PATTERN,
   COUPON_KINDS,
@@ -429,6 +430,16 @@ export const accountAccessSchema = z.object({
 
 export type AccountAccessInput = z.infer<typeof accountAccessSchema>;
 
+/** Login do perfil na ficha da conta. Usuário e senha vazios querem dizer que ainda não foram anotados. */
+export const profileLoginSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .max(100, "Use no máximo 100 caracteres.")
+    .transform((value) => value || null),
+  password: emailAccountDataSchema.shape.password,
+});
+
 // ---------------------------------------------------------------------------
 // Cupons (mesmas regras da tabela coupons)
 // ---------------------------------------------------------------------------
@@ -519,6 +530,15 @@ const templateBody = z
   .trim()
   .min(1, "Escreva a mensagem.")
   .max(MAX_TEMPLATE_LENGTH, `Use no máximo ${MAX_TEMPLATE_LENGTH} caracteres.`);
+
+export const deliveryMessageSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Dê um nome para achar a mensagem depois.")
+    .max(MAX_DELIVERY_MESSAGE_NAME, `Use no máximo ${MAX_DELIVERY_MESSAGE_NAME} caracteres.`),
+  body: templateBody,
+});
 
 export const messageTemplatesSchema = z.object({
   order_received: templateBody,

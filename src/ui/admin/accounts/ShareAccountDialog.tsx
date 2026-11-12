@@ -1,10 +1,10 @@
 import { Check, Copy, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { siteConfig } from "@/app/config";
-import { findAccountAccess, findAccountBuyer, listLeads } from "@/application/admin-use-cases";
+import { findAccountBuyer, findDeliveryLogin, listLeads } from "@/application/admin-use-cases";
 import type { Account } from "@/domain/account";
 import { offerValuesOf } from "@/domain/account-offer";
-import type { AccountAccess } from "@/domain/email-account";
+import { EMPTY_DELIVERY_LOGIN, hasProfileLogin, type DeliveryLogin } from "@/domain/delivery-login";
 import { isOpenLead, type Lead } from "@/domain/lead";
 import { fillTemplate } from "@/domain/message-template";
 import type { Order, OrderStatus } from "@/domain/order";
@@ -43,7 +43,7 @@ const MODE_OPTIONS: readonly (readonly [MessageMode, string])[] = [
   ["offer", "Oferecer a conta"],
 ];
 
-function useShareMessage(account: Account, name: string, mode: MessageMode, buyer: Order | null, access: AccountAccess | null) {
+function useShareMessage(account: Account, name: string, mode: MessageMode, buyer: Order | null, access: DeliveryLogin) {
   const templates = useMessageTemplates();
   const generated = useMemo(() => {
     if (mode === "buyer" && buyer) return buyerMessage(templates, buyer, access);
@@ -110,8 +110,8 @@ interface ShareFormProps {
   account: Account;
   /** Pedido de quem comprou a conta pelo site: nome, WhatsApp e mensagem já vêm dele. */
   buyer: Order | null;
-  /** E-mail e senha da aba E-mails, que entram na mensagem de entrega. */
-  access: AccountAccess | null;
+  /** E-mail da conta e login do perfil, que entram na mensagem de entrega. */
+  access: DeliveryLogin;
   onClose: () => void;
 }
 
@@ -198,9 +198,9 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
           onChange={(event) => offer.edit(event.target.value)}
           hint={`O texto padrão fica em Automação, no modelo “${messageModelOf(mode, buyer)}”.`}
         />
-        {buyerMode && buyer && buyer.status !== "awaiting_payment" && !access && (
+        {buyerMode && buyer && buyer.status !== "awaiting_payment" && !access.email && !hasProfileLogin(access.profile) && (
           <p className="rounded-xl border border-amber-300/30 bg-amber-300/[0.06] px-4 py-3 text-xs text-amber-100">
-            Esta conta ainda não tem e-mail e senha cadastrados. Preencha em “Acesso da conta”, na ficha dela, para irem na mensagem.
+            Esta conta ainda não tem login cadastrado. Preencha em “Acesso da conta”, na ficha dela, para irem na mensagem.
           </p>
         )}
         {offer.isEdited && (
@@ -241,7 +241,7 @@ function messageModelOf(mode: MessageMode, buyer: Order | null): string {
 /** Busca quem comprou a conta (e o login dela) antes de montar o formulário, para ele já abrir preenchido. */
 function ShareContent({ account, onClose }: { account: Account; onClose: () => void }) {
   const buyer = useAdminQuery((deps) => findAccountBuyer(deps, account.id), `account-buyer:${account.id}`);
-  const access = useAdminQuery((deps) => findAccountAccess(deps, account.id), `account-access-share:${account.id}`);
+  const access = useAdminQuery((deps) => findDeliveryLogin(deps, account.id), `account-access-share:${account.id}`);
   if (buyer.status === "loading" || access.status === "loading") {
     return (
       <p role="status" className="py-10 text-center text-sm text-mist">
@@ -250,12 +250,12 @@ function ShareContent({ account, onClose }: { account: Account; onClose: () => v
     );
   }
   if (buyer.status === "error") console.error("Não foi possível buscar o comprador da conta", buyer.error);
-  if (access.status === "error") console.error("Não foi possível buscar o e-mail e a senha da conta", access.error);
+  if (access.status === "error") console.error("Não foi possível buscar o login da conta", access.error);
   return (
     <ShareForm
       account={account}
       buyer={buyer.status === "success" ? buyer.data : null}
-      access={access.status === "success" ? access.data : null}
+      access={access.status === "success" ? access.data : EMPTY_DELIVERY_LOGIN}
       onClose={onClose}
     />
   );
