@@ -46,6 +46,8 @@ interface PushPayload {
   body: string;
   url: string;
   tag: string;
+  /** Número no ícone do app: chamados do Suporte esperando o Jota. Só vai para os aparelhos dele. */
+  badge?: number;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -77,7 +79,7 @@ function canSee(staff: Staff, notification: Notification): boolean {
   );
 }
 
-async function recipientsOf(admin: SupabaseClient, notification: Notification): Promise<string[]> {
+async function recipientsOf(admin: SupabaseClient, notification: Notification): Promise<Staff[]> {
   const [{ data: staff, error: staffError }, { data: preferences, error: prefError }] = await Promise.all([
     admin.from("admin_users").select("user_id, role, permissions"),
     admin.from("push_preferences").select("user_id, kinds"),
@@ -87,8 +89,18 @@ async function recipientsOf(admin: SupabaseClient, notification: Notification): 
   const kindsOf = new Map((preferences ?? []).map((row: { user_id: string; kinds: string[] }) => [row.user_id, row.kinds]));
   return (staff as Staff[])
     .filter((person) => canSee(person, notification))
-    .filter((person) => kindsOf.get(person.user_id)?.includes(notification.kind) ?? true)
-    .map((person) => person.user_id);
+    .filter((person) => kindsOf.get(person.user_id)?.includes(notification.kind) ?? true);
+}
+
+/** Mesma conta da bolinha ao lado de "Suporte" no painel do Jota (needsActionFrom com papel admin). */
+async function adminPendingSupport(admin: SupabaseClient): Promise<number> {
+  const { count, error } = await admin
+    .from("support_tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "waiting")
+    .is("merged_into", null);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 async function subscriptionsOf(admin: SupabaseClient, userIds: string[]): Promise<Subscription[]> {
@@ -99,11 +111,11 @@ async function subscriptionsOf(admin: SupabaseClient, userIds: string[]): Promis
 }
 
 /** Envia para cada aparelho. Aparelho que o serviço de push diz não existir mais (404/410) é apagado. */
-async function deliver(admin: SupabaseClient, subscriptions: Subscription[], payload: PushPayload) {
-  const body = JSON.stringify(payload);
+async function deliver(admin: SupabaseClient, subscriptions: Subscription[], payload: PushPayload, badgeUsers: ReadonlySet<string> = new Set()) {
+  const bodyFor = (sub: Subscription) => JSON.stringify(badgeUsers.has(sub.user_id) ? payload : { ...payload, badge: undefined });
   const results = await Promise.allSettled(
     subscriptions.map((sub) =>
-      webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, body, {
+      webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, bodyFor(sub), {
         TTL: 60 * 60 * 24,
         urgency: "high",
         topic: payload.tag.slice(0, 32).replace(/[^A-Za-z0-9_-]/g, "-"),
@@ -138,13 +150,22 @@ async function sendNotification(admin: SupabaseClient, notificationId: unknown):
   if (error) throw error;
   if (!data) return json({ error: "not_found" }, 404);
   const notification = data as Notification;
-  const subscriptions = await subscriptionsOf(admin, await recipientsOf(admin, notification));
-  const result = await deliver(admin, subscriptions, {
-    title: notification.title,
-    body: notification.body ?? "",
-    url: notification.link ?? "/admin",
-    tag: `${notification.kind}-${notification.id}`,
-  });
+  const recipients = await recipientsOf(admin, notification);
+  const subscriptions = await subscriptionsOf(admin, recipients.map((person) => person.user_id));
+  const owners = new Set(recipients.filter((person) => person.role === "admin").map((person) => person.user_id));
+  const badge = owners.size > 0 && subscriptions.length > 0 ? await adminPendingSupport(admin) : undefined;
+  const result = await deliver(
+    admin,
+    subscriptions,
+    {
+      title: notification.title,
+      body: notification.body ?? "",
+      url: notification.link ?? "/admin",
+      tag: `${notification.kind}-${notification.id}`,
+      badge,
+    },
+    owners,
+  );
   return json(result);
 }
 

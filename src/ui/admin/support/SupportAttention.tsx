@@ -12,6 +12,15 @@ const SupportAttentionContext = createContext(0);
  * Quantos chamados esperam a ação de quem está logado: para a Lay, pendentes ou com resposta nova do Jota;
  * para o Jota, os que aguardam ele. Uma consulta só para o menu lateral, a barra de baixo e o "Mais".
  */
+/** Número no ícone do app instalado (iPhone 16.4+ na Tela de Início, Android e computador). Só para o Jota. */
+function useAppIconBadge(count: number, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled || !("setAppBadge" in navigator)) return;
+    const update = count > 0 ? navigator.setAppBadge(count) : navigator.clearAppBadge();
+    update.catch((error: unknown) => console.warn("Número no ícone do app não atualizou", error));
+  }, [count, enabled]);
+}
+
 export function SupportAttentionProvider({ role, children }: { role: SupportRole; children: ReactNode }) {
   const tickets = useAdminQuery((deps) => listSupportTickets(deps, role), `support-attention-${role}`);
   usePolling(tickets.reload, REFRESH_MS);
@@ -26,6 +35,7 @@ export function SupportAttentionProvider({ role, children }: { role: SupportRole
   }, [pathname]);
   const data = tickets.status === "success" ? tickets.data : null;
   const count = useMemo(() => (data ? data.filter((ticket) => needsActionFrom(ticket, role)).length : 0), [data, role]);
+  useAppIconBadge(count, role === "admin" && data !== null);
   return <SupportAttentionContext.Provider value={count}>{children}</SupportAttentionContext.Provider>;
 }
 

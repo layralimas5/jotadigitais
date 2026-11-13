@@ -1,4 +1,4 @@
-import { CalendarClock, CircleCheck, Handshake, PackageCheck, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarClock, CircleCheck, Handshake, LifeBuoy, PackageCheck, Wallet, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Dashboard } from "@/domain/dashboard";
 import type { PeriodScope } from "@/domain/dashboard-period";
@@ -16,9 +16,17 @@ interface Pending {
 
 const choose = (count: number, one: string, many: string) => (count === 1 ? one : many);
 
-function pendingOf(dashboard: Dashboard, scope: PeriodScope): Pending[] {
+function pendingOf(dashboard: Dashboard, scope: PeriodScope, supportPending: number): Pending[] {
   const { awaitingPayment, awaitingDelivery, followUpsDue, commissionInPeriod } = dashboard;
   const items: (Pending & { show: boolean })[] = [
+    {
+      show: supportPending > 0,
+      to: "/admin/suporte",
+      icon: LifeBuoy,
+      tone: "pink",
+      value: String(supportPending),
+      label: choose(supportPending, "pendência no Suporte esperando você", "pendências no Suporte esperando você"),
+    },
     {
       show: awaitingPayment > 0,
       to: "/admin/pedidos",
@@ -67,13 +75,21 @@ function PendingContent({ item }: { item: Pending }) {
   );
 }
 
+interface PendingStripProps {
+  dashboard: Dashboard;
+  scope: PeriodScope;
+  linked?: boolean;
+  /** Chamados do Suporte aguardando o Jota (a mesma bolinha do menu). */
+  supportPending?: number;
+}
+
 /** `linked` falso: a desenvolvedora vê os avisos como o Jota vê, sem entrar nas telas da loja. */
-export function PendingStrip({ dashboard, scope, linked = true }: { dashboard: Dashboard; scope: PeriodScope; linked?: boolean }) {
-  const pending = pendingOf(dashboard, scope);
+export function PendingStrip({ dashboard, scope, linked = true, supportPending = 0 }: PendingStripProps) {
+  const pending = pendingOf(dashboard, scope, supportPending);
   if (pending.length === 0) {
     return (
       <p className="flex items-center gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.05] px-4 py-3 text-sm text-fog">
-        <CircleCheck aria-hidden className="size-4 text-emerald-300" /> Tudo em dia: nenhum pedido ou retorno esperando por você.
+        <CircleCheck aria-hidden className="size-4 text-emerald-300" /> Tudo em dia: nenhum pedido, retorno ou pendência esperando por você.
       </p>
     );
   }
