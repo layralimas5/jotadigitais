@@ -96,12 +96,14 @@ export function allBadges(account: Account): AccountBadge[] {
   return [...fixed.filter((badge): badge is AccountBadge => badge !== null), ...account.tags.map((label): AccountBadge => ({ label, tone: "mist" }))];
 }
 
-/** Como a galeria da página da conta se organiza: nome da primeira aba, se entra a Central ilustrativa e o nome de cada print. */
+/** Como a galeria da página da conta se organiza: se entra a Central ilustrativa e o nome de cada print. */
 export interface GalleryPlan {
-  profileLabel: string;
   /** Imagem ilustrativa da Central de Criadores (TikTok com Shop, sem monetização). */
   showCentral: boolean;
-  /** Nome de cada print, na ordem em que o Jota sobe. Os que passarem da lista viram "Print N". */
+  /**
+   * Nome de cada print, na ordem em que o Jota sobe. No TikTok e no Instagram o primeiro é a tela do perfil;
+   * no YouTube o Jota abre pelo painel do Studio. Os que passarem da lista viram "Outras informações N".
+   */
   printLabels: readonly string[];
 }
 
@@ -110,16 +112,16 @@ export function galleryPlanOf(account: { platform: Account["platform"]; monetize
   switch (account.platform) {
     case "tiktok":
       return account.monetized
-        ? { profileLabel: "Perfil", showCentral: false, printLabels: ["Monetização", "Informações", "Outras informações"] }
-        : { profileLabel: "Perfil", showCentral: account.hasShop ?? true, printLabels: ["Informações", "Outras informações"] };
+        ? { showCentral: false, printLabels: ["Perfil", "Monetização", "Informações", "Outras informações"] }
+        : { showCentral: account.hasShop ?? true, printLabels: ["Perfil", "Informações", "Outras informações"] };
     case "youtube":
       return account.monetized
-        ? { profileLabel: "Canal", showCentral: false, printLabels: ["Receita", "Monetizações", "Informações"] }
-        : { profileLabel: "Canal", showCentral: false, printLabels: ["Resumos", "Informações", "Outras informações"] };
+        ? { showCentral: false, printLabels: ["Receita", "Monetizações", "Informações"] }
+        : { showCentral: false, printLabels: ["Resumos", "Informações", "Outras informações"] };
     case "instagram":
-      return { profileLabel: "Perfil", showCentral: false, printLabels: ["Receita", "Análises", "Informações"] };
+      return { showCentral: false, printLabels: ["Perfil", "Receita", "Análises", "Informações"] };
     case "facebook":
-      return { profileLabel: "Perfil", showCentral: false, printLabels: [] };
+      return { showCentral: false, printLabels: [] };
   }
 }
 
