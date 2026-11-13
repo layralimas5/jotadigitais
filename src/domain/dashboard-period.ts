@@ -182,13 +182,13 @@ export function serializePeriod(period: DashboardPeriod): string {
   }
 }
 
-export function parsePeriod(value: string | null): DashboardPeriod {
-  if (!value) return DEFAULT_DASHBOARD_PERIOD;
+export function parsePeriod(value: string | null, fallback: DashboardPeriod = DEFAULT_DASHBOARD_PERIOD): DashboardPeriod {
+  if (!value) return fallback;
   if ((DASHBOARD_PRESETS as readonly string[]).includes(value)) return { kind: "preset", preset: value as DashboardPreset };
   if (MONTH_PATTERN.test(value)) return { kind: "month", month: value };
   const [from, to] = value.split("_");
   if (from && to && DAY_PATTERN.test(from) && DAY_PATTERN.test(to) && from <= to) return { kind: "custom", from, to };
-  return DEFAULT_DASHBOARD_PERIOD;
+  return fallback;
 }
 
 export const samePeriod = (a: DashboardPeriod, b: DashboardPeriod) => serializePeriod(a) === serializePeriod(b);

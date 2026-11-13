@@ -3,12 +3,22 @@ import { cn } from "@/ui/lib/cn";
 
 export type KpiTone = "positive" | "negative";
 
+interface KpiProps {
+  label: string;
+  value: string;
+  hint?: ReactNode;
+  tone?: KpiTone;
+  /** Pulsa de leve com o mouse em cima (utilitário `hover-pulse`). */
+  pulse?: boolean;
+}
+
 /** Número de destaque com rótulo. Fica dentro de um `<dl>`. */
-export function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: ReactNode; tone?: KpiTone }) {
+export function Kpi({ label, value, hint, tone, pulse = false }: KpiProps) {
   return (
     <div
       className={cn(
         "rounded-2xl border p-4",
+        pulse && "hover-pulse",
         tone === "positive" && "border-emerald-400/30 bg-emerald-400/[0.06]",
         tone === "negative" && "border-alert/30 bg-alert/[0.06]",
         !tone && "border-line bg-surface/60",

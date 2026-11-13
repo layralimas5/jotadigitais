@@ -4,7 +4,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { loadFinalizedSales } from "@/application/admin-use-cases";
 import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { orderCustomerKeyOf } from "@/domain/customer";
-import { rangeOf, toLocalIsoDate, type DateRange, type PeriodPreset } from "@/domain/finance";
+import { dashboardRangeOf, type DashboardPeriod } from "@/domain/dashboard-period";
+import { toLocalIsoDate, type DateRange } from "@/domain/finance";
 import type { MessageTemplates } from "@/domain/message-template";
 import { formatBRL } from "@/domain/money";
 import type { Order } from "@/domain/order";
@@ -15,14 +16,17 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { Kpi } from "../components/Kpi";
-import { PeriodFilter } from "../components/PeriodFilter";
 import { SearchInput } from "../components/SearchInput";
 import { WarrantyBadge } from "../components/WarrantyBadge";
+import { DashboardPeriodPicker } from "../dashboard/DashboardPeriodPicker";
+import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
 import { whatsappChatUrl } from "../lib/whatsapp";
 
+/** Sem período na URL, Finalizados mostra todas as vendas, como antes. */
+const ALL_TIME: DashboardPeriod = { kind: "preset", preset: "all" };
 
 const deliveredDayOf = (order: Order) => toLocalIsoDate(new Date(deliveredAtOf(order)));
 
@@ -106,11 +110,11 @@ function SaleCard({ order, guaranteeDays, templates }: { order: Order; guarantee
 export default function FinalizedPage() {
   const sales = useAdminQuery(loadFinalizedSales, "admin-finalized");
   const templates = useMessageTemplates();
-  const [period, setPeriod] = useState<PeriodPreset>("all");
+  const [period, setPeriod] = useDashboardPeriod(ALL_TIME);
   const [params] = useSearchParams();
   const [query, setQuery] = useState(() => params.get("busca") ?? "");
   const [situation, setSituation] = useState<Situation>("all");
-  const range = useMemo(() => rangeOf(period), [period]);
+  const range = useMemo(() => dashboardRangeOf(period), [period]);
 
   const data = sales.status === "success" ? sales.data : null;
   const inPeriod = useMemo(() => (data ? data.sales.filter((order) => inRange(order, range)) : []), [data, range]);
@@ -129,16 +133,16 @@ export default function FinalizedPage() {
         title="Finalizados"
         description="Contas entregues aos clientes. Enquanto a garantia vale, a venda está entregue; quando acaba, fica finalizada. O prazo é definido em Site."
       />
-      <PeriodFilter value={period} onChange={setPeriod} />
+      <DashboardPeriodPicker value={period} onChange={setPeriod} align="start" label="Período das vendas finalizadas" />
 
       {sales.status === "loading" && <LoadingBlock />}
       {sales.status === "error" && <ErrorState message={sales.error.message} onRetry={sales.reload} />}
       {data && (
         <>
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3 [&>div:last-child]:col-span-2 lg:[&>div:last-child]:col-span-1">
-            <Kpi label="Vendas finalizadas" value={String(inPeriod.length)} />
-            <Kpi label="Faturado" value={formatBRL(inPeriod.reduce((sum, order) => sum + order.total, 0))} />
-            <Kpi label="Em garantia agora" value={String(underWarranty)} hint={`Garantia de ${data.guaranteeDays} dias`} />
+            <Kpi pulse label="Vendas finalizadas" value={String(inPeriod.length)} />
+            <Kpi pulse label="Faturado" value={formatBRL(inPeriod.reduce((sum, order) => sum + order.total, 0))} />
+            <Kpi pulse label="Em garantia agora" value={String(underWarranty)} hint={`Garantia de ${data.guaranteeDays} dias`} />
           </dl>
 
           <SearchInput label="Buscar venda" placeholder="Buscar por pedido, cliente ou conta" value={query} onChange={setQuery} />
