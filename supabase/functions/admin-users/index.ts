@@ -99,12 +99,14 @@ async function createUser(service: SupabaseClient, input: CreateInput): Promise<
   return json({ ...row, email: user.email, last_sign_in_at: null }, 201);
 }
 
-async function removeUser(service: SupabaseClient, callerId: string, userId: unknown): Promise<Response> {
+async function removeUser(service: SupabaseClient, callerId: string, callerRole: unknown, userId: unknown): Promise<Response> {
   if (typeof userId !== "string" || userId.length === 0) return failWith("invalid");
   if (userId === callerId) return failWith("self");
   const { data: target, error: targetError } = await service.from("admin_users").select("role").eq("user_id", userId).maybeSingle();
   if (targetError) throw targetError;
   if (!target) return failWith("not_found");
+  // O acesso da desenvolvedora (TI) só sai pelas mãos dela: o admin nem vê esse usuário na lista.
+  if (target.role === "developer" && callerRole !== "developer") return failWith("forbidden");
   if (target.role === "admin" && (await adminCount(service)) <= 1) return failWith("last");
   // Apagar no Auth leva junto a linha de admin_users (on delete cascade).
   const { error } = await service.auth.admin.deleteUser(userId);
@@ -240,7 +242,10 @@ Deno.serve(async (request) => {
       const input = parseCreate(payload);
       return input ? await createUser(service, input) : failWith("invalid");
     }
-    if (payload.action === "remove") return await removeUser(service, auth.user.id, payload.userId);
+    if (payload.action === "remove") {
+      const { data: role } = await caller.rpc("current_admin_role");
+      return await removeUser(service, auth.user.id, role, payload.userId);
+    }
     if (payload.action === "update_profile") {
       const input = parseProfile(payload);
       return input ? await updateProfile(service, input) : failWith("invalid");
