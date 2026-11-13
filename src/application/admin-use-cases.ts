@@ -607,6 +607,11 @@ export function updateProfile(deps: AdminDeps, raw: unknown, emailRedirectTo: st
   return deps.auth.updateProfile(parseOrThrow(profileSchema, raw), emailRedirectTo);
 }
 
+/** Troca a própria foto de perfil; nulo tira a foto. */
+export function updateAvatar(deps: AdminDeps, image: PreparedImage | null): Promise<void> {
+  return deps.auth.updateAvatar(image);
+}
+
 export function getMfaFactorId(deps: AdminDeps): Promise<string | null> {
   return deps.auth.getMfaFactorId();
 }

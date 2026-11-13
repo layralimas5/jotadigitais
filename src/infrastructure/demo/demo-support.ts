@@ -361,6 +361,6 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   private async currentAuthor(): Promise<SupportAuthor> {
     const state = await this.auth.getState();
     if (state.status !== "signed-in") throw new Error("Entre no sistema para usar o suporte.");
-    return { name: state.session.name, role: state.session.role };
+    return { name: state.session.name, role: state.session.role, avatarUrl: state.session.avatarUrl };
   }
 }

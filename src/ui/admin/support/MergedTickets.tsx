@@ -59,7 +59,7 @@ function ReadOnlyMessage({ author, body, createdAt, attachments }: { author: Sup
   const name = authorNameOf(author);
   return (
     <li className="flex gap-3">
-      <PersonAvatar name={name} />
+      <PersonAvatar name={name} src={author?.avatarUrl} />
       <div className="min-w-0 flex-1 rounded-2xl rounded-tl-md border border-line bg-ink/40 p-3">
         <p className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-semibold text-white">{name}</span>

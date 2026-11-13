@@ -49,7 +49,7 @@ function AccessCard({ user, isYou, subject }: { user: AccessUser; isYou: boolean
   return (
     <li className="relative rounded-3xl border border-line bg-surface/60 p-4 transition-colors hover:border-line-strong hover:bg-surface sm:p-5">
       <div className="flex items-center gap-4">
-        <PersonAvatar name={displayName(user)} />
+        <PersonAvatar name={displayName(user)} src={user.avatarUrl} />
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2">
             <Link

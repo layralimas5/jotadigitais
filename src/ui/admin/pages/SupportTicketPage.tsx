@@ -117,7 +117,7 @@ function Message({ id, author, body, createdAt, attachments, own, seen, quote, h
   const name = authorNameOf(author);
   return (
     <li id={messageAnchorOf(id)} tabIndex={-1} className={cn("flex scroll-mt-24 gap-3 outline-none", own && "flex-row-reverse")}>
-      <PersonAvatar name={name} />
+      <PersonAvatar name={name} src={author?.avatarUrl} />
       <div
         onDoubleClick={replyOnDoubleClick(onReply)}
         title="Clique duas vezes para responder"

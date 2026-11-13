@@ -8,6 +8,7 @@ import { SETTINGS_PATH } from "../navigation";
 import { JOTA_SUBJECT, useAdminView } from "../admin-view";
 import { usePreviewToggle } from "../preview/PreviewControls";
 import { useAdminSession } from "../session";
+import { PersonAvatar } from "./PersonAvatar";
 import { RoleBadge } from "./RoleBadge";
 
 const itemClass =
@@ -37,7 +38,7 @@ export function UserMenu() {
   }, [open]);
 
   if (state.status !== "signed-in") return null;
-  const { email, name, role } = state.session;
+  const { email, name, role, avatarUrl } = state.session;
 
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']") ?? []);
@@ -81,12 +82,16 @@ export function UserMenu() {
         onClick={() => setOpen((value) => !value)}
         className="flex items-center gap-1.5 rounded-full p-1 text-mist transition-colors hover:bg-white/[0.06] hover:text-white"
       >
-        <span
-          aria-hidden
-          className="grid size-8 place-items-center rounded-full border border-electric/40 bg-electric/15 font-display text-sm font-semibold text-electric-soft"
-        >
-          {initialOf(name ?? email)}
-        </span>
+        {avatarUrl ? (
+          <PersonAvatar name={name ?? email} src={avatarUrl} className="size-8 ring-1 ring-electric/40" />
+        ) : (
+          <span
+            aria-hidden
+            className="grid size-8 place-items-center rounded-full border border-electric/40 bg-electric/15 font-display text-sm font-semibold text-electric-soft"
+          >
+            {initialOf(name ?? email)}
+          </span>
+        )}
         <ChevronDown aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
       </button>
 

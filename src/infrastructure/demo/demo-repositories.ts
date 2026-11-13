@@ -903,6 +903,7 @@ const DEMO_OWNER: AdminUser = {
   role: "admin",
   permissions: [],
   whatsapp: null,
+  avatarUrl: null,
   createdAt: "2026-10-09T12:00:00.000Z",
   lastSignInAt: null,
 };
@@ -943,6 +944,7 @@ export class DemoAdminUserRepository implements AdminUserRepository {
         role: input.role,
         permissions: input.permissions,
         whatsapp: null,
+        avatarUrl: null,
         createdAt: new Date().toISOString(),
         lastSignInAt: null,
       };

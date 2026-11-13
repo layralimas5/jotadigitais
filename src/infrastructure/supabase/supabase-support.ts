@@ -41,18 +41,20 @@ const EXTENSION: Record<string, string> = {
   "video/webm": "webm",
 };
 
-// O autor vem de admin_users pela chave estrangeira: nome e papel de quem escreveu.
+// O autor vem de admin_users pela chave estrangeira: nome, papel e foto de quem escreveu.
 // No chamado a chave vai explícita: support_ticket_views também liga chamado e usuário.
-const AUTHOR = "author:admin_users(name, role)";
+const AUTHOR = "author:admin_users(name, role, avatar_url)";
 const REPLY_COLUMNS = `id, body, created_at, reply_to_id, quotes_opening, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role, avatar_url), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const UNIQUE_VIOLATION = "23505";
 
-const authorSchema = z.object({ name: z.string().nullable(), role: z.enum(["admin", "developer"]) }).nullable();
+const authorSchema = z
+  .object({ name: z.string().nullable(), role: z.enum(["admin", "developer"]), avatar_url: z.string().nullable() })
+  .nullable();
 
 const replyRowSchema = z.object({
   id: z.string(),
@@ -109,7 +111,7 @@ const ticketRowSchema = z.object({
 
 type AttachmentRow = z.infer<typeof attachmentRowSchema>;
 
-const toAuthor = (row: z.infer<typeof authorSchema>): SupportAuthor | null => (row ? { name: row.name, role: row.role } : null);
+const toAuthor = (row: z.infer<typeof authorSchema>): SupportAuthor | null => (row ? { name: row.name, role: row.role, avatarUrl: row.avatar_url } : null);
 
 function toReply(raw: unknown): SupportReply {
   const row = replyRowSchema.parse(raw);

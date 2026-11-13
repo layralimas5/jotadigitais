@@ -6,11 +6,11 @@ import { ValidationError, type ProfileInput } from "@/application/schemas";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { FormSection, InlineError } from "../components/AdminUi";
-import { PersonAvatar } from "../components/PersonAvatar";
 import { RoleBadge } from "../components/RoleBadge";
 import { useMutation } from "../hooks";
 import { useAdminSession } from "../session";
 import { useToast } from "../toast";
+import { AvatarField } from "./AvatarField";
 import { HAS_REAL_AUTH, settingsUrl } from "./settings-links";
 
 const EMAIL_HINT = HAS_REAL_AUTH
@@ -41,9 +41,8 @@ export function ProfileSection({ session }: { session: AdminSession }) {
   };
 
   return (
-    <FormSection title="Perfil" description="Seu nome aparece no menu do topo e na lista de usuários.">
+    <FormSection title="Perfil" description="Seu nome e sua foto aparecem no menu do topo, na lista de usuários e no Suporte.">
       <div className="flex flex-wrap items-center gap-4">
-        <PersonAvatar name={displayName} className="size-12 text-sm" />
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2">
             <span className="truncate font-semibold text-white">{displayName}</span>
@@ -54,6 +53,10 @@ export function ProfileSection({ session }: { session: AdminSession }) {
         <Button variant="secondary" onClick={() => void signOut()} className="max-sm:w-full">
           <LogOut aria-hidden className="size-4" /> Sair do sistema
         </Button>
+      </div>
+
+      <div className="border-t border-line pt-5">
+        <AvatarField session={session} />
       </div>
 
       <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="space-y-4 border-t border-line pt-5">
