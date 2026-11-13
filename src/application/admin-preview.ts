@@ -120,7 +120,7 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
     siteContent: readOnly(deps.siteContent, { load: null }),
     legal: readOnly(deps.legal, { listCurrent: null }),
     leads: readOnly(deps.leads, { listAll: each(maskLead), findById: maybe(maskLead) }),
-    customers: readOnly(deps.customers, { listAll: each(maskRecord), findById: maybe(maskRecord) }),
+    customers: readOnly(deps.customers, { listAll: each(maskRecord), findById: maybe(maskRecord), listHidden: null }),
     templates: readOnly(deps.templates, { getAll: null }),
     preferences: readOnly(deps.preferences, { get: null }),
     expenses: readOnly(deps.expenses, { listAll: null, findById: null }),

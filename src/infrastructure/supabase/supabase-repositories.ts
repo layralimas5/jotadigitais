@@ -54,7 +54,7 @@ import {
   CannotChangeAccessError,
 } from "@/domain/errors";
 import { MAX_CART_ITEMS, RESERVATION_HOLD_MINUTES, type Order, type OrderStatus } from "@/domain/order";
-import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData } from "@/domain/customer";
+import { BRAZIL_STATES, type CustomerRecord, type CustomerRecordData, type HiddenCustomer } from "@/domain/customer";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_PAYMENT_METHODS,
@@ -628,6 +628,8 @@ function failOnCustomerWrite(error: PostgrestError, email: string | null): never
   return fail(error);
 }
 
+const hiddenCustomerRowsSchema = z.array(z.object({ customer_key: z.string(), hidden_at: z.string() }));
+
 export class SupabaseCustomerRepository implements AdminCustomerRepository {
   constructor(private readonly client: SupabaseClient) {}
 
@@ -663,6 +665,19 @@ export class SupabaseCustomerRepository implements AdminCustomerRepository {
 
   async remove(id: string): Promise<void> {
     const { error } = await this.client.from("customers").delete().eq("id", id);
+    if (error) fail(error);
+  }
+
+  async listHidden(): Promise<HiddenCustomer[]> {
+    const { data, error } = await this.client.from("hidden_customers").select("customer_key, hidden_at");
+    if (error) fail(error);
+    return hiddenCustomerRowsSchema.parse(data).map((row) => ({ key: row.customer_key, hiddenAt: row.hidden_at }));
+  }
+
+  /** A data vem do gatilho do banco, para comparar com a dos pedidos sem depender do relógio do aparelho. */
+  async hide(keys: readonly string[]): Promise<void> {
+    const rows = keys.map((key) => ({ customer_key: key }));
+    const { error } = await this.client.from("hidden_customers").upsert(rows, { onConflict: "customer_key" });
     if (error) fail(error);
   }
 }

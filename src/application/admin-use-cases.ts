@@ -1,6 +1,6 @@
 import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
-import { groupCustomers, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
+import { groupCustomers, withoutHidden, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { Coupon } from "@/domain/coupon";
 import { sortCountries, type Country } from "@/domain/country";
 import type { DashboardSource } from "@/domain/dashboard";
@@ -150,6 +150,26 @@ export function deleteAccount(deps: AdminDeps, id: string): Promise<void> {
   return deps.accounts.remove(id);
 }
 
+/** Resultado de apagar vários de uma vez: um que falhe não impede os outros. */
+export interface BulkDeleteResult {
+  removed: number;
+  failed: number;
+}
+
+/** Apaga em paralelo. Se nenhum sair, repassa o primeiro erro para a tela mostrar. */
+async function removeEach(ids: readonly string[], remove: (id: string) => Promise<void>): Promise<BulkDeleteResult> {
+  const results = await Promise.allSettled(ids.map((id) => remove(id)));
+  const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+  const [firstFailure] = failures;
+  if (firstFailure && failures.length === results.length) throw firstFailure.reason;
+  for (const failure of failures) console.error(failure.reason);
+  return { removed: results.length - failures.length, failed: failures.length };
+}
+
+export function deleteAccounts(deps: AdminDeps, ids: readonly string[]): Promise<BulkDeleteResult> {
+  return removeEach(ids, (id) => deps.accounts.remove(id));
+}
+
 export function listAllTestimonials(deps: AdminDeps): Promise<Testimonial[]> {
   return deps.testimonials.listAll();
 }
@@ -196,12 +216,13 @@ export async function confirmPixPayment(deps: AdminDeps, order: Order, paymentId
 }
 
 export async function listCustomers(deps: AdminDeps): Promise<CustomerSummary[]> {
-  const [orders, records, revenues] = await Promise.all([
+  const [orders, records, revenues, hidden] = await Promise.all([
     deps.orders.listAll(),
     deps.customers.listAll(),
     deps.revenues.listAll(),
+    deps.customers.listHidden(),
   ]);
-  return groupCustomers(orders, records, revenues);
+  return withoutHidden(groupCustomers(orders, records, revenues), hidden);
 }
 
 /** Só os cadastros feitos à mão, em ordem de nome (para escolher numa lista). */
@@ -221,6 +242,19 @@ export function saveCustomerRecord(deps: AdminDeps, id: string | null, raw: unkn
 
 export function deleteCustomerRecord(deps: AdminDeps, id: string): Promise<void> {
   return deps.customers.remove(id);
+}
+
+/**
+ * Apaga a ficha dos clientes escolhidos: o cadastro manual é apagado e quem tem pedido sai da lista
+ * (os pedidos ficam, porque o Financeiro e a garantia dependem deles).
+ */
+export async function deleteCustomers(deps: AdminDeps, customers: readonly CustomerSummary[]): Promise<BulkDeleteResult> {
+  const withOrders = customers.filter((customer) => customer.orders.length > 0).map((customer) => customer.key);
+  if (withOrders.length > 0) await deps.customers.hide(withOrders);
+  const recordIds = customers.flatMap((customer) => (customer.record ? [customer.record.id] : []));
+  if (recordIds.length === 0) return { removed: customers.length, failed: 0 };
+  const records = await removeEach(recordIds, (id) => deps.customers.remove(id));
+  return { removed: customers.length - records.failed, failed: records.failed };
 }
 
 export function listLeads(deps: AdminDeps): Promise<Lead[]> {
@@ -412,6 +446,10 @@ export function savePartner(deps: AdminDeps, id: string | null, raw: unknown): P
 
 export function deletePartner(deps: AdminDeps, id: string): Promise<void> {
   return deps.partners.remove(id);
+}
+
+export function deletePartners(deps: AdminDeps, ids: readonly string[]): Promise<BulkDeleteResult> {
+  return removeEach(ids, (id) => deps.partners.remove(id));
 }
 
 export function listEmailAccounts(deps: AdminDeps): Promise<EmailAccountListItem[]> {
