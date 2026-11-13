@@ -62,6 +62,7 @@ export interface AdminUser {
   permissions: StaffPermission[];
   /** Só dígitos, com DDD; usado para mandar o acesso pelo WhatsApp. */
   whatsapp: string | null;
+  avatarUrl: string | null;
   createdAt: string;
   lastSignInAt: string | null;
 }

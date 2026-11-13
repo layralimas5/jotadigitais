@@ -32,6 +32,7 @@ export const SUPPORT_STATUS_LABEL: Record<SupportStatus, string> = {
 export interface SupportAuthor {
   name: string | null;
   role: AdminRole;
+  avatarUrl: string | null;
 }
 
 // ---------------------------------------------------------------------------

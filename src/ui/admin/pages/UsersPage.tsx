@@ -45,7 +45,7 @@ function PermissionChips({ user }: { user: AdminUser }) {
 function UserRow({ user, isYou, canRemove, canEditAccess, onRemove }: UserRowProps) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-4 sm:px-5">
-      <PersonAvatar name={displayName(user)} />
+      <PersonAvatar name={displayName(user)} src={user.avatarUrl} />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2">
           <span className="truncate font-semibold text-white">{displayName(user)}</span>

@@ -1088,6 +1088,8 @@ const adminUserRowSchema = z.object({
   permissions: z.array(z.enum(STAFF_PERMISSIONS)).default([]),
   /** Chega pela list_admin_users a partir da migration de 15/11; antes dela, vazio. */
   whatsapp: z.string().nullable().default(null),
+  /** Chega pela list_admin_users a partir da migration staff_avatar; antes dela, vazio. */
+  avatar_url: z.string().nullable().default(null),
   created_at: z.string(),
   last_sign_in_at: z.string().nullable(),
 });
@@ -1101,6 +1103,7 @@ function toAdminUser(raw: unknown): AdminUser {
     role: row.role,
     permissions: row.permissions,
     whatsapp: row.whatsapp,
+    avatarUrl: row.avatar_url,
     createdAt: row.created_at,
     lastSignInAt: row.last_sign_in_at,
   };

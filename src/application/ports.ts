@@ -171,6 +171,8 @@ export interface LegalDocumentRepository {
 export interface AdminSession {
   email: string;
   name: string | null;
+  /** Foto de perfil escolhida em Configurações; sem ela, o painel mostra as iniciais. */
+  avatarUrl: string | null;
   role: AdminRole;
   /** Áreas liberadas, só no ajudante. */
   permissions: StaffPermission[];
@@ -220,6 +222,8 @@ export interface AuthService {
   changePassword(newPassword: string): Promise<void>;
   requestPasswordReset(email: string, redirectTo: string): Promise<void>;
   updateProfile(update: ProfileUpdate, emailRedirectTo: string): Promise<ProfileUpdateResult>;
+  /** Troca a própria foto de perfil; nulo tira a foto e volta para as iniciais. */
+  updateAvatar(image: PreparedImage | null): Promise<void>;
   onChange(listener: (state: AuthState) => void): () => void;
 }
 

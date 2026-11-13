@@ -46,6 +46,23 @@ function writeKey(key: string, value: string) {
   }
 }
 
+function removeKey(key: string) {
+  try {
+    window.localStorage.removeItem(key);
+  } catch (error) {
+    console.error("Falha ao apagar da sessão local", error);
+  }
+}
+
+function dataUrlOf(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => (typeof reader.result === "string" ? resolve(reader.result) : reject(new Error("Imagem ilegível.")));
+    reader.onerror = () => reject(reader.error ?? new Error("Imagem ilegível."));
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
  * Sem banco conectado os dados só existem neste navegador, então não há senha a conferir:
  * o painel abre direto e "Sair" leva para a tela de login, que aceita qualquer e-mail.
@@ -76,6 +93,11 @@ export class DemoAuthService implements AuthService {
   /** O nome fica guardado por e-mail: trocar de login não carrega o nome de outra pessoa. */
   private nameKeyOf(email: string): string {
     return `${this.nameKey}:${email.trim().toLowerCase()}`;
+  }
+
+  /** A foto também, como data URL (sem banco, não há onde hospedar o arquivo). */
+  private avatarKeyOf(email: string): string {
+    return `${this.nameKey}-avatar:${email.trim().toLowerCase()}`;
   }
 
   async getState(): Promise<AuthState> {
@@ -132,6 +154,13 @@ export class DemoAuthService implements AuthService {
     return { emailConfirmationPending: false };
   }
 
+  async updateAvatar(image: PreparedImage | null): Promise<void> {
+    const email = readKey(this.authKey) ?? DEFAULT_EMAIL;
+    if (image) writeKey(this.avatarKeyOf(email), await dataUrlOf(image.blob));
+    else removeKey(this.avatarKeyOf(email));
+    this.notify();
+  }
+
   onChange(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -155,6 +184,7 @@ export class DemoAuthService implements AuthService {
     return {
       email,
       name,
+      avatarUrl: readKey(this.avatarKeyOf(email)),
       role: known?.role ?? registered?.role ?? "admin",
       permissions: known ? [] : (registered?.permissions ?? []),
       recoveringPassword: false,

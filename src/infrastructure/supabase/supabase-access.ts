@@ -10,6 +10,8 @@ const accessRowSchema = z.object({
   email: z.string(),
   role: z.enum(["admin", "developer", "helper"]),
   whatsapp: z.string().nullable(),
+  /** Chega pela list_access_users a partir da migration staff_avatar; antes dela, vazio. */
+  avatar_url: z.string().nullable().default(null),
   created_at: z.string(),
   last_sign_in_at: z.string().nullable(),
   mfa_enabled: z.boolean(),
@@ -24,6 +26,7 @@ function toAccessUser(raw: unknown): AccessUser {
     email: row.email,
     role: row.role,
     whatsapp: row.whatsapp,
+    avatarUrl: row.avatar_url,
     createdAt: row.created_at,
     lastSignInAt: row.last_sign_in_at,
     mfaEnabled: row.mfa_enabled,

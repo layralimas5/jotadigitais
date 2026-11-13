@@ -163,6 +163,53 @@ export class SupabaseAuthService implements AuthService {
     return { emailConfirmationPending: true };
   }
 
+  /**
+   * Foto em media/avatars/<id>/: envia a nova, grava pela set_my_avatar (que confere a pasta) e só então
+   * apaga as antigas, para nunca ficar sem foto se algo falhar no meio.
+   */
+  async updateAvatar(image: PreparedImage | null): Promise<void> {
+    const { data: userData, error: userError } = await this.client.auth.getUser();
+    if (userError || !userData.user) {
+      if (userError) console.error(userError);
+      throw new Error("Sua sessão expirou. Entre de novo para trocar a foto.");
+    }
+    const folder = `avatars/${userData.user.id}`;
+    const uploadedPath = image ? await this.uploadAvatar(folder, image) : null;
+    const url = uploadedPath ? this.client.storage.from(MEDIA_BUCKET).getPublicUrl(uploadedPath).data.publicUrl : null;
+    const { error } = await this.client.rpc("set_my_avatar", { p_url: url });
+    if (error) {
+      logBackendError(error);
+      throw new Error("Não foi possível salvar a foto agora. Tente de novo em instantes.");
+    }
+    await this.removeOldAvatars(folder, uploadedPath);
+  }
+
+  private async uploadAvatar(folder: string, image: PreparedImage): Promise<string> {
+    const extension = image.blob.type === "image/jpeg" ? "jpg" : "webp";
+    const path = `${folder}/${crypto.randomUUID()}.${extension}`;
+    const { error } = await this.client.storage
+      .from(MEDIA_BUCKET)
+      .upload(path, image.blob, { contentType: image.blob.type || "image/webp", cacheControl: "31536000" });
+    if (error) {
+      console.error(error);
+      throw new Error("Não foi possível enviar a foto. Tente de novo.");
+    }
+    return path;
+  }
+
+  /** Limpeza: se falhar, a foto nova já está valendo; o arquivo antigo só ocupa espaço. */
+  private async removeOldAvatars(folder: string, keepPath: string | null): Promise<void> {
+    const { data, error } = await this.client.storage.from(MEDIA_BUCKET).list(folder);
+    if (error) {
+      console.error(error);
+      return;
+    }
+    const stale = data.map((file) => `${folder}/${file.name}`).filter((path) => path !== keepPath);
+    if (stale.length === 0) return;
+    const { error: removeError } = await this.client.storage.from(MEDIA_BUCKET).remove(stale);
+    if (removeError) console.error(removeError);
+  }
+
   private async changeEmail(email: string, emailRedirectTo: string): Promise<void> {
     const { error } = await this.client.auth.updateUser({ email }, { emailRedirectTo });
     if (!error) return;
@@ -220,9 +267,9 @@ export class SupabaseAuthService implements AuthService {
     // A tabela só deixa administrador ler: achar a própria linha já confirma o acesso.
     const { data, error } = await this.client
       .from("admin_users")
-      .select("name, role, permissions")
+      .select("name, role, permissions, avatar_url")
       .eq("user_id", session.user.id)
-      .maybeSingle<{ name: string | null; role: AdminRole; permissions: string[] | null }>();
+      .maybeSingle<{ name: string | null; role: AdminRole; permissions: string[] | null; avatar_url: string | null }>();
     if (error) {
       logBackendError(error);
       return SIGNED_OUT;
@@ -237,6 +284,7 @@ export class SupabaseAuthService implements AuthService {
     const adminSession = {
       email: session.user.email,
       name: data.name,
+      avatarUrl: data.avatar_url,
       role: data.role,
       permissions: knownPermissions(data.permissions),
       recoveringPassword: this.recoveringPassword,
