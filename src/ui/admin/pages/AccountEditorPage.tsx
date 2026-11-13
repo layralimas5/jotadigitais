@@ -512,6 +512,7 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
 
           {showAccess && (
             <AccountAccessSection
+              platform={values.platform}
               values={accessValues}
               errors={accessErrors}
               onChange={(next) => {
