@@ -4,7 +4,7 @@ import type { Account, AccountData } from "@/domain/account";
 import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
 import type { AdminRole, AdminUser, AdminUserAccess, NewAdminUser, StaffPermission } from "@/domain/admin-user";
 import type { CalendarConnection, CalendarEvent, CalendarEventDraft, UpsertResult } from "@/domain/calendar";
-import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import type { CustomerRecord, CustomerRecordData, HiddenCustomer } from "@/domain/customer";
 import type { LegalConsent } from "@/domain/legal/legal-document";
 import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
@@ -267,6 +267,10 @@ export interface AdminCustomerRepository {
   create(data: CustomerRecordData): Promise<CustomerRecord>;
   update(id: string, data: CustomerRecordData): Promise<CustomerRecord>;
   remove(id: string): Promise<void>;
+  /** Clientes tirados da lista; os pedidos deles continuam no banco. */
+  listHidden(): Promise<HiddenCustomer[]>;
+  /** Tira da lista (ou tira de novo, com a data de agora) os clientes destas chaves. */
+  hide(keys: readonly string[]): Promise<void>;
 }
 
 export interface AdminMessageTemplateRepository {

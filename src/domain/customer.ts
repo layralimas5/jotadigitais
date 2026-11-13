@@ -186,3 +186,19 @@ export function countByOrigin(customers: readonly CustomerSummary[]): OriginCoun
   const site = customers.filter((customer) => customer.origin === "site").length;
   return { all: customers.length, site, manual: customers.length - site };
 }
+
+/** Cliente tirado da lista de Clientes. Os pedidos continuam; ele volta sozinho se fizer pedido ou ganhar cadastro depois. */
+export interface HiddenCustomer {
+  key: string;
+  hiddenAt: string;
+}
+
+const isAfter = (date: string | null | undefined, reference: string) => date != null && Date.parse(date) > Date.parse(reference);
+
+export function withoutHidden(customers: readonly CustomerSummary[], hidden: readonly HiddenCustomer[]): CustomerSummary[] {
+  const hiddenAt = new Map(hidden.map((entry) => [entry.key, entry.hiddenAt]));
+  return customers.filter((customer) => {
+    const at = hiddenAt.get(customer.key);
+    return !at || isAfter(customer.lastOrderAt, at) || isAfter(customer.record?.createdAt, at);
+  });
+}

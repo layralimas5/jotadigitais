@@ -1,7 +1,7 @@
 import type { Country } from "@/domain/country";
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
-import type { CustomerRecord } from "@/domain/customer";
+import type { CustomerRecord, HiddenCustomer } from "@/domain/customer";
 import type { StoredCoupon } from "./demo-coupons";
 import type { EmailAccount } from "@/domain/email-account";
 import type { ProfileLogin } from "@/domain/delivery-login";
@@ -46,6 +46,7 @@ export interface DemoState {
   legalDocuments?: DemoLegalDocumentRow[];
   leads?: Lead[];
   customers?: CustomerRecord[];
+  hiddenCustomers?: HiddenCustomer[];
   messageTemplates?: Partial<MessageTemplates>;
   preferences?: Record<string, unknown>;
   expenses?: Expense[];

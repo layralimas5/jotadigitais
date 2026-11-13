@@ -1,17 +1,26 @@
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { listPartnerSummaries } from "@/application/admin-use-cases";
+import { deletePartners, listPartnerSummaries } from "@/application/admin-use-cases";
 import { formatBRL } from "@/domain/money";
 import type { PartnerSummary } from "@/domain/partner";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
+import { cn } from "@/ui/lib/cn";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { DeleteDialog, MobileSelectAll, RowTrashButton, SelectAllCheckbox, SelectCheckbox, SelectionBar } from "../components/BulkSelection";
 import { Kpi } from "../components/Kpi";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery } from "../hooks";
 import { formatPercent } from "../lib/percent";
+import { useBulkDelete, type Noun } from "../lib/use-bulk-delete";
+import { useSelection, type Selection } from "../lib/use-selection";
+
+const PARTNER_NOUN: Noun = { one: "parceiro", many: "parceiros", feminine: false };
+
+const DELETE_CONSEQUENCE =
+  "As contas que eram dele continuam no estoque, mas ficam sem parceiro, e a comissão dele sai dos relatórios. Não dá para desfazer.";
 
 const partnerPath = (summary: PartnerSummary) => `/admin/parceiros/${summary.partner.id}`;
 
@@ -52,31 +61,59 @@ function PartnerIdentity({ summary }: { summary: PartnerSummary }) {
   );
 }
 
-function PartnersTable({ summaries }: { summaries: PartnerSummary[] }) {
+interface ListProps {
+  summaries: PartnerSummary[];
+  selection: Selection;
+  onDelete: (summary: PartnerSummary) => void;
+}
+
+function PartnersTable({ summaries, selection, onDelete }: ListProps) {
   return (
     <div className="hidden overflow-hidden rounded-3xl border border-line lg:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-surface text-xs text-mist">
           <tr>
-            <th scope="col" className="px-5 py-3 font-medium">Parceiro</th>
+            <th scope="col" className="w-12 py-1.5 pl-3">
+              <SelectAllCheckbox selection={selection} total={summaries.length} />
+            </th>
+            <th scope="col" className="py-3 pr-5 pl-1 font-medium">Parceiro</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Indicados</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Pontos</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">No estoque</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Vendidas</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Vendas finalizadas</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Comissão</th>
+            <th scope="col" className="px-4 py-3"><span className="sr-only">Ações</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
           {summaries.map((summary) => (
-            <tr key={summary.partner.id} className="relative transition-colors hover:bg-white/[0.02]">
-              <td className="px-5 py-3"><PartnerIdentity summary={summary} /></td>
+            <tr
+              key={summary.partner.id}
+              className={cn(
+                "relative transition-colors hover:bg-white/[0.02]",
+                selection.selected.has(summary.partner.id) && "bg-electric/[0.06] hover:bg-electric/[0.08]",
+              )}
+            >
+              <td className="py-3 pl-3">
+                <SelectCheckbox
+                  checked={selection.selected.has(summary.partner.id)}
+                  label={`Selecionar ${summary.partner.name}`}
+                  onChange={() => selection.toggle(summary.partner.id)}
+                />
+              </td>
+              <td className="py-3 pr-5 pl-1"><PartnerIdentity summary={summary} /></td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.referredCustomers.length}</td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{summary.points}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.inStock}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{summary.sold}</td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">{formatBRL(summary.revenue)}</td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(summary.commission)}</td>
+              <td className="py-3 pr-3">
+                <span className="flex justify-end">
+                  <RowTrashButton label={`Apagar ${summary.partner.name}`} onClick={() => onDelete(summary)} />
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -85,12 +122,26 @@ function PartnersTable({ summaries }: { summaries: PartnerSummary[] }) {
   );
 }
 
-function PartnersCards({ summaries }: { summaries: PartnerSummary[] }) {
+function PartnersCards({ summaries, selection }: ListProps) {
   return (
     <ul className="grid gap-2.5 lg:hidden">
       {summaries.map((summary) => (
-        <li key={summary.partner.id} className="relative rounded-2xl border border-line bg-surface/60 p-4 active:bg-surface">
-          <PartnerIdentity summary={summary} />
+        <li
+          key={summary.partner.id}
+          className={cn(
+            "relative rounded-2xl border border-line bg-surface/60 p-4 active:bg-surface",
+            selection.selected.has(summary.partner.id) && "border-electric/50 bg-electric/[0.06]",
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-1">
+            <SelectCheckbox
+              checked={selection.selected.has(summary.partner.id)}
+              label={`Selecionar ${summary.partner.name}`}
+              onChange={() => selection.toggle(summary.partner.id)}
+              className="-ml-2"
+            />
+            <PartnerIdentity summary={summary} />
+          </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
             <span className="text-fog">
               {summary.referredCustomers.length} {summary.referredCustomers.length === 1 ? "indicado" : "indicados"} ·{" "}
@@ -110,6 +161,17 @@ export default function PartnersPage() {
   const [query, setQuery] = useState("");
   const data = summaries.status === "success" ? summaries.data : null;
   const visible = useMemo(() => (data ? data.filter((summary) => matches(summary, query)) : []), [data, query]);
+  const visibleIds = useMemo(() => visible.map((summary) => summary.partner.id), [visible]);
+  const selection = useSelection(visibleIds);
+  const trash = useBulkDelete<PartnerSummary>({
+    noun: PARTNER_NOUN,
+    remove: (deps, items) => deletePartners(deps, items.map((summary) => summary.partner.id)),
+    onDone: () => {
+      selection.clear();
+      summaries.reload();
+    },
+  });
+  const listProps: ListProps = { summaries: visible, selection, onDelete: (summary) => trash.ask([summary]) };
 
   return (
     <div className="space-y-6">
@@ -158,13 +220,29 @@ export default function PartnersPage() {
             <EmptyState title="Ninguém encontrado" description="Confira o nome ou o número digitado." />
           ) : (
             <>
-              <PartnersTable summaries={visible} />
-              <PartnersCards summaries={visible} />
+              <MobileSelectAll selection={selection} total={visible.length} />
+              <PartnersTable {...listProps} />
+              <PartnersCards {...listProps} />
             </>
           )}
         </>
       )}
-      <Fab to="/admin/parceiros/novo" label="Novo parceiro" />
+      <SelectionBar
+        selection={selection}
+        noun={PARTNER_NOUN}
+        onDelete={() => trash.ask(visible.filter((summary) => selection.selected.has(summary.partner.id)))}
+      />
+      <DeleteDialog
+        open={trash.open}
+        count={trash.pending.length}
+        noun={PARTNER_NOUN}
+        singleName={trash.pending.length === 1 ? (trash.pending[0]?.partner.name ?? null) : null}
+        busy={trash.busy}
+        onConfirm={() => void trash.confirm()}
+        onClose={trash.cancel}
+        consequence={DELETE_CONSEQUENCE}
+      />
+      {selection.selectedIds.length === 0 && <Fab to="/admin/parceiros/novo" label="Novo parceiro" />}
     </div>
   );
 }

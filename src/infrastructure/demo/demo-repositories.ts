@@ -54,7 +54,7 @@ import {
   type Order,
   type OrderStatus,
 } from "@/domain/order";
-import type { CustomerRecord, CustomerRecordData } from "@/domain/customer";
+import type { CustomerRecord, CustomerRecordData, HiddenCustomer } from "@/domain/customer";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import { DEFAULT_MESSAGE_TEMPLATES, type MessageTemplates } from "@/domain/message-template";
@@ -662,6 +662,19 @@ export class DemoCustomerRepository implements AdminCustomerRepository {
     await simulateLatency();
     this.db.write((state) => {
       state.customers = (state.customers ?? []).filter((record) => record.id !== id);
+    });
+  }
+
+  async listHidden(): Promise<HiddenCustomer[]> {
+    return this.db.read().hiddenCustomers ?? [];
+  }
+
+  async hide(keys: readonly string[]): Promise<void> {
+    await simulateLatency();
+    const hiddenAt = new Date().toISOString();
+    this.db.write((state) => {
+      const others = (state.hiddenCustomers ?? []).filter((entry) => !keys.includes(entry.key));
+      state.hiddenCustomers = [...others, ...keys.map((key) => ({ key, hiddenAt }))];
     });
   }
 }

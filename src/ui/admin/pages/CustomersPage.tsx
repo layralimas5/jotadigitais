@@ -1,19 +1,28 @@
 import { MessageCircle, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { listCustomers } from "@/application/admin-use-cases";
+import { deleteCustomers, listCustomers } from "@/application/admin-use-cases";
 import { countByOrigin, type CustomerOrigin, type CustomerSummary } from "@/domain/customer";
 import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
+import { cn } from "@/ui/lib/cn";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { DeleteDialog, MobileSelectAll, RowTrashButton, SelectAllCheckbox, SelectCheckbox, SelectionBar } from "../components/BulkSelection";
 import { FilterChips } from "../components/FilterChips";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
+import { useBulkDelete, type Noun } from "../lib/use-bulk-delete";
 import { formatDate } from "../lib/dates";
+import { useSelection, type Selection } from "../lib/use-selection";
 import { personMessage } from "../lib/messages";
 import { whatsappChatUrl } from "../lib/whatsapp";
+
+const CUSTOMER_NOUN: Noun = { one: "cliente", many: "clientes", feminine: false };
+
+const DELETE_CONSEQUENCE =
+  "O cadastro feito à mão é apagado. Quem comprou pelo site sai da lista, mas os pedidos continuam em Pedidos e no Financeiro; se comprar de novo, volta para cá. Não dá para desfazer.";
 
 const customerPath = (customer: Pick<CustomerSummary, "key">) => `/admin/clientes/${encodeURIComponent(customer.key)}`;
 
@@ -90,23 +99,46 @@ function CustomerIdentity({ customer }: { customer: CustomerSummary }) {
 const purchasesLabel = (customer: CustomerSummary) =>
   `${customer.purchases} ${customer.purchases === 1 ? "compra" : "compras"}`;
 
-function CustomersTable({ customers }: { customers: CustomerSummary[] }) {
+interface ListProps {
+  customers: CustomerSummary[];
+  selection: Selection;
+  onDelete: (customer: CustomerSummary) => void;
+}
+
+function CustomersTable({ customers, selection, onDelete }: ListProps) {
   return (
     <div className="hidden overflow-hidden rounded-3xl border border-line lg:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-surface text-xs text-mist">
           <tr>
-            <th scope="col" className="px-5 py-3 font-medium">Cliente</th>
+            <th scope="col" className="w-12 py-1.5 pl-3">
+              <SelectAllCheckbox selection={selection} total={customers.length} />
+            </th>
+            <th scope="col" className="py-3 pr-5 pl-1 font-medium">Cliente</th>
             <th scope="col" className="px-4 py-3 font-medium">Contato</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Compras</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Total gasto</th>
             <th scope="col" className="px-4 py-3 text-right font-medium">Última compra</th>
+            <th scope="col" className="px-4 py-3"><span className="sr-only">Ações</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
           {customers.map((customer) => (
-            <tr key={customer.key} className="relative transition-colors hover:bg-white/[0.02]">
-              <td className="px-5 py-3"><CustomerIdentity customer={customer} /></td>
+            <tr
+              key={customer.key}
+              className={cn(
+                "relative transition-colors hover:bg-white/[0.02]",
+                selection.selected.has(customer.key) && "bg-electric/[0.06] hover:bg-electric/[0.08]",
+              )}
+            >
+              <td className="py-3 pl-3">
+                <SelectCheckbox
+                  checked={selection.selected.has(customer.key)}
+                  label={`Selecionar ${customer.name}`}
+                  onChange={() => selection.toggle(customer.key)}
+                />
+              </td>
+              <td className="py-3 pr-5 pl-1"><CustomerIdentity customer={customer} /></td>
               <td className="px-4 py-3"><WhatsAppButton customer={customer} /></td>
               <td className="px-4 py-3 text-right text-fog tabular-nums">
                 {customer.purchases}
@@ -114,6 +146,11 @@ function CustomersTable({ customers }: { customers: CustomerSummary[] }) {
               </td>
               <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(customer.totalSpent)}</td>
               <td className="px-4 py-3 text-right text-fog">{customer.lastPurchaseAt ? formatDate(customer.lastPurchaseAt) : <span className="text-mist">Sem compras</span>}</td>
+              <td className="py-3 pr-3">
+                <span className="flex justify-end">
+                  <RowTrashButton label={`Apagar a ficha de ${customer.name}`} onClick={() => onDelete(customer)} />
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -122,12 +159,26 @@ function CustomersTable({ customers }: { customers: CustomerSummary[] }) {
   );
 }
 
-function CustomersCards({ customers }: { customers: CustomerSummary[] }) {
+function CustomersCards({ customers, selection }: ListProps) {
   return (
     <ul className="grid gap-2.5 lg:hidden">
       {customers.map((customer) => (
-        <li key={customer.key} className="relative rounded-2xl border border-line bg-surface/60 p-4 active:bg-surface">
-          <CustomerIdentity customer={customer} />
+        <li
+          key={customer.key}
+          className={cn(
+            "relative rounded-2xl border border-line bg-surface/60 p-4 active:bg-surface",
+            selection.selected.has(customer.key) && "border-electric/50 bg-electric/[0.06]",
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-1">
+            <SelectCheckbox
+              checked={selection.selected.has(customer.key)}
+              label={`Selecionar ${customer.name}`}
+              onChange={() => selection.toggle(customer.key)}
+              className="-ml-2"
+            />
+            <CustomerIdentity customer={customer} />
+          </div>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
             <span className="text-fog">
               {purchasesLabel(customer)} · <span className="font-semibold text-white tabular-nums">{formatBRL(customer.totalSpent)}</span>
@@ -157,6 +208,18 @@ export default function CustomersPage() {
     () => all.filter((customer) => (origin === "all" || customer.origin === origin) && matches(customer, query)),
     [all, origin, query],
   );
+
+  const visibleKeys = useMemo(() => visible.map((customer) => customer.key), [visible]);
+  const selection = useSelection(visibleKeys);
+  const trash = useBulkDelete<CustomerSummary>({
+    noun: CUSTOMER_NOUN,
+    remove: deleteCustomers,
+    onDone: () => {
+      selection.clear();
+      customers.reload();
+    },
+  });
+  const listProps: ListProps = { customers: visible, selection, onDelete: (customer) => trash.ask([customer]) };
 
   const setOrigin = (next: OriginFilter) => {
     const nextParams = new URLSearchParams(params);
@@ -220,11 +283,27 @@ export default function CustomersPage() {
       )}
       {visible.length > 0 && (
         <>
-          <CustomersTable customers={visible} />
-          <CustomersCards customers={visible} />
+          <MobileSelectAll selection={selection} total={visible.length} />
+          <CustomersTable {...listProps} />
+          <CustomersCards {...listProps} />
         </>
       )}
-      <Fab to="/admin/clientes/novo" label="Novo cliente" />
+      <SelectionBar
+        selection={selection}
+        noun={CUSTOMER_NOUN}
+        onDelete={() => trash.ask(visible.filter((customer) => selection.selected.has(customer.key)))}
+      />
+      <DeleteDialog
+        open={trash.open}
+        count={trash.pending.length}
+        noun={CUSTOMER_NOUN}
+        singleName={trash.pending.length === 1 ? (trash.pending[0]?.name ?? null) : null}
+        busy={trash.busy}
+        onConfirm={() => void trash.confirm()}
+        onClose={trash.cancel}
+        consequence={DELETE_CONSEQUENCE}
+      />
+      {selection.selectedIds.length === 0 && <Fab to="/admin/clientes/novo" label="Novo cliente" />}
     </div>
   );
 }
