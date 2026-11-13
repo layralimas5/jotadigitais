@@ -118,12 +118,12 @@ function AccountHeader({ account }: { account: Account }) {
         <ProfileLink account={account} />
       </div>
 
-      {/* O número acompanha a largura do bloco (container query): nunca invade a coluna do lado. */}
-      <dl className="@container mt-8 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60">
+      {/* Cada número acompanha a largura da própria coluna (container query): nunca invade a do lado. */}
+      <dl className="mt-8 grid grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60">
         {profileStats(account).map((stat) => (
-          <div key={stat.label} className="min-w-0 px-1.5 py-4 text-center sm:px-3 sm:py-5">
+          <div key={stat.label} className="@container min-w-0 px-1.5 py-4 text-center sm:px-3 sm:py-5">
             <dt className="truncate text-xs text-mist">{stat.label}</dt>
-            <dd className="mt-1 font-display text-[clamp(0.8rem,6cqi,1.5rem)] font-semibold whitespace-nowrap text-white tabular-nums">{stat.value}</dd>
+            <dd className="mt-1 font-display text-[clamp(0.8rem,15cqi,1.5rem)] font-semibold whitespace-nowrap text-white tabular-nums">{stat.value}</dd>
           </div>
         ))}
       </dl>

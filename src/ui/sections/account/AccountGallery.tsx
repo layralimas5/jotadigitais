@@ -2,8 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BadgeDollarSign, BarChart3, ChevronLeft, ChevronRight, ImageIcon, Info, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { Account } from "@/domain/account";
-import { PLATFORM_LABEL } from "@/domain/platform";
-import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
+import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
 import { useDragScroll } from "@/ui/hooks/useDragScroll";
 import { galleryPlanOf, printLabelOf } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
@@ -32,53 +31,62 @@ function CentralPreview() {
   );
 }
 
+/** O print como veio do celular ou do computador: cantos arredondados, sem moldura de aparelho. */
 function ScreenshotStage({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="relative w-[17.5rem] overflow-hidden rounded-[2.6rem] border border-white/15 bg-zinc-950 p-2.5 shadow-[0_40px_120px_-30px_rgb(39_153_255/0.45)]">
-      <img src={src} alt={alt} decoding="async" className="max-h-[32rem] w-full rounded-[2.1rem] object-cover object-top" />
+    <img
+      src={src}
+      alt={alt}
+      decoding="async"
+      className="block h-auto max-h-[28rem] sm:max-h-[34rem] w-auto max-w-[min(100%,40rem)] rounded-[1.75rem] object-contain shadow-[0_40px_120px_-30px_rgb(39_153_255/0.45)] ring-1 ring-white/15"
+    />
+  );
+}
+
+/** Conta ainda sem print: mostra a foto e avisa, sem inventar uma tela. */
+function NoPrintsStage({ account }: { account: Account }) {
+  return (
+    <div className="flex max-w-[16rem] flex-col items-center gap-4 text-center">
+      <AccountAvatar account={account} className="size-24 text-2xl ring-1 ring-white/15" />
+      <p className="text-sm text-mist">Os prints desta conta chegam em breve. Peça pelo WhatsApp que a gente manda na hora.</p>
     </div>
   );
 }
 
-/** Ícone pelo assunto do print: dinheiro, números ou informação. */
+/** Ícone pelo assunto do print: perfil, dinheiro, números ou informação. */
 function printIconOf(label: string): LucideIcon {
+  if (/perfil/i.test(label)) return UserRound;
   if (/receita|monetiza/i.test(label)) return BadgeDollarSign;
   if (/an[aá]lise|resumo/i.test(label)) return BarChart3;
   if (/informa/i.test(label)) return Info;
   return ImageIcon;
 }
 
+const CENTRAL_VIEW: GalleryView = {
+  id: "central",
+  label: "Central de Criadores",
+  icon: ShoppingBag,
+  caption: "Imagem ilustrativa da Central de Criadores do TikTok Shop, que já vem ativa.",
+  stage: <CentralPreview />,
+};
+
+/** Só prints reais, na ordem do Jota; a Central ilustrativa entra logo depois do primeiro. */
 function viewsOf(account: Account): GalleryView[] {
   const plan = galleryPlanOf({ platform: account.platform, monetized: account.stats.monetized });
-  const views: GalleryView[] = [
-    {
-      id: "profile",
-      label: plan.profileLabel,
-      icon: UserRound,
-      caption: `Prévia do perfil no ${PLATFORM_LABEL[account.platform]} com os números reais da conta.`,
-      stage: <PhoneProfile account={account} />,
-    },
-  ];
-  if (plan.showCentral) {
-    views.push({
-      id: "central",
-      label: "Central de Criadores",
-      icon: ShoppingBag,
-      caption: "Imagem ilustrativa da Central de Criadores do TikTok Shop, que já vem ativa.",
-      stage: <CentralPreview />,
-    });
-  }
-  account.images.forEach((src, index) => {
+  const prints = account.images.map((src, index): GalleryView => {
     const label = printLabelOf(plan, index);
-    views.push({
+    return {
       id: `print-${index}`,
       label,
       icon: printIconOf(label),
       caption: `${label}: print real da conta enviado pela Jota Digitais.`,
       stage: <ScreenshotStage src={src} alt={`${label} da conta ${account.handle}`} />,
-    });
+    };
   });
-  return views;
+  if (prints.length === 0) {
+    return [{ id: "empty", label: "Prints", icon: ImageIcon, caption: "", stage: <NoPrintsStage account={account} /> }];
+  }
+  return plan.showCentral ? [...prints.slice(0, 1), CENTRAL_VIEW, ...prints.slice(1)] : prints;
 }
 
 const ARROW =
@@ -141,7 +149,7 @@ function GalleryTabs({ views, activeId, onSelect }: { views: GalleryView[]; acti
 
 export function AccountGallery({ account }: { account: Account }) {
   const views = viewsOf(account);
-  const [activeId, setActiveId] = useState(views[0]?.id ?? "profile");
+  const [activeId, setActiveId] = useState(views[0]?.id ?? "empty");
   const reduceMotion = useReducedMotion();
   const active = views.find((view) => view.id === activeId) ?? views[0];
 
@@ -156,7 +164,7 @@ export function AccountGallery({ account }: { account: Account }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active?.id}
-            className="relative max-sm:[zoom:0.8]"
+            className="relative flex max-w-full justify-center px-4"
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.98 }}
