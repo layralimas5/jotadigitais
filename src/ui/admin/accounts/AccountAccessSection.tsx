@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { canUseStoreArea } from "@/domain/admin-user";
 import type { DeliveryLogin } from "@/domain/delivery-login";
+import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { accountAccessSchema, fieldErrorsOf, profileLoginSchema } from "@/application/schemas";
 import { TextField } from "@/ui/components/form/Fields";
 import { FormSection } from "../components/AdminUi";
@@ -56,13 +57,25 @@ interface AccountAccessSectionProps {
   values: AccessFormValues;
   errors: AccessFormErrors;
   onChange: (values: AccessFormValues) => void;
+  platform: Platform;
+}
+
+/** Título de cada bloco: deixa claro qual login é do e-mail e qual é da rede. */
+function AccessGroupTitle({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div>
+      <h3 className="text-sm font-semibold text-white">{title}</h3>
+      <p className="mt-0.5 text-xs text-mist">{hint}</p>
+    </div>
+  );
 }
 
 /**
  * Login da conta: o e-mail (salvo na aba E-mails, ligado a esta conta) e o usuário e a senha do perfil na rede.
  * Tudo vai para quem comprar, na mensagem de entrega do WhatsApp.
  */
-export function AccountAccessSection({ values, errors, onChange }: AccountAccessSectionProps) {
+export function AccountAccessSection({ values, errors, onChange, platform }: AccountAccessSectionProps) {
+  const network = PLATFORM_LABEL[platform];
   const copy = useCopy();
   const email = values.email.trim();
   const username = values.username.trim();
@@ -71,6 +84,7 @@ export function AccountAccessSection({ values, errors, onChange }: AccountAccess
       title="Acesso da conta"
       description="O que vai para quem comprar, na mensagem de entrega do WhatsApp. As senhas ficam guardadas cifradas."
     >
+      <AccessGroupTitle title="1. Login do e-mail" hint="O e-mail ligado à conta e a senha para entrar nele." />
       <div className="flex items-end gap-1.5">
         <TextField
           label="E-mail da conta"
@@ -98,9 +112,12 @@ export function AccountAccessSection({ values, errors, onChange }: AccountAccess
         error={errors.password}
         hint="Pode deixar em branco e anotar depois."
       />
-      <div className="flex items-end gap-1.5 border-t border-line pt-4">
+      <div className="border-t border-line pt-4">
+        <AccessGroupTitle title={`2. Login do perfil no ${network}`} hint={`O usuário e a senha para entrar no ${network}.`} />
+      </div>
+      <div className="flex items-end gap-1.5">
         <TextField
-          label="Usuário do perfil"
+          label={`Usuário do perfil no ${network}`}
           name="access.username"
           autoComplete="off"
           autoCapitalize="none"
@@ -116,12 +133,12 @@ export function AccountAccessSection({ values, errors, onChange }: AccountAccess
         {username && !errors.username && <CopyButton label="Copiar usuário" className="mb-1.5" onCopy={() => void copy(username, "Usuário copiado.")} />}
       </div>
       <SecretField
-        label="Senha do perfil"
+        label={`Senha do perfil no ${network}`}
         name="access.profilePassword"
         value={values.profilePassword}
         onChange={(profilePassword) => onChange({ ...values, profilePassword })}
         error={errors.profilePassword}
-        hint="A senha de entrar na rede. Pode deixar em branco e anotar depois."
+        hint="Não é a senha do e-mail. Pode deixar em branco e anotar depois."
       />
       <p className="text-xs text-mist">
         Recuperação e anotações ficam na{" "}
