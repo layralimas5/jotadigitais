@@ -108,31 +108,44 @@ export function PreviewBanner() {
 const ENTRY = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors";
 
 /** Atalhos no menu lateral da desenvolvedora, abaixo das seções. */
-export function SidebarPreviewEntry({ className }: { className?: string }) {
+export function SidebarPreviewEntry({ className, iconOnly = false }: { className?: string; iconOnly?: boolean }) {
   const { asSomeone, testing, enter, enterSandbox, exit } = usePreviewToggle();
+  const entry = cn(ENTRY, iconOnly && "justify-center px-0");
+  const text = (label: string) => <span className={cn(iconOnly && "sr-only")}>{label}</span>;
   if (asSomeone) {
     return (
       <button
         type="button"
         onClick={exit}
+        title={iconOnly ? "Voltar ao meu painel" : undefined}
         className={cn(
-          ENTRY,
+          entry,
           testing ? "border border-emerald-300/30 bg-emerald-300/[0.08] text-emerald-100" : "border border-amber-300/30 bg-amber-300/[0.08] text-amber-100",
           "hover:text-white",
           className,
         )}
       >
-        <EyeOff aria-hidden className="size-[1.1rem]" /> Voltar ao meu painel
+        <EyeOff aria-hidden className="size-[1.1rem] shrink-0" /> {text("Voltar ao meu painel")}
       </button>
     );
   }
   return (
     <div className={cn("space-y-0.5", className)}>
-      <button type="button" onClick={() => enter(JOTA_SUBJECT)} className={cn(ENTRY, "text-mist hover:bg-white/[0.06] hover:text-white")}>
-        <Eye aria-hidden className="size-[1.1rem]" /> Ver como o Jota
+      <button
+        type="button"
+        onClick={() => enter(JOTA_SUBJECT)}
+        title={iconOnly ? "Ver como o Jota" : undefined}
+        className={cn(entry, "text-mist hover:bg-white/[0.06] hover:text-white")}
+      >
+        <Eye aria-hidden className="size-[1.1rem] shrink-0" /> {text("Ver como o Jota")}
       </button>
-      <button type="button" onClick={() => enterSandbox(JOTA_SUBJECT)} className={cn(ENTRY, "text-mist hover:bg-white/[0.06] hover:text-white")}>
-        <FlaskConical aria-hidden className="size-[1.1rem]" /> Testar como o Jota
+      <button
+        type="button"
+        onClick={() => enterSandbox(JOTA_SUBJECT)}
+        title={iconOnly ? "Testar como o Jota" : undefined}
+        className={cn(entry, "text-mist hover:bg-white/[0.06] hover:text-white")}
+      >
+        <FlaskConical aria-hidden className="size-[1.1rem] shrink-0" /> {text("Testar como o Jota")}
       </button>
     </div>
   );

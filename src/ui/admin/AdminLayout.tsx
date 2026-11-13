@@ -1,8 +1,8 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
 import { Suspense, useEffect, useRef } from "react";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
-import { Logo } from "@/ui/components/Logo";
+import { Logo, LogoMark } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
 import { UserMenu } from "./components/UserMenu";
@@ -21,6 +21,7 @@ import { usePreviewSubmitGuard } from "./preview/usePreviewSubmitGuard";
 import { usePanelApp } from "./pwa/usePanelApp";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
+import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
 /** Cadastros com a própria barra fixa de salvar no celular: ali a navegação de baixo sai do caminho. */
 const EDITOR_ROUTES = [
@@ -74,18 +75,20 @@ function useNoIndex() {
   }, []);
 }
 
-function SiteLink({ className }: { className?: string }) {
+function SiteLink({ className, iconOnly = false }: { className?: string; iconOnly?: boolean }) {
   return (
     <a
       href="/"
       target="_blank"
       rel="noreferrer"
+      title={iconOnly ? "Ver site" : undefined}
       className={cn(
         "flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-mist transition-colors hover:bg-white/[0.06] hover:text-white",
+        iconOnly && "justify-center px-0",
         className,
       )}
     >
-      <ExternalLink aria-hidden className="size-4" /> <span className="max-sm:sr-only">Ver site</span>
+      <ExternalLink aria-hidden className="size-4" /> <span className={iconOnly ? "sr-only" : "max-sm:sr-only"}>Ver site</span>
     </a>
   );
 }
@@ -115,50 +118,99 @@ function Brand({ home, stacked = false }: { home: string; stacked?: boolean }) {
   );
 }
 
-/** Menu lateral fixo à esquerda, do tablet para cima. */
-/** `canPreview`: a desenvolvedora tem o atalho para ver o painel como o Jota. */
-function Sidebar({ access, canPreview }: { access: StaffAccess; canPreview: boolean }) {
+/** Seta na borda do menu lateral: encolhe para só os ícones ou abre de novo. */
+function SidebarToggle({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const Icon = collapsed ? ChevronsRight : ChevronsLeft;
+  const label = collapsed ? "Abrir o menu" : "Encolher o menu";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-label={label}
+      aria-expanded={!collapsed}
+      title={label}
+      className="absolute top-[4.75rem] -right-3.5 z-10 grid size-7 place-items-center rounded-full border border-line-strong bg-surface text-mist shadow-lg shadow-black/40 transition-colors hover:border-electric/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric"
+    >
+      <Icon aria-hidden className="size-4" />
+    </button>
+  );
+}
+
+interface SidebarProps {
+  access: StaffAccess;
+  /** A desenvolvedora tem o atalho para ver o painel como o Jota. */
+  canPreview: boolean;
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+/** Menu lateral fixo à esquerda, do tablet para cima. Encolhido, mostra só os ícones (o nome vem no "title"). */
+function Sidebar({ access, canPreview, collapsed, onToggle }: SidebarProps) {
   const reduceMotion = useReducedMotion();
   const attention = useSupportAttention();
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-line bg-night md:flex">
-      <div className="flex justify-center border-b border-line px-5 py-5">
-        <Brand home={homePathFor(access)} stacked />
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[var(--sidebar-w,15rem)] flex-col border-r border-line bg-night transition-[width] duration-300 ease-out motion-reduce:transition-none md:flex">
+      <SidebarToggle collapsed={collapsed} onToggle={onToggle} />
+      <div className={cn("flex h-[6.25rem] shrink-0 items-center justify-center border-b border-line", collapsed ? "px-2" : "px-5")}>
+        {collapsed ? (
+          <Link to={homePathFor(access)} aria-label="Sistema Jota Digitais, início" className="rounded-md">
+            <LogoMark />
+          </Link>
+        ) : (
+          <Brand home={homePathFor(access)} stacked />
+        )}
       </div>
-      <nav aria-label="Sistema" className="flex-1 space-y-5 overflow-y-auto p-3">
-        {navGroupsFor(access).map((group) => (
+      <nav aria-label="Sistema" className={cn("flex-1 overflow-x-hidden overflow-y-auto p-3", collapsed ? "space-y-3" : "space-y-5")}>
+        {navGroupsFor(access).map((group, index) => (
           <div key={group.label ?? "inicio"}>
-            {group.label && (
-              <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] text-mist/70 uppercase">{group.label}</p>
-            )}
-            <ul className="space-y-0.5">
-              {group.items.map(({ to, label, icon: Icon }) => (
-                <li key={to}>
-                  <NavLink to={to} className="relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium">
-                    {({ isActive }) => (
-                      <>
-                        {isActive && (
-                          <motion.span
-                            layoutId="sidebar-active"
-                            transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
-                            className="absolute inset-0 rounded-xl border border-electric/30 bg-electric/10"
-                          />
-                        )}
-                        <Icon aria-hidden className={cn("relative size-[1.1rem]", isActive ? "text-electric" : "text-mist")} />
-                        <span className={cn("relative", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
-                        {to === SUPPORT_PATH && <AttentionCount count={attention} className="relative ml-auto" />}
-                      </>
-                    )}
-                  </NavLink>
-                </li>
+            {group.label &&
+              (collapsed ? (
+                index > 0 && <span aria-hidden className="mx-auto mb-3 block h-px w-6 bg-line" />
+              ) : (
+                <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] whitespace-nowrap text-mist/70 uppercase">{group.label}</p>
               ))}
+            <ul className="space-y-0.5">
+              {group.items.map(({ to, label, icon: Icon }) => {
+                const count = to === SUPPORT_PATH ? attention : 0;
+                return (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      title={collapsed ? label : undefined}
+                      aria-label={collapsed && count > 0 ? `${label}, ${count} pendentes` : undefined}
+                      className={cn("relative flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium", collapsed ? "justify-center px-0" : "px-3")}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {isActive && (
+                            <motion.span
+                              layoutId="sidebar-active"
+                              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
+                              className="absolute inset-0 rounded-xl border border-electric/30 bg-electric/10"
+                            />
+                          )}
+                          <Icon aria-hidden className={cn("relative size-[1.1rem] shrink-0", isActive ? "text-electric" : "text-mist")} />
+                          {collapsed ? (
+                            count > 0 && <span aria-hidden className="absolute top-1.5 right-3 size-2 rounded-full bg-pink ring-2 ring-night" />
+                          ) : (
+                            <>
+                              <span className={cn("relative whitespace-nowrap", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
+                              {count > 0 && <AttentionCount count={count} className="relative ml-auto" />}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
       </nav>
       <div className="space-y-1 border-t border-line p-3">
-        {canPreview && <SidebarPreviewEntry />}
-        <SiteLink />
+        {canPreview && <SidebarPreviewEntry iconOnly={collapsed} />}
+        <SiteLink iconOnly={collapsed} />
       </div>
     </aside>
   );
@@ -275,6 +327,7 @@ export function AdminProtected() {
   usePreviewSubmitGuard(previewing, mainRef);
   const editing = matchesAny([...EDITOR_ROUTES, ...WIDE_EDITOR_ROUTES], location.pathname);
   const formPage = matchesAny(FORM_ROUTES, location.pathname);
+  const sidebar = useSidebarCollapsed();
 
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;
   // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
@@ -286,8 +339,8 @@ export function AdminProtected() {
 
   const panel = (
     <>
-      <Sidebar access={access} canPreview={state.session.role === "developer"} />
-      <div className="md:pl-60">
+      <Sidebar access={access} canPreview={state.session.role === "developer"} collapsed={sidebar.collapsed} onToggle={sidebar.toggle} />
+      <div className="transition-[padding] duration-300 ease-out motion-reduce:transition-none md:pl-[var(--sidebar-w,15rem)]">
         <PreviewBanner />
         <TopBar access={access} />
         <main

@@ -99,7 +99,7 @@ export function SelectionBar({ selection, noun, onDelete }: SelectionBarProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 24 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-2 rounded-full border border-line-strong bg-surface/95 py-2 pr-2 pl-4 shadow-[0_18px_50px_-12px_rgb(0_0_0/0.8)] backdrop-blur-xl md:bottom-6 md:left-64"
+          className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-md items-center gap-2 rounded-full border border-line-strong bg-surface/95 py-2 pr-2 pl-4 shadow-[0_18px_50px_-12px_rgb(0_0_0/0.8)] backdrop-blur-xl md:bottom-6 md:left-[calc(var(--sidebar-w,15rem)+1rem)]"
         >
           <p aria-live="polite" className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
             {countOf(count, noun)} selecionad{noun.feminine ? "a" : "o"}
