@@ -1,8 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useMemo, type ReactNode } from "react";
 import { loadDashboardSource } from "@/application/admin-use-cases";
+import { listSupportTickets } from "@/application/support-use-cases";
 import { buildChartViews, type ChartView } from "@/domain/chart-range";
 import { buildDashboard, type Dashboard } from "@/domain/dashboard";
+import { needsActionFrom } from "@/domain/support-ticket";
 import { comparisonLabelOf, periodLabelOf, scopeOf, type DashboardPeriod } from "@/domain/dashboard-period";
 import { ErrorState } from "@/ui/components/StateViews";
 import { fadeUp, staggerContainer } from "@/ui/lib/motion";
@@ -37,16 +39,17 @@ interface DashboardContentProps {
   chartViews: ChartView[];
   /** Falso para a desenvolvedora: ela vê o dashboard como o Jota, mas sem atalhos para as telas da loja. */
   linked: boolean;
+  supportPending: number;
 }
 
-function DashboardContent({ dashboard, period, chartViews, linked }: DashboardContentProps) {
+function DashboardContent({ dashboard, period, chartViews, linked, supportPending }: DashboardContentProps) {
   const reduceMotion = useReducedMotion();
   const scope = scopeOf(period);
   const linkTo = (to: string, label: string) => (linked ? { to, label } : undefined);
   return (
     <motion.div variants={reduceMotion ? undefined : staggerContainer} initial="hidden" animate="show" className="space-y-8">
       <motion.div variants={fadeUp}>
-        <PendingStrip dashboard={dashboard} scope={scope} linked={linked} />
+        <PendingStrip dashboard={dashboard} scope={scope} linked={linked} supportPending={supportPending} />
       </motion.div>
 
       <Block id="bloco-financeiro" title={`Financeiro ${scope.of}`} link={linkTo("/admin/financeiro", "Abrir Financeiro")}>
@@ -80,7 +83,8 @@ function DashboardContent({ dashboard, period, chartViews, linked }: DashboardCo
 /** O dashboard da desenvolvedora é o do suporte; vendo ou testando como o Jota, ela vê o da loja. */
 export default function DashboardPage() {
   const { viewRole } = useAdminView();
-  return viewRole === "developer" ? <DeveloperDashboardPage /> : <StoreDashboardPage linked={viewRole === "admin"} />;
+  if (viewRole === "developer") return <DeveloperDashboardPage />;
+  return <StoreDashboardPage linked={viewRole === "admin"} showSupport={viewRole === "admin"} />;
 }
 
 function DeveloperDashboardPage() {
@@ -92,8 +96,16 @@ function DeveloperDashboardPage() {
   );
 }
 
-function StoreDashboardPage({ linked }: { linked: boolean }) {
+/** Chamados aguardando o Jota: a mesma conta da bolinha do Suporte, também quando a Lay vê como ele. */
+function useAdminSupportPending(enabled: boolean): number {
+  const tickets = useAdminQuery((deps) => (enabled ? listSupportTickets(deps, "admin") : Promise.resolve([])), `dashboard-support-${enabled}`);
+  const data = tickets.status === "success" ? tickets.data : null;
+  return useMemo(() => (data ? data.filter((ticket) => needsActionFrom(ticket, "admin")).length : 0), [data]);
+}
+
+function StoreDashboardPage({ linked, showSupport }: { linked: boolean; showSupport: boolean }) {
   const source = useAdminQuery(loadDashboardSource, "admin-dashboard");
+  const supportPending = useAdminSupportPending(showSupport);
   const [period, setPeriod] = useDashboardPeriod();
   const sourceData = source.status === "success" ? source.data : null;
   const dashboard = useMemo(() => (sourceData ? buildDashboard(sourceData, period) : null), [sourceData, period]);
@@ -112,7 +124,7 @@ function StoreDashboardPage({ linked }: { linked: boolean }) {
       />
       {source.status === "loading" && <LoadingBlock />}
       {source.status === "error" && <ErrorState message={source.error.message} onRetry={source.reload} />}
-      {dashboard && <DashboardContent dashboard={dashboard} period={period} chartViews={chartViews} linked={linked} />}
+      {dashboard && <DashboardContent dashboard={dashboard} period={period} chartViews={chartViews} linked={linked} supportPending={supportPending} />}
     </div>
   );
 }

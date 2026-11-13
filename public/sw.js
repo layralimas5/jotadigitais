@@ -21,9 +21,21 @@ function readPayload(event) {
       body: typeof data.body === "string" ? data.body : "",
       url: safeUrl(data.url),
       tag: typeof data.tag === "string" ? data.tag : undefined,
+      badge: Number.isInteger(data.badge) && data.badge >= 0 ? data.badge : undefined,
     };
   } catch {
-    return { title: "Jota Digitais", body: event.data ? event.data.text() : "", url: FALLBACK_URL, tag: undefined };
+    return { title: "Jota Digitais", body: event.data ? event.data.text() : "", url: FALLBACK_URL, tag: undefined, badge: undefined };
+  }
+}
+
+/** Número no ícone do app (Tela de Início). Aparelho sem suporte ignora. */
+async function applyAppBadge(count) {
+  if (count === undefined || !("setAppBadge" in self.navigator)) return;
+  try {
+    if (count > 0) await self.navigator.setAppBadge(count);
+    else await self.navigator.clearAppBadge();
+  } catch (error) {
+    console.warn("badge do app não atualizou", error);
   }
 }
 
@@ -34,6 +46,7 @@ self.addEventListener("push", (event) => {
       // Painel aberto: o sininho atualiza na hora e toca o "plim".
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       windows.forEach((client) => client.postMessage({ type: "push-received" }));
+      await applyAppBadge(payload.badge);
       await self.registration.showNotification(payload.title, {
         body: payload.body,
         icon: ICON,
