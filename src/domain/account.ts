@@ -5,8 +5,8 @@ export const ACCOUNT_STATUSES = ["available", "reserved", "sold"] as const;
 
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
-/** TikTok Shop em modo piloto (alguns produtos ainda bloqueados) ou ativo por completo. O Jota marca na ficha. */
-export const SHOP_TIERS = ["pilot", "full"] as const;
+/** TikTok Shop em modo piloto (alguns produtos ainda bloqueados), ativo por completo ou sem Shop. O Jota marca na ficha. */
+export const SHOP_TIERS = ["pilot", "full", "none"] as const;
 
 export type ShopTier = (typeof SHOP_TIERS)[number];
 

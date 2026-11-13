@@ -15,7 +15,7 @@ export function offerDetailsOf(account: Account): string[] {
       return [
         `• ${number.format(account.followers)} seguidores`,
         `• ${number.format(account.stats.likes)} curtidas`,
-        `• TikTok Shop: ${shopTierOf(account) === "full" ? "completo" : "piloto"}`,
+        ...(shopTierOf(account) === "none" ? [] : [`• TikTok Shop: ${shopTierOf(account) === "full" ? "completo" : "piloto"}`]),
         `• Monetização: ${yesNo(account.stats.monetized, "ativa", "não ativa")}`,
         ...placeAndNiche,
       ];

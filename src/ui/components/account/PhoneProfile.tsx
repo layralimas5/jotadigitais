@@ -13,7 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { EMPTY_MOCKUP, formatCount, type Account, type AccountMockup } from "@/domain/account";
+import { EMPTY_MOCKUP, formatCount, shopTierOf, type Account, type AccountMockup } from "@/domain/account";
 import { profileStats } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import type { DistributivePick } from "@/shared/types";
@@ -78,7 +78,7 @@ function FeatureRow({ icon, title, subtitle, iconClassName }: { icon: ReactNode;
 }
 
 /** Com capas de vídeo, a aba de vídeos fica ativa; sem elas, a vitrine do TikTok Shop. */
-function TikTokVideos({ preview }: { preview: Extract<ProfilePreview, { platform: "tiktok" }> }) {
+function TikTokVideos({ preview, hasShop }: { preview: Extract<ProfilePreview, { platform: "tiktok" }>; hasShop: boolean }) {
   const covers = mockupOf(preview).posts;
   return (
     <div className="space-y-2 px-0.5 pt-0.5 pb-5">
@@ -87,20 +87,23 @@ function TikTokVideos({ preview }: { preview: Extract<ProfilePreview, { platform
           <MockupImage key={index} src={covers[index]} seed={`${preview.id}-v${index}`} className="block aspect-[3/4] w-full" />
         ))}
       </div>
-      <div className="px-2.5">
-        <FeatureRow
-          icon={<ShoppingBag className="size-3.5" />}
-          iconClassName="bg-[#fe2c55]"
-          title="TikTok Shop para criadores"
-          subtitle="Acesso liberado"
-        />
-      </div>
+      {hasShop && (
+        <div className="px-2.5">
+          <FeatureRow
+            icon={<ShoppingBag className="size-3.5" />}
+            iconClassName="bg-[#fe2c55]"
+            title="TikTok Shop para criadores"
+            subtitle="Acesso liberado"
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function TikTokBody({ preview }: { preview: Extract<ProfilePreview, { platform: "tiktok" }> }) {
-  const activeTab = mockupOf(preview).posts.length > 0 ? 0 : 1;
+  const hasShop = shopTierOf(preview) !== "none";
+  const activeTab = mockupOf(preview).posts.length > 0 || !hasShop ? 0 : 1;
   return (
     <>
       <div className="flex items-center justify-between px-4 pt-6">
@@ -116,9 +119,11 @@ function TikTokBody({ preview }: { preview: Extract<ProfilePreview, { platform: 
       <Bio preview={preview} className="mt-2 px-6 text-center" />
       <div className="mt-3 flex justify-center gap-1.5 px-4">
         <Pill>Editar perfil</Pill>
-        <Pill>
-          <Store className="size-3" /> Vitrine
-        </Pill>
+        {hasShop && (
+          <Pill>
+            <Store className="size-3" /> Vitrine
+          </Pill>
+        )}
       </div>
       <div className="mt-4 grid grid-cols-4 border-b border-zinc-200 text-zinc-400">
         {[Menu, ShoppingBag, Lock, Bookmark].map((Icon, index) => (
@@ -128,7 +133,7 @@ function TikTokBody({ preview }: { preview: Extract<ProfilePreview, { platform: 
         ))}
       </div>
       {activeTab === 0 ? (
-        <TikTokVideos preview={preview} />
+        <TikTokVideos preview={preview} hasShop={hasShop} />
       ) : (
         <div className="space-y-2 px-3 pt-3 pb-5">
           <FeatureRow

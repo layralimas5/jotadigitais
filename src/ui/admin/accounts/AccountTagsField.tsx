@@ -147,10 +147,10 @@ export function AccountTagsField({ platform, value, error, onChange }: AccountTa
         {platform === "tiktok" && (
           <>
             <li>
-              <TagChip label="Shop piloto" tone="pink" selected={value.shop === "pilot"} onToggle={() => onChange({ shop: "pilot" })} />
+              <TagChip label="Shop piloto" tone="pink" selected={value.shop === "pilot"} onToggle={() => onChange({ shop: value.shop === "pilot" ? "none" : "pilot" })} />
             </li>
             <li>
-              <TagChip label="Shop ativo" tone="electric" selected={value.shop === "full"} onToggle={() => onChange({ shop: "full" })} />
+              <TagChip label="Shop ativo" tone="electric" selected={value.shop === "full"} onToggle={() => onChange({ shop: value.shop === "full" ? "none" : "full" })} />
             </li>
           </>
         )}

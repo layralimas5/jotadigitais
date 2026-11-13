@@ -60,7 +60,8 @@ export function verifiedLabel(account: Pick<Account, "platform">): string {
   return account.platform === "tiktok" ? "Central de Criadores ativa" : "Conta conferida pela Jota Digitais";
 }
 
-export function accountBadge(account: Account): AccountBadge {
+/** A tag principal da conta; TikTok sem Shop e sem monetização não tem. */
+export function accountBadge(account: Account): AccountBadge | null {
   switch (account.platform) {
     case "tiktok":
       if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
@@ -80,18 +81,19 @@ export function accountBadge(account: Account): AccountBadge {
   }
 }
 
-const SHOP_BADGE: Record<ShopTier, AccountBadge> = {
+const SHOP_BADGE: Record<ShopTier, AccountBadge | null> = {
   full: { label: "TikTok Shop ativo", tone: "electric" },
   pilot: { label: "Shop piloto", tone: "pink" },
+  none: null,
 };
 
 /** Todas as tags da conta: as fixas (no TikTok, Monetizada e o Shop juntos) e as criadas pelo Jota. */
 export function allBadges(account: Account): AccountBadge[] {
   const fixed =
     account.platform === "tiktok"
-      ? [...(account.stats.monetized ? [accountBadge(account)] : []), SHOP_BADGE[shopTierOf(account)]]
+      ? [account.stats.monetized ? accountBadge(account) : null, SHOP_BADGE[shopTierOf(account)]]
       : [accountBadge(account)];
-  return [...fixed, ...account.tags.map((label): AccountBadge => ({ label, tone: "mist" }))];
+  return [...fixed.filter((badge): badge is AccountBadge => badge !== null), ...account.tags.map((label): AccountBadge => ({ label, tone: "mist" }))];
 }
 
 /** Como a galeria da página da conta se organiza: nome da primeira aba, se entra a Central ilustrativa e o nome de cada print. */
@@ -104,12 +106,12 @@ export interface GalleryPlan {
 }
 
 /** Abas focadas por tipo de conta, do jeito que o Jota anuncia cada uma. */
-export function galleryPlanOf(account: { platform: Account["platform"]; monetized: boolean }): GalleryPlan {
+export function galleryPlanOf(account: { platform: Account["platform"]; monetized: boolean; hasShop?: boolean }): GalleryPlan {
   switch (account.platform) {
     case "tiktok":
       return account.monetized
         ? { profileLabel: "Perfil", showCentral: false, printLabels: ["Monetização", "Informações", "Outras informações"] }
-        : { profileLabel: "Perfil", showCentral: true, printLabels: ["Informações", "Outras informações"] };
+        : { profileLabel: "Perfil", showCentral: account.hasShop ?? true, printLabels: ["Informações", "Outras informações"] };
     case "youtube":
       return account.monetized
         ? { profileLabel: "Canal", showCentral: false, printLabels: ["Receita", "Monetizações", "Informações"] }
@@ -192,7 +194,9 @@ function platformSpecs(account: Account): Spec[] {
         {
           label: "TikTok Shop",
           value:
-            shopTierOf(account) === "full"
+            shopTierOf(account) === "none"
+              ? "Não ativado"
+              : shopTierOf(account) === "full"
               ? "Ativo, com todos os produtos liberados"
               : followersToFullShop(account) > 0
                 ? `Piloto (completo a partir de ${number.format(FULL_SHOP_MIN_FOLLOWERS)} seguidores, faltam ${number.format(followersToFullShop(account))})`
@@ -258,11 +262,14 @@ function platformParagraph(account: Account): string {
   switch (account.platform) {
     case "tiktok": {
       const monetization = account.stats.monetized ? "A conta é monetizada: já recebe pelo Programa de Recompensas para Criadores. " : "";
+      const tier = shopTierOf(account);
       const shop =
-        shopTierOf(account) === "pilot"
-          ? "O Shop está em modo piloto. Funciona normalmente; alguns produtos liberam conforme a conta cresce."
-          : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação.";
-      return monetization + shop;
+        tier === "none"
+          ? ""
+          : tier === "pilot"
+            ? "O Shop está em modo piloto. Funciona normalmente; alguns produtos liberam conforme a conta cresce."
+            : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação.";
+      return (monetization + shop).trim();
     }
     case "instagram":
       return account.stats.professional
@@ -283,7 +290,8 @@ function platformParagraph(account: Account): string {
 /** Texto que o site monta com os dados da conta quando o Jota não escreveu um próprio. */
 export function automaticDescriptionOf(account: Account): string {
   const intro = `Conta de ${PLATFORM_LABEL[account.platform]}${account.niche ? ` de ${account.niche.toLowerCase()}` : ""} com ${number.format(account.followers)} ${audienceLabel(account).toLowerCase()}. Depois da compra você troca nome, @ e foto e começa a publicar.`;
-  return `${intro}\n\n${platformParagraph(account)}`;
+  const details = platformParagraph(account);
+  return details ? `${intro}\n\n${details}` : intro;
 }
 
 /** "Sobre esta conta" em parágrafos: o texto escrito no painel ou o automático. Linha em branco separa parágrafos. */
