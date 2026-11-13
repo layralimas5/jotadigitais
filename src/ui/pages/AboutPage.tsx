@@ -139,7 +139,7 @@ export default function AboutPage() {
         <Gallery />
 
         <Reveal className="mt-20 border-t border-line pt-10 sm:mt-28 sm:pt-14">
-          <PageButtons buttons={aboutPage.buttons} path="aboutPage.buttons" centered />
+          <PageButtons buttons={aboutPage.buttons.slice(0, 1)} path="aboutPage.buttons" centered />
         </Reveal>
       </div>
     </div>
