@@ -1,8 +1,8 @@
 import { AlertTriangle, DownloadCloud, ExternalLink, RefreshCw, Sparkles } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { lookupAccountProfile, uploadImage, type AdminDeps } from "@/application/admin-use-cases";
 import { formatCount } from "@/domain/account";
-import { insightsOf, type ProfileLookup, type StoredProfileImages } from "@/domain/profile-lookup";
+import { insightsOf, isProfileLink, type ProfileLookup, type StoredProfileImages } from "@/domain/profile-lookup";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
@@ -125,19 +125,45 @@ interface ProfileImportProps {
   onImported: (imported: ImportedProfile) => void;
 }
 
-/** Link do perfil + botão que puxa seguidores, curtidas, foto e o resto direto da rede. */
+/** Espera o Jota parar de digitar antes de buscar sozinho; colar o link inteiro dispara logo depois disso. */
+const AUTO_FETCH_DELAY_MS = 700;
+
+/**
+ * Link do perfil + botão que puxa seguidores, curtidas, foto e o resto direto da rede.
+ * Colou (ou trocou) o link de um perfil, a busca roda sozinha; o botão continua para atualizar os números depois.
+ */
 export function ProfileImport({ url, syncedAt, error, onUrlChange, onImported }: ProfileImportProps) {
   const lookup = useMutation(importProfile);
   const [last, setLast] = useState<ImportedProfile | null>(null);
   const canFetch = url.trim().length > 0 && !lookup.pending;
+  // O link que já foi buscado (ou que veio salvo com dados puxados): não busca de novo só por abrir a ficha.
+  const fetchedUrl = useRef(syncedAt ? url.trim() : "");
+  const onImportedRef = useRef(onImported);
+  useEffect(() => {
+    onImportedRef.current = onImported;
+  });
 
-  const run = async () => {
-    if (!canFetch) return;
-    const imported = await lookup.run(url);
+  const run = async (target = url) => {
+    if (target.trim().length === 0 || lookup.pending) return;
+    fetchedUrl.current = target.trim();
+    const imported = await lookup.run(target);
     if (!imported) return;
+    // A busca troca o link pelo endereço oficial do perfil: esse também já está buscado.
+    fetchedUrl.current = imported.profile.profileUrl.trim();
     setLast(imported);
-    onImported(imported);
+    onImportedRef.current(imported);
   };
+  const runRef = useRef(run);
+  useEffect(() => {
+    runRef.current = run;
+  });
+
+  useEffect(() => {
+    const target = url.trim();
+    if (!isProfileLink(target) || target === fetchedUrl.current) return;
+    const timer = window.setTimeout(() => void runRef.current(target), AUTO_FETCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [url]);
 
   /** Enter no campo busca os dados em vez de enviar o formulário inteiro. */
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -163,7 +189,7 @@ export function ProfileImport({ url, syncedAt, error, onUrlChange, onImported }:
           onChange={(event) => onUrlChange(event.target.value)}
           onKeyDown={onKeyDown}
           error={error}
-          hint="TikTok, Instagram ou YouTube. Números, nome, foto, bio e as capas das últimas publicações vêm direto do perfil público, e o site mostra um botão para o cliente abrir a conta."
+          hint="TikTok, Instagram ou YouTube. Colou o link, os seguidores, o nome, a foto, a bio e as capas das últimas publicações vêm sozinhos do perfil público. O site mostra um botão para o cliente abrir a conta."
         />
         <Button type="button" variant="secondary" size="lg" className="shrink-0 sm:mt-7" disabled={!canFetch} onClick={() => void run()}>
           {lookup.pending ? (

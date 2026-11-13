@@ -112,14 +112,14 @@ export function galleryPlanOf(account: { platform: Account["platform"]; monetize
   switch (account.platform) {
     case "tiktok":
       return account.monetized
-        ? { showCentral: false, printLabels: ["Perfil", "Monetização", "Informações", "Outras informações"] }
-        : { showCentral: account.hasShop ?? true, printLabels: ["Perfil", "Informações", "Outras informações"] };
+        ? { showCentral: false, printLabels: ["Print do perfil", "Monetização", "Informações", "Outras informações"] }
+        : { showCentral: account.hasShop ?? true, printLabels: ["Print do perfil", "Informações", "Outras informações"] };
     case "youtube":
       return account.monetized
         ? { showCentral: false, printLabels: ["Receita", "Monetizações", "Informações"] }
         : { showCentral: false, printLabels: ["Resumos", "Informações", "Outras informações"] };
     case "instagram":
-      return { showCentral: false, printLabels: ["Perfil", "Receita", "Análises", "Informações"] };
+      return { showCentral: false, printLabels: ["Print do perfil", "Receita", "Análises", "Informações"] };
     case "facebook":
       return { showCentral: false, printLabels: [] };
   }
