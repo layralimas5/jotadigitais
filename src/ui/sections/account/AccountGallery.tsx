@@ -2,7 +2,9 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BadgeDollarSign, BarChart3, ChevronLeft, ChevronRight, ImageIcon, Info, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { shopTierOf, type Account } from "@/domain/account";
-import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
+import { PLATFORM_LABEL } from "@/domain/platform";
+import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
+import { PhoneScreenshot } from "@/ui/components/account/PhoneScreenshot";
 import { useDragScroll } from "@/ui/hooks/useDragScroll";
 import { galleryPlanOf, printLabelOf } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
@@ -43,16 +45,6 @@ function ScreenshotStage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-/** Conta ainda sem print: mostra a foto e avisa, sem inventar uma tela. */
-function NoPrintsStage({ account }: { account: Account }) {
-  return (
-    <div className="flex max-w-[16rem] flex-col items-center gap-4 text-center">
-      <AccountAvatar account={account} className="size-24 text-2xl ring-1 ring-white/15" />
-      <p className="text-sm text-mist">Os prints desta conta chegam em breve. Peça pelo WhatsApp que a gente manda na hora.</p>
-    </div>
-  );
-}
-
 /** Ícone pelo assunto do print: perfil, dinheiro, números ou informação. */
 function printIconOf(label: string): LucideIcon {
   if (/perfil/i.test(label)) return UserRound;
@@ -70,7 +62,29 @@ const CENTRAL_VIEW: GalleryView = {
   stage: <CentralPreview />,
 };
 
-/** Só prints reais, na ordem do Jota; a Central ilustrativa entra logo depois do primeiro. */
+/** No TikTok e no Instagram o primeiro print que o Jota sobe é a tela do perfil: ela vai dentro do celular. */
+const profilePrintOf = (account: Account): string | null =>
+  account.platform === "tiktok" || account.platform === "instagram" ? (account.images[0] ?? null) : null;
+
+/** O celular abre a galeria: com o print real do perfil quando existe; sem ele, a prévia montada com os números puxados da rede. */
+function mockupViewOf(account: Account, profilePrint: string | null): GalleryView {
+  const network = PLATFORM_LABEL[account.platform];
+  return {
+    id: "profile",
+    label: account.platform === "youtube" ? "Canal" : "Perfil",
+    icon: UserRound,
+    caption: profilePrint
+      ? `Print real do perfil no ${network}, enviado pela Jota Digitais.`
+      : `Prévia do perfil no ${network} com os números reais da conta.`,
+    stage: profilePrint ? (
+      <PhoneScreenshot src={profilePrint} alt={`Print do perfil da conta ${account.handle} no ${network}`} />
+    ) : (
+      <PhoneProfile account={account} />
+    ),
+  };
+}
+
+/** O celular do perfil abre a galeria; depois os outros prints, na ordem do Jota, com a Central ilustrativa logo após o primeiro. */
 function viewsOf(account: Account): GalleryView[] {
   const plan = galleryPlanOf({
     platform: account.platform,
@@ -87,10 +101,11 @@ function viewsOf(account: Account): GalleryView[] {
       stage: <ScreenshotStage src={src} alt={`${label} da conta ${account.handle}`} />,
     };
   });
-  if (prints.length === 0) {
-    return [{ id: "empty", label: "Prints", icon: ImageIcon, caption: "", stage: <NoPrintsStage account={account} /> }];
-  }
-  return plan.showCentral ? [...prints.slice(0, 1), CENTRAL_VIEW, ...prints.slice(1)] : prints;
+  const central = plan.showCentral ? [CENTRAL_VIEW] : [];
+  const profilePrint = profilePrintOf(account);
+  // O print do perfil já está no celular: não repete numa aba própria.
+  const otherPrints = profilePrint ? prints.slice(1) : prints;
+  return [mockupViewOf(account, profilePrint), ...central, ...otherPrints];
 }
 
 const ARROW =
@@ -153,7 +168,7 @@ function GalleryTabs({ views, activeId, onSelect }: { views: GalleryView[]; acti
 
 export function AccountGallery({ account }: { account: Account }) {
   const views = viewsOf(account);
-  const [activeId, setActiveId] = useState(views[0]?.id ?? "empty");
+  const [activeId, setActiveId] = useState(views[0]?.id ?? "profile");
   const reduceMotion = useReducedMotion();
   const active = views.find((view) => view.id === activeId) ?? views[0];
 
@@ -168,7 +183,7 @@ export function AccountGallery({ account }: { account: Account }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active?.id}
-            className="relative flex max-w-full justify-center px-4"
+            className={cn("relative flex max-w-full justify-center px-4", active?.id === "profile" && "max-sm:[zoom:0.8]")}
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.98 }}

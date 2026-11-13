@@ -79,3 +79,23 @@ export function insightsOf(profile: ProfileLookup): ProfileInsight[] {
   if (postsPerFollowerK !== null) insights.push({ label: "Publicações a cada mil seguidores", value: number.format(postsPerFollowerK) });
   return insights;
 }
+
+const PROFILE_HOSTS = ["tiktok.com", "instagram.com", "youtube.com", "youtu.be", "vm.tiktok.com"];
+
+/**
+ * O texto já é um link de perfil de rede que a busca entende? Serve para puxar os dados sozinho ao colar o link,
+ * sem disparar a cada letra digitada. Link curto (vm.tiktok.com) também vale: o servidor resolve.
+ */
+export function isProfileLink(raw: string): boolean {
+  const text = raw.trim();
+  if (!text) return false;
+  let url: URL;
+  try {
+    url = new URL(text.startsWith("http") ? text : `https://${text}`);
+  } catch {
+    return false;
+  }
+  const host = url.hostname.replace(/^(www|m)\./, "");
+  const knownHost = PROFILE_HOSTS.some((known) => host === known || host.endsWith(`.${known}`));
+  return knownHost && url.pathname.replace(/\//g, "").length >= 2;
+}
