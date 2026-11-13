@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAdminDeps } from "../admin-view";
+import { useAdminView } from "../admin-view";
 import { dismissNotifications, loadNotifications } from "@/application/workspace-use-cases";
 import type { AppNotification } from "@/domain/notification";
 import { playPlim, plimEnabled } from "../pwa/plim";
@@ -28,7 +28,7 @@ function useNewNotificationChime() {
  * Apagar some na hora da tela; se o servidor recusar, o aviso volta e `onError` é chamado.
  */
 export function useNotifications(onError: (message: string) => void) {
-  const deps = useAdminDeps();
+  const { deps, viewAccess } = useAdminView();
   const [state, setState] = useState<State>({ status: "loading" });
   const mounted = useRef(true);
   const onErrorRef = useRef(onError);
@@ -40,14 +40,14 @@ export function useNotifications(onError: (message: string) => void) {
 
   const refresh = useCallback(async () => {
     try {
-      const items = await loadNotifications(deps);
+      const items = await loadNotifications(deps, viewAccess);
       chimeOnNew(items);
       if (mounted.current) setState({ status: "ready", items });
     } catch (error) {
       console.error("Falha ao carregar as notificações", error);
       if (mounted.current) setState((current) => (current.status === "ready" ? current : { status: "error" }));
     }
-  }, [deps]);
+  }, [deps, viewAccess]);
 
   useEffect(() => {
     mounted.current = true;
