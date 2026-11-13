@@ -1,17 +1,19 @@
 import { groupCustomers, withoutHidden } from "@/domain/customer";
-import { remindersOf, visibleNotifications, type AppNotification } from "@/domain/notification";
+import type { StaffAccess } from "@/domain/admin-user";
+import { isNotificationVisibleTo, remindersOf, visibleNotifications, type AppNotification } from "@/domain/notification";
 import type { AdminDeps } from "./admin-use-cases";
 import { buildSearchIndex, type SearchItem } from "./search";
 
 /** O que o sininho mostra agora: pedidos novos, novidades e lembretes, sem o que já foi apagado. */
-export async function loadNotifications(deps: AdminDeps): Promise<AppNotification[]> {
+export async function loadNotifications(deps: AdminDeps, access: StaffAccess | null): Promise<AppNotification[]> {
   const [stored, dismissed, orders, leads] = await Promise.all([
     deps.notifications.listRecent(),
     deps.notifications.listDismissed(),
     deps.orders.listAll(),
     deps.leads.listAll(),
   ]);
-  return visibleNotifications(stored, remindersOf(orders, leads), new Set(dismissed));
+  const items = visibleNotifications(stored, remindersOf(orders, leads), new Set(dismissed));
+  return access ? items.filter((item) => isNotificationVisibleTo(access, item)) : [];
 }
 
 export function dismissNotifications(deps: AdminDeps, keys: readonly string[]): Promise<void> {

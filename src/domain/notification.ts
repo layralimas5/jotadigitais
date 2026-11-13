@@ -1,3 +1,4 @@
+import { canUseStoreArea, type StaffAccess, type StaffPermission } from "./admin-user";
 import { toLocalIsoDate } from "./finance";
 import { followUpStatusOf, type Lead } from "./lead";
 import type { Order } from "./order";
@@ -90,6 +91,24 @@ export function remindersOf(orders: readonly Order[], leads: readonly Lead[], no
     : [];
 
   return [...toDeliver, ...expiring, ...followUps];
+}
+
+/** Área do painel que cada aviso exige do ajudante. Suporte, segurança, LGPD e novidades são só do Jota e da Lay. */
+function permissionFor(item: AppNotification): StaffPermission | null {
+  if (item.kind === "order" || item.kind === "payment") return "orders";
+  if (item.kind !== "reminder") return null;
+  if (item.key.startsWith("reminder:followups:")) return "crm";
+  return "orders";
+}
+
+/**
+ * Mesma regra da policy "notifications staff read": o ajudante só vê avisos das áreas liberadas para ele.
+ * Vale também no "Ver como", em que a leitura usa a sessão da desenvolvedora.
+ */
+export function isNotificationVisibleTo(access: StaffAccess, item: AppNotification): boolean {
+  if (access.role !== "helper") return true;
+  const permission = permissionFor(item);
+  return permission !== null && canUseStoreArea(access, permission);
 }
 
 /** O que aparece no sininho: tudo menos o que já foi apagado, do mais novo para o mais antigo. */
