@@ -52,6 +52,11 @@ export const helperCan = (access: StaffAccess, permission: StaffPermission): boo
 export const canUseStoreArea = (access: StaffAccess, permission: StaffPermission): boolean =>
   access.role === "admin" || helperCan(access, permission);
 
+/** A desenvolvedora (TI) só aparece na lista de Usuários para ela mesma; o Jota e o ajudante não a veem. */
+export function usersVisibleTo<T extends { role: AdminRole }>(viewerRole: AdminRole | null, users: readonly T[]): T[] {
+  return viewerRole === "developer" ? [...users] : users.filter((user) => user.role !== "developer");
+}
+
 /** Pessoa com acesso ao sistema. */
 export interface AdminUser {
   id: string;

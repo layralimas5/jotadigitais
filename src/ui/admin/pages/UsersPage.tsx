@@ -1,7 +1,7 @@
 import { Plus, SlidersHorizontal, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { listAdminUsers, removeAdminUser } from "@/application/admin-use-cases";
-import { sameEmail, STAFF_PERMISSION_LABEL, type AdminUser } from "@/domain/admin-user";
+import { sameEmail, STAFF_PERMISSION_LABEL, usersVisibleTo, type AdminUser } from "@/domain/admin-user";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { Fab, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
@@ -11,6 +11,7 @@ import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery, useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { useAdminSession } from "../session";
+import { useViewRole } from "../admin-view";
 import { useToast } from "../toast";
 import { ExampleUsersNotice } from "../users/ExampleUsersNotice";
 
@@ -78,7 +79,8 @@ function UserRow({ user, isYou, canRemove, canEditAccess, onRemove }: UserRowPro
 }
 
 export default function UsersPage() {
-  const users = useAdminQuery(listAdminUsers, "admin-users");
+  const viewRole = useViewRole();
+  const users = useAdminQuery(async (deps) => usersVisibleTo(viewRole, await listAdminUsers(deps)), `admin-users-${viewRole ?? "none"}`);
   const { state } = useAdminSession();
   const toast = useToast();
   const [toRemove, setToRemove] = useState<AdminUser | null>(null);
