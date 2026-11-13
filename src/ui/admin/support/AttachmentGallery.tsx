@@ -2,7 +2,7 @@ import { Download, ImageOff } from "lucide-react";
 import { useState } from "react";
 import type { SupportAttachment } from "@/domain/support-ticket";
 import { downloadUrlOf } from "./download-url";
-import { ImageLightbox, type LightboxImage } from "./ImageLightbox";
+import { ImageLightbox, type LightboxImage } from "@/ui/components/ImageLightbox";
 
 function Unavailable({ name }: { name: string }) {
   return (
@@ -88,7 +88,7 @@ export function AttachmentGallery({ attachments }: { attachments: readonly Suppo
           </li>
         ))}
       </ul>
-      <ImageLightbox images={images} index={opened} onChange={setOpened} />
+      <ImageLightbox images={images} index={opened} onChange={setOpened} downloadHrefOf={(image) => downloadUrlOf(image.url, image.name)} />
     </>
   );
 }
