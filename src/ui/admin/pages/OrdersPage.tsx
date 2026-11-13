@@ -3,10 +3,12 @@ import { ArrowRight, CreditCard, Mail, MessageCircle, QrCode, ShoppingBag } from
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { changeOrderStatus, confirmPixPayment, loadOrdersBoard } from "@/application/admin-use-cases";
+import { dashboardRangeOf, type DashboardPeriod } from "@/domain/dashboard-period";
 import type { MessageTemplates } from "@/domain/message-template";
+import { matchesOrderFilters, ORDER_SORT_LABEL, sortOrders, type OrderSort, type PaymentFilter } from "@/domain/order-filters";
 import { formatBRL } from "@/domain/money";
 import { ORDER_TRANSITIONS, isCartLead, type Order, type OrderStatus } from "@/domain/order";
-import { paymentPartLabel, PAYMENT_PLAN_LABEL, type OrderPayment } from "@/domain/payment";
+import { paymentPartLabel, PAYMENT_PLANS, PAYMENT_PLAN_LABEL, type OrderPayment } from "@/domain/payment";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ORDER_STAGES, ORDER_STAGE_LABEL, deliveredAtOf, matchesOrderQuery, orderStageOf, type OrderStage } from "@/domain/sale";
 import { Button } from "@/ui/components/Button";
@@ -16,6 +18,9 @@ import { cn } from "@/ui/lib/cn";
 import { SendAccessButton } from "../accounts/SendAccessButton";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { FilterSelect, type FilterOption } from "../components/FilterSelect";
+import { DashboardPeriodPicker } from "../dashboard/DashboardPeriodPicker";
+import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
 import { OrderStatusBadge } from "../components/OrderStatusBadge";
 import { SearchInput } from "../components/SearchInput";
 import { WarrantyBadge } from "../components/WarrantyBadge";
@@ -28,6 +33,19 @@ import { whatsappChatUrl } from "../lib/whatsapp";
 import { useToast } from "../toast";
 
 type Tab = OrderStage | "all";
+
+/** Sem período na URL, Pedidos mostra tudo, como antes. */
+const ALL_TIME: DashboardPeriod = { kind: "preset", preset: "all" };
+
+const PAYMENT_OPTIONS: readonly FilterOption<PaymentFilter>[] = [
+  { value: "all", label: "Todas as formas" },
+  ...PAYMENT_PLANS.map((plan) => ({ value: plan, label: PAYMENT_PLAN_LABEL[plan] })),
+];
+
+const SORT_OPTIONS: readonly FilterOption<OrderSort>[] = (Object.keys(ORDER_SORT_LABEL) as OrderSort[]).map((sort) => ({
+  value: sort,
+  label: ORDER_SORT_LABEL[sort],
+}));
 
 const TABS: readonly { id: Tab; label: string }[] = [...ORDER_STAGES.map((stage) => ({ id: stage, label: ORDER_STAGE_LABEL[stage] })), { id: "all", label: "Todos" }];
 
@@ -298,6 +316,15 @@ export default function OrdersPage() {
   });
   const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState("");
+  const [period, setPeriod] = useDashboardPeriod(ALL_TIME);
+  const [payment, setPayment] = useState<PaymentFilter>("all");
+  const [sort, setSort] = useState<OrderSort>("newest");
+  const range = useMemo(() => dashboardRangeOf(period), [period]);
+  const filtered = period.kind !== "preset" || period.preset !== "all" || payment !== "all";
+  const clearFilters = () => {
+    setPeriod(ALL_TIME);
+    setPayment("all");
+  };
   const [toCancel, setToCancel] = useState<Order | null>(null);
   const [pixToConfirm, setPixToConfirm] = useState<{ order: Order; payment: OrderPayment } | null>(null);
   const confirmPix = useMutation(async (deps, order: Order, paymentId: string) => {
@@ -324,8 +351,15 @@ export default function OrdersPage() {
     () => (data ? data.orders.map((order) => ({ order, stage: orderStageOf(order, data.guaranteeDays) })) : []),
     [data],
   );
-  const searched = useMemo(() => staged.filter(({ order }) => matchesOrderQuery(order, query)), [staged, query]);
-  const visible = useMemo(() => searched.filter(({ stage }) => tab === "all" || stage === tab).map(({ order }) => order), [searched, tab]);
+  const searched = useMemo(
+    () => staged.filter(({ order }) => matchesOrderQuery(order, query) && matchesOrderFilters(order, { range, payment })),
+    [staged, query, range, payment],
+  );
+  const visible = useMemo(
+    () => sortOrders(searched.filter(({ stage }) => tab === "all" || stage === tab).map(({ order }) => order), sort),
+    [searched, tab, sort],
+  );
+  const narrowed = query.trim() !== "" || filtered;
   const cartSizes = useMemo(() => {
     const sizes = new Map<string, number>();
     for (const order of data?.orders ?? []) {
@@ -336,6 +370,7 @@ export default function OrdersPage() {
   const showCart = (cartCode: string) => {
     setQuery(cartCode);
     setTab("all");
+    clearFilters();
   };
   const countOf = (id: Tab) => (data ? searched.filter(({ stage }) => id === "all" || stage === id).length : null);
 
@@ -377,6 +412,19 @@ export default function OrdersPage() {
 
       <SearchInput label="Buscar pedido" placeholder="Buscar por cliente, e-mail, pedido ou conta" value={query} onChange={setQuery} />
 
+      <div className="flex flex-wrap items-center gap-3">
+        <DashboardPeriodPicker value={period} onChange={setPeriod} align="start" label="Data do pedido" />
+        <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto">
+          <FilterSelect label="Forma de pagamento" className="sm:w-48" value={payment} options={PAYMENT_OPTIONS} onChange={setPayment} />
+          <FilterSelect label="Ordenar" className="sm:w-44" value={sort} options={SORT_OPTIONS} onChange={setSort} />
+        </div>
+        {filtered && (
+          <button type="button" onClick={clearFilters} className="text-sm font-medium text-electric-soft hover:underline">
+            Limpar filtros
+          </button>
+        )}
+      </div>
+
       <div role="group" aria-label="Filtrar pedidos" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
         {TABS.map((item) => {
           const count = countOf(item.id);
@@ -404,10 +452,10 @@ export default function OrdersPage() {
       {board.status === "error" && <ErrorState message={board.error.message} onRetry={board.reload} />}
       {data && visible.length === 0 && (
         <EmptyState
-          title={query.trim() ? "Nada encontrado" : EMPTY_TITLE[tab]}
+          title={narrowed ? "Nada encontrado" : EMPTY_TITLE[tab]}
           description={
-            query.trim()
-              ? "Confira o que foi digitado ou troque de aba."
+            narrowed
+              ? "Mude a data, a forma de pagamento, a aba ou confira o que foi digitado."
               : "Quando alguém finaliza a compra no site, o pedido aparece aqui com os dados do cliente."
           }
         />
