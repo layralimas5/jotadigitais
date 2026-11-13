@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BadgeDollarSign, BarChart3, ChevronLeft, ChevronRight, ImageIcon, Info, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import type { Account } from "@/domain/account";
+import { shopTierOf, type Account } from "@/domain/account";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
 import { useDragScroll } from "@/ui/hooks/useDragScroll";
@@ -49,7 +49,11 @@ function printIconOf(label: string): LucideIcon {
 }
 
 function viewsOf(account: Account): GalleryView[] {
-  const plan = galleryPlanOf({ platform: account.platform, monetized: account.stats.monetized });
+  const plan = galleryPlanOf({
+    platform: account.platform,
+    monetized: account.stats.monetized,
+    hasShop: account.platform !== "tiktok" || shopTierOf(account) !== "none",
+  });
   const views: GalleryView[] = [
     {
       id: "profile",

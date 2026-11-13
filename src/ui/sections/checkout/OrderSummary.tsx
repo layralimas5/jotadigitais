@@ -35,6 +35,7 @@ export function OrderSummary({ accounts, coupon, preview }: OrderSummaryProps) {
   const [single] = accounts;
   const isCart = accounts.length > 1;
   const subtotal = subtotalOf(accounts);
+  const singleBadge = single ? accountBadge(single) : null;
 
   return (
     <aside aria-labelledby="resumo-title" className="rounded-3xl border border-line bg-surface p-5 sm:p-6 lg:sticky lg:top-24">
@@ -49,7 +50,7 @@ export function OrderSummary({ accounts, coupon, preview }: OrderSummaryProps) {
       {!isCart && single && (
         <div className="mt-4 flex flex-wrap gap-2">
           <PlatformTag platform={single.platform} />
-          <AccountBadgePill badge={accountBadge(single)} />
+          {singleBadge && <AccountBadgePill badge={singleBadge} />}
         </div>
       )}
 
