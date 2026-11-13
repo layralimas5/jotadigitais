@@ -1,5 +1,4 @@
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
-import { downloadUrlOf } from "./download-url";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 
 export interface LightboxImage {
@@ -12,13 +11,15 @@ interface ImageLightboxProps {
   /** Posição da imagem aberta; nulo fecha. */
   index: number | null;
   onChange: (index: number | null) => void;
+  /** Link de download da imagem; sem ele, o botão de baixar não aparece (ex.: prints na página da conta). */
+  downloadHrefOf?: (image: LightboxImage) => string;
 }
 
 const controlClass =
   "grid size-11 place-items-center rounded-full bg-black/70 text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-white/15";
 
 /** Imagem em tamanho grande na mesma aba. Esc ou clique fora fecha; setas passam para as outras do mesmo envio. */
-export function ImageLightbox({ images, index, onChange }: ImageLightboxProps) {
+export function ImageLightbox({ images, index, onChange, downloadHrefOf }: ImageLightboxProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const open = index !== null;
   const image = index === null ? null : images[index];
@@ -62,9 +63,9 @@ export function ImageLightbox({ images, index, onChange }: ImageLightboxProps) {
         </div>
       )}
       <div className="absolute top-3 right-3 flex gap-2 sm:top-5 sm:right-5">
-        {image && (
+        {image && downloadHrefOf && (
           <a
-            href={downloadUrlOf(image.url, image.name)}
+            href={downloadHrefOf(image)}
             download={image.name}
             aria-label={`Baixar ${image?.name ?? "imagem"}`}
             className={controlClass}
