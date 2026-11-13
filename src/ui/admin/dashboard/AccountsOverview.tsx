@@ -1,9 +1,18 @@
 import { BadgeCheck, Hourglass, PackageOpen } from "lucide-react";
 import type { AccountStatusCount, Dashboard } from "@/domain/dashboard";
 import { formatBRL } from "@/domain/money";
-import { PLATFORM_LABEL } from "@/domain/platform";
+import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
+import { cn } from "@/ui/lib/cn";
 import { SegmentBar, TONE, ToneIcon, type Segment } from "./StatCard";
+
+/** Cor de cada rede, a mesma do topo dos cards da vitrine: ícone em degradê e um brilho leve no fundo. */
+const NETWORK_STYLE: Record<Platform, { chip: string; glow: string }> = {
+  tiktok: { chip: "from-electric via-blue-500 to-sky-400 shadow-electric/30", glow: "from-electric/[0.12] hover:border-electric/40" },
+  instagram: { chip: "from-pink via-fuchsia-500 to-rose-400 shadow-pink/30", glow: "from-pink/[0.12] hover:border-pink/40" },
+  youtube: { chip: "from-red-500 via-red-400 to-rose-300 shadow-red-500/30", glow: "from-red-500/[0.12] hover:border-red-500/40" },
+  facebook: { chip: "from-indigo-500 via-blue-600 to-violet-500 shadow-indigo-500/30", glow: "from-indigo-500/[0.14] hover:border-indigo-400/40" },
+};
 
 const STATUS_TILES = [
   { key: "available", label: "Ativas", hint: "À venda na vitrine", icon: PackageOpen, tone: "electric" },
@@ -50,12 +59,23 @@ export function AccountsOverview({ dashboard }: { dashboard: Dashboard }) {
       </dl>
 
       <p className="mt-5 text-xs font-medium text-mist">Ativas por rede</p>
-      <ul className="mt-2 grid grid-cols-2 gap-2 xl:grid-cols-4">
+      <ul className="mt-2 grid grid-cols-2 gap-2 2xl:grid-cols-4">
         {dashboard.stock.map((item) => (
-          <li key={item.platform} className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 text-sm">
-            <PlatformGlyph platform={item.platform} className="size-4 shrink-0 text-fog" />
+          <li
+            key={item.platform}
+            className={cn(
+              "flex items-center gap-2.5 rounded-xl border border-line bg-gradient-to-r to-transparent px-2.5 py-2 text-sm transition-colors duration-300",
+              NETWORK_STYLE[item.platform].glow,
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn("grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br text-white shadow-md", NETWORK_STYLE[item.platform].chip)}
+            >
+              <PlatformGlyph platform={item.platform} className="size-3.5" />
+            </span>
             <span className="sr-only">{PLATFORM_LABEL[item.platform]}:</span>
-            <span aria-hidden className="truncate text-xs text-mist">{PLATFORM_LABEL[item.platform]}</span>
+            <span aria-hidden className="truncate text-xs text-fog">{PLATFORM_LABEL[item.platform]}</span>
             <span className="ml-auto font-semibold text-white tabular-nums">{item.available}</span>
           </li>
         ))}
