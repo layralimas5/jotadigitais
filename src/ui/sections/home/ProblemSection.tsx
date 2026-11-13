@@ -12,10 +12,9 @@ interface Screenshot {
   src: string;
   alt: string;
   tone: Tone;
-  fadeClassName: string;
 }
 
-/** Print real do app, recortado no topo com um esmaecido embaixo para parecer cortado. */
+/** Print real do app, recortado no topo, sem nada por cima da imagem. */
 function ScreenshotCrop({ shot, className, editPath }: { shot: Screenshot; className?: string; editPath: string }) {
   return (
     <div
@@ -32,10 +31,6 @@ function ScreenshotCrop({ shot, className, editPath }: { shot: Screenshot; class
         loading="lazy"
         decoding="async"
         className="size-full object-cover object-top"
-      />
-      <div
-        aria-hidden
-        className={cn("absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t md:h-16 to-transparent", shot.fadeClassName)}
       />
     </div>
   );
@@ -73,8 +68,8 @@ const shotClassName = "mx-auto mt-4 aspect-[9/7] w-full max-w-[15rem] md:mt-6 md
 
 export function ProblemSection() {
   const { problem } = useSiteContent();
-  const rejected: Screenshot = { src: problem.fromScratchImage.url, alt: problem.fromScratchImage.alt, tone: "alert", fadeClassName: "from-white" };
-  const approved: Screenshot = { src: problem.withUsImage.url, alt: problem.withUsImage.alt, tone: "electric", fadeClassName: "from-[#121212]" };
+  const rejected: Screenshot = { src: problem.fromScratchImage.url, alt: problem.fromScratchImage.alt, tone: "alert" };
+  const approved: Screenshot = { src: problem.withUsImage.url, alt: problem.withUsImage.alt, tone: "electric" };
   return (
     <section aria-labelledby="problema-title" className="relative py-14 sm:py-20 md:py-32">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
