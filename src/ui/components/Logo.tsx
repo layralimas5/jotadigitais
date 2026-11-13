@@ -57,3 +57,16 @@ export function Logo({ size = "sm", className }: LogoProps) {
     </span>
   );
 }
+
+/** Versão curta para espaço apertado (menu lateral encolhido): a inicial em camadas e o selo. */
+export function LogoMark({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-start font-logo text-[1.75rem] leading-none tracking-tight uppercase", className)}>
+      <span className="sr-only">Jota Digitais</span>
+      <span aria-hidden>
+        <LayeredWord size="sm">J</LayeredWord>
+      </span>
+      <VerifiedBadge className="size-4 self-end" />
+    </span>
+  );
+}
