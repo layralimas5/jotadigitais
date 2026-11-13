@@ -9,6 +9,7 @@ import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { InlineError } from "../components/AdminUi";
 import { useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
+import { blobFromDataUrl } from "../lib/data-url";
 import { prepareImage } from "../lib/prepare-image";
 
 export interface ImportedProfile {
@@ -21,7 +22,7 @@ export interface ImportedProfile {
 async function storeImage(deps: AdminDeps, dataUrl: string | null, name: string): Promise<string | null> {
   if (!dataUrl) return null;
   try {
-    const blob = await (await fetch(dataUrl)).blob();
+    const blob = blobFromDataUrl(dataUrl);
     const prepared = await prepareImage(new File([blob], name, { type: blob.type }));
     return (await uploadImage(deps, prepared, "accounts")).url;
   } catch (error) {
@@ -44,8 +45,18 @@ async function importProfile(deps: AdminDeps, url: string): Promise<ImportedProf
   return { profile, images: await storeImages(deps, profile) };
 }
 
-function notesOf(profile: ProfileLookup): string[] {
+function imageNotesOf({ profile, images }: ImportedProfile): string[] {
   const notes: string[] = [];
+  if (!profile.avatarDataUrl) notes.push("A rede não mandou a foto de perfil: envie a foto à mão.");
+  else if (!images.avatarUrl) notes.push("A foto de perfil veio, mas não foi salva. Tente de novo ou envie à mão.");
+  const lostPosts = profile.postDataUrls.length - images.postUrls.length;
+  if (lostPosts > 0 || (profile.coverDataUrl && !images.coverUrl)) notes.push("Algumas imagens do mockup não foram salvas. Tente de novo ou envie à mão.");
+  return notes;
+}
+
+function notesOf(imported: ImportedProfile): string[] {
+  const { profile } = imported;
+  const notes = imageNotesOf(imported);
   if (profile.approximate) notes.push("A rede mostra alguns números arredondados. Confira o valor exato no app antes de salvar.");
   if (profile.platform === "youtube") notes.push("Horas de exibição e monetização não são públicas: preencha pelo YouTube Studio.");
   else notes.push("Monetização não aparece no perfil público: marque à mão se a conta já recebe.");
@@ -53,7 +64,8 @@ function notesOf(profile: ProfileLookup): string[] {
   return notes;
 }
 
-function ImportSummary({ profile }: { profile: ProfileLookup }) {
+function ImportSummary({ imported }: { imported: ImportedProfile }) {
+  const { profile } = imported;
   const numbers = [
     { label: profile.platform === "youtube" ? "Inscritos" : "Seguidores", value: profile.followers },
     { label: "Seguindo", value: profile.following },
@@ -95,7 +107,7 @@ function ImportSummary({ profile }: { profile: ProfileLookup }) {
         </div>
       )}
       <ul className="mt-3 space-y-1">
-        {notesOf(profile).map((note) => (
+        {notesOf(imported).map((note) => (
           <li key={note} className="flex gap-1.5 text-xs text-fog">
             <AlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0 text-amber-300" /> {note}
           </li>
@@ -116,14 +128,14 @@ interface ProfileImportProps {
 /** Link do perfil + botão que puxa seguidores, curtidas, foto e o resto direto da rede. */
 export function ProfileImport({ url, syncedAt, error, onUrlChange, onImported }: ProfileImportProps) {
   const lookup = useMutation(importProfile);
-  const [last, setLast] = useState<ProfileLookup | null>(null);
+  const [last, setLast] = useState<ImportedProfile | null>(null);
   const canFetch = url.trim().length > 0 && !lookup.pending;
 
   const run = async () => {
     if (!canFetch) return;
     const imported = await lookup.run(url);
     if (!imported) return;
-    setLast(imported.profile);
+    setLast(imported);
     onImported(imported);
   };
 
@@ -174,7 +186,7 @@ export function ProfileImport({ url, syncedAt, error, onUrlChange, onImported }:
         </p>
       )}
       {lookup.error && <InlineError message={lookup.error.message} />}
-      {last && !lookup.error && <ImportSummary profile={last} />}
+      {last && !lookup.error && <ImportSummary imported={last} />}
     </div>
   );
 }
