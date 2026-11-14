@@ -32,6 +32,8 @@ import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { DatabaseUsage } from "@/domain/storage";
 import type { StoreSettings } from "@/domain/store-settings";
 import type {
+  SupportCannedReply,
+  SupportCannedReplyData,
   SupportLabel,
   SupportLabelData,
   SupportNotifyEvent,
@@ -417,6 +419,11 @@ export interface SupportTicketRepository {
   setDueDate(ticketId: string, dueDate: string | null): Promise<void>;
   /** Marca que já está no ar: avisa o Jota e passa para "Aguardando o Jota". Desmarcar só tira o selo. */
   setReleased(ticketId: string, released: boolean): Promise<void>;
+  /** Respostas prontas da desenvolvedora, em ordem alfabética. Só ela vê e mexe (o banco confere). */
+  listCannedReplies(): Promise<SupportCannedReply[]>;
+  createCannedReply(data: SupportCannedReplyData): Promise<SupportCannedReply>;
+  updateCannedReply(id: string, data: SupportCannedReplyData): Promise<SupportCannedReply>;
+  removeCannedReply(id: string): Promise<void>;
 }
 
 /**

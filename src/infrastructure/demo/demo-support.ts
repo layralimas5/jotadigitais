@@ -19,6 +19,7 @@ import {
   canDeleteSupportTicket,
   canMergeSupportTickets,
   canManageSupportLabels,
+  DEFAULT_CANNED_REPLIES,
   isVisibleTo,
   type SupportLabel,
   type SupportLabelData,
@@ -28,6 +29,8 @@ import {
   type SupportStatusEvent,
   type SupportAttachment,
   type SupportAuthor,
+  type SupportCannedReply,
+  type SupportCannedReplyData,
   type SupportChecklistItem,
   type SupportReply,
   type SupportStatus,
@@ -388,6 +391,45 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
         events: forwards ? [...current.events, statusEvent(current.status, "waiting", author, now)] : current.events,
       };
     });
+  }
+
+  /** Sem nada salvo ainda, o modo demo começa com as três respostas de fábrica (como a migration). */
+  async listCannedReplies(): Promise<SupportCannedReply[]> {
+    await this.requireDeveloper();
+    return [...this.cannedReplies()].sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+  }
+
+  async createCannedReply(data: SupportCannedReplyData): Promise<SupportCannedReply> {
+    await this.requireDeveloper();
+    const created: SupportCannedReply = { ...data, id: newId("rpl") };
+    const current = this.cannedReplies();
+    this.db.write((state) => {
+      state.supportCannedReplies = [...current, created];
+    });
+    return created;
+  }
+
+  async updateCannedReply(id: string, data: SupportCannedReplyData): Promise<SupportCannedReply> {
+    await this.requireDeveloper();
+    const current = this.cannedReplies();
+    if (!current.some((item) => item.id === id)) throw new SupportTicketNotFoundError();
+    const updated: SupportCannedReply = { ...data, id };
+    this.db.write((state) => {
+      state.supportCannedReplies = current.map((item) => (item.id === id ? updated : item));
+    });
+    return updated;
+  }
+
+  async removeCannedReply(id: string): Promise<void> {
+    await this.requireDeveloper();
+    const current = this.cannedReplies();
+    this.db.write((state) => {
+      state.supportCannedReplies = current.filter((item) => item.id !== id);
+    });
+  }
+
+  private cannedReplies(): SupportCannedReply[] {
+    return this.db.read().supportCannedReplies ?? DEFAULT_CANNED_REPLIES.map((reply, index) => ({ ...reply, id: `rpl_default_${index}` }));
   }
 
   private ticketWithItem(itemId: string): SupportTicket {
