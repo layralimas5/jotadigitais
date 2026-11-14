@@ -12,6 +12,7 @@ import {
   type AccountStatus,
   type ShopTier,
 } from "@/domain/account";
+import { DEFAULT_COUNTRY } from "@/domain/country";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
 import type { DistributivePick } from "@/shared/types";
 
@@ -304,11 +305,14 @@ export function descriptionOf(account: Account): string[] {
     .filter(Boolean);
 }
 
-/** Itens que dependem dos dados da conta (monetização, conta profissional, página ou perfil): entram sozinhos. */
+/** Itens que dependem dos dados da conta (monetização, Shop, conta profissional, página ou perfil): entram sozinhos. */
 function automaticIncluded(account: Account): string[] {
   switch (account.platform) {
     case "tiktok":
-      return account.stats.monetized ? ["Monetização ativa"] : [];
+      return [
+        ...(account.stats.monetized ? ["Monetização ativa"] : []),
+        ...(shopTierOf(account) !== "none" ? [TIKTOK_SHOP_INCLUDED] : []),
+      ];
     case "instagram":
       return [
         ...(account.stats.professional ? ["Conta profissional com estatísticas"] : []),
@@ -324,7 +328,21 @@ function automaticIncluded(account: Account): string[] {
   }
 }
 
-/** "O que está incluso": os itens automáticos da conta e depois os da rede, editados na aba Site. */
+const TIKTOK_SHOP_INCLUDED = "Central de Criadores do TikTok Shop ativa";
+
+/** Linha fixa que fala do Shop: agora ele entra sozinho, só na conta que tem (a aba Site pode ter a linha antiga salva). */
+const SHOP_LINE = /tiktok shop|central de criadores/i;
+
+/** "Seguidores reais e brasileiros" só vale para conta do Brasil; nas outras fica "Seguidores reais". */
+const BRAZILIAN_AUDIENCE = /\s+e\s+brasileiros\b/i;
+
+function fixedIncludedOf(account: Account, items: readonly string[]): string[] {
+  return items
+    .filter((item) => !(account.platform === "tiktok" && SHOP_LINE.test(item)))
+    .map((item) => (account.country === DEFAULT_COUNTRY ? item : item.replace(BRAZILIAN_AUDIENCE, "")));
+}
+
+/** "O que está incluso": os itens automáticos da conta e depois os da rede, editados na aba Site, ajustados à conta. */
 export function includedOf(account: Account, fixedByPlatform: Record<Account["platform"], string[]>): string[] {
-  return [...automaticIncluded(account), ...fixedByPlatform[account.platform]];
+  return [...automaticIncluded(account), ...fixedIncludedOf(account, fixedByPlatform[account.platform])];
 }

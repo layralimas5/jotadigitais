@@ -397,7 +397,7 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
       <GroupTitle>O que está incluso</GroupTitle>
       {copy("includedTitle", "Título", 60)}
       <p className="text-xs text-mist">
-        Monetização ativa, conta profissional e o tipo de acesso do Facebook entram sozinhos, pelos dados de cada conta. Abaixo, os itens fixos de cada rede.
+        Monetização ativa, TikTok Shop, conta profissional e o tipo de acesso do Facebook entram sozinhos, pelos dados de cada conta. Abaixo, os itens fixos de cada rede; numa conta de fora do Brasil, &quot;e brasileiros&quot; sai sozinho.
       </p>
       {PLATFORMS.map((platform) => (
         <CopyListField
