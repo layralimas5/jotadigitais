@@ -499,7 +499,6 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     includedTitle: "O que está incluso",
     included: {
       tiktok: [
-        "Central de Criadores do TikTok Shop ativa",
         "Seguidores reais e brasileiros",
         "Sem documentos vinculados",
         "Troca livre de nome, @ e foto",
