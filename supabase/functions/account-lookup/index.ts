@@ -1,8 +1,9 @@
 // Busca os dados públicos de uma conta pelo link (aba Contas, botão "Puxar dados").
 // Só administradores logados podem chamar: a função faz requisições em nome do servidor.
 // Deploy: npx supabase functions deploy account-lookup
+// Instagram pela API oficial: secrets META_IG_USER_ID e META_ACCESS_TOKEN (ver docs/instagram-api.md).
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
-import { LookupError, lookupProfile, type LookupErrorCode } from "./lookup.ts";
+import { instagramGraphFromEnv, LookupError, lookupProfile, type LookupErrorCode } from "./lookup.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -45,7 +46,7 @@ Deno.serve(async (request) => {
   if (typeof profileUrl !== "string" || profileUrl.length > 300) return failWith("invalid_url");
 
   try {
-    return json(await lookupProfile(profileUrl));
+    return json(await lookupProfile(profileUrl, { instagramGraph: instagramGraphFromEnv((name) => Deno.env.get(name)) }));
   } catch (error) {
     if (error instanceof LookupError) return failWith(error.code);
     console.error(error);

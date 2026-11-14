@@ -56,8 +56,19 @@ const DESKTOP_USER_AGENT =
 const TIMEOUT_MS = 12_000;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 /** Quantas capas cabem no mockup de cada rede. */
-const RECENT_POSTS = { tiktok: 3, youtube: 2 } as const;
+const RECENT_POSTS = { tiktok: 3, youtube: 2, instagram: 3 } as const;
 const EMBED_ATTEMPTS = 3;
+
+/** Credenciais da API oficial da Meta (Business Discovery). Sem elas, o Instagram usa só a página pública. */
+export interface InstagramGraphCredentials {
+  /** ID da conta profissional do Instagram dona do token. */
+  userId: string;
+  accessToken: string;
+}
+
+export interface LookupOptions {
+  instagramGraph?: InstagramGraphCredentials | null;
+}
 
 interface ProfileTarget {
   platform: LookupPlatform;
@@ -413,10 +424,77 @@ async function instagramFromPage(username: string): Promise<ProfileLookup> {
   };
 }
 
-async function lookupInstagram(url: URL): Promise<ProfileLookup> {
+// API oficial (Business Discovery): números exatos, mas só de contas comerciais ou de criador.
+// Conta pessoal, token vencido ou limite de uso devolvem null e a busca segue pelos caminhos acima.
+
+const GRAPH_API = "https://graph.facebook.com/v23.0";
+
+interface GraphMedia {
+  media_type?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+}
+
+interface GraphBusinessProfile {
+  username?: string;
+  name?: string;
+  biography?: string;
+  followers_count?: number;
+  media_count?: number;
+  profile_picture_url?: string;
+  media?: { data?: GraphMedia[] };
+}
+
+const GRAPH_FIELDS = `username,name,biography,followers_count,media_count,profile_picture_url,media.limit(${RECENT_POSTS.instagram}){media_type,media_url,thumbnail_url}`;
+
+const coverOf = (media: GraphMedia) => (media.media_type === "VIDEO" ? media.thumbnail_url : media.media_url) ?? null;
+
+async function instagramFromGraph(username: string, credentials: InstagramGraphCredentials): Promise<ProfileLookup | null> {
+  const query = new URLSearchParams({
+    fields: `business_discovery.username(${username}){${GRAPH_FIELDS}}`,
+    access_token: credentials.accessToken,
+  });
+  let response: Response;
+  try {
+    response = await fetch(`${GRAPH_API}/${encodeURIComponent(credentials.userId)}?${query}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch {
+    return null;
+  }
+  const body: { business_discovery?: GraphBusinessProfile; error?: { code?: number; error_subcode?: number; message?: string } } | null =
+    await response.json().catch(() => null);
+  const profile = body?.business_discovery;
+  if (!response.ok || !profile?.username) {
+    const error = body?.error;
+    console.warn(`instagram graph: ${response.status} code=${error?.code ?? "?"} subcode=${error?.error_subcode ?? "?"} ${error?.message ?? ""}`);
+    return null;
+  }
+  const covers = (profile.media?.data ?? []).map(coverOf).filter((url): url is string => url !== null);
+  const [avatarDataUrl, postDataUrls] = await Promise.all([fetchImage(profile.profile_picture_url ?? null), fetchImages(covers)]);
+  return {
+    ...empty,
+    platform: "instagram",
+    handle: `@${profile.username}`,
+    displayName: profile.name || profile.username,
+    profileUrl: `https://www.instagram.com/${profile.username}/`,
+    followers: profile.followers_count ?? 0,
+    approximate: false,
+    posts: profile.media_count ?? null,
+    professional: true,
+    bio: profile.biography || null,
+    avatarDataUrl,
+    postDataUrls,
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+const INSTAGRAM_USERNAME = /^[A-Za-z0-9._]{1,30}$/;
+
+async function lookupInstagram(url: URL, options: LookupOptions): Promise<ProfileLookup> {
   const username = url.pathname.split("/").filter(Boolean)[0];
   if (!username || ["p", "reel", "reels", "stories", "explore"].includes(username)) throw new LookupError("invalid_url");
-  return (await instagramFromApi(username)) ?? instagramFromPage(username);
+  if (!INSTAGRAM_USERNAME.test(username)) throw new LookupError("invalid_url");
+  const fromGraph = options.instagramGraph ? await instagramFromGraph(username, options.instagramGraph) : null;
+  return fromGraph ?? (await instagramFromApi(username)) ?? instagramFromPage(username);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,13 +570,20 @@ async function lookupYouTube(url: URL): Promise<ProfileLookup> {
   };
 }
 
-const LOOKUPS: Record<LookupPlatform, (url: URL) => Promise<ProfileLookup>> = {
+const LOOKUPS: Record<LookupPlatform, (url: URL, options: LookupOptions) => Promise<ProfileLookup>> = {
   tiktok: lookupTikTok,
   instagram: lookupInstagram,
   youtube: lookupYouTube,
 };
 
-export async function lookupProfile(rawUrl: string): Promise<ProfileLookup> {
+export async function lookupProfile(rawUrl: string, options: LookupOptions = {}): Promise<ProfileLookup> {
   const target = await parseProfileUrl(rawUrl);
-  return LOOKUPS[target.platform](target.url);
+  return LOOKUPS[target.platform](target.url, options);
+}
+
+/** Lê as credenciais da Meta de um mapa de variáveis de ambiente; só valem as duas juntas. */
+export function instagramGraphFromEnv(read: (name: string) => string | undefined): InstagramGraphCredentials | null {
+  const userId = read("META_IG_USER_ID")?.trim();
+  const accessToken = read("META_ACCESS_TOKEN")?.trim();
+  return userId && accessToken ? { userId, accessToken } : null;
 }

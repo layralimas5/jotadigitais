@@ -34,7 +34,8 @@ async function handleLookup(server: ViteDevServer, request: IncomingMessage, res
     const parsed: unknown = JSON.parse(await readBody(request));
     const url = typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>).url : null;
     if (typeof url !== "string") return send(response, 400, { error: "invalid_url" });
-    send(response, 200, await lookup.lookupProfile(url));
+    const env = loadEnv(server.config.mode, process.cwd(), "META_");
+    send(response, 200, await lookup.lookupProfile(url, { instagramGraph: lookup.instagramGraphFromEnv((name) => env[name]) }));
   } catch (error) {
     if (error instanceof lookup.LookupError) return send(response, LOOKUP_STATUS[error.code] ?? 502, { error: error.code });
     console.error(error);
