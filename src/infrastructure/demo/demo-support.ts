@@ -20,6 +20,7 @@ import {
   canMergeSupportTickets,
   canManageSupportLabels,
   DEFAULT_CANNED_REPLIES,
+  canReopenSupportTicket,
   isVisibleTo,
   type SupportLabel,
   type SupportLabelData,
@@ -333,6 +334,24 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       if (!ticket.mergedInto) throw new SupportTicketNotFoundError();
       return { ...ticket, mergedInto: null, mergedAt: null };
     });
+  }
+
+  /** Mesma regra da reopen_support_ticket do banco. */
+  async reopen(ticketId: string): Promise<void> {
+    await simulateLatency();
+    const author = await this.currentAuthor();
+    const ticket = this.db.read().supportTickets?.find((item) => item.id === ticketId);
+    if (!ticket) throw new SupportTicketNotFoundError();
+    if (!canReopenSupportTicket(ticket, author.role)) throw new SupportApprovalError("Este chamado não pode mais ser reaberto. Abra um chamado novo.");
+    const now = new Date().toISOString();
+    this.updateTicket(ticketId, (current) => ({
+      ...current,
+      status: "open",
+      resolvedAt: null,
+      releasedAt: null,
+      updatedAt: now,
+      events: [...current.events, statusEvent(current.status, "open", author, now)],
+    }));
   }
 
   async addChecklistItems(ticketId: string, bodies: readonly string[]): Promise<void> {

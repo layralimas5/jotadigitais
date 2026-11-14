@@ -23,6 +23,7 @@ import {
   canMergeSupportTickets,
   nestMergedTickets,
   canNotifyAdmin,
+  canReopenSupportTicket,
   checklistItemsFromText,
   hasUnseenFrom,
   MAX_CANNED_BODY_LENGTH,
@@ -273,4 +274,21 @@ export function saveCannedReply(deps: AdminDeps, role: AdminRole, id: string | n
 export function deleteCannedReply(deps: AdminDeps, role: AdminRole, id: string): Promise<void> {
   requireDeveloper(role);
   return deps.support.removeCannedReply(id);
+}
+
+/**
+ * O Jota reabre um chamado finalizado há até 7 dias: o motivo vai como resposta (fica no histórico e no aviso
+ * para a desenvolvedora) e o chamado volta para "Pendente".
+ */
+export async function reopenSupportTicket(
+  deps: AdminDeps,
+  role: AdminRole,
+  ticket: Pick<SupportTicket, "id" | "status" | "resolvedAt" | "internal">,
+  reason: string,
+): Promise<void> {
+  if (!canReopenSupportTicket(ticket, role)) throw new SupportApprovalError("Este chamado não pode mais ser reaberto. Abra um chamado novo.");
+  const text = reason.trim();
+  if (!text) throw new ValidationError("Conte o que voltou a acontecer.", { reason: "Conte o que voltou a acontecer." });
+  await deps.support.reply(ticket.id, text, [], null);
+  await deps.support.reopen(ticket.id);
 }

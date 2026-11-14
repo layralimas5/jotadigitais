@@ -292,6 +292,13 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     fail(error);
   }
 
+  async reopen(ticketId: string): Promise<void> {
+    const { error } = await this.client.rpc("reopen_support_ticket", { p_ticket_id: ticketId });
+    if (!error) return;
+    if (error.code === "P0002") throw new SupportApprovalError("Este chamado não pode mais ser reaberto. Abra um chamado novo.");
+    fail(error);
+  }
+
   async listLabels(): Promise<SupportLabel[]> {
     const { data, error } = await this.client.from("support_labels").select(LABEL_COLUMNS).order("created_at");
     if (error) fail(error);

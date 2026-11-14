@@ -56,6 +56,7 @@ import { TicketSeenMark } from "../support/SeenIndicator";
 import { StatusPicker } from "../support/StatusPicker";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import { DeliveryBadges } from "../support/DeliveryBadges";
+import { StaleBadge } from "../support/StaleBadge";
 import {
   ApprovedByAdminBadge,
   InternalBadge,
@@ -325,6 +326,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged, select
           </h2>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mist">
             <QueueAgeBadge ticket={ticket} />
+            <StaleBadge ticket={ticket} />
             <span>
               {authorNameOf(ticket.author)} · mexido {formatRelative(ticket.updatedAt)}
             </span>
