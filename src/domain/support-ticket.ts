@@ -39,7 +39,7 @@ export interface SupportAuthor {
 // Anexos
 // ---------------------------------------------------------------------------
 
-export type SupportAttachmentKind = "image" | "video";
+export type SupportAttachmentKind = "image" | "video" | "audio";
 
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -47,6 +47,21 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
 export const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
+/** Gravado no navegador (WebM no Chrome, MP4 no Safari) ou áudio salvo do WhatsApp (OGG/Opus). */
+export const ACCEPTED_AUDIO_TYPES = [
+  "audio/webm",
+  "audio/ogg",
+  "audio/opus",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/x-m4a",
+  "audio/wav",
+] as const;
+export const MAX_AUDIO_BYTES = 20 * 1024 * 1024;
+
+/** "audio/webm;codecs=opus" vira "audio/webm": o banco e o armazenamento guardam o tipo sem os parâmetros. */
+export const baseContentType = (contentType: string): string => contentType.split(";")[0]?.trim().toLowerCase() ?? "";
 
 export interface SupportAttachment {
   id: string;
@@ -73,16 +88,43 @@ export interface SupportSubmitResult<T> {
 }
 
 export function attachmentKindOf(contentType: string): SupportAttachmentKind | null {
-  if ((ACCEPTED_IMAGE_TYPES as readonly string[]).includes(contentType)) return "image";
-  if ((ACCEPTED_VIDEO_TYPES as readonly string[]).includes(contentType)) return "video";
+  const type = baseContentType(contentType);
+  if ((ACCEPTED_IMAGE_TYPES as readonly string[]).includes(type)) return "image";
+  if ((ACCEPTED_VIDEO_TYPES as readonly string[]).includes(type)) return "video";
+  if ((ACCEPTED_AUDIO_TYPES as readonly string[]).includes(type)) return "audio";
   return null;
 }
+
+const SIZE_LIMIT: Record<SupportAttachmentKind, number> = { image: MAX_IMAGE_BYTES, video: MAX_VIDEO_BYTES, audio: MAX_AUDIO_BYTES };
+
+/** Extensões de áudio que o navegador às vezes entrega sem tipo (ex.: .opus do WhatsApp no Windows). */
+const AUDIO_TYPE_BY_EXTENSION: Record<string, string> = {
+  opus: "audio/ogg",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  m4a: "audio/mp4",
+  mp3: "audio/mpeg",
+  aac: "audio/aac",
+  wav: "audio/wav",
+  weba: "audio/webm",
+};
+
+/** Tipo do arquivo, deduzido pela extensão quando o navegador não informa. */
+export function contentTypeOf(file: { name: string; type: string }): string {
+  const type = baseContentType(file.type);
+  if (type && type !== "application/octet-stream") return type;
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return AUDIO_TYPE_BY_EXTENSION[extension] ?? type;
+}
+
+/** Texto que vai na mensagem quando a pessoa manda só o áudio, sem escrever nada. */
+export const VOICE_MESSAGE_TEXT = "Mensagem de voz";
 
 /** Mensagem do problema com o arquivo, ou nulo quando ele pode subir. */
 export function attachmentProblem(file: { name: string; type: string; size: number }): string | null {
   const kind = attachmentKindOf(file.type);
-  if (!kind) return `"${file.name}" não é imagem (PNG, JPG, WebP, GIF) nem vídeo (MP4, MOV, WebM).`;
-  const limit = kind === "image" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+  if (!kind) return `"${file.name}" não é imagem (PNG, JPG, WebP, GIF), vídeo (MP4, MOV, WebM) nem áudio (MP3, OGG, M4A, WebM).`;
+  const limit = SIZE_LIMIT[kind];
   if (file.size > limit) return `"${file.name}" passa de ${limit / 1024 / 1024} MB.`;
   return null;
 }
@@ -499,3 +541,26 @@ export function hasUnseenFrom(ticket: SupportTicket, viewer: SupportRole): boole
   const theirs = lastMessageAtFrom(ticket, counterpartOf(viewer));
   return theirs !== null && !wasSeenBy(ticket, viewer, theirs);
 }
+
+// ---------------------------------------------------------------------------
+// Respostas prontas (só a desenvolvedora)
+// ---------------------------------------------------------------------------
+
+export interface SupportCannedReplyData {
+  title: string;
+  body: string;
+}
+
+export interface SupportCannedReply extends SupportCannedReplyData {
+  id: string;
+}
+
+export const MAX_CANNED_TITLE_LENGTH = 60;
+export const MAX_CANNED_BODY_LENGTH = 2000;
+
+/** As três que a Lay pediu; o banco já nasce com elas (o modo demo também). */
+export const DEFAULT_CANNED_REPLIES: readonly SupportCannedReplyData[] = [
+  { title: "Publicado", body: 'Publicado! Confere aí e, se estiver tudo certo, é só clicar em "Aprovado e finalizado".' },
+  { title: "Preciso de um print", body: "Consegue me mandar um print da tela onde aconteceu? Se puder, mostra também o que você clicou antes." },
+  { title: "Depende do contador", body: "Essa parte depende do contador. Assim que você tiver a resposta dele, me manda aqui que eu sigo." },
+];

@@ -23,7 +23,7 @@ import { SegmentedField, TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useViewRole } from "../admin-view";
 import { useMutation } from "../hooks";
-import { AttachmentPicker, pasteFilesInto, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { AttachmentPicker, pasteFilesInto, textOrVoice, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { KIND_ICON } from "../support/SupportBadges";
 import { PRIORITY_TONE } from "../support/priority-tone";
@@ -90,14 +90,15 @@ export default function SupportTicketEditorPage() {
     event.preventDefault();
     setSubmitted(true);
     const formElement = event.currentTarget;
-    const result = validate(values);
+    const toSend = { ...values, description: textOrVoice(values.description, picked.files) };
+    const result = validate(toSend);
     setErrors(result.errors);
     if (!result.data) {
       const first = FIELD_ORDER.find((field) => result.errors[field]);
       if (first) formElement.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
-    const opened = await open.run(values, uploadsOf(picked.files), canNotify && notifyAdmin);
+    const opened = await open.run(toSend, uploadsOf(picked.files), canNotify && notifyAdmin);
     if (!opened) return;
     const { saved, failedUploads, notified } = opened;
     if (!notified) toast.show("Chamado aberto, mas o aviso no sininho do Jota falhou.", "error");

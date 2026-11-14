@@ -25,6 +25,10 @@ import {
   canNotifyAdmin,
   checklistItemsFromText,
   hasUnseenFrom,
+  MAX_CANNED_BODY_LENGTH,
+  MAX_CANNED_TITLE_LENGTH,
+  type SupportCannedReply,
+  type SupportCannedReplyData,
   isQuotableIn,
   isVisibleTo,
   seenAtBy,
@@ -238,4 +242,35 @@ export function setSupportDueDate(deps: AdminDeps, role: AdminRole, ticketId: st
 export function setSupportReleased(deps: AdminDeps, role: AdminRole, ticketId: string, released: boolean): Promise<void> {
   requireDeveloper(role);
   return deps.support.setReleased(ticketId, released);
+}
+
+// ---------------------------------------------------------------------------
+// Respostas prontas: só a desenvolvedora (o banco confere de novo)
+// ---------------------------------------------------------------------------
+
+export function listCannedReplies(deps: AdminDeps, role: AdminRole): Promise<SupportCannedReply[]> {
+  return role === "developer" ? deps.support.listCannedReplies() : Promise.resolve([]);
+}
+
+function parseCannedReply(data: SupportCannedReplyData): SupportCannedReplyData {
+  const title = data.title.trim();
+  const body = data.body.trim();
+  const errors: Record<string, string> = {};
+  if (!title || title.length > MAX_CANNED_TITLE_LENGTH) errors.title = `Dê um nome com até ${MAX_CANNED_TITLE_LENGTH} caracteres.`;
+  if (!body || body.length > MAX_CANNED_BODY_LENGTH) errors.body = `Escreva o texto com até ${MAX_CANNED_BODY_LENGTH} caracteres.`;
+  const first = Object.values(errors)[0];
+  if (first) throw new ValidationError(first, errors);
+  return { title, body };
+}
+
+/** Cria quando `id` é nulo, atualiza quando existe. */
+export function saveCannedReply(deps: AdminDeps, role: AdminRole, id: string | null, data: SupportCannedReplyData): Promise<SupportCannedReply> {
+  requireDeveloper(role);
+  const parsed = parseCannedReply(data);
+  return id ? deps.support.updateCannedReply(id, parsed) : deps.support.createCannedReply(parsed);
+}
+
+export function deleteCannedReply(deps: AdminDeps, role: AdminRole, id: string): Promise<void> {
+  requireDeveloper(role);
+  return deps.support.removeCannedReply(id);
 }

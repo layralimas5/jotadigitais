@@ -1,4 +1,4 @@
-import { Download, ImageOff } from "lucide-react";
+import { Download, ImageOff, Mic } from "lucide-react";
 import { useState } from "react";
 import type { SupportAttachment } from "@/domain/support-ticket";
 import { downloadUrlOf } from "./download-url";
@@ -47,6 +47,30 @@ function VideoAttachment({ url, name }: { url: string; name: string }) {
   );
 }
 
+/** Áudio toca no chat; o nome e o botão de baixar ficam ao lado. */
+function AudioAttachment({ url, name }: { url: string; name: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 p-2">
+      <Mic aria-hidden className="ml-1 size-4 shrink-0 text-electric" />
+      <audio src={url} controls preload="metadata" aria-label={name} className="h-10 min-w-0 flex-1" />
+      <a
+        href={downloadUrlOf(url, name)}
+        download={name}
+        aria-label={`Baixar ${name}`}
+        className="grid size-9 shrink-0 place-items-center rounded-full text-electric-soft hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-electric"
+      >
+        <Download aria-hidden className="size-4" />
+      </a>
+    </div>
+  );
+}
+
+const ITEM_CLASS = {
+  image: "aspect-video overflow-hidden rounded-xl border border-line bg-ink",
+  video: "col-span-2 overflow-hidden rounded-xl border border-line bg-black",
+  audio: "col-span-2 rounded-xl border border-line bg-ink sm:col-span-3",
+} as const;
+
 /** Imagens ampliam na mesma aba (com setas entre as do mesmo envio); vídeos tocam ali mesmo. */
 export function AttachmentGallery({ attachments }: { attachments: readonly SupportAttachment[] }) {
   const [opened, setOpened] = useState<number | null>(null);
@@ -58,14 +82,7 @@ export function AttachmentGallery({ attachments }: { attachments: readonly Suppo
     <>
       <ul aria-label="Anexos" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {attachments.map((attachment) => (
-          <li
-            key={attachment.id}
-            className={
-              attachment.kind === "video"
-                ? "col-span-2 overflow-hidden rounded-xl border border-line bg-black"
-                : "aspect-video overflow-hidden rounded-xl border border-line bg-ink"
-            }
-          >
+          <li key={attachment.id} className={ITEM_CLASS[attachment.kind]}>
             {!attachment.url ? (
               <Unavailable name={attachment.name} />
             ) : attachment.kind === "image" ? (
@@ -82,6 +99,8 @@ export function AttachmentGallery({ attachments }: { attachments: readonly Suppo
                   className="size-full object-cover transition-transform hover:scale-[1.03]"
                 />
               </button>
+            ) : attachment.kind === "audio" ? (
+              <AudioAttachment url={attachment.url} name={attachment.name} />
             ) : (
               <VideoAttachment url={attachment.url} name={attachment.name} />
             )}

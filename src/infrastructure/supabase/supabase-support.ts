@@ -10,6 +10,8 @@ import {
   SUPPORT_STATUSES,
   type SupportAttachment,
   type SupportAuthor,
+  type SupportCannedReply,
+  type SupportCannedReplyData,
   type SupportLabel,
   type SupportLabelData,
   type SupportNotifyEvent,
@@ -40,6 +42,14 @@ const EXTENSION: Record<string, string> = {
   "video/mp4": "mp4",
   "video/quicktime": "mov",
   "video/webm": "webm",
+  "audio/webm": "weba",
+  "audio/ogg": "ogg",
+  "audio/opus": "opus",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/x-m4a": "m4a",
+  "audio/wav": "wav",
 };
 
 // O autor vem de admin_users pela chave estrangeira: nome, papel e foto de quem escreveu.
@@ -52,6 +62,8 @@ const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
 const CHECKLIST_COLUMNS = "id, body, done, position, done_at";
 const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role, avatar_url), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS}), due_date, released_at, checklist:support_checklist_items(${CHECKLIST_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
+const CANNED_COLUMNS = "id, title, body";
+const cannedRowSchema = z.object({ id: z.string(), title: z.string(), body: z.string() });
 const UNIQUE_VIOLATION = "23505";
 
 const authorSchema = z
@@ -71,7 +83,7 @@ const attachmentRowSchema = z.object({
   id: z.string(),
   reply_id: z.string().nullable(),
   path: z.string(),
-  kind: z.enum(["image", "video"]),
+  kind: z.enum(["image", "video", "audio"]),
   name: z.string(),
 });
 
@@ -370,6 +382,29 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
 
   async setDueDate(ticketId: string, dueDate: string | null): Promise<void> {
     const { error } = await this.client.rpc("set_support_ticket_due_date", { p_ticket_id: ticketId, p_due_date: dueDate });
+    if (error) fail(error);
+  }
+
+  async listCannedReplies(): Promise<SupportCannedReply[]> {
+    const { data, error } = await this.client.from("support_canned_replies").select(CANNED_COLUMNS).order("title");
+    if (error) fail(error);
+    return z.array(cannedRowSchema).parse(data);
+  }
+
+  async createCannedReply(input: SupportCannedReplyData): Promise<SupportCannedReply> {
+    const { data, error } = await this.client.from("support_canned_replies").insert(input).select(CANNED_COLUMNS).single();
+    if (error) fail(error);
+    return cannedRowSchema.parse(data);
+  }
+
+  async updateCannedReply(id: string, input: SupportCannedReplyData): Promise<SupportCannedReply> {
+    const { data, error } = await this.client.from("support_canned_replies").update(input).eq("id", id).select(CANNED_COLUMNS).single();
+    if (error) fail(error);
+    return cannedRowSchema.parse(data);
+  }
+
+  async removeCannedReply(id: string): Promise<void> {
+    const { error } = await this.client.from("support_canned_replies").delete().eq("id", id);
     if (error) fail(error);
   }
 

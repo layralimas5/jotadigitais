@@ -54,7 +54,8 @@ import { formatDate, formatRelative } from "../lib/dates";
 import { useAdminView, useViewRole } from "../admin-view";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import { AttachmentGallery } from "../support/AttachmentGallery";
-import { AttachmentPicker, pasteFilesInto, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { AttachmentPicker, pasteFilesInto, textOrVoice, uploadsOf, usePickedFiles } from "../support/AttachmentPicker";
+import { CannedReplies } from "../support/CannedReplies";
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { SeenMark } from "../support/SeenIndicator";
 import { LabelPicker } from "../support/LabelPicker";
@@ -352,6 +353,21 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
   const canAskAdmin = canChangeSupportStatus(role) && ticket.status !== "waiting" && !ticket.internal;
   const canNotify = canNotifyAdmin(ticket, role);
 
+  /** Resposta pronta entra onde está o cursor, sem apagar o que já foi escrito. */
+  const insertText = (text: string) => {
+    const field = formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="body"]');
+    const start = field?.selectionStart ?? body.length;
+    const end = field?.selectionEnd ?? body.length;
+    const before = body.slice(0, start);
+    const glue = before && !/\s$/.test(before) ? " " : "";
+    setBody(`${before}${glue}${text}${body.slice(end)}`);
+    requestAnimationFrame(() => {
+      const caret = start + glue.length + text.length;
+      field?.focus();
+      field?.setSelectionRange(caret, caret);
+    });
+  };
+
   // Escolheu uma mensagem para responder: o cursor já vai para o campo.
   useEffect(() => {
     if (replyingTo) formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="body"]')?.focus();
@@ -359,13 +375,14 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!body.trim()) {
-      setError("Escreva a resposta.");
+    const text = textOrVoice(body, picked.files);
+    if (!text.trim()) {
+      setError("Escreva a resposta ou grave um áudio.");
       return;
     }
     setError(null);
     const sent = await reply.run({
-      body,
+      body: text,
       replyToId: replyingTo?.id ?? null,
       uploads: uploadsOf(picked.files),
       askAdmin: canAskAdmin && askAdmin,
@@ -398,7 +415,8 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
         onPaste={pasteFilesInto(picked.addFiles)}
         error={error ?? reply.error?.message}
       />
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
+        {role === "developer" && <CannedReplies role={role} currentText={body} onInsert={insertText} />}
         <AttachmentPicker files={picked.files} problem={picked.problem} onFiles={picked.addFiles} onRemove={picked.remove} disabled={reply.pending} />
       </div>
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">

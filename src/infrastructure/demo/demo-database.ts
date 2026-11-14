@@ -15,7 +15,7 @@ import type { ConsentRecord, DataRequest } from "@/domain/privacy";
 import type { Order } from "@/domain/order";
 import type { Partner } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
-import type { SupportLabel, SupportTicket } from "@/domain/support-ticket";
+import type { SupportCannedReply, SupportLabel, SupportTicket } from "@/domain/support-ticket";
 import type { Testimonial } from "@/domain/testimonial";
 import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
 
@@ -66,6 +66,8 @@ export interface DemoState {
   dataRequests?: DataRequest[];
   supportTickets?: SupportTicket[];
   supportLabels?: SupportLabel[];
+  /** Respostas prontas da desenvolvedora; sem nada salvo, valem as de fábrica. */
+  supportCannedReplies?: SupportCannedReply[];
   /** Horários das tentativas em Meus dados, por e-mail (limite de 10 por hora). */
   privacyAttempts?: Record<string, string[]>;
 }
