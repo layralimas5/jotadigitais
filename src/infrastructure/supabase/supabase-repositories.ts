@@ -970,13 +970,14 @@ export class SupabasePartnerRepository implements AdminPartnerRepository {
 }
 
 // A senha entra pela coluna `password` (o banco cifra) e volta aberta por password_plain, só para administrador.
-const EMAIL_ACCOUNT_LIST_COLUMNS = "id, email, used_for, recovery_email, recovery_phone, account_id, notes, created_at, updated_at, has_password";
+const EMAIL_ACCOUNT_LIST_COLUMNS = "id, email, used_for, device, recovery_email, recovery_phone, account_id, notes, created_at, updated_at, has_password";
 const EMAIL_ACCOUNT_COLUMNS = `${EMAIL_ACCOUNT_LIST_COLUMNS}, password:password_plain`;
 
 const emailAccountRowSchema = z.object({
   id: z.string(),
   email: z.string(),
   used_for: z.string().nullable(),
+  device: z.string().nullable(),
   recovery_email: z.string().nullable(),
   recovery_phone: z.string().nullable(),
   account_id: z.string().nullable(),
@@ -992,6 +993,7 @@ function toEmailAccountListItem(raw: unknown): EmailAccountListItem {
     id: row.id,
     email: row.email,
     usedFor: row.used_for,
+    device: row.device,
     recoveryEmail: row.recovery_email,
     recoveryPhone: row.recovery_phone,
     accountId: row.account_id,
@@ -1012,6 +1014,7 @@ const toEmailAccountRow = (data: EmailAccountData) => ({
   email: data.email,
   password: data.password,
   used_for: data.usedFor,
+  device: data.device,
   recovery_email: data.recoveryEmail,
   recovery_phone: data.recoveryPhone,
   account_id: data.accountId,

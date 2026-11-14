@@ -536,20 +536,21 @@ export async function findDeliveryLogin(deps: AdminDeps, accountId: string): Pro
  * E-mail vazio desliga o que estava ligado, sem apagar da aba E-mails.
  */
 export async function saveAccountAccess(deps: AdminDeps, account: Pick<Account, "id" | "handle" | "platform">, raw: unknown): Promise<AccountAccess | null> {
-  const { email, password } = parseOrThrow(accountAccessSchema, raw);
+  const { email, password, device } = parseOrThrow(accountAccessSchema, raw);
   const linked = await deps.emailAccounts.findByAccountId(account.id);
   if (!email) {
     if (linked) await deps.emailAccounts.update(linked.id, { ...withoutMeta(linked), accountId: null });
     return null;
   }
-  if (linked) return accessOf(await deps.emailAccounts.update(linked.id, { ...withoutMeta(linked), email, password }));
+  if (linked) return accessOf(await deps.emailAccounts.update(linked.id, { ...withoutMeta(linked), email, password, device }));
   const existing = await deps.emailAccounts.findByEmail(email);
-  if (existing) return accessOf(await deps.emailAccounts.update(existing.id, { ...withoutMeta(existing), accountId: account.id, password }));
+  if (existing) return accessOf(await deps.emailAccounts.update(existing.id, { ...withoutMeta(existing), accountId: account.id, password, device }));
   return accessOf(
     await deps.emailAccounts.create({
       email,
       password,
       usedFor: `${PLATFORM_LABEL[account.platform]} ${account.handle}`,
+      device,
       recoveryEmail: null,
       recoveryPhone: null,
       accountId: account.id,

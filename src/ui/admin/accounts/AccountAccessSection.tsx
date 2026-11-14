@@ -1,18 +1,25 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { listEmailAccounts } from "@/application/admin-use-cases";
 import { canUseStoreArea } from "@/domain/admin-user";
 import type { DeliveryLogin } from "@/domain/delivery-login";
+import { devicesOf } from "@/domain/email-account";
 import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { accountAccessSchema, fieldErrorsOf, profileLoginSchema } from "@/application/schemas";
 import { TextField } from "@/ui/components/form/Fields";
 import { FormSection } from "../components/AdminUi";
 import { CopyButton } from "../emails/CopyButton";
+import { DeviceField } from "../emails/DeviceField";
 import { SecretField } from "../emails/SecretField";
 import { useCopy } from "../emails/use-copy";
 import { useViewAccess } from "../admin-view";
+import { useAdminQuery } from "../hooks";
 
 export interface AccessFormValues {
   email: string;
   password: string;
+  /** Aparelho em que o e-mail está logado (vai junto para a aba E-mails). */
+  device: string;
   username: string;
   profilePassword: string;
 }
@@ -22,29 +29,36 @@ export type AccessFormErrors = Partial<Record<keyof AccessFormValues, string>>;
 export const accessFormOf = (login: DeliveryLogin | null): AccessFormValues => ({
   email: login?.email?.email ?? "",
   password: login?.email?.password ?? "",
+  device: login?.email?.device ?? "",
   username: login?.profile?.username ?? "",
   profilePassword: login?.profile?.password ?? "",
 });
 
 export const sameEmailAccess = (a: AccessFormValues, b: AccessFormValues) =>
-  a.email.trim().toLowerCase() === b.email.trim().toLowerCase() && a.password === b.password;
+  a.email.trim().toLowerCase() === b.email.trim().toLowerCase() && a.password === b.password && a.device.trim() === b.device.trim();
 
 export const sameProfileLogin = (a: AccessFormValues, b: AccessFormValues) =>
   a.username.trim() === b.username.trim() && a.profilePassword === b.profilePassword;
 
-export const emailAccessInputOf = (values: AccessFormValues) => ({ email: values.email, password: values.password });
+export const emailAccessInputOf = (values: AccessFormValues) => ({ email: values.email, password: values.password, device: values.device });
 
 export const profileLoginInputOf = (values: AccessFormValues) => ({ username: values.username, password: values.profilePassword });
 
 /** Ordem dos campos na tela, para levar o foco ao primeiro com erro. */
-export const ACCESS_FIELD_ORDER = ["email", "password", "username", "profilePassword"] as const;
+export const ACCESS_FIELD_ORDER = ["email", "password", "device", "username", "profilePassword"] as const;
 
 export function validateAccess(values: AccessFormValues): AccessFormErrors {
   const email = accountAccessSchema.safeParse(emailAccessInputOf(values));
   const profile = profileLoginSchema.safeParse(profileLoginInputOf(values));
   const emailErrors = email.success ? {} : fieldErrorsOf(email.error);
   const profileErrors = profile.success ? {} : fieldErrorsOf(profile.error);
-  return { email: emailErrors.email, password: emailErrors.password, username: profileErrors.username, profilePassword: profileErrors.password };
+  return {
+    email: emailErrors.email,
+    password: emailErrors.password,
+    device: emailErrors.device,
+    username: profileErrors.username,
+    profilePassword: profileErrors.password,
+  };
 }
 
 /** Só quem abre a aba E-mails (admin ou ajudante com essa área) vê e edita o login da conta. */
@@ -79,6 +93,8 @@ export function AccountAccessSection({ values, errors, onChange, platform }: Acc
   const copy = useCopy();
   const email = values.email.trim();
   const username = values.username.trim();
+  const savedEmails = useAdminQuery(listEmailAccounts, "admin-email-accounts");
+  const usedDevices = useMemo(() => devicesOf(savedEmails.status === "success" ? savedEmails.data : []), [savedEmails]);
   return (
     <FormSection
       title="Acesso da conta"
@@ -112,6 +128,7 @@ export function AccountAccessSection({ values, errors, onChange, platform }: Acc
         error={errors.password}
         hint="Pode deixar em branco e anotar depois."
       />
+      <DeviceField name="access.device" value={values.device} onChange={(device) => onChange({ ...values, device })} used={usedDevices} error={errors.device} />
       <div className="border-t border-line pt-4">
         <AccessGroupTitle title={`2. Login do perfil no ${network}`} hint={`O usuário e a senha para entrar no ${network}.`} />
       </div>
