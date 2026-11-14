@@ -55,6 +55,7 @@ import { QueueAgeBadge } from "../support/QueueAgeBadge";
 import { TicketSeenMark } from "../support/SeenIndicator";
 import { StatusPicker } from "../support/StatusPicker";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
+import { DeliveryBadges } from "../support/DeliveryBadges";
 import {
   ApprovedByAdminBadge,
   InternalBadge,
@@ -315,6 +316,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged, select
             {ticket.internal && <InternalBadge />}
             {needsActionFrom(ticket, role) && <NeedsYouBadge />}
             {wasApprovedByAdmin(ticket) && <ApprovedByAdminBadge />}
+            <DeliveryBadges ticket={ticket} />
           </div>
           <h2 className="mt-1.5 truncate font-semibold text-white">
             <Link to={`/admin/suporte/${ticket.id}`} className="hover:text-electric-soft">

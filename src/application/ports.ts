@@ -409,6 +409,14 @@ export interface SupportTicketRepository {
   merge(targetId: string, sourceIds: readonly string[]): Promise<void>;
   /** Solta um chamado juntado: ele volta para a lista como estava. */
   unmerge(ticketId: string): Promise<void>;
+  /** Checklist: só a desenvolvedora cria, marca, edita e apaga (o banco confere). Itens entram no fim, na ordem. */
+  addChecklistItems(ticketId: string, bodies: readonly string[]): Promise<void>;
+  updateChecklistItem(itemId: string, change: { body?: string; done?: boolean }): Promise<void>;
+  removeChecklistItem(itemId: string): Promise<void>;
+  /** Previsão de entrega (AAAA-MM-DD) ou nula para tirar. Só a desenvolvedora. */
+  setDueDate(ticketId: string, dueDate: string | null): Promise<void>;
+  /** Marca que já está no ar: avisa o Jota e passa para "Aguardando o Jota". Desmarcar só tira o selo. */
+  setReleased(ticketId: string, released: boolean): Promise<void>;
 }
 
 /**

@@ -61,6 +61,8 @@ import { LabelPicker } from "../support/LabelPicker";
 import { MergedIntoNotice, MergedTicketsSection } from "../support/MergedTickets";
 import { messageAnchorOf, QuoteInMessage, ReplyingTo, scrollToMessage } from "../support/ReplyQuote";
 import { statusEventText } from "../support/TicketProgress";
+import { DeliveryBadges } from "../support/DeliveryBadges";
+import { DeliverySection } from "../support/DeliverySection";
 import {
   ApprovedByAdminBadge,
   authorNameOf,
@@ -501,6 +503,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
           <SupportKindBadge kind={ticket.kind} />
           <SupportAreaBadge area={ticket.area} />
           {label && !canManageSupportLabels(role) && <SupportLabelBadge label={label} />}
+          <DeliveryBadges ticket={ticket} />
         </div>
         <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight break-words text-white sm:text-3xl">{ticket.title}</h1>
         <p className="mt-1.5 text-sm text-mist">
@@ -517,6 +520,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
         )}
       </header>
 
+      <DeliverySection ticket={ticket} role={role} onChanged={reload} />
       {canChangeSupportStatus(role) && <StatusControl ticket={ticket} role={role} onChanged={reload} />}
       {canChangeSupportPriority(ticket, role) && <PriorityControl ticket={ticket} role={role} onChanged={reload} />}
       {canChangeSupportVisibility(role) && <VisibilityControl ticket={ticket} role={role} onChanged={reload} />}

@@ -28,6 +28,7 @@ import {
   type SupportStatusEvent,
   type SupportAttachment,
   type SupportAuthor,
+  type SupportChecklistItem,
   type SupportReply,
   type SupportStatus,
   type SupportPriority,
@@ -66,6 +67,14 @@ function assertUniqueName(labels: readonly SupportLabel[], name: string, exceptI
   if (labels.some((label) => label.id !== exceptId && label.name.trim().toLowerCase() === key)) throw new SupportLabelNameTakenError(name.trim());
 }
 
+/** Chamado salvo antes da checklist, da previsão e do "no ar": os campos novos entram vazios. */
+const withNewFields = (ticket: SupportTicket): SupportTicket => ({
+  ...ticket,
+  checklist: ticket.checklist ?? [],
+  dueDate: ticket.dueDate ?? null,
+  releasedAt: ticket.releasedAt ?? null,
+});
+
 /**
  * Chamados no navegador. Quem escreve é quem está logado no modo demo, como o banco faria.
  * Os anexos ficam só na memória desta aba (vídeo não cabe no localStorage): recarregar a página os perde.
@@ -82,7 +91,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
   async listAll(): Promise<SupportTicket[]> {
     const role = (await this.currentAuthor()).role;
     return structuredClone(this.db.read().supportTickets ?? [])
-      .map((ticket) => this.withUrls(ticket))
+      .map((ticket) => this.withUrls(withNewFields(ticket)))
       .filter((ticket) => isVisibleTo(ticket, role));
   }
 
@@ -109,6 +118,9 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       mergedInto: null,
       mergedAt: null,
       merged: [],
+      checklist: [],
+      dueDate: null,
+      releasedAt: null,
     };
     this.db.write((state) => {
       state.supportTickets = [ticket, ...(state.supportTickets ?? [])];
@@ -320,6 +332,76 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     });
   }
 
+  async addChecklistItems(ticketId: string, bodies: readonly string[]): Promise<void> {
+    await this.requireDeveloper();
+    this.updateTicket(ticketId, (ticket) => {
+      const start = ticket.checklist.reduce((max, item) => Math.max(max, item.position), -1) + 1;
+      const added = bodies.map((body, index): SupportChecklistItem => ({ id: newId("chk"), body, done: false, position: start + index, doneAt: null }));
+      return { ...ticket, checklist: [...ticket.checklist, ...added] };
+    });
+  }
+
+  async updateChecklistItem(itemId: string, change: { body?: string; done?: boolean }): Promise<void> {
+    await this.requireDeveloper();
+    const ticket = this.ticketWithItem(itemId);
+    this.updateTicket(ticket.id, (current) => ({
+      ...current,
+      checklist: current.checklist.map((item) => {
+        if (item.id !== itemId) return item;
+        const done = change.done ?? item.done;
+        return { ...item, body: change.body ?? item.body, done, doneAt: done === item.done ? item.doneAt : done ? new Date().toISOString() : null };
+      }),
+    }));
+  }
+
+  async removeChecklistItem(itemId: string): Promise<void> {
+    await this.requireDeveloper();
+    const ticket = this.ticketWithItem(itemId);
+    this.updateTicket(ticket.id, (current) => ({ ...current, checklist: current.checklist.filter((item) => item.id !== itemId) }));
+  }
+
+  async setDueDate(ticketId: string, dueDate: string | null): Promise<void> {
+    await this.requireDeveloper();
+    this.updateTicket(ticketId, (ticket) => ({ ...ticket, dueDate }));
+  }
+
+  /** Mesma regra da set_support_ticket_released do banco. */
+  async setReleased(ticketId: string, released: boolean): Promise<void> {
+    await simulateLatency();
+    const author = await this.requireDeveloper();
+    const ticket = this.db.read().supportTickets?.find((item) => item.id === ticketId);
+    if (!ticket) throw new SupportTicketNotFoundError();
+    if (!released) {
+      this.updateTicket(ticketId, (current) => ({ ...current, releasedAt: null }));
+      return;
+    }
+    if (ticket.releasedAt) return;
+    const now = new Date().toISOString();
+    this.notifyJota(ticket, `Já está no ar: ${ticket.title}`, "Confere no site ou no painel e, se estiver tudo certo, aprova o chamado.");
+    this.updateTicket(ticketId, (current) => {
+      const forwards = !current.internal && (current.status === "open" || current.status === "in_progress");
+      return {
+        ...current,
+        releasedAt: now,
+        status: forwards ? "waiting" : current.status,
+        updatedAt: now,
+        events: forwards ? [...current.events, statusEvent(current.status, "waiting", author, now)] : current.events,
+      };
+    });
+  }
+
+  private ticketWithItem(itemId: string): SupportTicket {
+    const ticket = (this.db.read().supportTickets ?? []).find((item) => (item.checklist ?? []).some((entry) => entry.id === itemId));
+    if (!ticket) throw new SupportTicketNotFoundError();
+    return ticket;
+  }
+
+  private async requireDeveloper(): Promise<SupportAuthor> {
+    const author = await this.currentAuthor();
+    if (author.role !== "developer") throw new SupportStatusForbiddenError();
+    return author;
+  }
+
   private async requireLabelManager(): Promise<void> {
     if (!canManageSupportLabels((await this.currentAuthor()).role)) throw new SupportLabelForbiddenError();
   }
@@ -354,7 +436,9 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     this.db.write((state) => {
       const tickets = state.supportTickets ?? [];
       if (!tickets.some((ticket) => ticket.id === id)) throw new SupportTicketNotFoundError();
-      state.supportTickets = tickets.map((ticket) => (ticket.id === id ? change({ ...ticket, attachments: ticket.attachments ?? [], events: ticket.events ?? [], views: ticket.views ?? [], labelId: ticket.labelId ?? null }) : ticket));
+      state.supportTickets = tickets.map((ticket) =>
+        ticket.id === id ? change(withNewFields({ ...ticket, attachments: ticket.attachments ?? [], events: ticket.events ?? [], views: ticket.views ?? [], labelId: ticket.labelId ?? null })) : ticket,
+      );
     });
   }
 

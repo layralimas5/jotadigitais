@@ -23,6 +23,7 @@ import {
   canMergeSupportTickets,
   nestMergedTickets,
   canNotifyAdmin,
+  checklistItemsFromText,
   hasUnseenFrom,
   isQuotableIn,
   isVisibleTo,
@@ -39,7 +40,7 @@ import {
   type SupportUpload,
 } from "@/domain/support-ticket";
 import type { AdminDeps } from "./admin-use-cases";
-import { parseOrThrow, supportLabelSchema, supportPrioritySchema, supportReplySchema, supportStatusSchema, supportTicketDataSchema } from "./schemas";
+import { parseOrThrow, ValidationError, supportLabelSchema, supportPrioritySchema, supportReplySchema, supportStatusSchema, supportTicketDataSchema } from "./schemas";
 
 /** Confere os arquivos antes de salvar qualquer coisa: tipo, tamanho e quantidade. */
 function checkUploads(uploads: readonly SupportUpload[]): void {
@@ -193,4 +194,48 @@ export function setSupportLabel(deps: AdminDeps, role: AdminRole, ticketId: stri
 export function deleteSupportTicket(deps: AdminDeps, role: AdminRole, ticketId: string): Promise<void> {
   if (!canDeleteSupportTicket(role)) throw new SupportDeleteForbiddenError();
   return deps.support.remove(ticketId);
+}
+
+// ---------------------------------------------------------------------------
+// Checklist, previsão e publicação: só a desenvolvedora mexe (o banco confere de novo)
+// ---------------------------------------------------------------------------
+
+function requireDeveloper(role: AdminRole): void {
+  if (role !== "developer") throw new SupportStatusForbiddenError();
+}
+
+/** Cada linha do texto vira um item no fim da checklist. Devolve quantos entraram. */
+export async function addSupportChecklistItems(deps: AdminDeps, role: AdminRole, ticketId: string, text: string): Promise<number> {
+  requireDeveloper(role);
+  const bodies = checklistItemsFromText(text);
+  if (bodies.length === 0) throw new ValidationError("Escreva pelo menos um item.", { checklist: "Escreva pelo menos um item." });
+  await deps.support.addChecklistItems(ticketId, bodies);
+  return bodies.length;
+}
+
+export function toggleSupportChecklistItem(deps: AdminDeps, role: AdminRole, itemId: string, done: boolean): Promise<void> {
+  requireDeveloper(role);
+  return deps.support.updateChecklistItem(itemId, { done });
+}
+
+export function removeSupportChecklistItem(deps: AdminDeps, role: AdminRole, itemId: string): Promise<void> {
+  requireDeveloper(role);
+  return deps.support.removeChecklistItem(itemId);
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Previsão de entrega: AAAA-MM-DD do campo de data, ou nula para tirar. */
+export function setSupportDueDate(deps: AdminDeps, role: AdminRole, ticketId: string, dueDate: string | null): Promise<void> {
+  requireDeveloper(role);
+  if (dueDate !== null && (!ISO_DATE.test(dueDate) || Number.isNaN(Date.parse(dueDate)))) {
+    throw new ValidationError("Data de previsão inválida.", { dueDate: "Data inválida." });
+  }
+  return deps.support.setDueDate(ticketId, dueDate);
+}
+
+/** "Já está no ar": avisa o Jota e passa o chamado para ele conferir. Desmarcar só tira o selo. */
+export function setSupportReleased(deps: AdminDeps, role: AdminRole, ticketId: string, released: boolean): Promise<void> {
+  requireDeveloper(role);
+  return deps.support.setReleased(ticketId, released);
 }
