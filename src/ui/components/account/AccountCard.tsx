@@ -39,7 +39,7 @@ function CardCover({ account }: { account: Account }) {
       <div className="absolute top-3 right-3 left-3 flex items-center justify-between sm:top-4 sm:right-4 sm:left-4">
         <div className="flex min-w-0 items-center gap-1.5">
           <PlatformTag platform={account.platform} />
-          <CountryTag name={account.countryName} className="min-w-0 truncate" />
+          <CountryTag code={account.country} name={account.countryName} className="min-w-0 truncate" />
         </div>
         {available && isNewListing(account) ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[0.7rem] font-semibold text-ink">
