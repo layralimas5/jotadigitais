@@ -413,6 +413,7 @@ export const emailAccountDataSchema = z.object({
     .nullable()
     .transform((value) => (value ? value : null)),
   usedFor: optionalText(120),
+  device: optionalText(40),
   recoveryEmail: optionalEmail,
   recoveryPhone: optionalWhatsapp,
   accountId: z
@@ -426,6 +427,7 @@ export const emailAccountDataSchema = z.object({
 export const accountAccessSchema = z.object({
   email: optionalEmail,
   password: emailAccountDataSchema.shape.password,
+  device: emailAccountDataSchema.shape.device,
 });
 
 export type AccountAccessInput = z.infer<typeof accountAccessSchema>;

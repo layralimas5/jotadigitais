@@ -1,9 +1,9 @@
 import { ArrowLeft } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { deleteEmailAccount, findEmailAccount, saveEmailAccount } from "@/application/admin-use-cases";
+import { deleteEmailAccount, findEmailAccount, listEmailAccounts, saveEmailAccount } from "@/application/admin-use-cases";
 import { emailAccountDataSchema, fieldErrorsOf } from "@/application/schemas";
-import type { EmailAccount } from "@/domain/email-account";
+import { devicesOf, type EmailAccount } from "@/domain/email-account";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, LoadingBlock, PageHeader } from "../components/AdminUi";
@@ -11,6 +11,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { TextAreaField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { CopyButton } from "../emails/CopyButton";
+import { DeviceField } from "../emails/DeviceField";
 import { SecretField } from "../emails/SecretField";
 import { useCopy } from "../emails/use-copy";
 import { AccountSelect } from "../finance/AccountSelect";
@@ -21,18 +22,20 @@ interface EmailAccountFormValues {
   email: string;
   password: string;
   usedFor: string;
+  device: string;
   recoveryEmail: string;
   recoveryPhone: string;
   accountId: string;
   notes: string;
 }
 
-const FIELD_ORDER = ["email", "password", "usedFor", "recoveryEmail", "recoveryPhone", "notes"] as const;
+const FIELD_ORDER = ["email", "password", "usedFor", "device", "recoveryEmail", "recoveryPhone", "notes"] as const;
 
 const EMPTY: EmailAccountFormValues = {
   email: "",
   password: "",
   usedFor: "",
+  device: "",
   recoveryEmail: "",
   recoveryPhone: "",
   accountId: "",
@@ -43,6 +46,7 @@ const fromEmailAccount = (item: EmailAccount): EmailAccountFormValues => ({
   email: item.email,
   password: item.password ?? "",
   usedFor: item.usedFor ?? "",
+  device: item.device ?? "",
   recoveryEmail: item.recoveryEmail ?? "",
   recoveryPhone: item.recoveryPhone ?? "",
   accountId: item.accountId ?? "",
@@ -58,6 +62,8 @@ function EmailAccountEditor({ emailAccount }: { emailAccount: EmailAccount | nul
   const navigate = useNavigate();
   const toast = useToast();
   const copy = useCopy();
+  const allEmails = useAdminQuery(listEmailAccounts, "admin-email-accounts");
+  const usedDevices = useMemo(() => devicesOf(allEmails.status === "success" ? allEmails.data : []), [allEmails]);
   const [values, setValues] = useState<EmailAccountFormValues>(() => (emailAccount ? fromEmailAccount(emailAccount) : EMPTY));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -157,6 +163,7 @@ function EmailAccountEditor({ emailAccount }: { emailAccount: EmailAccount | nul
               onChange={(event) => update({ usedFor: event.target.value })}
               error={errors.usedFor}
             />
+            <DeviceField value={values.device} onChange={(device) => update({ device })} used={usedDevices} error={errors.device} />
             <AccountSelect
               value={values.accountId}
               onChange={(accountId) => update({ accountId })}
