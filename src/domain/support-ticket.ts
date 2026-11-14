@@ -154,6 +154,61 @@ export interface SupportTicket extends SupportTicketData {
   mergedAt: string | null;
   /** Chamados juntados neste, do mais antigo para o mais novo. Vazio nos que não têm nenhum. */
   merged: SupportTicket[];
+  /** Itens do pedido, na ordem que a desenvolvedora montou. Vazio quando o chamado não tem checklist. */
+  checklist: SupportChecklistItem[];
+  /** Previsão de entrega (AAAA-MM-DD); nula quando não foi combinada. */
+  dueDate: string | null;
+  /** Quando a desenvolvedora marcou que o ajuste já está no ar. */
+  releasedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Checklist, previsão e publicação
+// ---------------------------------------------------------------------------
+
+export interface SupportChecklistItem {
+  id: string;
+  body: string;
+  done: boolean;
+  position: number;
+  doneAt: string | null;
+}
+
+export const MAX_CHECKLIST_ITEM_LENGTH = 200;
+
+export interface ChecklistProgress {
+  done: number;
+  total: number;
+}
+
+export const checklistProgressOf = (ticket: Pick<SupportTicket, "checklist">): ChecklistProgress => ({
+  done: ticket.checklist.filter((item) => item.done).length,
+  total: ticket.checklist.length,
+});
+
+export const sortChecklist = (items: readonly SupportChecklistItem[]): SupportChecklistItem[] =>
+  [...items].sort((a, b) => a.position - b.position);
+
+/**
+ * "Uma linha, um item": cola o pedido do Jota e cada linha vira um item.
+ * Marcadores do começo ("-", "•", "1.", "1)") saem; linhas vazias e repetidas, também.
+ */
+export function checklistItemsFromText(text: string): string[] {
+  const seen = new Set<string>();
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim().slice(0, MAX_CHECKLIST_ITEM_LENGTH))
+    .filter((line) => {
+      const key = line.toLocaleLowerCase("pt-BR");
+      if (!line || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+/** Previsão vencida: passou do dia e o ajuste ainda não foi publicado nem finalizado. */
+export function isOverdue(ticket: Pick<SupportTicket, "dueDate" | "releasedAt" | "status">, today: string): boolean {
+  return ticket.dueDate !== null && ticket.releasedAt === null && ticket.status !== "done" && ticket.dueDate < today;
 }
 
 /** O suporte é só entre o Jota e a desenvolvedora: ajudante não abre a aba. */

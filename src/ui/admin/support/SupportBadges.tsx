@@ -1,4 +1,4 @@
-import { Bug, EyeOff, ListTodo, Sparkles, type LucideIcon } from "lucide-react";
+import { Bug, CalendarClock, EyeOff, ListChecks, ListTodo, Rocket, Sparkles, type LucideIcon } from "lucide-react";
 import {
   SUPPORT_AREA_LABEL,
   SUPPORT_KIND_LABEL,
@@ -12,6 +12,7 @@ import {
   type SupportStatus,
 } from "@/domain/support-ticket";
 import { cn } from "@/ui/lib/cn";
+import { formatDate, formatIsoDate, localIsoDate } from "../lib/dates";
 import { LABEL_TONE } from "./label-tone";
 import { PRIORITY_TONE } from "./priority-tone";
 
@@ -85,6 +86,44 @@ export function SupportLabelBadge({ label }: { label: SupportLabel }) {
     <span className={cn(pill, "gap-1.5", LABEL_TONE[label.color].badge)}>
       <span aria-hidden className={cn("dot-glow size-1.5 shrink-0 rounded-full", LABEL_TONE[label.color].dot)} />
       {label.name}
+    </span>
+  );
+}
+
+/** Ajuste publicado pela desenvolvedora: acaba o "já subiu?". */
+export function ReleasedBadge({ releasedAt }: { releasedAt: string }) {
+  return (
+    <span className={cn(pill, "gap-1.5 border-emerald-400/30 bg-emerald-400/10 text-emerald-300")} title={`Publicado em ${formatDate(releasedAt)}`}>
+      <Rocket aria-hidden className="size-3" />
+      No ar desde {formatIsoDate(localIsoDate(new Date(releasedAt)))}
+    </span>
+  );
+}
+
+/** Previsão de entrega; vencida (passou do dia sem publicar) fica âmbar. */
+export function DueDateBadge({ dueDate, overdue }: { dueDate: string; overdue: boolean }) {
+  return (
+    <span
+      className={cn(pill, "gap-1.5", overdue ? "border-amber-300/40 bg-amber-300/10 text-amber-200" : "border-line-strong bg-white/[0.04] text-fog")}
+      title={overdue ? "A previsão passou e o ajuste ainda não foi publicado" : "Previsão de entrega"}
+    >
+      <CalendarClock aria-hidden className="size-3" />
+      {overdue ? "Previsão vencida: " : "Previsão: "}
+      {formatIsoDate(dueDate)}
+    </span>
+  );
+}
+
+/** "2 de 3": andamento da checklist; completa fica verde. */
+export function ChecklistBadge({ done, total }: { done: number; total: number }) {
+  const complete = done === total;
+  return (
+    <span
+      className={cn(pill, "gap-1.5", complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-line-strong bg-white/[0.04] text-fog")}
+      title={`${done} de ${total} itens feitos`}
+    >
+      <ListChecks aria-hidden className="size-3" />
+      {done} de {total}
     </span>
   );
 }

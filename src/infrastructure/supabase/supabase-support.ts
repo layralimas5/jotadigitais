@@ -15,6 +15,7 @@ import {
   type SupportNotifyEvent,
   type SupportStatusEvent,
   SUPPORT_OPENING_ID,
+  sortChecklist,
   type SupportReply,
   type SupportStatus,
   type SupportPriority,
@@ -48,7 +49,8 @@ const REPLY_COLUMNS = `id, body, created_at, reply_to_id, quotes_opening, ${AUTH
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role, avatar_url), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS})`;
+const CHECKLIST_COLUMNS = "id, body, done, position, done_at";
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role, avatar_url), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS}), due_date, released_at, checklist:support_checklist_items(${CHECKLIST_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const UNIQUE_VIOLATION = "23505";
 
@@ -87,6 +89,14 @@ const labelRowSchema = z.object({ id: z.string(), name: z.string(), color: z.enu
 
 const toLabel = (raw: unknown): SupportLabel => labelRowSchema.parse(raw);
 
+const checklistRowSchema = z.object({
+  id: z.string(),
+  body: z.string(),
+  done: z.boolean(),
+  position: z.number(),
+  done_at: z.string().nullable(),
+});
+
 const ticketRowSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -107,6 +117,9 @@ const ticketRowSchema = z.object({
   attachments: z.array(attachmentRowSchema),
   events: z.array(eventRowSchema),
   views: z.array(viewRowSchema),
+  due_date: z.string().nullable(),
+  released_at: z.string().nullable(),
+  checklist: z.array(checklistRowSchema),
 });
 
 type AttachmentRow = z.infer<typeof attachmentRowSchema>;
@@ -165,6 +178,11 @@ function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): 
     mergedInto: row.merged_into,
     mergedAt: row.merged_at,
     merged: [],
+    checklist: sortChecklist(
+      row.checklist.map((item) => ({ id: item.id, body: item.body, done: item.done, position: item.position, doneAt: item.done_at })),
+    ),
+    dueDate: row.due_date,
+    releasedAt: row.released_at,
   };
 }
 
@@ -322,6 +340,44 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
   async unmerge(ticketId: string): Promise<void> {
     const { error } = await this.client.rpc("unmerge_support_ticket", { p_ticket_id: ticketId });
     if (error) failOnMerge(error);
+  }
+
+  async addChecklistItems(ticketId: string, bodies: readonly string[]): Promise<void> {
+    if (bodies.length === 0) return;
+    const { data: last, error: lastError } = await this.client
+      .from("support_checklist_items")
+      .select("position")
+      .eq("ticket_id", ticketId)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ position: number }>();
+    if (lastError) fail(lastError);
+    const start = (last?.position ?? -1) + 1;
+    const rows = bodies.map((body, index) => ({ ticket_id: ticketId, body, position: start + index }));
+    const { error } = await this.client.from("support_checklist_items").insert(rows);
+    if (error) fail(error);
+  }
+
+  async updateChecklistItem(itemId: string, change: { body?: string; done?: boolean }): Promise<void> {
+    const { error } = await this.client.from("support_checklist_items").update(change).eq("id", itemId);
+    if (error) fail(error);
+  }
+
+  async removeChecklistItem(itemId: string): Promise<void> {
+    const { error } = await this.client.from("support_checklist_items").delete().eq("id", itemId);
+    if (error) fail(error);
+  }
+
+  async setDueDate(ticketId: string, dueDate: string | null): Promise<void> {
+    const { error } = await this.client.rpc("set_support_ticket_due_date", { p_ticket_id: ticketId, p_due_date: dueDate });
+    if (error) fail(error);
+  }
+
+  async setReleased(ticketId: string, released: boolean): Promise<void> {
+    const { error } = await this.client.rpc("set_support_ticket_released", { p_ticket_id: ticketId, p_released: released });
+    if (!error) return;
+    if (error.code === "P0002") throw new SupportTicketNotFoundError();
+    fail(error);
   }
 
   /** Sobe um arquivo por vez e registra no chamado. Devolve o nome dos que falharam. */
