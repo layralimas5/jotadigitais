@@ -102,7 +102,7 @@ function AccountHeader({ account }: { account: Account }) {
     <>
       <div className="flex flex-wrap items-center gap-2">
         <PlatformTag platform={account.platform} />
-        <CountryTag name={account.countryName} />
+        <CountryTag code={account.country} name={account.countryName} />
         {allBadges(account).map((badge) => (
           <AccountBadgePill key={badge.label} badge={badge} />
         ))}

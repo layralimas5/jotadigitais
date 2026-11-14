@@ -3,6 +3,7 @@ import type { AccountStatus } from "@/domain/account";
 import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import type { AccountBadge, BadgeTone } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
+import { countryFlagSrc } from "@/ui/lib/country-flag";
 import { PlatformGlyph } from "../PlatformGlyph";
 
 const toneClass: Record<BadgeTone, string> = {
@@ -56,7 +57,8 @@ export function PlatformTag({ platform, className }: { platform: Platform; class
 }
 
 /** País da conta, ao lado da rede: o cliente sabe de onde é o público antes de abrir a conta. */
-export function CountryTag({ name, className }: { name: string; className?: string }) {
+export function CountryTag({ code, name, className }: { code: string; name: string; className?: string }) {
+  const flagSrc = countryFlagSrc(code, name);
   return (
     <span
       title={`Conta do país: ${name}`}
@@ -65,9 +67,21 @@ export function CountryTag({ name, className }: { name: string; className?: stri
         className,
       )}
     >
-      <Globe aria-hidden className="size-3.5" />
+      {flagSrc ? (
+        <img
+          src={flagSrc}
+          alt=""
+          width={21}
+          height={14}
+          loading="lazy"
+          decoding="async"
+          className="h-3 w-[1.125rem] shrink-0 rounded-[2px] object-cover ring-1 ring-white/20"
+        />
+      ) : (
+        <Globe aria-hidden className="size-3.5 shrink-0" />
+      )}
       <span className="sr-only">País: </span>
-      {name}
+      <span className="truncate">{name}</span>
     </span>
   );
 }
