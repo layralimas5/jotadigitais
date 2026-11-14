@@ -396,6 +396,8 @@ export interface SupportTicketRepository {
   setInternal(ticketId: string, internal: boolean): Promise<void>;
   /** O Jota aprova e finaliza um chamado que está aguardando ele (o banco confere papel e situação). */
   approve(ticketId: string): Promise<void>;
+  /** O Jota reabre um chamado finalizado há até 7 dias; avisa a desenvolvedora (o banco confere prazo e papel). */
+  reopen(ticketId: string): Promise<void>;
   /** Etiquetas em ordem de criação. Criar, mudar, apagar e escolher: só a desenvolvedora (o banco confere). */
   listLabels(): Promise<SupportLabel[]>;
   createLabel(data: SupportLabelData): Promise<SupportLabel>;

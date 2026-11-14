@@ -13,6 +13,7 @@ export function statusEventText(event: SupportStatusEvent): string {
   const to = SUPPORT_STATUS_LABEL[event.to].toLowerCase();
   if (!event.author) return `Voltou para ${to} quando o Jota respondeu`;
   if (event.author.role === "admin" && event.to === "done") return `${authorNameOf(event.author)} analisou, aprovou e finalizou`;
+  if (event.author.role === "admin" && event.from === "done" && event.to === "open") return `${authorNameOf(event.author)} reabriu o chamado`;
   return `${authorNameOf(event.author)} mudou para ${to}`;
 }
 

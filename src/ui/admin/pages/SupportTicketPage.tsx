@@ -64,6 +64,8 @@ import { messageAnchorOf, QuoteInMessage, ReplyingTo, scrollToMessage } from "..
 import { statusEventText } from "../support/TicketProgress";
 import { DeliveryBadges } from "../support/DeliveryBadges";
 import { DeliverySection } from "../support/DeliverySection";
+import { ReopenTicket } from "../support/ReopenTicket";
+import { StaleBadge } from "../support/StaleBadge";
 import {
   ApprovedByAdminBadge,
   authorNameOf,
@@ -522,6 +524,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
           <SupportAreaBadge area={ticket.area} />
           {label && !canManageSupportLabels(role) && <SupportLabelBadge label={label} />}
           <DeliveryBadges ticket={ticket} />
+          <StaleBadge ticket={ticket} />
         </div>
         <h1 className="mt-3 font-display text-2xl font-semibold tracking-tight break-words text-white sm:text-3xl">{ticket.title}</h1>
         <p className="mt-1.5 text-sm text-mist">
@@ -558,6 +561,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
         </section>
       )}
       {role === "admin" && ticket.status === "waiting" && <WaitingNotice ticket={ticket} role={role} onApproved={reload} />}
+      <ReopenTicket ticket={ticket} role={role} onReopened={reload} />
       <MergedTicketsSection ticket={ticket} role={role} onChanged={reload} />
 
       <section aria-labelledby="conversa">

@@ -484,11 +484,12 @@ export function formatQueueTime(ms: number): string {
   return days === 1 ? "1 dia" : `${days} dias`;
 }
 
-export const SUPPORT_SORTS = ["priority", "oldest", "newest"] as const;
+export const SUPPORT_SORTS = ["priority", "stale", "oldest", "newest"] as const;
 export type SupportSort = (typeof SUPPORT_SORTS)[number];
 
 export const SUPPORT_SORT_LABEL: Record<SupportSort, string> = {
   priority: "Mais urgentes primeiro",
+  stale: "Parados há mais tempo",
   oldest: "Há mais tempo na fila",
   newest: "Abertos mais recentes",
 };
@@ -496,6 +497,9 @@ export const SUPPORT_SORT_LABEL: Record<SupportSort, string> = {
 /** Mantém a separação por situação; dentro dela, ordena pela urgência (padrão) ou pela data de abertura. */
 export function orderTickets(tickets: readonly SupportTicket[], sort: SupportSort): SupportTicket[] {
   if (sort === "priority") return sortTickets(tickets);
+  if (sort === "stale") {
+    return [...tickets].sort((a, b) => statusWeight(a.status) - statusWeight(b.status) || lastActivityAt(a).localeCompare(lastActivityAt(b)));
+  }
   const byAge = (a: SupportTicket, b: SupportTicket) =>
     sort === "oldest" ? a.createdAt.localeCompare(b.createdAt) : b.createdAt.localeCompare(a.createdAt);
   return [...tickets].sort((a, b) => statusWeight(a.status) - statusWeight(b.status) || byAge(a, b));
@@ -564,3 +568,49 @@ export const DEFAULT_CANNED_REPLIES: readonly SupportCannedReplyData[] = [
   { title: "Preciso de um print", body: "Consegue me mandar um print da tela onde aconteceu? Se puder, mostra também o que você clicou antes." },
   { title: "Depende do contador", body: "Essa parte depende do contador. Assim que você tiver a resposta dele, me manda aqui que eu sigo." },
 ];
+
+// ---------------------------------------------------------------------------
+// Parado e reabrir
+// ---------------------------------------------------------------------------
+
+/** Sem resposta nem troca de situação há tantos dias, o chamado ganha o selo "Parado". */
+export const STALE_AFTER_DAYS = 3;
+/** Depois de tantos dias parado, o selo fica vermelho. */
+export const STALE_LATE_DAYS = 7;
+/** Por quantos dias depois de finalizado o Jota ainda reabre o mesmo chamado. */
+export const REOPEN_WINDOW_DAYS = 7;
+
+/** Último movimento do chamado: a abertura, a última resposta ou a última troca de situação. */
+export function lastActivityAt(ticket: Pick<SupportTicket, "createdAt" | "replies" | "events">): string {
+  return [ticket.createdAt, ...ticket.replies.map((reply) => reply.createdAt), ...ticket.events.map((event) => event.createdAt)].reduce((latest, at) =>
+    at > latest ? at : latest,
+  );
+}
+
+/**
+ * Dias inteiros sem movimento num chamado em aberto que já teve conversa; nulo quando finalizado, dentro do prazo
+ * ou nunca mexido (aí o "Aberto há X" já diz o mesmo).
+ */
+export function staleDaysOf(ticket: Pick<SupportTicket, "createdAt" | "replies" | "events" | "status">, now: Date = new Date()): number | null {
+  if (ticket.status === "done") return null;
+  const last = lastActivityAt(ticket);
+  if (last === ticket.createdAt) return null;
+  const days = Math.floor((now.getTime() - new Date(last).getTime()) / DAY_MS);
+  return days >= STALE_AFTER_DAYS ? days : null;
+}
+
+/** Até quando o chamado finalizado ainda pode ser reaberto; nulo quando não está finalizado. */
+export function reopenDeadlineOf(ticket: Pick<SupportTicket, "status" | "resolvedAt">): Date | null {
+  if (ticket.status !== "done" || !ticket.resolvedAt) return null;
+  return new Date(new Date(ticket.resolvedAt).getTime() + REOPEN_WINDOW_DAYS * DAY_MS);
+}
+
+/** O Jota reabre um chamado compartilhado finalizado há até 7 dias (o banco confere de novo). */
+export function canReopenSupportTicket(
+  ticket: Pick<SupportTicket, "status" | "resolvedAt" | "internal">,
+  role: AdminRole,
+  now: Date = new Date(),
+): boolean {
+  const deadline = reopenDeadlineOf(ticket);
+  return role === "admin" && !ticket.internal && deadline !== null && now < deadline;
+}
