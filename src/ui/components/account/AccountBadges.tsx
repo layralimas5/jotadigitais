@@ -1,4 +1,7 @@
 import { Globe } from "lucide-react";
+import type { CSSProperties } from "react";
+import { readableTextOn } from "@/domain/tag-color";
+import { useTagColors } from "@/ui/hooks/useTagColors";
 import type { AccountStatus } from "@/domain/account";
 import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import type { AccountBadge, BadgeTone } from "@/ui/lib/account-presenter";
@@ -13,12 +16,20 @@ const toneClass: Record<BadgeTone, string> = {
   mist: "border-white/15 bg-white/[0.05] text-fog",
 };
 
+/** Fundo na cor que o Jota escolheu e texto preto ou branco, o que contrastar mais. */
+export function tagColorStyle(color: string | undefined): CSSProperties | undefined {
+  return color ? { backgroundColor: color, borderColor: color, color: readableTextOn(color) } : undefined;
+}
+
 export function AccountBadgePill({ badge, className }: { badge: AccountBadge; className?: string }) {
+  const colors = useTagColors();
+  const color = badge.colorKey ? colors[badge.colorKey] : undefined;
   return (
     <span
+      style={tagColorStyle(color)}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide whitespace-nowrap",
-        toneClass[badge.tone],
+        !color && toneClass[badge.tone],
         className,
       )}
     >

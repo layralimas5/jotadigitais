@@ -61,6 +61,8 @@ import { PUBLIC_ACCOUNT_COLUMNS } from "@/infrastructure/supabase/rows";
 import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
 import { SupabaseSupportTicketRepository } from "@/infrastructure/supabase/supabase-support";
 import { SupabaseAccessRepository } from "@/infrastructure/supabase/supabase-access";
+import { SupabaseTagColorRepository } from "@/infrastructure/supabase/supabase-tag-colors";
+import { DemoTagColorRepository } from "@/infrastructure/demo/demo-tag-colors";
 import { backendConfig, defaultStoreSettings } from "./config";
 
 export type BackendMode = "supabase" | "demo";
@@ -84,6 +86,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
   const siteContent = new SupabaseSiteContentRepository(client);
   const legal = new SupabaseLegalDocumentRepository(client);
   const countries = new SupabaseCountryRepository(client);
+  const tagColors = new SupabaseTagColorRepository(client);
   return {
     mode: "supabase",
     store: {
@@ -92,6 +95,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       orders,
       settings,
       siteContent,
+      tagColors,
       legal,
       payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
@@ -104,6 +108,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       orders,
       settings,
       siteContent,
+      tagColors,
       legal,
       leads: new SupabaseLeadRepository(client),
       customers: new SupabaseCustomerRepository(client),
@@ -142,6 +147,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     orders: new DemoOrderRepository(db),
     settings: new DemoStoreSettingsRepository(db, defaultStoreSettings),
     siteContent: new DemoSiteContentRepository(db),
+    tagColors: new DemoTagColorRepository(db),
     legal: new DemoLegalDocumentRepository(db),
     countries: new DemoCountryRepository(db),
   };
