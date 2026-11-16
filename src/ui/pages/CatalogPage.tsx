@@ -26,6 +26,7 @@ const FOLLOWER_RANGES = {
 type RangeKey = keyof typeof FOLLOWER_RANGES;
 
 const SORT_OPTIONS: Record<AccountSort, string> = {
+  featured: "Destaques",
   recent: "Mais recentes",
   "price-asc": "Menor preço",
   "followers-desc": "Mais seguidores",
@@ -48,7 +49,7 @@ function useCatalogParams() {
   const country = countryParam && COUNTRY_CODE_PATTERN.test(countryParam) ? countryParam : undefined;
   const platform = isPlatform(platformParam) ? platformParam : undefined;
   const range: RangeKey = isRange(rangeParam) ? rangeParam : "todas";
-  const sort: AccountSort = isSort(sortParam) ? sortParam : "recent";
+  const sort: AccountSort = isSort(sortParam) ? sortParam : "featured";
   const otherNetworksFirst = params.get(OTHER_NETWORKS_PARAM) === OTHER_NETWORKS_VALUE;
 
   const update = (key: string, value: string | undefined) => {
@@ -153,7 +154,7 @@ export default function CatalogPage() {
         </header>
 
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
-          {/* Filtros pedidos pelo Jota: rede social, país, faixa de seguidores e ordem (recentes primeiro). Sem busca por nome. */}
+          {/* Filtros pedidos pelo Jota: rede social, país, faixa de seguidores e ordem (destaques primeiro: TikTok com Shop do menor para o maior). Sem busca por nome. */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             {/* A pedido do Jota: "Todas as redes" fica fixo no início e as redes passam em loop para a esquerda. */}
             <div role="group" aria-label="Filtrar por rede social" className="-mx-4 flex min-w-0 items-center gap-2 pl-4 sm:mx-0 sm:pl-0 lg:flex-1">
@@ -207,7 +208,7 @@ export default function CatalogPage() {
                 <span className="sr-only">Ordenar</span>
                 <select
                   value={sort}
-                  onChange={(event) => update("ordem", event.target.value === "recent" ? undefined : event.target.value)}
+                  onChange={(event) => update("ordem", event.target.value === "featured" ? undefined : event.target.value)}
                   className="h-11 w-full rounded-full border border-line-strong bg-surface px-4 text-sm text-white focus:border-electric focus:outline-none"
                 >
                   {Object.entries(SORT_OPTIONS).map(([key, label]) => (
