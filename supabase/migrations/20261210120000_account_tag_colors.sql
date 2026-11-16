@@ -33,4 +33,4 @@ create policy "accounts staff delete tag colors" on public.account_tag_colors
 
 revoke all on public.account_tag_colors from anon, authenticated;
 grant select on public.account_tag_colors to anon, authenticated;
-grant insert (tag_key, color), update (color), delete on public.account_tag_colors to authenticated;
+grant insert (tag_key, color), update (tag_key, color), delete on public.account_tag_colors to authenticated;
