@@ -51,7 +51,7 @@ import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 // Loja (site público)
 // ---------------------------------------------------------------------------
 
-/** "featured" é a ordem da vitrine pedida pelo Jota: TikTok com Shop primeiro, do menor para o maior. */
+/** "featured" é a ordem da vitrine pedida pelo Jota: Shop ativo, Shop piloto, TikTok monetizado e depois as outras redes. */
 export type AccountSort = "featured" | "recent" | "price-asc" | "followers-desc";
 
 export interface AccountFilter {
