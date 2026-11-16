@@ -65,10 +65,18 @@ export class SupabaseProfileLoginRepository implements AdminProfileLoginReposito
     return data ? toProfileLogin(data) : null;
   }
 
+  /**
+   * Atualiza e, se a conta ainda não tem login, cria. Sem upsert: o gatilho de insert cifra e esvazia a senha antes do
+   * "on conflict" virar update, e o update gravava a senha vazia por cima da que já existia.
+   */
   async save(accountId: string, login: ProfileLogin): Promise<ProfileLogin> {
+    const fields = { username: login.username, password: login.password };
+    const updated = await this.client.from("account_profile_logins").update(fields).eq("account_id", accountId).select(PROFILE_LOGIN_COLUMNS).maybeSingle();
+    if (updated.error) fail(updated.error);
+    if (updated.data) return toProfileLogin(updated.data);
     const { data, error } = await this.client
       .from("account_profile_logins")
-      .upsert({ account_id: accountId, username: login.username, password: login.password }, { onConflict: "account_id" })
+      .insert({ account_id: accountId, ...fields })
       .select(PROFILE_LOGIN_COLUMNS)
       .single();
     if (error) fail(error);
