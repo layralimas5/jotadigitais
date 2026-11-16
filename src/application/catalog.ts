@@ -1,9 +1,25 @@
-import type { Account, AccountStatus } from "@/domain/account";
+import { isMonetized, shopTierOf, type Account, type AccountStatus } from "@/domain/account";
 import { DEFAULT_COUNTRY, sortCountries, type Country } from "@/domain/country";
 import type { AccountFilter, AccountSort } from "./ports";
 
+/** Foco da loja: 0 = TikTok com Shop (piloto ou ativo), 1 = monetizadas, 2 = o resto (outras redes e TikTok sem Shop). */
+function featuredGroupOf(account: Account): number {
+  if (account.platform === "tiktok" && shopTierOf(account) !== "none") return 0;
+  return isMonetized(account) ? 1 : 2;
+}
+
+const byRecent = (a: Account, b: Account) => b.listedAt.localeCompare(a.listedAt);
+
+/** TikTok com Shop do menor para o maior (1k, 2k, 3k...), o que já põe o Shop piloto na frente; nos outros grupos, as mais recentes. */
+function byFeatured(a: Account, b: Account): number {
+  const group = featuredGroupOf(a) - featuredGroupOf(b);
+  if (group !== 0) return group;
+  return featuredGroupOf(a) === 0 ? a.followers - b.followers || a.price - b.price : byRecent(a, b);
+}
+
 const sorters: Record<AccountSort, (a: Account, b: Account) => number> = {
-  recent: (a, b) => b.listedAt.localeCompare(a.listedAt),
+  featured: byFeatured,
+  recent: byRecent,
   "price-asc": (a, b) => a.price - b.price || b.followers - a.followers,
   "followers-desc": (a, b) => b.followers - a.followers,
 };

@@ -36,7 +36,7 @@ function StockStrip({ count }: { count: number }) {
 }
 
 export function FeaturedAccounts() {
-  const accounts = useAccounts({ onlyAvailable: true, sort: "recent" });
+  const accounts = useAccounts({ onlyAvailable: true, sort: "featured" });
   const { featured } = useSiteContent();
 
   return (
