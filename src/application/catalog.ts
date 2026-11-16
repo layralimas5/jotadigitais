@@ -2,19 +2,26 @@ import { isMonetized, shopTierOf, type Account, type AccountStatus } from "@/dom
 import { DEFAULT_COUNTRY, sortCountries, type Country } from "@/domain/country";
 import type { AccountFilter, AccountSort } from "./ports";
 
-/** Foco da loja: 0 = TikTok com Shop (piloto ou ativo), 1 = monetizadas, 2 = o resto (outras redes e TikTok sem Shop). */
+const OTHER_NETWORKS_GROUP = 3;
+
+/** Foco da loja, pedido do Jota: 0 = TikTok Shop ativo, 1 = Shop piloto, 2 = TikTok monetizado, 3 = o resto (outras redes). */
 function featuredGroupOf(account: Account): number {
-  if (account.platform === "tiktok" && shopTierOf(account) !== "none") return 0;
-  return isMonetized(account) ? 1 : 2;
+  if (account.platform !== "tiktok") return OTHER_NETWORKS_GROUP;
+  const shop = shopTierOf(account);
+  if (shop === "full") return 0;
+  if (shop === "pilot") return 1;
+  return isMonetized(account) ? 2 : OTHER_NETWORKS_GROUP;
 }
 
 const byRecent = (a: Account, b: Account) => b.listedAt.localeCompare(a.listedAt);
+const brazilFirst = (a: Account, b: Account) => Number(a.country !== DEFAULT_COUNTRY) - Number(b.country !== DEFAULT_COUNTRY);
+const bySize = (a: Account, b: Account) => a.followers - b.followers || a.price - b.price;
 
-/** TikTok com Shop do menor para o maior (1k, 2k, 3k...), o que já põe o Shop piloto na frente; nos outros grupos, as mais recentes. */
+/** Nos grupos de TikTok, as brasileiras primeiro e do menor para o maior (1k, 2k, 3k...); nas outras redes, as mais recentes. */
 function byFeatured(a: Account, b: Account): number {
   const group = featuredGroupOf(a) - featuredGroupOf(b);
   if (group !== 0) return group;
-  return featuredGroupOf(a) === 0 ? a.followers - b.followers || a.price - b.price : byRecent(a, b);
+  return featuredGroupOf(a) === OTHER_NETWORKS_GROUP ? byRecent(a, b) : brazilFirst(a, b) || bySize(a, b);
 }
 
 const sorters: Record<AccountSort, (a: Account, b: Account) => number> = {
