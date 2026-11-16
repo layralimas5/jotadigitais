@@ -9,3 +9,7 @@ supabase/.branches
 
 # Contratos e documentos do cliente nunca vão para o repositório.
 *.pdf
+
+# Arquivos de ativação com segredo: usar e apagar, nunca commitar.
+colar-no-sql-editor-*.sql
+*-secrets.env

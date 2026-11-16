@@ -51,6 +51,9 @@ const SUPABASE_STUBS = `
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
   alter table storage.objects enable row level security;
+  create function storage.foldername(name text) returns text[] language sql immutable as $fn$
+    select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1]
+  $fn$;
   grant usage on schema public, auth, storage to anon, authenticated;
   grant execute on function auth.uid(), auth.jwt() to anon, authenticated;
   grant select, insert, update, delete on storage.objects to anon, authenticated;
@@ -718,6 +721,7 @@ async function main() {
   await supportPriorityChecks();
   await webPushChecks();
   await deliveryMessageChecks();
+  await whatsappDeliveryChecks();
   await supportMergeChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
@@ -2336,6 +2340,97 @@ async function webPushChecks() {
 
   await asAdmin(() => db.query(`select public.delete_push_subscription($1)`, [endpoint]));
   check((await db.query(`select count(*)::int as n from public.push_subscriptions`)).rows[0].n === 0, "desligar apaga a inscrição do aparelho");
+}
+
+/** Entrega automática pelo WhatsApp: fila no pagamento, dados só para a função e liga e desliga no painel. */
+async function whatsappDeliveryChecks() {
+  console.log("\nentrega automática pelo WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const queuedFor = async (code) =>
+    (await db.query(`select m.kind, m.to_phone, m.status from public.whatsapp_messages m join public.orders o on o.id = m.order_id where o.code = $1`, [code])).rows;
+  const requestsCount = async () => (await db.query(`select count(*)::int as n from net.requests`)).rows[0].n;
+  const newOrder = (code, whatsapp, extra = "") =>
+    db.query(
+      `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at${extra ? ", cart_code" : ""})
+       values ($1, $2, '@conta.entregue', 'Entregue', 'tiktok', 'Bruna Zap', 'bruna@exemplo.com', $3, 'pix', 37000, 'awaiting_payment', now() + interval '1 hour'${extra ? ", $4" : ""})`,
+      extra ? [code, accountId, whatsapp, extra] : [code, accountId, whatsapp],
+    );
+
+  const settings = await asAdmin(() => db.query(`select auto_delivery, mode from public.whatsapp_settings`));
+  check(settings.rows[0]?.auto_delivery === true && settings.rows[0]?.mode === "test", "entrega começa ligada e em modo teste");
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set mode = 'live'`)), /permission denied/),
+    "painel não tira do modo teste",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_messages`)), /permission denied/),
+    "visitante não lê as mensagens",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_messages (kind, to_phone) values ('delivery', '5511999999999')`)), /permission denied/),
+    "mensagem só entra pelo banco e pela função",
+  );
+
+  const accountId = (await db.query(`select id from public.accounts limit 1`)).rows[0].id;
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  // Como o painel salva (supabase-delivery.ts): update na conta que já tem login, sem upsert.
+  await asAdmin(() =>
+    db.query(`update public.account_profile_logins set username = 'perfil.zap', password = 'SenhaPerfil1' where account_id = $1`, [accountId]),
+  );
+  const saved = await asAdmin(() => db.query(`select l.profile_password_plain as password from public.account_profile_logins l where account_id = $1`, [accountId]));
+  check(saved.rows[0]?.password === "SenhaPerfil1", "salvar de novo o login do perfil grava a senha nova");
+  await asAdmin(() => db.query(`insert into public.email_accounts (email, password, account_id) values ('zap@exemplo.com', 'SenhaEmail1', $1)`, [accountId]));
+
+  const before = await requestsCount();
+  await newOrder("JD-WAP001", "11987654321");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP001'`));
+  const first = await queuedFor("JD-WAP001");
+  check(first.length === 1 && first[0].kind === "payment_confirmed" && first[0].to_phone === "5511987654321" && first[0].status === "queued", "pedido pago entra na fila com o 55 no número");
+  check((await requestsCount()) === before, "sem os segredos no Vault a mensagem só espera na fila");
+
+  await db.query(`select vault.create_secret('https://exemplo.supabase.co/functions/v1/whatsapp-send', 'whatsapp_send_url')`);
+  await db.query(`select vault.create_secret('segredo-zap', 'whatsapp_send_secret')`);
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP001'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP002", "5511912345678");
+  await asAdmin(() => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP002'`));
+  const call = await db.query(`select url, body, headers from net.requests order by id desc limit 1`);
+  check(
+    call.rows[0]?.url.endsWith("/whatsapp-send") && call.rows[0]?.headers["x-whatsapp-secret"] === "segredo-zap" && call.rows[0]?.body.message_id,
+    "pagamento confirmado no painel também chama a whatsapp-send com o segredo",
+  );
+  check((await queuedFor("JD-WAP002"))[0]?.to_phone === "5511912345678", "número que já tem o 55 não ganha outro");
+
+  await db.query(`grant usage on schema public to service_role`);
+  const orderId = (await db.query(`select id from public.orders where code = 'JD-WAP002'`)).rows[0].id;
+  const items = await as("service_role", null, () => db.query(`select * from public.whatsapp_delivery_items($1)`, [orderId]));
+  const item = items.rows[0];
+  check(
+    items.rows.length === 1 && item.email === "zap@exemplo.com" && item.email_password === "SenhaEmail1" && item.profile_username === "perfil.zap" && item.profile_password === "SenhaPerfil1",
+    "função recebe o login aberto da conta",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select * from public.whatsapp_delivery_items($1)`, [orderId])), /permission denied/),
+    "ninguém do painel chama a função com as senhas",
+  );
+
+  await asAdmin(() => db.query(`update public.whatsapp_settings set auto_delivery = false`));
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP002'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP003", "11911112222");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP003'`));
+  check((await queuedFor("JD-WAP003")).length === 0, "com a entrega desligada nada entra na fila");
+  await asAdmin(() => db.query(`update public.whatsapp_settings set auto_delivery = true`));
+
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP003'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP004", "11933334444", "JD-WAP999");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP004'`));
+  check((await queuedFor("JD-WAP004")).length === 0, "conta de carrinho que não é a principal não dispara outra mensagem");
+
+  const seen = await asAdmin(() => db.query(`select o.code from public.whatsapp_messages m join public.orders o on o.id = m.order_id`));
+  const seenCodes = seen.rows.map((row) => row.code);
+  check(seenCodes.includes("JD-WAP001") && seenCodes.includes("JD-WAP002"), "admin vê o registro das mensagens");
 }
 
 /** Entrega da conta: mensagens salvas para quem cuida dos pedidos e login do perfil com a senha cifrada. */

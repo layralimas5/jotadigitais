@@ -59,8 +59,10 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 
 ## Modelos para pedir aprovação na Meta (categoria utilidade)
 
-- **Pagamento confirmado**: "Oi, {{1}}! O pagamento do pedido {{2}} foi confirmado. Toque no botão para receber o
-  acesso da conta {{3}}." Botão: Receber meu acesso.
+- **Pagamento confirmado** (`pagamento_confirmado`, pt_BR; texto idêntico ao de `paymentPromptText` em
+  `supabase/functions/_shared/whatsapp-delivery.ts`): "Oi, {{1}}! O pagamento do pedido {{2}} foi confirmado.
+  Toque em *Receber meu acesso* para receber os dados de {{3}} aqui no WhatsApp." Botão de resposta rápida:
+  Receber meu acesso. Exemplos: Bruna / JD-ABC123 / @conta.exemplo.
 - **Pedido aguardando pagamento**: "Oi, {{1}}! Seu pedido {{2}} da conta {{3}} está reservado até {{4}}. Para
   pagar: {{5}}"
 - **Pós-venda**: "Oi, {{1}}! Deu tudo certo com a conta {{2}}? Se precisar de ajuda com a troca de dados, é só
@@ -81,3 +83,34 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 2. `whatsapp-webhook` + botão "Receber meu acesso" + página do pedido.
 3. IA, aba de configuração e simulador de conversa no painel.
 4. Painel de conversas (assumir e devolver), lembrete, pós-venda, relatório.
+
+## Fase 1 pronta: entrega em modo teste
+
+- Migration `20261209120000_whatsapp_delivery`: `whatsapp_settings` (liga e desliga pelo painel; `mode` só pelo
+  SQL), `whatsapp_messages` (fila e registro, escrita só pela função), `whatsapp_delivery_items` (login aberto, só
+  `service_role`) e o gatilho `queue_whatsapp_payment` em `orders`.
+- Função `whatsapp-send`: em `mode = 'test'` grava o aviso de pagamento e o acesso de cada conta com as senhas
+  mascaradas; em `mode = 'live'` manda o modelo `pagamento_confirmado` pela Cloud API.
+- Painel: Automação ganhou as abas **Entrega automática** (modo, liga e desliga, últimos envios) e **Mensagens**.
+- Textos compartilhados entre painel e função em `supabase/functions/_shared/` (`message-template.ts`,
+  `whatsapp-delivery.ts`); `src/domain` reexporta.
+- Testes: `npm run db:test`, seção "entrega automática pelo WhatsApp".
+
+### Ativar (uma vez)
+
+1. **SQL Editor:** colar `colar-no-sql-editor-whatsapp.sql` (migration, segredos do Vault e registro em
+   `schema_migrations`). Precisa vir antes do push da main.
+2. **CLI logada** (`npx supabase login`):
+   ```sh
+   npx supabase secrets set --env-file whatsapp-secrets.env
+   npx supabase functions deploy whatsapp-send --no-verify-jwt
+   ```
+3. Apagar os dois arquivos acima (têm o segredo; estão no `.gitignore`) e fazer o push da main.
+4. Testar: um pedido com WhatsApp marcado como pago no painel aparece em Automação > Entrega automática.
+
+### Ligar de verdade (quando a Meta estiver pronta)
+
+1. Aprovar o modelo `pagamento_confirmado` na Meta com o texto exato acima.
+2. `npx supabase secrets set WHATSAPP_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=...`
+3. SQL: `update public.whatsapp_settings set mode = 'live';`
+4. Fase 2 (webhook do botão) precisa estar no ar antes disso, senão o toque em "Receber meu acesso" não responde.

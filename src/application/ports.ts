@@ -10,6 +10,7 @@ import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type { WhatsAppMessage, WhatsAppSettings } from "@/domain/whatsapp";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import type { ProfileLogin } from "@/domain/delivery-login";
 import type { StoredNotification } from "@/domain/notification";
@@ -284,6 +285,14 @@ export interface AdminMessageTemplateRepository {
   /** Sempre devolve os cinco modelos: o que não foi salvo vem com o texto padrão. */
   getAll(): Promise<MessageTemplates>;
   save(templates: MessageTemplates): Promise<MessageTemplates>;
+}
+
+/** Entrega automática pelo WhatsApp: o liga e desliga e o registro do que saiu (ou sairia, em modo teste). */
+export interface AdminWhatsAppRepository {
+  getSettings(): Promise<WhatsAppSettings>;
+  setAutoDelivery(enabled: boolean): Promise<WhatsAppSettings>;
+  /** Mais recentes primeiro. */
+  listMessages(limit: number): Promise<WhatsAppMessage[]>;
 }
 
 export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order", "google_calendar"] as const;

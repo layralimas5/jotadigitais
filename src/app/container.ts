@@ -7,6 +7,8 @@ import type { UseCaseDeps } from "@/application/use-cases";
 import { DemoDatabase } from "@/infrastructure/demo/demo-database";
 import { DemoDeliveryMessageRepository, DemoProfileLoginRepository } from "@/infrastructure/demo/demo-delivery";
 import { SupabaseDeliveryMessageRepository, SupabaseProfileLoginRepository } from "@/infrastructure/supabase/supabase-delivery";
+import { SupabaseWhatsAppRepository } from "@/infrastructure/supabase/supabase-whatsapp";
+import { DemoWhatsAppRepository } from "@/infrastructure/demo/demo-whatsapp";
 import { DemoLegalDocumentRepository } from "@/infrastructure/demo/demo-legal";
 import {
   DemoAccountRepository,
@@ -115,6 +117,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       emailAccounts: new SupabaseEmailAccountRepository(client),
       profileLogins: new SupabaseProfileLoginRepository(client),
       deliveryMessages: new SupabaseDeliveryMessageRepository(client),
+      whatsapp: new SupabaseWhatsAppRepository(client),
       coupons: new SupabaseCouponRepository(client),
       countries,
       users: new SupabaseAdminUserRepository(client),
@@ -158,6 +161,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     emailAccounts: new DemoEmailAccountRepository(db),
     profileLogins: new DemoProfileLoginRepository(db),
     deliveryMessages: new DemoDeliveryMessageRepository(db),
+    whatsapp: new DemoWhatsAppRepository(db),
     coupons: new DemoCouponRepository(db),
     users,
     profiles: new DevServerProfileLookupService(),

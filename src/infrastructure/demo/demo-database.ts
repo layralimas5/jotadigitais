@@ -56,6 +56,7 @@ export interface DemoState {
   /** Login do perfil de cada conta, pelo id dela. */
   profileLogins?: Record<string, ProfileLogin>;
   deliveryMessages?: DeliveryMessage[];
+  whatsappAutoDelivery?: boolean;
   coupons?: StoredCoupon[];
   /** Sem a lista guardada, valem os países de fábrica. */
   countries?: Country[];

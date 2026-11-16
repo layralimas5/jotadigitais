@@ -1,5 +1,6 @@
-import { Clock, MessageCircle, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { siteConfig } from "@/app/config";
 import { getMessageTemplates, saveMessageTemplates } from "@/application/admin-use-cases";
 import { fieldErrorsOf, messageTemplatesSchema } from "@/application/schemas";
@@ -17,6 +18,8 @@ import {
 import { Button } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
+import { WhatsAppDeliveryPanel } from "../automation/WhatsAppDeliveryPanel";
+import { FilterChips } from "../components/FilterChips";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useInsertAtCursor } from "../lib/use-insert-at-cursor";
@@ -165,33 +168,41 @@ function TemplatesForm({ initial }: { initial: MessageTemplates }) {
   );
 }
 
-function AutoSendNotice() {
-  return (
-    <div className="flex gap-4 rounded-3xl border border-electric/30 bg-electric/[0.06] p-5">
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-electric/15 text-electric">
-        <Clock aria-hidden className="size-5" />
-      </span>
-      <div className="text-sm">
-        <p className="font-semibold text-white">Envio automático: em breve</p>
-        <p className="mt-1 leading-relaxed text-mist">
-          Hoje estas mensagens já vêm prontas quando você clica em <MessageCircle aria-hidden className="inline size-3.5" />{" "}
-          WhatsApp em Pedidos, Clientes e CRM. O disparo sozinho, a cada mudança de pedido, precisa da API oficial do
-          WhatsApp Business (Meta) e de um número só para a loja. Quando ligarmos, os textos daqui continuam valendo.
-        </p>
-      </div>
-    </div>
-  );
-}
+type AutomationTab = "entrega" | "mensagens";
+
+const TAB_PARAM = "aba";
 
 export default function AutomationPage() {
   const templates = useAdminQuery(getMessageTemplates, "message-templates");
+  const [params, setParams] = useSearchParams();
+  const tab: AutomationTab = params.get(TAB_PARAM) === "mensagens" ? "mensagens" : "entrega";
+
+  const setTab = (next: AutomationTab) => {
+    const nextParams = new URLSearchParams(params);
+    if (next === "entrega") nextParams.delete(TAB_PARAM);
+    else nextParams.set(TAB_PARAM, next);
+    setParams(nextParams, { replace: true });
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Automação" description="Mensagens do WhatsApp para cada momento da venda." />
-      <AutoSendNotice />
-      {templates.status === "loading" && <LoadingBlock />}
-      {templates.status === "error" && <ErrorState message={templates.error.message} onRetry={templates.reload} />}
-      {templates.status === "success" && <TemplatesForm initial={templates.data} />}
+      <PageHeader title="Automação" description="Entrega do acesso pelo WhatsApp e as mensagens de cada momento da venda." />
+      <FilterChips<AutomationTab>
+        label="Parte da automação"
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "entrega", label: "Entrega automática" },
+          { value: "mensagens", label: "Mensagens" },
+        ]}
+      />
+      {tab === "entrega" && <WhatsAppDeliveryPanel />}
+      {/* Fica montada: trocar de aba não apaga o que está sendo editado. */}
+      <div hidden={tab !== "mensagens"} className="space-y-6">
+        {templates.status === "loading" && <LoadingBlock />}
+        {templates.status === "error" && <ErrorState message={templates.error.message} onRetry={templates.reload} />}
+        {templates.status === "success" && <TemplatesForm initial={templates.data} />}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { ACCOUNT_EXPENSE_CATEGORY, accountBalanceOf, type AccountBalance, type E
 import type { Cents } from "@/domain/money";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type { WhatsAppMessage, WhatsAppSettings } from "@/domain/whatsapp";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
 import { TooManyDeliveryMessagesError } from "@/domain/errors";
@@ -32,6 +33,7 @@ import type {
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
+  AdminWhatsAppRepository,
   AdminOrderRepository,
   AdminPartnerRepository,
   AdminPreferenceRepository,
@@ -106,6 +108,7 @@ export interface AdminDeps {
   emailAccounts: AdminEmailAccountRepository;
   profileLogins: AdminProfileLoginRepository;
   deliveryMessages: AdminDeliveryMessageRepository;
+  whatsapp: AdminWhatsAppRepository;
   coupons: AdminCouponRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;
@@ -301,6 +304,20 @@ export function saveMessageTemplates(deps: AdminDeps, raw: unknown): Promise<Mes
 export async function saveDefaultDeliveryMessage(deps: AdminDeps, body: unknown): Promise<MessageTemplates> {
   const current = await deps.templates.getAll();
   return saveMessageTemplates(deps, { ...current, order_delivered: body });
+}
+
+export function getWhatsAppSettings(deps: AdminDeps): Promise<WhatsAppSettings> {
+  return deps.whatsapp.getSettings();
+}
+
+export function setWhatsAppAutoDelivery(deps: AdminDeps, enabled: boolean): Promise<WhatsAppSettings> {
+  return deps.whatsapp.setAutoDelivery(enabled);
+}
+
+export const WHATSAPP_LOG_LIMIT = 40;
+
+export function listWhatsAppMessages(deps: AdminDeps): Promise<WhatsAppMessage[]> {
+  return deps.whatsapp.listMessages(WHATSAPP_LOG_LIMIT);
 }
 
 export function listDeliveryMessages(deps: AdminDeps): Promise<DeliveryMessage[]> {
