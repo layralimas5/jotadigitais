@@ -40,6 +40,7 @@ import {
   SUPPORT_STATUSES,
 } from "@/domain/support-ticket";
 import { isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
+import { HEX_COLOR_PATTERN, MAX_TAG_KEY_LENGTH, TAG_KEY_PATTERN } from "@/domain/tag-color";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -727,6 +728,11 @@ const proofPoint = z.preprocess(
   (value) => (typeof value === "string" ? { text: value, icon: "auto" } : value),
   z.object({ text: copy(40), icon: z.enum(PROOF_ICONS).catch("auto") }),
 );
+
+export const tagColorSchema = z.object({
+  key: z.string().trim().toLowerCase().max(MAX_TAG_KEY_LENGTH).regex(TAG_KEY_PATTERN, "Tag inválida."),
+  color: z.string().trim().toLowerCase().regex(HEX_COLOR_PATTERN, "Escolha uma cor válida.").nullable(),
+});
 
 export const siteContentSchema = z.object({
   seo: z.object({ title: copy(70), description: copy(170) }),

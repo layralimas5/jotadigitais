@@ -6,6 +6,7 @@ import type { Country } from "@/domain/country";
 import { countriesInStock } from "./catalog";
 import { MAX_CART_ITEMS, type Order } from "@/domain/order";
 import { checkSplit, isSplitPlan } from "@/domain/payment";
+import type { TagColors } from "@/domain/tag-color";
 import { DEFAULT_SITE_CONTENT, mergeWithDefaults, type SiteContent } from "@/domain/site-content";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { Testimonial } from "@/domain/testimonial";
@@ -18,6 +19,7 @@ import type {
   PaymentGateway,
   PrivacyService,
   SiteContentRepository,
+  TagColorRepository,
   LegalDocumentRepository,
   StoreSettingsRepository,
   TestimonialRepository,
@@ -32,9 +34,15 @@ export interface UseCaseDeps {
   payments: PaymentGateway;
   settings: StoreSettingsRepository;
   siteContent: SiteContentRepository;
+  tagColors: TagColorRepository;
   legal: LegalDocumentRepository;
   privacy: PrivacyService;
   coupons: CouponService;
+}
+
+/** Cor de fundo de cada tag, como o Jota salvou na ficha da conta. */
+export function getTagColors(deps: Pick<UseCaseDeps, "tagColors">): Promise<TagColors> {
+  return deps.tagColors.list();
 }
 
 /** Textos do site: o que foi salvo por cima do padrão. Se algo salvo não passar na validação, vale o texto original. */

@@ -13,6 +13,7 @@ import {
   type ShopTier,
 } from "@/domain/account";
 import { DEFAULT_COUNTRY } from "@/domain/country";
+import { MONETIZED_TAG_KEY, SHOP_TAG_KEY, customTagKey } from "@/domain/tag-color";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
 import type { DistributivePick } from "@/shared/types";
 
@@ -29,7 +30,11 @@ export type BadgeTone = "electric" | "pink" | "emerald" | "mist";
 export interface AccountBadge {
   label: string;
   tone: BadgeTone;
+  /** Chave da cor que o Jota pode escolher para a tag (ver domain/tag-color). Sem chave, a tag não muda de cor. */
+  colorKey?: string;
 }
+
+const MONETIZED = (label: string): AccountBadge => ({ label, tone: "emerald", colorKey: MONETIZED_TAG_KEY });
 
 export interface CardMetric {
   icon: LucideIcon;
@@ -65,26 +70,26 @@ export function verifiedLabel(account: Pick<Account, "platform">): string {
 export function accountBadge(account: Account): AccountBadge | null {
   switch (account.platform) {
     case "tiktok":
-      if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
+      if (account.stats.monetized) return MONETIZED("Monetizada");
       return SHOP_BADGE[shopTierOf(account)];
     case "instagram":
-      if (account.stats.monetized) return { label: "Monetizada", tone: "emerald" };
+      if (account.stats.monetized) return MONETIZED("Monetizada");
       return account.stats.professional
         ? { label: "Conta profissional", tone: "electric" }
         : { label: "Conta pessoal", tone: "mist" };
     case "youtube":
       return account.stats.monetized
-        ? { label: "Monetizado", tone: "emerald" }
+        ? MONETIZED("Monetizado")
         : { label: "Não monetizado", tone: "mist" };
     case "facebook":
-      if (account.stats.monetized) return { label: "Monetização ativa", tone: "emerald" };
+      if (account.stats.monetized) return MONETIZED("Monetização ativa");
       return { label: account.stats.kind === "page" ? "Página" : "Perfil", tone: "mist" };
   }
 }
 
 const SHOP_BADGE: Record<ShopTier, AccountBadge | null> = {
-  full: { label: "TikTok Shop ativo", tone: "electric" },
-  pilot: { label: "Shop piloto", tone: "pink" },
+  full: { label: "TikTok Shop ativo", tone: "electric", colorKey: SHOP_TAG_KEY.full },
+  pilot: { label: "Shop piloto", tone: "pink", colorKey: SHOP_TAG_KEY.pilot },
   none: null,
 };
 
@@ -94,7 +99,7 @@ export function allBadges(account: Account): AccountBadge[] {
     account.platform === "tiktok"
       ? [account.stats.monetized ? accountBadge(account) : null, SHOP_BADGE[shopTierOf(account)]]
       : [accountBadge(account)];
-  return [...fixed.filter((badge): badge is AccountBadge => badge !== null), ...account.tags.map((label): AccountBadge => ({ label, tone: "mist" }))];
+  return [...fixed.filter((badge): badge is AccountBadge => badge !== null), ...account.tags.map((label): AccountBadge => ({ label, tone: "mist", colorKey: customTagKey(label) }))];
 }
 
 /** Como a galeria da página da conta se organiza: se entra a Central ilustrativa e o nome de cada print. */

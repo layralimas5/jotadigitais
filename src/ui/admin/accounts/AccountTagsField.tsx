@@ -3,8 +3,11 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 import { listAllAccounts } from "@/application/admin-use-cases";
 import { MAX_ACCOUNT_TAG_LENGTH, MAX_ACCOUNT_TAGS, normalizeAccountTags, type ShopTier } from "@/domain/account";
 import type { Platform } from "@/domain/platform";
+import { MONETIZED_TAG_KEY, SHOP_TAG_KEY, customTagKey } from "@/domain/tag-color";
+import { tagColorStyle } from "@/ui/components/account/AccountBadges";
 import { cn } from "@/ui/lib/cn";
 import { useAdminQuery } from "../hooks";
+import { TagColorPicker, useAdminTagColors, type ColorableTag } from "./TagColorPicker";
 
 type ChipTone = "pink" | "electric" | "emerald" | "custom";
 
@@ -24,22 +27,26 @@ interface TagChipProps {
   tone: ChipTone;
   onToggle: () => void;
   disabled?: boolean;
+  /** Cor que o Jota salvou para a tag: pinta o chip marcado e vira um ponto no desmarcado. */
+  color?: string;
 }
 
-function TagChip({ label, selected, tone, onToggle, disabled }: TagChipProps) {
+function TagChip({ label, selected, tone, onToggle, disabled, color }: TagChipProps) {
   return (
     <button
       type="button"
       aria-pressed={selected}
       disabled={disabled}
       onClick={onToggle}
+      style={selected ? tagColorStyle(color) : undefined}
       className={cn(
         chipBase,
-        selected ? selectedTone[tone] : "border-line-strong text-mist hover:border-white/30 hover:text-white",
+        selected ? !color && selectedTone[tone] : "border-line-strong text-mist hover:border-white/30 hover:text-white",
         "disabled:pointer-events-none disabled:opacity-40",
       )}
     >
       {selected && <Check aria-hidden className="size-3.5" />}
+      {!selected && color && <span aria-hidden className="size-2 rounded-full" style={{ backgroundColor: color }} />}
       {label}
     </button>
   );
@@ -126,6 +133,7 @@ interface AccountTagsFieldProps {
  */
 export function AccountTagsField({ platform, value, error, onChange }: AccountTagsFieldProps) {
   const created = useCreatedTags();
+  const colors = useAdminTagColors();
   // Criada nesta ficha e desmarcada antes de salvar: continua na lista até sair da página.
   const [drafted, setDrafted] = useState<string[]>([]);
   const options = normalizeAccountTags([...created, ...drafted, ...value.tags]).sort((a, b) => a.localeCompare(b, "pt-BR"));
@@ -140,6 +148,18 @@ export function AccountTagsField({ platform, value, error, onChange }: AccountTa
     if (!isSelected(tag)) onChange({ tags: normalizeAccountTags([...value.tags, tag]) });
   };
 
+  const monetizedLabel = platform === "youtube" ? "Monetizado" : "Monetizada";
+  const colorable: ColorableTag[] = [
+    ...(platform === "tiktok"
+      ? [
+          { key: SHOP_TAG_KEY.pilot, label: "Shop piloto" },
+          { key: SHOP_TAG_KEY.full, label: "Shop ativo" },
+        ]
+      : []),
+    { key: MONETIZED_TAG_KEY, label: monetizedLabel },
+    ...options.map((tag) => ({ key: customTagKey(tag), label: tag })),
+  ];
+
   return (
     <fieldset>
       <legend className="text-sm font-medium text-fog">Tags da conta</legend>
@@ -147,19 +167,19 @@ export function AccountTagsField({ platform, value, error, onChange }: AccountTa
         {platform === "tiktok" && (
           <>
             <li>
-              <TagChip label="Shop piloto" tone="pink" selected={value.shop === "pilot"} onToggle={() => onChange({ shop: value.shop === "pilot" ? "none" : "pilot" })} />
+              <TagChip label="Shop piloto" tone="pink" color={colors[SHOP_TAG_KEY.pilot]} selected={value.shop === "pilot"} onToggle={() => onChange({ shop: value.shop === "pilot" ? "none" : "pilot" })} />
             </li>
             <li>
-              <TagChip label="Shop ativo" tone="electric" selected={value.shop === "full"} onToggle={() => onChange({ shop: value.shop === "full" ? "none" : "full" })} />
+              <TagChip label="Shop ativo" tone="electric" color={colors[SHOP_TAG_KEY.full]} selected={value.shop === "full"} onToggle={() => onChange({ shop: value.shop === "full" ? "none" : "full" })} />
             </li>
           </>
         )}
         <li>
-          <TagChip label={platform === "youtube" ? "Monetizado" : "Monetizada"} tone="emerald" selected={value.monetized} onToggle={() => onChange({ monetized: !value.monetized })} />
+          <TagChip label={monetizedLabel} tone="emerald" color={colors[MONETIZED_TAG_KEY]} selected={value.monetized} onToggle={() => onChange({ monetized: !value.monetized })} />
         </li>
         {options.map((tag) => (
           <li key={tag.toLowerCase()}>
-            <TagChip label={tag} tone="custom" selected={isSelected(tag)} disabled={full && !isSelected(tag)} onToggle={() => toggle(tag)} />
+            <TagChip label={tag} tone="custom" color={colors[customTagKey(tag)]} selected={isSelected(tag)} disabled={full && !isSelected(tag)} onToggle={() => toggle(tag)} />
           </li>
         ))}
         <li>
@@ -172,6 +192,7 @@ export function AccountTagsField({ platform, value, error, onChange }: AccountTa
             ? `Limite de ${MAX_ACCOUNT_TAGS} tags criadas por conta. Desmarque uma para marcar outra.`
             : "Clique para marcar ou desmarcar. Tags criadas aqui ficam disponíveis para as outras contas.")}
       </p>
+      <TagColorPicker tags={colorable} />
     </fieldset>
   );
 }
