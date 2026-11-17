@@ -138,3 +138,38 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 2. `npx supabase secrets set WHATSAPP_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=...`
 3. SQL: `update public.whatsapp_settings set mode = 'live';`
 4. Fase 2 (webhook do botão) precisa estar no ar antes disso, senão o toque em "Receber meu acesso" não responde.
+
+## Fases 3 e 4 prontas em modo teste: IA, aba WhatsApp e Automação > IA (17/11)
+
+- Migration `20261211120000_whatsapp_ai`: configuração da IA em `whatsapp_settings` (começa **desligada**), `whatsapp_faq`
+  (já com as dúvidas do site), `whatsapp_contacts`, `whatsapp_chat`, `whatsapp_register_inbound` (registro atômico, sem
+  duplicar reenvio da Meta) e o aviso `whatsapp` no sininho/push.
+- Funções: `whatsapp-webhook` (Meta, assinatura conferida) e `whatsapp-panel` (simulador, resposta do Jota e "Simular
+  cliente" no modo teste). Código comum em `_shared/whatsapp-ai.ts`, `whatsapp-inbound.ts`, `whatsapp-cloud.ts` e
+  `whatsapp-schedule.ts` (este também usado pelo painel).
+- IA: Claude Haiku 5.5 (`@anthropic-ai/sdk@1.9.0`), esforço baixo, prompt fixo com cache. Ferramentas: `buscar_contas`,
+  `situacao_pedido` (só para o dono do número) e `passar_para_atendente`. "parar" desliga as automáticas; "voltar" religa.
+- Painel: aba **WhatsApp** (Pessoas, barra de baixo no lugar do CRM, contador de conversas esperando o Jota) e
+  Automação > **IA de atendimento** (boas-vindas, tom, instruções, perguntas frequentes, horário, números ignorados e
+  simulador que usa o rascunho sem salvar). Faixa de status igual nas duas abas, com o liga e desliga da IA.
+- Testes: `npm run db:test`, seção "atendimento com IA do WhatsApp". A falha "desenvolvedora apaga os arquivos do chamado
+  no bucket" já existia na main.
+
+### Ativar (depois da fase 1)
+
+1. SQL Editor: a migration `20261211120000_whatsapp_ai.sql` (e registrar em `schema_migrations`).
+2. `npx supabase secrets set ANTHROPIC_API_KEY=... SITE_URL=https://jotadigitais.com.br`
+3. `npx supabase functions deploy whatsapp-panel` e `npx supabase functions deploy whatsapp-webhook --no-verify-jwt`
+4. Testar: Automação > IA de atendimento > Testar a IA; depois WhatsApp > Simular cliente com a IA ligada.
+
+### Ligar na Meta (junto com o "Ligar de verdade" da fase 1)
+
+1. Segredos `WHATSAPP_VERIFY_TOKEN` (inventado por nós) e `WHATSAPP_APP_SECRET` (do app na Meta).
+2. No app da Meta, Webhook: URL `https://<projeto>.supabase.co/functions/v1/whatsapp-webhook`, o mesmo verify token,
+   assinar o campo `messages`.
+
+### Falta
+
+- Botão "Receber meu acesso" entregar o login (fase 2): hoje o toque chega como mensagem comum para a IA.
+- Áudios gravados, lembrete de pedido não pago, pós-venda e a aba Relatório.
+- "Abrir no WhatsApp" de Pedidos e Clientes levar para a conversa do painel.

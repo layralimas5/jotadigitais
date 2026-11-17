@@ -54,9 +54,6 @@ const SUPABASE_STUBS = `
     select (string_to_array(name, '/'))[1:greatest(cardinality(string_to_array(name, '/')) - 1, 0)]
   $$;
   alter table storage.objects enable row level security;
-  create function storage.foldername(name text) returns text[] language sql immutable as $fn$
-    select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1]
-  $fn$;
   grant usage on schema public, auth, storage to anon, authenticated;
   grant execute on function auth.uid(), auth.jwt() to anon, authenticated;
   grant select, insert, update, delete on storage.objects to anon, authenticated;
@@ -725,6 +722,7 @@ async function main() {
   await webPushChecks();
   await deliveryMessageChecks();
   await whatsappDeliveryChecks();
+  await whatsappAiChecks();
   await supportMergeChecks();
   await tagColorChecks();
 
@@ -2569,4 +2567,85 @@ async function tagColorChecks() {
   await asAdmin(() => db.query(`delete from public.account_tag_colors where tag_key = 'fixed:shop-full'`));
   const left = await db.query(`select count(*)::int as n from public.account_tag_colors`);
   check(left.rows[0].n === 1, "tirar a cor apaga só a linha da tag");
+}
+
+/** IA do WhatsApp: configuração pelo painel, conversas escritas só pelas funções e registro atômico da mensagem. */
+async function whatsappAiChecks() {
+  console.log("\natendimento com IA do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asService = (fn) => as("service_role", null, fn);
+  const register = (phone, body, waId, name = "Bia") =>
+    asService(() => db.query(`select * from public.whatsapp_register_inbound($1, $2, $3, $4)`, [phone, name, body, waId]));
+
+  const ai = await asAdmin(() => db.query(`select ai_enabled, ai_schedule, business_days from public.whatsapp_settings`));
+  check(ai.rows[0]?.ai_enabled === false && ai.rows[0]?.ai_schedule === "always", "IA começa desligada e respondendo 24h");
+  await asAdmin(() =>
+    db.query(`update public.whatsapp_settings set ai_enabled = true, ai_tone = 'Direto', ai_schedule = 'off_hours', business_days = '{1,2,3}', ignored_numbers = '{5527999998888}'`),
+  );
+  check((await db.query(`select ai_tone from public.whatsapp_settings`)).rows[0].ai_tone === "Direto", "painel salva a configuração da IA");
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set business_start = '19:00', business_end = '08:00'`)), /whatsapp_business_hours/),
+    "horário que fecha antes de abrir é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set ignored_numbers = '{abc}'`)), /ignored_numbers/),
+    "número ignorado fora do formato é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set business_days = '{7}'`)), /business_days/),
+    "dia da semana inexistente é recusado",
+  );
+
+  const faq = await asAdmin(() => db.query(`select question from public.whatsapp_faq order by position`));
+  check(faq.rows.length >= 5 && faq.rows[0].question === "Como recebo a conta?", "perguntas frequentes já vêm com as do site");
+  await asAdmin(() => db.query(`insert into public.whatsapp_faq (question, answer, position) values ('Aceita boleto?', 'Não, só Pix e cartão.', 99)`));
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`insert into public.whatsapp_faq (question, answer) values ('Oi?', 'Oi')`)), /row-level security|permission denied/),
+    "quem não tem Automação não mexe nas perguntas",
+  );
+  check(await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_faq`)), /permission denied/), "visitante não lê as perguntas");
+
+  await db.query(`grant usage on schema public to service_role`);
+  await db.query(`grant select, insert, update, delete on all tables in schema public to service_role`);
+  const first = (await register("5527911112222", "Oi, tem conta de TikTok?", "wamid.1")).rows[0];
+  check(first.is_new === true && first.duplicate === false && first.handler === "ai" && first.unread_count === 1, "primeira mensagem cria o contato com a IA atendendo");
+  const again = (await register("5527911112222", "Oi, tem conta de TikTok?", "wamid.1")).rows[0];
+  check(again.duplicate === true, "a Meta reenviando o mesmo evento não grava de novo");
+  const second = (await register("5527911112222", "Até 400 reais", "wamid.2")).rows[0];
+  check(second.is_new === false && second.unread_count === 2, "mensagem seguida soma no contador");
+  const chat = await asAdmin(() => db.query(`select direction, author from public.whatsapp_chat where contact_id = $1`, [first.contact_id]));
+  check(chat.rows.length === 2 && chat.rows.every((row) => row.direction === "in" && row.author === "customer"), "conversa guarda as mensagens do cliente");
+
+  const buyerAccount = (await db.query(`select id from public.accounts limit 1`)).rows[0].id;
+  await db.query(
+    `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at)
+     values ('JD-WAAI01', $1, '@conta.ia', 'IA', 'tiktok', 'Comprador', 'c@exemplo.com', '27933334444', 'pix', 37000, 'delivered', now())`,
+    [buyerAccount],
+  );
+  const buyer = (await register("5527933334444", "Recebi, obrigado", "wamid.3", "Comprador")).rows[0];
+  const buyerKind = await asAdmin(() => db.query(`select kind from public.whatsapp_contacts where id = $1`, [buyer.contact_id]));
+  check(buyerKind.rows[0]?.kind === "customer", "quem já comprou com esse WhatsApp entra como cliente");
+
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_chat (contact_id, direction, author, body) values ($1, 'out', 'staff', 'oi')`, [first.contact_id])), /permission denied/),
+    "painel não grava mensagem direto (só pela função)",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_contacts set opted_out = false where id = $1`, [first.contact_id])), /permission denied/),
+    "painel não desfaz o pedido de parar do cliente",
+  );
+  await asAdmin(() => db.query(`update public.whatsapp_contacts set handler = 'staff', unread_count = 0, kind = 'affiliate' where id = $1`, [first.contact_id]));
+  const changed = await asAdmin(() => db.query(`select handler, unread_count, kind from public.whatsapp_contacts where id = $1`, [first.contact_id]));
+  check(changed.rows[0]?.handler === "staff" && changed.rows[0]?.unread_count === 0 && changed.rows[0]?.kind === "affiliate", "painel assume, marca como lido e muda o tipo");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select * from public.whatsapp_register_inbound('5511900000000', null, 'x', null)`)), /permission denied/),
+    "painel não chama o registro de mensagem recebida",
+  );
+  check(
+    (await as("authenticated", STRANGER_ID, () => db.query(`select id from public.whatsapp_contacts`))).rows.length === 0,
+    "quem não tem Automação não vê as conversas",
+  );
+
+  await db.query(`insert into public.notifications (kind, title, link) values ('whatsapp', 'Bia está esperando você no WhatsApp', '/admin/whatsapp?c=x')`);
+  check((await asAdmin(() => db.query(`select id from public.notifications where kind = 'whatsapp'`))).rows.length === 1, "aviso de WhatsApp aparece para o Jota");
 }
