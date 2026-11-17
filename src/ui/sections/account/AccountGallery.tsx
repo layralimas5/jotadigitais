@@ -25,8 +25,6 @@ function CentralPreview() {
     <PhoneScreenshot
       src="/images/tiktok-shop-central-celular.webp"
       alt="Tela da Central de Criadores do TikTok Shop com o passo a passo para publicar o primeiro vídeo com produtos e o kit de ferramentas."
-      width={460}
-      height={1024}
     />
   );
 }
@@ -272,7 +270,8 @@ export function AccountGallery({ account }: { account: Account }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active?.id}
-            className="relative flex w-full justify-center px-3 sm:px-6"
+            // No celular a moldura encolhe um pouco para caber na tela com folga; print deitado já usa a largura.
+            className={cn("relative flex w-full justify-center px-3 sm:px-6", !activeIsLandscape && "max-sm:[zoom:0.85]")}
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.98 }}
