@@ -126,7 +126,8 @@ export function TagColorPicker({ tags }: { tags: readonly ColorableTag[] }) {
                 type="button"
                 aria-label={`Cor ${preset}`}
                 aria-pressed={color === preset}
-                onClick={() => setDraft(preset)}
+                disabled={saving}
+                onClick={() => preset !== saved && save(preset)}
                 style={{ backgroundColor: preset }}
                 className={cn("grid size-8 place-items-center rounded-full border border-white/15 transition-transform hover:scale-110", focusRing)}
               >
@@ -154,14 +155,16 @@ export function TagColorPicker({ tags }: { tags: readonly ColorableTag[] }) {
       </fieldset>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          disabled={saving || !draft || draft === saved}
-          onClick={() => save(draft)}
-          className={cn("inline-flex h-9 items-center rounded-full bg-white px-4 text-sm font-semibold text-ink transition-opacity disabled:opacity-40", focusRing)}
-        >
-          {saving ? "Salvando..." : "Salvar cor"}
-        </button>
+        {draft && draft !== saved && (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => save(draft)}
+            className={cn("inline-flex h-9 items-center rounded-full bg-white px-4 text-sm font-semibold text-ink transition-opacity disabled:opacity-40", focusRing)}
+          >
+            {saving ? "Salvando..." : "Salvar esta cor"}
+          </button>
+        )}
         {saved && (
           <button
             type="button"
@@ -176,7 +179,11 @@ export function TagColorPicker({ tags }: { tags: readonly ColorableTag[] }) {
           Fechar
         </button>
       </div>
-      <p className="mt-3 text-xs text-mist">A cor salva vale na hora para todas as contas com essa tag, aqui e no site.</p>
+      <p className="mt-3 text-xs text-mist" aria-live="polite">
+        {saving
+          ? "Salvando a cor..."
+          : "Clicou na cor, já salvou: vale na hora para todas as contas com essa tag, aqui e no site. Em Outra cor, escolha e clique em Salvar esta cor."}
+      </p>
     </div>
   );
 }
