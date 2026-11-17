@@ -51,8 +51,32 @@ Carrinho com várias contas: uma mensagem por conta, na ordem do carrinho.
 | Função `whatsapp-webhook` | Recebe da Meta (confere a assinatura `X-Hub-Signature-256`), grava, responde pela IA ou pelo botão de acesso |
 | Função `whatsapp-send` | Envia pela Cloud API (texto, modelo, áudio); chamada pelo gatilho do pedido e pelo painel |
 | Gatilho em `orders` | `paid` → entrega; reserva vencendo → lembrete; `delivered` + X dias → pós-venda |
-| Aba Automação | Vira 4 abas: Conversas, IA, Mensagens (a tela de hoje) e Relatório |
+| Aba WhatsApp (nova) | Caixa de entrada das conversas: assumir, devolver para a IA, resumo da passagem |
+| Aba Automação | Configuração: Entrega automática, IA, Mensagens (a tela de hoje) e Relatório |
 | Aba APIs | Card do WhatsApp mostra conexão, número e situação dos modelos na Meta |
+
+## Navegação: WhatsApp e Automação conectadas (decidido em 17/11)
+
+Duas abas no sidebar, que funcionam como um módulo só:
+
+- **WhatsApp** (grupo Pessoas, depois de CRM; ícone `MessageCircle`): uso diário. Lista de conversas com filtro
+  por tipo (interessado, cliente, afiliado, aluno), situação (com a IA, com o Jota) e não lidas. Badge com o
+  número de conversas esperando o Jota. No celular entra na barra de baixo no lugar do CRM.
+- **Automação** (continua onde está, descrição "IA e mensagens do WhatsApp"): configuração.
+
+Como ficam conectadas:
+
+- **Mesma área de permissão** (`automation`): quem vê uma vê a outra. Se um dia o Jota tiver atendente que só
+  conversa, aí separa uma área `whatsapp` só para as conversas.
+- **Faixa de status igual no topo das duas**: automação ligada ou desligada (com o botão), modo teste ou ao vivo,
+  horário de funcionamento. Ligar e desligar por uma reflete na outra (mesmo `whatsapp_settings`).
+- **Atalhos de ida e volta**:
+  - WhatsApp → Automação: botão "Configurar IA" no cabeçalho; na conversa, "Ensinar essa resposta" vira uma
+    pergunta frequente nova já preenchida; "Enviar áudio" abre os áudios cadastrados.
+  - Automação → WhatsApp: no simulador da IA, "Ver conversas reais"; no Relatório, cada pergunta frequente e cada
+    venda originada abre a conversa de origem; em Entrega automática, cada envio abre a conversa do cliente.
+- **Pedidos e Clientes** ganham "Abrir no WhatsApp", que vai para a conversa do painel (não para o wa.me) quando
+  ela existir.
 
 Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`,
 `WHATSAPP_VERIFY_TOKEN`, `ANTHROPIC_API_KEY`.
