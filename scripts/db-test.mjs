@@ -50,6 +50,9 @@ const SUPABASE_STUBS = `
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
+  create function storage.foldername(name text) returns text[] language sql immutable as $$
+    select (string_to_array(name, '/'))[1:greatest(cardinality(string_to_array(name, '/')) - 1, 0)]
+  $$;
   alter table storage.objects enable row level security;
   create function storage.foldername(name text) returns text[] language sql immutable as $fn$
     select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1]
@@ -723,6 +726,7 @@ async function main() {
   await deliveryMessageChecks();
   await whatsappDeliveryChecks();
   await supportMergeChecks();
+  await tagColorChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -2535,4 +2539,34 @@ async function supportMergeChecks() {
 
   await db.query(`delete from public.support_tickets where id = $1`, [c]);
   check((await mergedInto(a)) === null, "apagar o principal solta os chamados juntados nele");
+}
+
+async function tagColorChecks() {
+  console.log("\ncores das tags");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const upsert = (key, color) =>
+    db.query(
+      `insert into public.account_tag_colors (tag_key, color) values ($1, $2)
+       on conflict (tag_key) do update set color = excluded.color`,
+      [key, color],
+    );
+
+  await asAdmin(() => upsert("fixed:shop-full", "#2799ff"));
+  await asAdmin(() => upsert("tag:nicho quente", "#ff3d8b"));
+  await asAdmin(() => upsert("tag:nicho quente", "#10b981"));
+  const read = await as("anon", null, () => db.query(`select tag_key, color from public.account_tag_colors order by tag_key`));
+  check(read.rows.length === 2 && read.rows[1].color === "#10b981", "vitrine lê as cores e salvar de novo troca a cor");
+
+  check(await rejects(() => as("anon", null, () => upsert("tag:live", "#000000")), /permission denied|row-level security/), "visitante não grava cor");
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => upsert("tag:live", "#000000")), /row-level security/),
+    "usuário sem acesso a Contas não grava cor",
+  );
+  check(await rejects(() => asAdmin(() => upsert("tag:live", "red")), /account_tag_colors_color/), "cor fora do formato #rrggbb é recusada");
+  check(await rejects(() => asAdmin(() => upsert("tag:Live", "#000000")), /account_tag_colors_key/), "chave com maiúscula é recusada");
+  check(await rejects(() => asAdmin(() => upsert("fixed:outra", "#000000")), /account_tag_colors_key/), "tag fixa desconhecida é recusada");
+
+  await asAdmin(() => db.query(`delete from public.account_tag_colors where tag_key = 'fixed:shop-full'`));
+  const left = await db.query(`select count(*)::int as n from public.account_tag_colors`);
+  check(left.rows[0].n === 1, "tirar a cor apaga só a linha da tag");
 }

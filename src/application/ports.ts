@@ -32,6 +32,7 @@ import type { SiteContent } from "@/domain/site-content";
 import type { ProfileLookup } from "@/domain/profile-lookup";
 import type { DatabaseUsage } from "@/domain/storage";
 import type { StoreSettings } from "@/domain/store-settings";
+import type { TagColors } from "@/domain/tag-color";
 import type {
   SupportCannedReply,
   SupportCannedReplyData,
@@ -52,7 +53,7 @@ import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 // Loja (site público)
 // ---------------------------------------------------------------------------
 
-/** "featured" é a ordem da vitrine pedida pelo Jota: TikTok com Shop primeiro, do menor para o maior. */
+/** "featured" é a ordem da vitrine pedida pelo Jota: Shop ativo, Shop piloto, TikTok monetizado e depois as outras redes. */
 export type AccountSort = "featured" | "recent" | "price-asc" | "followers-desc";
 
 export interface AccountFilter {
@@ -163,6 +164,11 @@ export interface SiteContentRepository {
   load(): Promise<unknown>;
 }
 
+/** Cor de fundo de cada tag das contas, pela chave da tag. Tag sem cor salva não aparece. */
+export interface TagColorRepository {
+  list(): Promise<TagColors>;
+}
+
 /** Versão mais recente de cada documento legal, como está no banco. Quem lê valida e cai no texto original se precisar. */
 export interface LegalDocumentRepository {
   listCurrent(): Promise<unknown[]>;
@@ -233,6 +239,11 @@ export interface AuthService {
 
 export interface AdminSiteContentRepository extends SiteContentRepository {
   save(content: SiteContent): Promise<void>;
+}
+
+export interface AdminTagColorRepository extends TagColorRepository {
+  /** Nula tira a cor: a tag volta ao visual padrão. */
+  set(key: string, color: string | null): Promise<void>;
 }
 
 export interface AdminLegalDocumentRepository extends LegalDocumentRepository {

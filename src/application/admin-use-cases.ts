@@ -40,6 +40,7 @@ import type {
   AdminRevenueRepository,
   AdminSession,
   AdminSiteContentRepository,
+  AdminTagColorRepository,
   AdminLegalDocumentRepository,
   AdminStoreSettingsRepository,
   AdminTestimonialRepository,
@@ -84,6 +85,7 @@ import {
   revenueDataSchema,
   signInSchema,
   siteContentSchema,
+  tagColorSchema,
   legalPublishSchema,
   storeSettingsSchema,
   testimonialDataSchema,
@@ -97,6 +99,7 @@ export interface AdminDeps {
   orders: AdminOrderRepository;
   settings: AdminStoreSettingsRepository;
   siteContent: AdminSiteContentRepository;
+  tagColors: AdminTagColorRepository;
   legal: AdminLegalDocumentRepository;
   leads: AdminLeadRepository;
   customers: AdminCustomerRepository;
@@ -661,7 +664,13 @@ export function saveStoreSettings(deps: AdminDeps, raw: unknown): Promise<StoreS
   return deps.settings.save(parseOrThrow(storeSettingsSchema, raw));
 }
 
-export { getSiteContent } from "./use-cases";
+export { getSiteContent, getTagColors } from "./use-cases";
+
+/** Salva (ou tira, com cor nula) a cor de uma tag. Vale na hora para todas as contas que usam a tag. */
+export async function saveTagColor(deps: AdminDeps, raw: unknown): Promise<void> {
+  const { key, color } = parseOrThrow(tagColorSchema, raw);
+  await deps.tagColors.set(key, color);
+}
 
 export async function saveSiteContent(deps: AdminDeps, raw: unknown): Promise<SiteContent> {
   const content = parseOrThrow(siteContentSchema, raw);

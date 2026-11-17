@@ -42,6 +42,8 @@ export interface DemoState {
   settings?: StoreSettings;
   /** Guardado como veio; quem lê junta com o padrão e valida. */
   siteContent?: unknown;
+  /** Cor de fundo de cada tag, pela chave (ver domain/tag-color). */
+  tagColors?: Record<string, string>;
   /** Cada versão publicada dos Termos e da Política, como a tabela legal_documents. */
   legalDocuments?: DemoLegalDocumentRow[];
   leads?: Lead[];
