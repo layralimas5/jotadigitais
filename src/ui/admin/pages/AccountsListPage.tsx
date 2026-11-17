@@ -1,3 +1,4 @@
+import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
 import { BadgeDollarSign, ChevronDown, ExternalLink, MessageCircle, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -168,7 +169,10 @@ function AccountsTable({ accounts, onStatusChange, onShare, onDelete, selection,
               <td className="px-4 py-3 text-right text-fog tabular-nums">
                 {formatCount(account.followers)} <span className="text-xs text-mist">{audienceLabel(account).toLowerCase()}</span>
               </td>
-              <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(account.price)}</td>
+              <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">
+                <PreviousPrice account={account} className="block text-xs font-normal" />
+                {formatBRL(account.price)}
+              </td>
               <td className="px-4 py-3"><StatusSelect account={account} onChange={onStatusChange} disabled={busy} /></td>
               <td className="px-4 py-3">
                 <span className="flex justify-end">
@@ -216,7 +220,10 @@ function AccountsCards({ accounts, onStatusChange, onShare, selection, busy }: L
               {formatCount(account.followers)} <span className="text-xs text-mist">{audienceLabel(account).toLowerCase()}</span>
             </span>
             <span className="flex items-center gap-2">
-              <span className="font-semibold text-white tabular-nums">{formatBRL(account.price)}</span>
+              <span className="text-right font-semibold text-white tabular-nums">
+                <PreviousPrice account={account} withPercent={false} className="block text-xs font-normal" />
+                {formatBRL(account.price)}
+              </span>
               <StatusSelect account={account} onChange={onStatusChange} disabled={busy} />
             </span>
           </div>

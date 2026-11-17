@@ -1,3 +1,4 @@
+import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatCount, isNewListing, isPurchasable, type Account } from "@/domain/account";
@@ -139,6 +140,7 @@ export function AccountCard({ account }: { account: Account }) {
           <div className="@container mt-4 border-t border-line pt-4 sm:mt-6 sm:pt-5">
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
+                <PreviousPrice account={account} className="text-xs" />
                 <p className="font-display text-[clamp(1.05rem,8cqi,1.5rem)] font-bold tracking-tight whitespace-nowrap text-white tabular-nums">
                   {formatBRL(account.price)}
                 </p>

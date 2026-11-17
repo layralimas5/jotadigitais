@@ -23,6 +23,7 @@ const accountRowSchema = z.object({
   country_info: z.object({ name: z.string() }).nullish(),
   followers: z.number(),
   price_cents: z.number(),
+  compare_at_price_cents: z.number().nullish(),
   status: z.enum(ACCOUNT_STATUSES),
   reserved_until: z.string().nullable(),
   description: z.string().nullable(),
@@ -42,7 +43,7 @@ const accountRowSchema = z.object({
 
 /** O que a chave anon pode ler de uma conta: sem o parceiro que a forneceu. */
 export const PUBLIC_ACCOUNT_COLUMNS =
-  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup, specs, tags";
+  "id, slug, platform, display_name, handle, niche, country, country_info:countries(name), followers, price_cents, compare_at_price_cents, status, reserved_until, description, avatar_url, images, stats, listed_at, profile_url, mockup, specs, tags";
 
 export const ACCOUNT_COLUMNS = `${PUBLIC_ACCOUNT_COLUMNS}, partner_id, stats_synced_at`;
 
@@ -56,6 +57,7 @@ export function toAccount(raw: unknown): Account {
     country: row.country ?? undefined,
     followers: row.followers,
     price: row.price_cents,
+    compareAtPrice: row.compare_at_price_cents ?? null,
     status: effectiveStatus(row.status, row.reserved_until),
     description: row.description,
     avatarUrl: row.avatar_url,
@@ -90,6 +92,7 @@ export function toAccountRow(data: AccountData) {
     country: data.country,
     followers: data.followers,
     price_cents: data.price,
+    compare_at_price_cents: data.compareAtPrice,
     status: data.status,
     description: data.description,
     avatar_url: data.avatarUrl,

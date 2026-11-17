@@ -1,3 +1,4 @@
+import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Lock, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -41,9 +42,12 @@ function CartItem({ account, onRemove }: { account: Account; onRemove: () => voi
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
-        <p className={cn("font-display font-bold text-white tabular-nums sm:text-lg", !available && "text-mist line-through")}>
-          {formatBRL(account.price)}
-        </p>
+        <div className="text-right">
+          {available && <PreviousPrice account={account} withPercent={false} className="text-xs" />}
+          <p className={cn("font-display font-bold text-white tabular-nums sm:text-lg", !available && "text-mist line-through")}>
+            {formatBRL(account.price)}
+          </p>
+        </div>
         <button
           type="button"
           onClick={onRemove}

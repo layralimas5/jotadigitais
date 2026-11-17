@@ -1,3 +1,4 @@
+import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
 import { CreditCard, LifeBuoy, MessageCircle, QrCode, ShieldCheck } from "lucide-react";
 import type { Ref } from "react";
 import { isPurchasable, type Account } from "@/domain/account";
@@ -89,6 +90,7 @@ export function AccountBuyBox({ account, ctaRef }: AccountBuyBoxProps) {
       <p {...editable("accountPage.priceLabel")} className="text-sm text-mist">
         {accountPage.priceLabel}
       </p>
+      <PreviousPrice account={account} className="mt-1.5 text-base" />
       <p className="mt-1 font-display text-4xl font-bold tracking-tight text-white tabular-nums md:text-5xl">
         {formatBRL(account.price)}
       </p>

@@ -69,7 +69,10 @@ export interface AccountBase {
   country: string;
   /** Seguidores, ou inscritos no YouTube. */
   followers: number;
+  /** O que o cliente paga: carrinho, checkout e cupom partem daqui. */
   price: Cents;
+  /** Valor anterior da oferta, riscado ao lado do preço ("de R$ 550,00 por R$ 499,00"). Nulo = sem oferta. */
+  compareAtPrice: Cents | null;
   status: AccountStatus;
   description: string | null;
   /** A mesma foto de perfil usada na rede social. Sem ela, o site mostra as iniciais. */
@@ -88,6 +91,13 @@ export interface AccountBase {
   specs: AccountSpec[] | null;
   /** Etiquetas que o Jota cria (ex.: "Nicho quente", "Pronta pra live"). Aparecem no card e na página da conta. */
   tags: string[];
+}
+
+/** Desconto da oferta em porcentagem inteira (550 → 499 = 9%). Nulo quando a conta não está em oferta. */
+export function discountPercentOf(account: Pick<AccountBase, "price" | "compareAtPrice">): number | null {
+  const { price, compareAtPrice } = account;
+  if (compareAtPrice === null || compareAtPrice <= price) return null;
+  return Math.max(1, Math.floor(((compareAtPrice - price) / compareAtPrice) * 100));
 }
 
 /** Mesmo limite da checagem `accounts_tags` no banco. */
