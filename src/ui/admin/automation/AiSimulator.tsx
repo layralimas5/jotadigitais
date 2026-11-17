@@ -78,7 +78,7 @@ export function AiSimulator({ draft }: { draft: AiDraft }) {
         )}
       </div>
 
-      <div className="mt-4 min-h-64 flex-1 overflow-y-auto rounded-2xl bg-[#0b141a] p-3 lg:max-h-[28rem]">
+      <div className="mt-4 min-h-64 flex-1 overflow-y-auto rounded-xl border border-line bg-night p-3 lg:max-h-[28rem]">
         {turns.length === 0 ? (
           <div className="flex h-full min-h-56 flex-col items-center justify-center gap-2 text-center">
             <p className="text-xs text-mist">Comece com uma destas:</p>
@@ -94,18 +94,19 @@ export function AiSimulator({ draft }: { draft: AiDraft }) {
             ))}
           </div>
         ) : (
-          <ol aria-live="polite" className="space-y-3">
+          <ol aria-live="polite">
             {turns.map((turn, index) => (
               <ChatBubble
                 key={index}
                 author={turn.role === "user" ? "customer" : "ai"}
                 body={turn.text}
-                footer={turn.note && <p className="max-w-[min(85%,30rem)] px-1 text-right text-[0.7rem] text-amber-200/90">{turn.note}</p>}
+                showAuthor={index === 0 || turns[index - 1]!.role !== turn.role}
+                footer={turn.note && <p className="mt-1 max-w-[min(85%,32rem)] px-1 text-right text-[0.7rem] text-amber-200/90">{turn.note}</p>}
               />
             ))}
             {ask.pending && (
-              <li className="flex justify-end">
-                <span className="rounded-xl bg-[#005c4b]/60 px-3 py-2 text-xs text-[#e9edef]/80 motion-safe:animate-pulse">Digitando…</span>
+              <li className="mt-1 flex justify-end">
+                <span className="rounded-2xl rounded-br-md bg-[#0f2236] px-3.5 py-2 text-xs text-mist motion-safe:animate-pulse">Digitando…</span>
               </li>
             )}
             <li ref={endRef} aria-hidden />

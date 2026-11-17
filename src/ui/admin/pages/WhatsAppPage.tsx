@@ -1,16 +1,23 @@
 import { FlaskConical } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getWhatsAppSettings, listWhatsAppContacts } from "@/application/admin-use-cases";
-import { Button } from "@/ui/components/Button";
-import { EmptyState, ErrorState } from "@/ui/components/StateViews";
+import {
+  getWhatsAppSettings,
+  listWhatsAppContacts,
+} from "@/application/admin-use-cases";
+import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, usePolling } from "../hooks";
-import { ConversationList, type ConversationFilter, type KindFilter } from "../whatsapp/ConversationList";
+import {
+  ConversationList,
+  type ConversationFilter,
+  type KindFilter,
+} from "../whatsapp/ConversationList";
 import { ConversationView } from "../whatsapp/ConversationView";
 import { SimulateCustomerDialog } from "../whatsapp/SimulateCustomerDialog";
 import { WhatsAppStatusBar } from "../whatsapp/WhatsAppStatusBar";
+import { compactButton } from "../whatsapp/styles";
 
 const REFRESH_MS = 10_000;
 const CONTACT_PARAM = "c";
@@ -42,26 +49,49 @@ export default function WhatsAppPage() {
   const mode = settings.status === "success" ? settings.data.mode : "test";
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="WhatsApp"
-        description="Conversas com os clientes. A IA responde sozinha e chama você quando precisa."
-        action={
-          mode === "test" && (
-            <Button type="button" variant="secondary" onClick={() => setSimulating(true)}>
-              <FlaskConical aria-hidden className="size-4" /> Simular cliente
-            </Button>
-          )
-        }
-      />
-      <WhatsAppStatusBar current="conversations" />
+    <div className="space-y-5">
+      {/* No celular, com uma conversa aberta, o topo sai para as mensagens terem espaço. */}
+      <div className={cn("space-y-5", selected && "max-md:hidden")}>
+        <PageHeader
+          title="WhatsApp"
+          description="A IA atende e chama você quando precisa."
+          action={
+            mode === "test" && (
+              <button
+                type="button"
+                className={compactButton.secondary}
+                onClick={() => setSimulating(true)}
+              >
+                <FlaskConical aria-hidden className="size-3.5" /> Simular
+                cliente
+              </button>
+            )
+          }
+        />
+        <WhatsAppStatusBar current="conversations" />
+      </div>
 
       {contacts.status === "loading" && <LoadingBlock />}
-      {contacts.status === "error" && <ErrorState message={contacts.error.message} onRetry={contacts.reload} />}
+      {contacts.status === "error" && (
+        <ErrorState
+          message={contacts.error.message}
+          onRetry={contacts.reload}
+        />
+      )}
       {list && (
-        <div className="grid gap-4 md:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] md:items-start">
+        <div
+          className={cn(
+            "grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border border-line bg-surface/40 md:h-[calc(100dvh-15.5rem)] md:min-h-[28rem] md:grid-cols-[minmax(17rem,21rem)_minmax(0,1fr)]",
+            selected && "max-md:h-[calc(100dvh-10.5rem)]",
+          )}
+        >
           {/* No celular é uma tela de cada vez: a lista ou a conversa aberta. */}
-          <div className={cn(selected && "max-md:hidden")}>
+          <div
+            className={cn(
+              "min-h-0 md:border-r md:border-line",
+              selected && "max-md:hidden",
+            )}
+          >
             <ConversationList
               contacts={list}
               selectedId={selectedId}
@@ -72,11 +102,26 @@ export default function WhatsAppPage() {
               onSelect={select}
             />
           </div>
-          <div className={cn(!selected && "max-md:hidden")}>
+          <div className={cn("min-h-0", !selected && "max-md:hidden")}>
             {selected ? (
-              <ConversationView key={selected.id} contact={selected} mode={mode} onChanged={reloadContacts} onBack={() => select(null)} />
+              <ConversationView
+                key={selected.id}
+                contact={selected}
+                mode={mode}
+                onChanged={reloadContacts}
+                onBack={() => select(null)}
+              />
             ) : (
-              <EmptyState title="Escolha uma conversa" description="As que estão com você aparecem com o número rosa." />
+              <div className="grid h-full place-items-center bg-night px-6 text-center">
+                <div>
+                  <p className="text-sm font-medium text-fog">
+                    Nenhuma conversa aberta
+                  </p>
+                  <p className="mt-1 text-xs text-mist">
+                    Escolha uma na lista. As que esperam você têm o número rosa.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>

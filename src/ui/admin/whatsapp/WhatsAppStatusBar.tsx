@@ -1,8 +1,8 @@
-import { Bot, FlaskConical, MessagesSquare, Radio, SlidersHorizontal } from "lucide-react";
+import { MessagesSquare, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getWhatsAppAi, getWhatsAppSettings, setWhatsAppAiEnabled } from "@/application/admin-use-cases";
 import { WEEKDAYS, aiAnswersAt, type WhatsAppAiSettings, type WhatsAppMode } from "@/domain/whatsapp";
-import { ButtonLink } from "@/ui/components/Button";
+import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
@@ -23,25 +23,19 @@ function scheduleLabel(ai: WhatsAppAiSettings): string {
 }
 
 function nowLabel(ai: WhatsAppAiSettings): { text: string; active: boolean } {
-  if (!ai.enabled) return { text: "IA desligada: as mensagens esperam você", active: false };
+  if (!ai.enabled) return { text: "As mensagens esperam você", active: false };
   const hours = { schedule: ai.schedule, start: ai.businessStart, end: ai.businessEnd, days: ai.businessDays };
   return aiAnswersAt(hours, new Date())
-    ? { text: "IA respondendo agora", active: true }
-    : { text: "Horário comercial: agora quem responde é você", active: false };
+    ? { text: "Respondendo agora", active: true }
+    : { text: "Horário comercial: agora é com você", active: false };
 }
 
-function ModeBadge({ mode }: { mode: WhatsAppMode }) {
+function ModeLabel({ mode }: { mode: WhatsAppMode }) {
   const live = mode === "live";
-  const Icon = live ? Radio : FlaskConical;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
-        live ? "border-emerald-400/40 text-emerald-300" : "border-amber-300/40 text-amber-200",
-      )}
-    >
-      <Icon aria-hidden className="size-3.5" />
-      {live ? "WhatsApp oficial conectado" : "Modo teste: nada sai para o cliente"}
+    <span className="inline-flex items-center gap-1.5" title={live ? undefined : "Nada do que acontece aqui chega ao cliente"}>
+      <span aria-hidden className={cn("size-1.5 rounded-full", live ? "bg-emerald-400" : "bg-amber-300")} />
+      {live ? "WhatsApp oficial conectado" : "Modo teste"}
     </span>
   );
 }
@@ -72,10 +66,10 @@ function AiSwitch({ ai, onChange }: { ai: WhatsAppAiSettings; onChange: (next: W
       aria-checked={enabled}
       disabled={save.pending}
       onClick={() => void toggle()}
-      className="inline-flex items-center gap-2.5 rounded-full border border-line-strong bg-ink py-1.5 pr-3 pl-1.5 text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric disabled:opacity-60"
+      className="group inline-flex items-center gap-2.5 rounded-md text-sm font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric disabled:opacity-60"
     >
-      <span aria-hidden className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", enabled ? "bg-electric" : "bg-line-strong")}>
-        <span className={cn("absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform", enabled && "translate-x-5")} />
+      <span aria-hidden className={cn("relative h-5 w-9 shrink-0 rounded-full transition-colors duration-150", enabled ? "bg-electric" : "bg-line-strong group-hover:bg-[#3a3a50]")}>
+        <span className={cn("absolute top-0.5 left-0.5 size-4 rounded-full bg-white transition-transform duration-150 motion-reduce:transition-none", enabled && "translate-x-4")} />
       </span>
       IA {enabled ? "ligada" : "desligada"}
     </button>
@@ -91,7 +85,7 @@ interface WhatsAppStatusBarProps {
   saved?: WhatsAppAiSettings | null;
 }
 
-/** Faixa igual no topo das abas WhatsApp e Automação: liga e desliga a IA, modo, horário e o atalho entre as duas. */
+/** Linha igual no topo das abas WhatsApp e Automação: liga e desliga a IA, modo, horário e o atalho entre as duas. */
 export function WhatsAppStatusBar({ current, onAiChange, saved }: WhatsAppStatusBarProps) {
   const ai = useAdminQuery(getWhatsAppAi, "whatsapp-ai");
   const settings = useAdminQuery(getWhatsAppSettings, "whatsapp-settings");
@@ -103,39 +97,37 @@ export function WhatsAppStatusBar({ current, onAiChange, saved }: WhatsAppStatus
   }, [saved]);
 
   if (!local || settings.status !== "success") {
-    return <div aria-hidden className="h-[4.5rem] animate-pulse rounded-3xl border border-line bg-surface/60 motion-reduce:animate-none" />;
+    return <div aria-hidden className="h-11 animate-pulse border-y border-line motion-reduce:animate-none" />;
   }
   const now = nowLabel(local);
+  const Shortcut = current === "conversations" ? SlidersHorizontal : MessagesSquare;
 
   return (
-    <section aria-label="Situação do atendimento no WhatsApp" className="rounded-3xl border border-line bg-surface/60 p-4 sm:p-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <AiSwitch
-          ai={local}
-          onChange={(next) => {
-            setLocal(next);
-            onAiChange?.(next);
-          }}
-        />
-        <ModeBadge mode={settings.data.mode} />
-        <div className="ml-auto max-sm:w-full">
-          {current === "conversations" ? (
-            <ButtonLink to={aiSettingsLink()} variant="secondary" className="max-sm:w-full">
-              <SlidersHorizontal aria-hidden className="size-4" /> Configurar IA
-            </ButtonLink>
-          ) : (
-            <ButtonLink to={WHATSAPP_PATH} variant="secondary" className="max-sm:w-full">
-              <MessagesSquare aria-hidden className="size-4" /> Ver conversas
-            </ButtonLink>
-          )}
-        </div>
-      </div>
-      <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-mist">
-        <Bot aria-hidden className={cn("size-4", now.active ? "text-electric" : "text-mist")} />
-        <span className={cn("font-medium", now.active ? "text-white" : "text-fog")}>{now.text}</span>
-        <span aria-hidden>·</span>
+    <section
+      aria-label="Situação do atendimento no WhatsApp"
+      className="flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-line py-2.5"
+    >
+      <AiSwitch
+        ai={local}
+        onChange={(next) => {
+          setLocal(next);
+          onAiChange?.(next);
+        }}
+      />
+      <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-mist">
+        <span className={cn(now.active && "text-fog")}>{now.text}</span>
+        <span aria-hidden className="text-line-strong">/</span>
         <span>{scheduleLabel(local)}</span>
+        <span aria-hidden className="text-line-strong">/</span>
+        <ModeLabel mode={settings.data.mode} />
       </p>
+      <Link
+        to={current === "conversations" ? aiSettingsLink() : WHATSAPP_PATH}
+        className="ml-auto inline-flex items-center gap-1.5 rounded-md text-xs font-medium text-fog transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric"
+      >
+        <Shortcut aria-hidden className="size-3.5" />
+        {current === "conversations" ? "Configurar IA" : "Ver conversas"}
+      </Link>
     </section>
   );
 }

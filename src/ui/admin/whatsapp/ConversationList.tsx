@@ -1,15 +1,14 @@
-import { Bot, UserRound } from "lucide-react";
 import { CONTACT_KIND_LABEL, needsStaff, type WhatsAppContact, type WhatsAppContactKind } from "@/domain/whatsapp";
-import { EmptyState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
-import { FilterChips } from "../components/FilterChips";
 import { formatPhone } from "../lib/whatsapp";
+import { ContactAvatar } from "./ContactAvatar";
 
 export type ConversationFilter = "all" | "waiting" | "ai";
 export type KindFilter = WhatsAppContactKind | "any";
 
 const relative = new Intl.RelativeTimeFormat("pt-BR", { numeric: "auto" });
 const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+const clock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
 /** "agora", "há 5 min", "há 3 h", "12/11". */
 export function sinceLabel(iso: string, now = Date.now()): string {
@@ -18,6 +17,12 @@ export function sinceLabel(iso: string, now = Date.now()): string {
   if (minutes < 60) return relative.format(-minutes, "minute");
   if (minutes < 24 * 60) return relative.format(-Math.round(minutes / 60), "hour");
   return shortDate.format(new Date(iso));
+}
+
+/** Hora para hoje, data para os outros dias: como em qualquer app de mensagem. */
+function listTime(iso: string, now = new Date()): string {
+  const date = new Date(iso);
+  return date.toDateString() === now.toDateString() ? clock.format(date) : shortDate.format(date);
 }
 
 export function filterContacts(contacts: readonly WhatsAppContact[], filter: ConversationFilter, kind: KindFilter): WhatsAppContact[] {
@@ -43,95 +48,116 @@ const KIND_OPTIONS: readonly { value: KindFilter; label: string }[] = [
   ...(Object.keys(CONTACT_KIND_LABEL) as WhatsAppContactKind[]).map((value) => ({ value, label: CONTACT_KIND_LABEL[value] })),
 ];
 
+function FilterTabs({ value, waiting, onChange }: { value: ConversationFilter; waiting: number; onChange: (next: ConversationFilter) => void }) {
+  const tabs: readonly { value: ConversationFilter; label: string; count?: number }[] = [
+    { value: "all", label: "Todas" },
+    { value: "waiting", label: "Com você", count: waiting },
+    { value: "ai", label: "Com a IA" },
+  ];
+  return (
+    <div role="group" aria-label="Mostrar conversas" className="flex min-w-0 gap-4">
+      {tabs.map((tab) => {
+        const active = tab.value === value;
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(tab.value)}
+            className={cn(
+              "-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 whitespace-nowrap pt-1 pb-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric",
+              active ? "border-white font-medium text-white" : "border-transparent text-mist hover:text-fog",
+            )}
+          >
+            {tab.label}
+            {tab.count ? <span className="text-xs text-pink tabular-nums">{tab.count}</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ConversationRow({ contact, selected, onSelect }: { contact: WhatsAppContact; selected: boolean; onSelect: () => void }) {
+  const attention = needsStaff(contact);
+  const name = contact.name ?? formatPhone(contact.phone);
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={selected ? "true" : undefined}
+      className={cn(
+        "relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-electric",
+        selected ? "bg-white/[0.05]" : "hover:bg-white/[0.025]",
+      )}
+    >
+      {selected && <span aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-electric" />}
+      <ContactAvatar name={contact.name} phone={contact.phone} />
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline justify-between gap-3">
+          <span className={cn("truncate text-sm", attention ? "font-semibold text-white" : "font-medium text-fog")}>{name}</span>
+          <time dateTime={contact.lastMessageAt} title={sinceLabel(contact.lastMessageAt)} className={cn("shrink-0 text-[0.7rem] tabular-nums", attention ? "text-pink" : "text-mist")}>
+            {listTime(contact.lastMessageAt)}
+          </time>
+        </span>
+        <span className="mt-0.5 flex items-center gap-3">
+          <span className={cn("truncate text-[0.8rem]", attention ? "text-fog" : "text-mist")}>{contact.lastMessagePreview ?? "…"}</span>
+          {attention && (
+            <span className="ml-auto grid h-[1.125rem] min-w-[1.125rem] shrink-0 place-items-center rounded-full bg-pink px-1 text-[0.65rem] font-semibold text-ink tabular-nums">
+              <span className="sr-only">Mensagens sem resposta: </span>
+              {contact.unreadCount}
+            </span>
+          )}
+        </span>
+        <span className="mt-1 block text-[0.7rem] text-mist/80">
+          {CONTACT_KIND_LABEL[contact.kind]}
+          <span aria-hidden> · </span>
+          {contact.handler === "ai" ? "IA atendendo" : "Com você"}
+          {contact.optedOut && " · pediu para parar"}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function ConversationList({ contacts, selectedId, filter, kind, onFilter, onKind, onSelect }: ConversationListProps) {
   const waiting = contacts.filter(needsStaff).length;
   const visible = filterContacts(contacts, filter, kind);
   return (
-    <div className="flex min-h-0 flex-col gap-3">
-      <FilterChips<ConversationFilter>
-        label="Mostrar conversas"
-        value={filter}
-        onChange={onFilter}
-        options={[
-          { value: "all", label: "Todas" },
-          { value: "waiting", label: waiting ? `Com você (${waiting})` : "Com você" },
-          { value: "ai", label: "Com a IA" },
-        ]}
-      />
-      <label className="sr-only" htmlFor="whatsapp-kind-filter">
-        Tipo de contato
-      </label>
-      <select
-        id="whatsapp-kind-filter"
-        value={kind}
-        onChange={(event) => onKind(event.target.value as KindFilter)}
-        className="h-10 rounded-xl border border-line-strong bg-ink px-3 text-sm text-white [color-scheme:dark] focus:border-electric focus:outline-none"
-      >
-        {KIND_OPTIONS.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.value === "any" ? "Todos os contatos" : option.label}
-          </option>
-        ))}
-      </select>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-end justify-between gap-3 border-b border-line px-4 pt-3">
+        <FilterTabs value={filter} waiting={waiting} onChange={onFilter} />
+        <label className="sr-only" htmlFor="whatsapp-kind-filter">
+          Tipo de contato
+        </label>
+        <select
+          id="whatsapp-kind-filter"
+          value={kind}
+          onChange={(event) => onKind(event.target.value as KindFilter)}
+          className="mb-2 max-w-[6.5rem] shrink-0 cursor-pointer truncate rounded-md bg-transparent py-1 pr-1 text-xs text-mist [color-scheme:dark] hover:text-fog focus-visible:outline-2 focus-visible:outline-electric"
+        >
+          {KIND_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {visible.length === 0 ? (
-        <EmptyState
-          title={contacts.length === 0 ? "Nenhuma conversa ainda" : "Nada neste filtro"}
-          description={contacts.length === 0 ? "Quando um cliente mandar mensagem no WhatsApp da loja, a conversa aparece aqui." : "Troque o filtro para ver as outras."}
-        />
+        <div className="px-6 py-12 text-center">
+          <p className="text-sm font-medium text-fog">{contacts.length === 0 ? "Nenhuma conversa ainda" : "Nada neste filtro"}</p>
+          <p className="mt-1 text-xs text-mist">
+            {contacts.length === 0 ? "Quando um cliente mandar mensagem no WhatsApp da loja, ela aparece aqui." : "Troque o filtro para ver as outras."}
+          </p>
+        </div>
       ) : (
-        <ul className="min-h-0 space-y-1 overflow-y-auto md:max-h-[calc(100dvh-22rem)]">
-          {visible.map((contact) => {
-            const selected = contact.id === selectedId;
-            const attention = needsStaff(contact);
-            const HandlerIcon = contact.handler === "ai" ? Bot : UserRound;
-            return (
-              <li key={contact.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(contact.id)}
-                  aria-current={selected ? "true" : undefined}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition-colors",
-                    selected ? "border-electric/40 bg-electric/10" : "border-transparent hover:bg-white/[0.04]",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "grid size-10 shrink-0 place-items-center rounded-full",
-                      contact.handler === "ai" ? "bg-electric/15 text-electric" : "bg-emerald-400/15 text-emerald-300",
-                    )}
-                    title={contact.handler === "ai" ? "A IA está atendendo" : "Você está atendendo"}
-                  >
-                    <HandlerIcon aria-hidden className="size-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className={cn("truncate text-sm", attention ? "font-semibold text-white" : "font-medium text-fog")}>
-                        {contact.name ?? formatPhone(contact.phone)}
-                      </span>
-                      <time dateTime={contact.lastMessageAt} className="shrink-0 text-[0.7rem] text-mist">
-                        {sinceLabel(contact.lastMessageAt)}
-                      </time>
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-2">
-                      <span className={cn("truncate text-xs", attention ? "text-fog" : "text-mist")}>{contact.lastMessagePreview ?? "…"}</span>
-                      {attention && (
-                        <span className="ml-auto grid min-w-5 shrink-0 place-items-center rounded-full bg-pink px-1.5 text-[0.68rem] leading-5 font-bold text-ink tabular-nums">
-                          <span className="sr-only">Mensagens sem resposta: </span>
-                          {contact.unreadCount}
-                        </span>
-                      )}
-                    </span>
-                    <span className="mt-1 block text-[0.68rem] text-mist">
-                      {CONTACT_KIND_LABEL[contact.kind]}
-                      {contact.optedOut && " · pediu para parar"}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+        <ul className="min-h-0 flex-1 divide-y divide-line/60 overflow-y-auto">
+          {visible.map((contact) => (
+            <li key={contact.id}>
+              <ConversationRow contact={contact} selected={contact.id === selectedId} onSelect={() => onSelect(contact.id)} />
+            </li>
+          ))}
         </ul>
       )}
     </div>
