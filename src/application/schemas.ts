@@ -15,6 +15,7 @@ import { COUNTRY_CODE_PATTERN, DEFAULT_COUNTRY } from "@/domain/country";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
+import { AI_LIMITS } from "@/domain/whatsapp";
 import { MAX_DELIVERY_MESSAGE_NAME } from "@/domain/delivery-message";
 import {
   COUPON_CODE_PATTERN,
@@ -551,6 +552,42 @@ export const messageTemplatesSchema = z.object({
   customer_hello: templateBody,
   account_offer: templateBody,
 });
+
+// ---------------------------------------------------------------------------
+// Atendimento com IA do WhatsApp (mesmas regras de whatsapp_settings e whatsapp_faq)
+// ---------------------------------------------------------------------------
+
+const requiredText = (max: number, empty: string) =>
+  z.string().trim().min(1, empty).max(max, `Use no máximo ${max} caracteres.`);
+
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use o formato 09:00.");
+
+export const whatsAppAiSettingsSchema = z
+  .object({
+    enabled: z.boolean(),
+    greeting: requiredText(AI_LIMITS.greeting, "Escreva a mensagem de boas-vindas."),
+    tone: requiredText(AI_LIMITS.tone, "Descreva o tom de voz da IA."),
+    instructions: z.string().trim().max(AI_LIMITS.instructions, `Use no máximo ${AI_LIMITS.instructions} caracteres.`),
+    schedule: z.enum(["always", "off_hours"]),
+    businessStart: clockTime,
+    businessEnd: clockTime,
+    businessDays: z.array(z.number().int().min(0).max(6)).min(1, "Marque pelo menos um dia."),
+    ignoredNumbers: z.array(z.string().regex(/^\d{10,15}$/, "Número com DDD e DDI, só dígitos. Ex.: 5527999998888.")).max(200),
+  })
+  .refine((value) => value.businessStart < value.businessEnd, {
+    message: "O fim do horário precisa ser depois do início.",
+    path: ["businessEnd"],
+  });
+
+export const whatsAppFaqSchema = z
+  .array(
+    z.object({
+      id: z.string().optional(),
+      question: requiredText(AI_LIMITS.question, "Escreva a pergunta.").refine((value) => value.length >= 3, "Pergunta curta demais."),
+      answer: requiredText(AI_LIMITS.answer, "Escreva a resposta."),
+    }),
+  )
+  .max(AI_LIMITS.faq, `No máximo ${AI_LIMITS.faq} perguntas.`);
 
 // ---------------------------------------------------------------------------
 // Financeiro (mesmas regras da tabela expenses)

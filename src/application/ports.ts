@@ -10,7 +10,21 @@ import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
-import type { WhatsAppMessage, WhatsAppSettings } from "@/domain/whatsapp";
+import type {
+  AiDraft,
+  InboundOutcome,
+  SimulatorReply,
+  SimulatorTurn,
+  WhatsAppAiSettings,
+  WhatsAppChatMessage,
+  WhatsAppContact,
+  WhatsAppContactKind,
+  WhatsAppFaq,
+  WhatsAppFaqDraft,
+  WhatsAppHandler,
+  WhatsAppMessage,
+  WhatsAppSettings,
+} from "@/domain/whatsapp";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import type { ProfileLogin } from "@/domain/delivery-login";
 import type { StoredNotification } from "@/domain/notification";
@@ -304,6 +318,28 @@ export interface AdminWhatsAppRepository {
   setAutoDelivery(enabled: boolean): Promise<WhatsAppSettings>;
   /** Mais recentes primeiro. */
   listMessages(limit: number): Promise<WhatsAppMessage[]>;
+
+  getAiSettings(): Promise<WhatsAppAiSettings>;
+  saveAiSettings(settings: WhatsAppAiSettings): Promise<WhatsAppAiSettings>;
+  /** Liga e desliga a IA sem mexer no resto (faixa de status das abas WhatsApp e Automação). */
+  setAiEnabled(enabled: boolean): Promise<WhatsAppAiSettings>;
+  /** Na ordem em que a IA lê. */
+  listFaq(): Promise<WhatsAppFaq[]>;
+  /** Substitui a lista inteira, na ordem dada. */
+  saveFaq(items: readonly WhatsAppFaqDraft[]): Promise<WhatsAppFaq[]>;
+  /** Testa a IA com o rascunho da tela. Nada é gravado nem enviado. */
+  simulate(history: readonly SimulatorTurn[], draft: AiDraft): Promise<SimulatorReply>;
+
+  /** Conversas, a mais recente primeiro. */
+  listContacts(): Promise<WhatsAppContact[]>;
+  listChat(contactId: string): Promise<WhatsAppChatMessage[]>;
+  setHandler(contactId: string, handler: WhatsAppHandler): Promise<void>;
+  setContactKind(contactId: string, kind: WhatsAppContactKind): Promise<void>;
+  markRead(contactId: string): Promise<void>;
+  /** O Jota responde pelo painel; a conversa passa a ser dele. Falha com `WhatsAppWindowClosedError` fora das 24h. */
+  sendReply(contactId: string, text: string): Promise<void>;
+  /** Modo teste: finge uma mensagem de cliente e roda o fluxo inteiro. Devolve a conversa criada. */
+  simulateInbound(phone: string, name: string | null, text: string): Promise<{ contactId: string; outcome: InboundOutcome }>;
 }
 
 export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order", "google_calendar"] as const;

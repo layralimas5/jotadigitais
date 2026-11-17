@@ -7,6 +7,7 @@ import {
   KeyRound,
   LifeBuoy,
   LayoutDashboard,
+  MessageCircle,
   Mail,
   Package,
   PlugZap,
@@ -46,6 +47,7 @@ export interface NavGroup {
 export const HOME_PATH = "/admin/dashboard";
 export const SETTINGS_PATH = "/admin/configuracoes";
 export const SUPPORT_PATH = "/admin/suporte";
+export const WHATSAPP_PATH = "/admin/whatsapp";
 
 const EVERYONE: readonly AdminRole[] = ["admin", "developer"];
 /** Telas pessoais (perfil, senha): todo mundo que entra, inclusive o ajudante. */
@@ -81,8 +83,9 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { to: "/admin/clientes", label: "Clientes", icon: Users, inBottomNav: false, description: "Quem já comprou", roles: STORE, area: "customers" },
       { to: "/admin/parceiros", label: "Parceiros", icon: Handshake, inBottomNav: false, description: "Fornecedores e comissões", roles: STORE, area: "partners" },
-      { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: true, description: "Leads até fechar", roles: STORE, area: "crm" },
-      { to: "/admin/automacao", label: "Automação", icon: Workflow, inBottomNav: false, description: "Mensagens do WhatsApp", roles: STORE, area: "automation" },
+      { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: false, description: "Leads até fechar", roles: STORE, area: "crm" },
+      { to: WHATSAPP_PATH, label: "WhatsApp", icon: MessageCircle, inBottomNav: true, description: "Conversas com clientes, com a IA", roles: STORE, area: "automation" },
+      { to: "/admin/automacao", label: "Automação", icon: Workflow, inBottomNav: false, description: "IA e mensagens do WhatsApp", roles: STORE, area: "automation" },
     ],
   },
   {

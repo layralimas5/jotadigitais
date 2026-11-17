@@ -15,10 +15,13 @@ import {
   type TemplateValues,
   type TemplateVariable,
 } from "@/domain/message-template";
+import type { WhatsAppAiSettings } from "@/domain/whatsapp";
 import { Button } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
+import { AiSetupPanel } from "../automation/AiSetupPanel";
 import { WhatsAppDeliveryPanel } from "../automation/WhatsAppDeliveryPanel";
+import { WhatsAppStatusBar } from "../whatsapp/WhatsAppStatusBar";
 import { FilterChips } from "../components/FilterChips";
 import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
@@ -168,14 +171,19 @@ function TemplatesForm({ initial }: { initial: MessageTemplates }) {
   );
 }
 
-type AutomationTab = "entrega" | "mensagens";
-
+type AutomationTab = "entrega" | "ia" | "mensagens";
 const TAB_PARAM = "aba";
+const TABS: readonly AutomationTab[] = ["entrega", "ia", "mensagens"];
+
+const tabOf = (value: string | null): AutomationTab => TABS.find((tab) => tab === value) ?? "entrega";
 
 export default function AutomationPage() {
   const templates = useAdminQuery(getMessageTemplates, "message-templates");
   const [params, setParams] = useSearchParams();
-  const tab: AutomationTab = params.get(TAB_PARAM) === "mensagens" ? "mensagens" : "entrega";
+  const tab = tabOf(params.get(TAB_PARAM));
+  // A faixa de cima e a aba IA mexem na mesma configuração: uma conta para a outra o que mudou.
+  const [aiFromBar, setAiFromBar] = useState<WhatsAppAiSettings | null>(null);
+  const [aiFromForm, setAiFromForm] = useState<WhatsAppAiSettings | null>(null);
 
   const setTab = (next: AutomationTab) => {
     const nextParams = new URLSearchParams(params);
@@ -186,18 +194,23 @@ export default function AutomationPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Automação" description="Entrega do acesso pelo WhatsApp e as mensagens de cada momento da venda." />
+      <PageHeader title="Automação" description="Entrega do acesso, atendimento com IA e as mensagens de cada momento da venda." />
+      <WhatsAppStatusBar current="automation" onAiChange={setAiFromBar} saved={aiFromForm} />
       <FilterChips<AutomationTab>
         label="Parte da automação"
         value={tab}
         onChange={setTab}
         options={[
           { value: "entrega", label: "Entrega automática" },
+          { value: "ia", label: "IA de atendimento" },
           { value: "mensagens", label: "Mensagens" },
         ]}
       />
       {tab === "entrega" && <WhatsAppDeliveryPanel />}
-      {/* Fica montada: trocar de aba não apaga o que está sendo editado. */}
+      {/* Ficam montadas: trocar de aba não apaga o que está sendo editado. */}
+      <div hidden={tab !== "ia"}>
+        <AiSetupPanel enabledOverride={aiFromBar?.enabled ?? null} onSaved={setAiFromForm} />
+      </div>
       <div hidden={tab !== "mensagens"} className="space-y-6">
         {templates.status === "loading" && <LoadingBlock />}
         {templates.status === "error" && <ErrorState message={templates.error.message} onRetry={templates.reload} />}

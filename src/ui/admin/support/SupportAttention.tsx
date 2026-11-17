@@ -87,12 +87,12 @@ export function SupportAttentionProvider({ role, children }: { role: SupportRole
 
 export const useSupportAttention = (): number => useContext(SupportAttentionContext);
 
-/** Bolinha com o número ao lado de "Suporte". */
-export function AttentionCount({ count, className }: { count: number; className?: string }) {
+/** Bolinha com o número ao lado de "Suporte" (e de "WhatsApp", com o próprio `label`). */
+export function AttentionCount({ count, className, label }: { count: number; className?: string; label?: string }) {
   if (count <= 0) return null;
   return (
     <span
-      aria-label={`${count} ${count === 1 ? "chamado precisa" : "chamados precisam"} de você`}
+      aria-label={label ?? `${count} ${count === 1 ? "chamado precisa" : "chamados precisam"} de você`}
       className={`grid min-w-5 place-items-center rounded-full bg-pink px-1.5 text-[0.68rem] leading-5 font-bold text-ink tabular-nums ${className ?? ""}`}
     >
       {count > 99 ? "99+" : count}
