@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { accountDataSchema, fieldErrorsOf } from "@/application/schemas";
-import { shopTierOf, slugify, type Account, type AccountData, type AccountSpec, type AccountStatus, type FacebookKind, type ShopTier } from "@/domain/account";
+import { discountPercentOf, shopTierOf, slugify, type Account, type AccountData, type AccountSpec, type AccountStatus, type FacebookKind, type ShopTier } from "@/domain/account";
 import { DEFAULT_COUNTRY, fallbackCountryName } from "@/domain/country";
-import { formatCentsInput, parseMoneyToCents } from "@/domain/money";
+import { formatBRL, formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import type { Platform } from "@/domain/platform";
 import type { ProfileLookup, StoredProfileImages } from "@/domain/profile-lookup";
 
@@ -22,7 +22,10 @@ export interface AccountFormValues {
   /** Só para a prévia da vitrine: o banco guarda o código e devolve o nome junto com a conta. */
   countryName: string;
   followers: string;
+  /** Valor da conta. Com desconto preenchido, é ele que aparece riscado. */
   price: string;
+  /** Valor com desconto (opcional): o que o cliente paga quando a conta está em oferta. */
+  salePrice: string;
   status: AccountStatus;
   listedAt: string;
   description: string;
@@ -67,6 +70,7 @@ export function emptyAccountForm(): AccountFormValues {
     countryName: fallbackCountryName(DEFAULT_COUNTRY),
     followers: "",
     price: "",
+    salePrice: "",
     status: "available",
     listedAt: today(),
     description: "",
@@ -115,7 +119,9 @@ export function fromAccount(account: Account): AccountFormValues {
     country: account.country ?? DEFAULT_COUNTRY,
     countryName: account.countryName,
     followers: integerFormat.format(account.followers),
-    price: formatCentsInput(account.price),
+    // Em oferta, o banco guarda o que o cliente paga em price e o valor anterior em compareAtPrice.
+    price: formatCentsInput(account.compareAtPrice ?? account.price),
+    salePrice: account.compareAtPrice === null ? "" : formatCentsInput(account.price),
     status: account.status,
     listedAt: account.listedAt,
     description: account.description ?? "",
@@ -194,6 +200,14 @@ function statsOf(values: AccountFormValues) {
   }
 }
 
+const hasSalePrice = (values: Pick<AccountFormValues, "salePrice">) => values.salePrice.trim() !== "";
+
+/** O que o cliente paga e o valor riscado: com desconto, o valor da conta vira o anterior. */
+function pricesOf(values: Pick<AccountFormValues, "price" | "salePrice">): { price: number; compareAtPrice: number | null } {
+  const price = parseMoneyToCents(values.price);
+  return hasSalePrice(values) ? { price: parseMoneyToCents(values.salePrice), compareAtPrice: price } : { price, compareAtPrice: null };
+}
+
 /** Formato que o caso de uso `saveAccount` valida. */
 export function toRawAccount(values: AccountFormValues) {
   return {
@@ -205,7 +219,7 @@ export function toRawAccount(values: AccountFormValues) {
     niche: values.niche,
     country: values.country,
     followers: parseInteger(values.followers),
-    price: parseMoneyToCents(values.price),
+    ...pricesOf(values),
     status: values.status,
     description: values.description,
     avatarUrl: values.avatarUrl || null,
@@ -262,13 +276,38 @@ function groupImageErrors(errors: AccountFormErrors): AccountFormErrors {
   return { ...errors, images: errors[imageKey] ?? "Imagem inválida." };
 }
 
+/**
+ * Em oferta, o banco valida o preço com desconto como `price` e o valor da conta como `compareAtPrice`:
+ * cada erro volta para o campo em que o Jota digitou.
+ */
+function placeOfferErrors(errors: AccountFormErrors, values: AccountFormValues): AccountFormErrors {
+  if (!hasSalePrice(values)) return errors;
+  const { price: saleError, compareAtPrice: compareError, ...rest } = errors;
+  const placed: AccountFormErrors = { ...rest };
+  if (saleError) placed.salePrice = saleError;
+  if (compareError) {
+    if (Number.isNaN(parseMoneyToCents(values.price))) placed.price = "Informe o preço.";
+    else if (saleError) placed.price = compareError;
+    else placed.salePrice = compareError;
+  }
+  return placed;
+}
+
+/** Prévia da oferta para o Jota conferir na ficha: "de R$ 550,00 por R$ 499,00 (9% off)". Nula sem desconto válido. */
+export function offerHintOf(values: Pick<AccountFormValues, "price" | "salePrice">): string | null {
+  const { price, compareAtPrice } = pricesOf(values);
+  if (compareAtPrice === null || Number.isNaN(price) || Number.isNaN(compareAtPrice)) return null;
+  const percent = discountPercentOf({ price, compareAtPrice });
+  return percent === null ? null : `No site: de ${formatBRL(compareAtPrice)} por ${formatBRL(price)} (${percent}% off).`;
+}
+
 export function validateAccountForm(
   values: AccountFormValues,
 ): { data: AccountData; errors: null } | { data: null; errors: AccountFormErrors } {
   const result = accountDataSchema.safeParse(toRawAccount(values));
   return result.success
     ? { data: result.data, errors: null }
-    : { data: null, errors: groupImageErrors(fieldErrorsOf(result.error)) };
+    : { data: null, errors: placeOfferErrors(groupImageErrors(fieldErrorsOf(result.error)), values) };
 }
 
 /** O que entra no lugar de cada campo ainda vazio ou inválido, só para desenhar a prévia. */
@@ -279,6 +318,7 @@ const PREVIEW_FALLBACK: Record<string, Partial<AccountFormValues>> = {
   niche: { niche: "" },
   followers: { followers: "0" },
   price: { price: "1" },
+  salePrice: { salePrice: "" },
   description: { description: "" },
   avatarUrl: { avatarUrl: "" },
   images: { images: [] },
@@ -318,7 +358,8 @@ export function previewAccountOf(values: AccountFormValues, id: string): Account
   for (let pass = 0; pass < MAX_PREVIEW_PASSES; pass += 1) {
     const result = validateAccountForm(draft);
     if (result.data) {
-      const price = parseMoneyToCents(values.price);
+      // Preço digitado, mesmo inválido (vira 0); desconto só se passou na validação.
+      const { price } = pricesOf({ price: values.price, salePrice: draft.salePrice });
       return { ...result.data, id, reservedUntil: null, countryName: values.countryName, price: Number.isNaN(price) ? 0 : price };
     }
     for (const key of Object.keys(result.errors)) {
@@ -347,6 +388,7 @@ export const ACCOUNT_FIELD_ORDER = [
   "stats.watchHours",
   "tags",
   "price",
+  "salePrice",
   "listedAt",
   "description",
   "images",

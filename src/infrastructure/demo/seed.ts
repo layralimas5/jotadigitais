@@ -4,15 +4,17 @@ import type { StoredNotification } from "@/domain/notification";
 import type { Testimonial } from "@/domain/testimonial";
 import type { DistributiveOmit } from "@/shared/types";
 
-type SeedAccount = DistributiveOmit<Account, "country" | "countryName" | "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId" | "profileUrl" | "statsSyncedAt" | "mockup" | "specs" | "tags">;
+type SeedAccount = DistributiveOmit<Account, "country" | "countryName" | "reservedUntil" | "description" | "images" | "avatarUrl" | "partnerId" | "profileUrl" | "statsSyncedAt" | "mockup" | "specs" | "tags" | "compareAtPrice"> & {
+  compareAtPrice?: number | null;
+};
 
 function account(seed: SeedAccount): Account {
-  return { country: DEFAULT_COUNTRY, countryName: "Brasil", description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, profileUrl: null, statsSyncedAt: null, mockup: EMPTY_MOCKUP, specs: null, tags: [], ...seed };
+  return { country: DEFAULT_COUNTRY, countryName: "Brasil", description: null, avatarUrl: null, images: [], reservedUntil: null, partnerId: null, profileUrl: null, statsSyncedAt: null, mockup: EMPTY_MOCKUP, specs: null, tags: [], compareAtPrice: null, ...seed };
 }
 
 /** Estoque de demonstração com perfis fictícios. Só aparece quando o Supabase não está configurado. */
 export const SEED_ACCOUNTS: Account[] = [
-  account({ id: "acc_01", slug: "achadinhos-da-bia", platform: "tiktok", displayName: "Achadinhos da Bia", handle: "@achadinhos.dabia", niche: "Moda", followers: 1259, stats: { likes: 2123, following: 0, monetized: false }, price: 37000, status: "available", listedAt: "2026-10-01" }),
+  account({ id: "acc_01", slug: "achadinhos-da-bia", platform: "tiktok", displayName: "Achadinhos da Bia", handle: "@achadinhos.dabia", niche: "Moda", followers: 1259, stats: { likes: 2123, following: 0, monetized: false }, price: 37000, compareAtPrice: 42000, status: "available", listedAt: "2026-10-01" }),
   account({ id: "acc_02", slug: "noticias-agora", platform: "tiktok", displayName: "Notícias Agora", handle: "@noticias.agora.br", niche: "Notícias", followers: 1007, stats: { likes: 1735, following: 0, monetized: false }, price: 37000, status: "available", listedAt: "2026-10-01" }),
   account({ id: "acc_03", slug: "casa-pratica", platform: "tiktok", displayName: "Casa Prática", handle: "@casapratica.oficial", niche: "Casa", followers: 1093, stats: { likes: 8818, following: 7, monetized: false }, price: 37000, status: "available", listedAt: "2026-09-30" }),
   account({ id: "acc_04", slug: "glow-diario-ig", platform: "instagram", displayName: "Glow Diário", handle: "@glow.diario", niche: "Beleza", followers: 8420, stats: { posts: 112, following: 210, professional: true, monetized: true }, price: 59000, status: "available", listedAt: "2026-09-30" }),

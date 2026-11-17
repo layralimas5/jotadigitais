@@ -51,6 +51,7 @@ import {
   applyProfileLookup,
   emptyAccountForm,
   fromAccount,
+  offerHintOf,
   previewAccountOf,
   useAccountForm,
   type AccountFormErrors,
@@ -496,8 +497,18 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
           </FormSection>
 
           <FormSection title="Venda">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <TextField label="Preço (R$)" name="price" inputMode="decimal" placeholder="370,00" value={values.price} onChange={(event) => set("price", event.target.value)} error={errors.price} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Valor da conta (R$)" name="price" inputMode="decimal" placeholder="550,00" value={values.price} onChange={(event) => set("price", event.target.value)} error={errors.price} />
+              <TextField
+                label="Valor com desconto (opcional)"
+                name="salePrice"
+                inputMode="decimal"
+                placeholder="499,00"
+                value={values.salePrice}
+                onChange={(event) => set("salePrice", event.target.value)}
+                error={errors.salePrice}
+                hint={offerHintOf(values) ?? "Preenchido, o valor da conta aparece riscado e o cliente paga o com desconto."}
+              />
               <SelectField label="Status" name="status" value={values.status} options={STATUS_OPTIONS} onChange={(event) => set("status", event.target.value as AccountStatus)} />
               <TextField label="Anunciada em" name="listedAt" type="date" value={values.listedAt} onChange={(event) => set("listedAt", event.target.value)} error={errors.listedAt} />
             </div>
