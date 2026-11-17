@@ -192,6 +192,11 @@ export function AccountTagsField({ platform, value, error, onChange }: AccountTa
             ? `Limite de ${MAX_ACCOUNT_TAGS} tags criadas por conta. Desmarque uma para marcar outra.`
             : "Clique para marcar ou desmarcar. Tags criadas aqui ficam disponíveis para as outras contas.")}
       </p>
+      {drafted.length > 0 && (
+        <p role="status" className="mt-2 text-xs font-medium text-electric-soft">
+          Tag criada. Para gravar nesta conta, clique em Salvar no fim da ficha.
+        </p>
+      )}
       <TagColorPicker tags={colorable} />
     </fieldset>
   );
