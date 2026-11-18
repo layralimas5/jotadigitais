@@ -18,7 +18,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./flows.css";
-import { Trash2 } from "lucide-react";
+import { MessageCircle, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { deleteWhatsAppFlow, saveWhatsAppFlow } from "@/application/admin-use-cases";
 import { whatsAppFlowSchema } from "@/application/schemas";
@@ -41,7 +41,7 @@ import { compactButton } from "../whatsapp/styles";
 import { edgesWithoutRemovedOptions, toCanvasEdges, toCanvasNodes, toGraph } from "./canvas";
 import { FlowSimulator } from "./FlowSimulator";
 import { NODE_TYPES, type CanvasNode } from "./FlowNodeView";
-import { NodeInspector } from "./NodeInspector";
+import { FlowEditContext } from "./flowEditContext";
 import { DRAG_MIME, NODE_LOOK } from "./nodeMeta";
 
 type AddableType = Exclude<FlowNodeType, "start">;
@@ -54,6 +54,21 @@ const EDGE_OPTIONS = {
   style: { stroke: "#4a4a62", strokeWidth: 1.5 },
   markerEnd: { type: MarkerType.ArrowClosed, color: "#4a4a62", width: 16, height: 16 },
 } as const;
+
+const NODE_SLOT = { width: NODE_WIDTH + 40, height: 150 };
+
+/** Ponto livre perto do centro: o bloco novo não cai em cima de outro. Procura em volta, em anéis. */
+function freeSpotNear(origin: { x: number; y: number }, nodes: readonly CanvasNode[]): { x: number; y: number } {
+  const taken = (spot: { x: number; y: number }) =>
+    nodes.some((node) => Math.abs(node.position.x - spot.x) < NODE_SLOT.width && Math.abs(node.position.y - spot.y) < NODE_SLOT.height);
+  for (let ring = 0; ring < 6; ring += 1) {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [1, 1], [-1, 1], [0, -1]] as const) {
+      const spot = { x: origin.x + dx * ring * NODE_SLOT.width, y: origin.y + dy * ring * NODE_SLOT.height };
+      if (!taken(spot)) return spot;
+    }
+  }
+  return origin;
+}
 
 /** Mudanças que não alteram o fluxo: escolher um bloco ou o quadro medir o tamanho deles. */
 const isCosmetic = (change: NodeChange<CanvasNode> | EdgeChange) => change.type === "select" || change.type === "dimensions";
@@ -124,11 +139,11 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
   const [nodes, setNodes] = useState<CanvasNode[]>(() => toCanvasNodes(initial.graph));
   const [edges, setEdges] = useState<Edge[]>(() => toCanvasEdges(initial.graph));
   const [dirty, setDirtyState] = useState(flow === null);
-  const [panel, setPanel] = useState<"test" | "edit">("test");
+  const [testing, setTesting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, setViewport } = useReactFlow();
+  const { screenToFlowPosition, setViewport, setCenter, getZoom } = useReactFlow();
   const save = useMutation(saveWhatsAppFlow);
   const remove = useMutation(async (deps, id: string) => {
     await deleteWhatsAppFlow(deps, id);
@@ -163,14 +178,11 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
     void setViewport({ x: box.width / 2 - (start.position.x + NODE_WIDTH / 2) * zoom, y: 32 - start.position.y * zoom, zoom });
     // Só na abertura (sem dependências de propósito): depois o Jota move o quadro como quiser.
   }, []);
-  const selected = nodes.filter((node) => node.selected);
-  const editing = selected.length === 1 ? (graph.nodes.find((node) => node.id === selected[0]!.id) ?? null) : null;
 
   const onNodesChange = useCallback(
     (changes: NodeChange<CanvasNode>[]) => {
       setNodes((current) => applyNodeChanges(changes, current));
       if (changes.some((change) => !isCosmetic(change))) setDirty(true);
-      if (changes.some((change) => change.type === "select" && change.selected)) setPanel("edit");
     },
     [setDirty],
   );
@@ -207,13 +219,14 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
     if (!position) {
       const box = canvasRef.current?.getBoundingClientRect();
       const center = box ? { x: box.left + box.width / 2, y: box.top + box.height / 2 } : { x: 0, y: 0 };
-      // Blocos adicionados em seguida não ficam um em cima do outro.
-      const offset = (nodes.length % 5) * 24;
-      position = screenToFlowPosition({ x: center.x - 120 + offset, y: center.y - 60 + offset });
+      position = freeSpotNear(screenToFlowPosition({ x: center.x - NODE_WIDTH / 2, y: center.y - 60 }), nodes);
+      // Se o espaço livre ficou fora da vista, o quadro vai até o bloco novo.
+      const spot = position;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      void setCenter(spot.x + NODE_WIDTH / 2, spot.y + 60, { zoom: getZoom(), duration: reduceMotion ? 0 : 250 });
     }
     const node = createNode(type, position);
     setNodes((current) => [...current.map((item) => ({ ...item, selected: false })), { ...toCanvasNodes({ nodes: [node], edges: [] })[0]!, selected: true }]);
-    setPanel("edit");
     setDirty(true);
   };
 
@@ -224,19 +237,25 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
     addNode(type, screenToFlowPosition({ x: event.clientX - 120, y: event.clientY - 30 }));
   };
 
-  const updateNode = (id: string, data: FlowNode["data"]) => {
-    setNodes((current) => current.map((node) => (node.id === id ? { ...node, data } : node)));
-    const changed = graph.nodes.find((node) => node.id === id);
-    if (changed) setEdges((current) => edgesWithoutRemovedOptions(current, { ...changed, data } as FlowNode));
-    setDirty(true);
-  };
+  // Os blocos editam o próprio texto no quadro; as funções ficam estáveis para não redesenhar todos a cada letra.
+  const updateNode = useCallback(
+    (id: string, data: FlowNode["data"]) => {
+      setNodes((current) => current.map((node) => (node.id === id ? { ...node, data } : node)));
+      if ("options" in data) setEdges((current) => edgesWithoutRemovedOptions(current, id, data.options));
+      setDirty(true);
+    },
+    [setDirty],
+  );
 
-  const deleteNode = (id: string) => {
-    setNodes((current) => current.filter((node) => node.id !== id));
-    setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));
-    setPanel("test");
-    setDirty(true);
-  };
+  const deleteNode = useCallback(
+    (id: string) => {
+      setNodes((current) => current.filter((node) => node.id !== id));
+      setEdges((current) => current.filter((edge) => edge.source !== id && edge.target !== id));
+      setDirty(true);
+    },
+    [setDirty],
+  );
+  const editActions = useMemo(() => ({ updateNode, deleteNode }), [updateNode, deleteNode]);
 
   const toggleEnabled = (next: boolean) => {
     if (next) {
@@ -306,6 +325,14 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
         <span className={cn("text-xs", dirty ? "text-amber-200" : "text-mist")} aria-live="polite">
           {dirty ? "Não salvo" : "Salvo"}
         </span>
+        <button
+          type="button"
+          aria-pressed={testing}
+          onClick={() => setTesting((current) => !current)}
+          className={cn(compactButton.secondary, testing && "border-white/30 bg-white/[0.06] text-white")}
+        >
+          <MessageCircle aria-hidden className="size-3.5" /> Testar fluxo
+        </button>
         <button type="button" onClick={() => setConfirmDelete(true)} aria-label="Apagar fluxo" title="Apagar fluxo" className={compactButton.icon}>
           <Trash2 aria-hidden className="size-4" />
         </button>
@@ -322,7 +349,7 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
         </ul>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className={cn("grid gap-3", testing && "lg:grid-cols-[minmax(0,1fr)_24rem]")}>
         <div
           ref={canvasRef}
           onDragOver={(event) => {
@@ -332,76 +359,44 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
           onDrop={onDrop}
           className="jota-flow h-[65dvh] min-h-[28rem] overflow-hidden rounded-xl border border-line bg-night lg:h-[calc(100dvh-23rem)] lg:min-h-[30rem]"
         >
-          <ReactFlow<CanvasNode, Edge>
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={NODE_TYPES}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            isValidConnection={isValidConnection}
-            onPaneClick={() => setPanel("test")}
-            defaultEdgeOptions={EDGE_OPTIONS}
-            deleteKeyCode={["Backspace", "Delete"]}
-            colorMode="dark"
-            onInit={showStart}
-            minZoom={0.25}
-            maxZoom={1.5}
-          >
-            <Panel position="top-left">
-              <Palette onAdd={(type) => addNode(type)} />
-            </Panel>
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#26263a" />
-            <Controls showInteractive={false} position="bottom-left" />
-          </ReactFlow>
+          <FlowEditContext.Provider value={editActions}>
+            <ReactFlow<CanvasNode, Edge>
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={NODE_TYPES}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              isValidConnection={isValidConnection}
+              defaultEdgeOptions={EDGE_OPTIONS}
+              deleteKeyCode={["Backspace", "Delete"]}
+              colorMode="dark"
+              onInit={showStart}
+              minZoom={0.25}
+              maxZoom={1.5}
+            >
+              <Panel position="top-left">
+                <Palette onAdd={(type) => addNode(type)} />
+              </Panel>
+              <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#26263a" />
+              <Controls showInteractive={false} position="bottom-left" />
+            </ReactFlow>
+          </FlowEditContext.Provider>
         </div>
 
-        <aside aria-label="Painel do fluxo" className="flex min-h-[24rem] flex-col rounded-xl border border-line bg-surface/40 lg:h-[calc(100dvh-23rem)] lg:min-h-[30rem]">
-          <div role="tablist" aria-label="Painel" className="flex gap-4 border-b border-line px-4 pt-2">
-            {(
-              [
-                ["test", "Testar"],
-                ["edit", "Bloco"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={panel === value}
-                onClick={() => setPanel(value)}
-                className={cn(
-                  "-mb-px border-b-2 pt-1 pb-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-electric",
-                  panel === value ? "border-white font-medium text-white" : "border-transparent text-mist hover:text-fog",
-                )}
-              >
-                {label}
+        {testing && (
+          <aside aria-label="Testar o fluxo" className="flex min-h-[24rem] flex-col rounded-xl border border-line bg-surface/40 p-4 lg:h-[calc(100dvh-23rem)] lg:min-h-[30rem]">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-white">Testar o fluxo</h3>
+              <button type="button" onClick={() => setTesting(false)} aria-label="Fechar o teste" className={compactButton.icon}>
+                <X aria-hidden className="size-4" />
               </button>
-            ))}
-          </div>
-          <div role="tabpanel" className="min-h-0 flex-1 overflow-y-auto p-4">
-            {panel === "test" && <FlowSimulator graph={graph} />}
-            {panel === "edit" &&
-              (editing ? (
-                <NodeInspector
-                  key={editing.id}
-                  node={editing}
-                  onChange={(data) => updateNode(editing.id, data)}
-                  onDelete={() => deleteNode(editing.id)}
-                  onClose={() => {
-                    setNodes((current) => current.map((node) => ({ ...node, selected: false })));
-                    setPanel("test");
-                  }}
-                />
-              ) : (
-                <p className="py-8 text-center text-xs leading-relaxed text-mist">
-                  Clique num bloco do quadro para editar.
-                  <br />
-                  Para ligar dois blocos, arraste da bolinha de saída até o próximo.
-                </p>
-              ))}
-          </div>
-        </aside>
+            </div>
+            <div className="min-h-0 flex-1">
+              <FlowSimulator graph={graph} />
+            </div>
+          </aside>
+        )}
       </div>
 
       <ConfirmDialog

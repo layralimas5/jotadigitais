@@ -1,5 +1,5 @@
 import type { Edge } from "@xyflow/react";
-import { optionHandle, type FlowGraph, type FlowNode } from "@/domain/whatsapp-flow";
+import { optionHandle, type FlowGraph, type FlowNode, type FlowOption } from "@/domain/whatsapp-flow";
 import type { CanvasNode } from "./FlowNodeView";
 
 export const toCanvasNodes = (graph: FlowGraph): CanvasNode[] =>
@@ -23,8 +23,7 @@ export function toGraph(nodes: readonly CanvasNode[], edges: readonly Edge[]): F
 }
 
 /** Ligações que saíam de uma opção apagada deixam de existir junto com ela. */
-export function edgesWithoutRemovedOptions(edges: readonly Edge[], node: FlowNode): Edge[] {
-  if (node.type !== "question") return [...edges];
-  const handles = new Set(node.data.options.map((option) => optionHandle(option.id)));
-  return edges.filter((edge) => edge.source !== node.id || !edge.sourceHandle?.startsWith("opt:") || handles.has(edge.sourceHandle));
+export function edgesWithoutRemovedOptions(edges: readonly Edge[], nodeId: string, options: readonly FlowOption[]): Edge[] {
+  const handles = new Set(options.map((option) => optionHandle(option.id)));
+  return edges.filter((edge) => edge.source !== nodeId || !edge.sourceHandle?.startsWith("opt:") || handles.has(edge.sourceHandle));
 }
