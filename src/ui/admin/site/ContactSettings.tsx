@@ -10,6 +10,7 @@ import { FormSection, LoadingBlock } from "../components/AdminUi";
 import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
+import { cacheStoreSettings } from "@/ui/lib/site-cache";
 
 interface SettingsForm {
   whatsappNumber: string;
@@ -129,6 +130,7 @@ function SettingsEditor({ settings }: { settings: StoreSettings }) {
       toast.show("Não foi possível salvar. Veja o aviso no formulário.", "error");
       return;
     }
+    cacheStoreSettings(saved);
     setForm(toForm(saved));
     toast.show("Site atualizado. Ele já usa os novos dados.");
   };
