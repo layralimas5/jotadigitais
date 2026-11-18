@@ -2570,8 +2570,10 @@ async function affiliateChecks() {
   );
 
   console.log("\nafiliados: link e comissão");
-  const click = (await as("anon", null, () => db.query(`select public.track_affiliate_click($1, $2) as data`, [ana.code.toUpperCase(), accountId]))).rows[0].data;
+  const click = (await as("anon", null, () => db.query(`select public.track_affiliate_click($1, $2) as data`, [ana.code.toUpperCase(), "afiliado-link"]))).rows[0].data;
   check(typeof click?.click_id === "string" && click.link_days === 30, "visitante abre o link e recebe o clique por 30 dias");
+  const clickRow = await db.query(`select account_id from public.affiliate_clicks where id = $1`, [click.click_id]);
+  check(clickRow.rows[0].account_id === accountId, "o clique guarda de qual conta era o link");
   check((await as("anon", null, () => db.query(`select public.track_affiliate_click('naoexiste', null) as data`))).rows[0].data === null, "código desconhecido não conta clique");
 
   // Testes anteriores publicam Termos novos: o checkout daqui aceita a versão mais recente.

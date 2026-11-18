@@ -3,11 +3,18 @@ import { Outlet, useLocation } from "react-router-dom";
 import { CookieBanner } from "@/ui/components/cookies/CookieBanner";
 import { CookieConsentProvider } from "@/ui/components/cookies/CookieConsentProvider";
 import { WhatsAppWidget } from "@/ui/components/whatsapp/WhatsAppWidget";
+import { useAffiliateRef } from "@/ui/hooks/useAffiliateRef";
 import { CartProvider } from "@/ui/hooks/useCart";
 import { SiteContentProvider, useSiteContentReady } from "@/ui/hooks/useSiteContent";
 import { StoreSettingsProvider, useStoreSettingsReady } from "@/ui/hooks/useStoreSettings";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
+
+/** Conta o clique de quem chega por link de afiliado (?ref=). */
+function AffiliateRefTracker() {
+  useAffiliateRef();
+  return null;
+}
 
 function ScrollManager() {
   const { pathname, hash } = useLocation();
@@ -65,6 +72,7 @@ export function Layout() {
         Pular para o conteúdo
       </a>
       <ScrollManager />
+      <AffiliateRefTracker />
       <FirstVisitGate>
       <Header />
       <main id="conteudo" className="relative min-h-screen">

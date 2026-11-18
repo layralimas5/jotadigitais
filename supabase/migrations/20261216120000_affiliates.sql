@@ -434,7 +434,7 @@ create index coupons_affiliate_idx on public.coupons (affiliate_id) where affili
  * Visitante abriu um link de afiliado. Devolve o id do clique, que o site guarda por `link_days` e manda junto
  * com o pedido. Código desconhecido, afiliado não aprovado ou programa desligado = nulo, sem erro.
  */
-create or replace function public.track_affiliate_click(p_code text, p_account_id uuid)
+create or replace function public.track_affiliate_click(p_code text, p_account_slug text)
 returns jsonb
 language plpgsql
 security definer
@@ -457,14 +457,14 @@ begin
     return null;
   end if;
   insert into public.affiliate_clicks (affiliate_id, account_id)
-  values (owner, (select a.id from public.accounts a where a.id = p_account_id))
+  values (owner, (select a.id from public.accounts a where a.slug = p_account_slug))
   returning id into click;
   return jsonb_build_object('click_id', click, 'link_days', program.link_days);
 end;
 $$;
 
-revoke all on function public.track_affiliate_click(text, uuid) from public;
-grant execute on function public.track_affiliate_click(text, uuid) to anon, authenticated;
+revoke all on function public.track_affiliate_click(text, text) from public;
+grant execute on function public.track_affiliate_click(text, text) to anon, authenticated;
 
 /**
  * Liga o pedido recém-criado ao clique do afiliado. Só vale nos primeiros 15 minutos do pedido, com o pagamento

@@ -49,9 +49,9 @@ const onlyDigits = (value: string) => value.replace(/\D/g, "");
 // Ficha do cliente (checkout e cadastro manual usam as mesmas regras)
 // ---------------------------------------------------------------------------
 
-const personName = z.string().trim().min(2, "Informe o nome.").max(80, "Use no máximo 80 caracteres.");
+export const personName = z.string().trim().min(2, "Informe o nome.").max(80, "Use no máximo 80 caracteres.");
 
-const optionalWhatsapp = z
+export const optionalWhatsapp = z
   .string()
   .nullable()
   .transform((value) => onlyDigits(value ?? ""))
@@ -218,7 +218,7 @@ export const accountTagsSchema = z
   .default([])
   .transform(normalizeAccountTags);
 
-const optionalText = (max: number) =>
+export const optionalText = (max: number) =>
   z
     .string()
     .trim()
@@ -496,7 +496,7 @@ export const couponDataSchema = z
 /** Mesma regra da Edge Function admin-users e do Supabase (Authentication > Sign In / Providers > Email). */
 export const PASSWORD_RULE_HINT = "Use pelo menos 10 caracteres, com letras e números.";
 
-const newPassword = z
+export const newPassword = z
   .string()
   .min(10, "Use pelo menos 10 caracteres.")
   .max(72, "Use no máximo 72 caracteres.")

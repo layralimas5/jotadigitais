@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { loadAffiliatesBoard } from "@/application/affiliate-use-cases";
 import { deletePartners, listPartnerSummaries } from "@/application/admin-use-cases";
 import { formatBRL } from "@/domain/money";
 import type { PartnerSummary } from "@/domain/partner";
@@ -13,6 +14,10 @@ import { Kpi } from "../components/Kpi";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery } from "../hooks";
+import { AffiliateMuralTab } from "../affiliates/AffiliateMuralTab";
+import { AffiliateProgramTab } from "../affiliates/AffiliateProgramTab";
+import { AffiliatesTab } from "../affiliates/AffiliatesTab";
+import { PartnersTabBar, usePartnersTab, type PartnersTab } from "../affiliates/PartnersTabs";
 import { formatPercent } from "../lib/percent";
 import { useBulkDelete, type Noun } from "../lib/use-bulk-delete";
 import { useSelection, type Selection } from "../lib/use-selection";
@@ -156,7 +161,7 @@ function PartnersCards({ summaries, selection }: ListProps) {
   );
 }
 
-export default function PartnersPage() {
+function PartnersListTab() {
   const summaries = useAdminQuery(listPartnerSummaries, "admin-partners");
   const [query, setQuery] = useState("");
   const data = summaries.status === "success" ? summaries.data : null;
@@ -175,16 +180,6 @@ export default function PartnersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Parceiros"
-        description="Quem fornece contas ou indica clientes. A comissão é calculada sobre as vendas finalizadas das contas de cada um."
-        action={
-          <ButtonLink to="/admin/parceiros/novo" className="max-md:hidden">
-            <Plus aria-hidden className="size-4" /> Novo parceiro
-          </ButtonLink>
-        }
-      />
-
       {summaries.status === "loading" && <LoadingBlock />}
       {summaries.status === "error" && <ErrorState message={summaries.error.message} onRetry={summaries.reload} />}
       {data && data.length === 0 && (
@@ -243,6 +238,45 @@ export default function PartnersPage() {
         consequence={DELETE_CONSEQUENCE}
       />
       {selection.selectedIds.length === 0 && <Fab to="/admin/parceiros/novo" label="Novo parceiro" />}
+    </div>
+  );
+}
+
+const TAB_DESCRIPTION: Record<PartnersTab, string> = {
+  parceiros: "Quem fornece contas ou indica clientes. A comissão é calculada sobre as vendas finalizadas das contas de cada um.",
+  afiliados: "Quem divulga as contas com link ou cupom próprio. A comissão nasce na venda paga e libera quando a garantia acaba.",
+  programa: "Regras do programa de afiliados: comissão padrão, prazo do link, travas de saque e os termos que o afiliado aceita.",
+  mural: "Recados que aparecem no painel de todo afiliado aprovado.",
+};
+
+export default function PartnersPage() {
+  const [tab, setTab] = usePartnersTab();
+  const board = useAdminQuery(loadAffiliatesBoard, "admin-affiliates");
+  const pendingCount = board.status === "success" ? board.data.summaries.filter((summary) => summary.affiliate.status === "pending").length : 0;
+  const affiliateTab = tab === "afiliados" || tab === "programa";
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Parceiros"
+        description={TAB_DESCRIPTION[tab]}
+        action={
+          tab === "parceiros" ? (
+            <ButtonLink to="/admin/parceiros/novo" className="max-md:hidden">
+              <Plus aria-hidden className="size-4" /> Novo parceiro
+            </ButtonLink>
+          ) : undefined
+        }
+      />
+      <PartnersTabBar tab={tab} onChange={setTab} pendingCount={pendingCount} />
+      {tab === "parceiros" && <PartnersListTab />}
+      {tab === "mural" && <AffiliateMuralTab />}
+      {affiliateTab && board.status === "loading" && <LoadingBlock />}
+      {affiliateTab && board.status === "error" && <ErrorState message={board.error.message} onRetry={board.reload} />}
+      {tab === "afiliados" && board.status === "success" && (
+        <AffiliatesTab board={board.data} onReload={board.reload} onOpenProgram={() => setTab("programa")} />
+      )}
+      {tab === "programa" && board.status === "success" && <AffiliateProgramTab program={board.data.program} onSaved={board.reload} />}
     </div>
   );
 }

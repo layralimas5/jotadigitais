@@ -13,6 +13,17 @@ const LegalDocumentPage = lazy(() => import("@/ui/pages/LegalDocumentPage"));
 const MyDataPage = lazy(() => import("@/ui/pages/MyDataPage"));
 const PartnerPage = lazy(() => import("@/ui/pages/PartnerPage"));
 const AboutPage = lazy(() => import("@/ui/pages/AboutPage"));
+const AffiliateSignupPage = lazy(() => import("@/ui/pages/AffiliateSignupPage"));
+
+// Painel do afiliado: login próprio, separado do painel da loja.
+const AffiliateRoot = lazy(() => import("@/ui/affiliate/AffiliateLayout").then((module) => ({ default: module.AffiliateRoot })));
+const AffiliateProtected = lazy(() => import("@/ui/affiliate/AffiliateLayout").then((module) => ({ default: module.AffiliateProtected })));
+const AffiliateLoginPage = lazy(() => import("@/ui/affiliate/pages/AffiliateLoginPage"));
+const AffiliateNewPasswordPage = lazy(() => import("@/ui/affiliate/pages/AffiliateNewPasswordPage"));
+const AffiliateHomePage = lazy(() => import("@/ui/affiliate/pages/AffiliateHomePage"));
+const AffiliateSharePage = lazy(() => import("@/ui/affiliate/pages/AffiliateSharePage"));
+const AffiliateStatementPage = lazy(() => import("@/ui/affiliate/pages/AffiliateStatementPage"));
+const AffiliateProfilePage = lazy(() => import("@/ui/affiliate/pages/AffiliateProfilePage"));
 const NotFoundPage = lazy(() => import("@/ui/pages/NotFoundPage"));
 
 // Painel em pedaços separados: quem visita a loja não baixa nada dele.
@@ -31,6 +42,7 @@ const PartnersPage = lazy(() => import("@/ui/admin/pages/PartnersPage"));
 const CouponsPage = lazy(() => import("@/ui/admin/pages/CouponsPage"));
 const CouponEditorPage = lazy(() => import("@/ui/admin/pages/CouponEditorPage"));
 const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
+const AffiliateDetailPage = lazy(() => import("@/ui/admin/pages/AffiliateDetailPage"));
 const EmailAccountsPage = lazy(() => import("@/ui/admin/pages/EmailAccountsPage"));
 const EmailAccountEditorPage = lazy(() => import("@/ui/admin/pages/EmailAccountEditorPage"));
 const UsersPage = lazy(() => import("@/ui/admin/pages/UsersPage"));
@@ -72,10 +84,29 @@ export const router = createBrowserRouter([
       { path: "politica-de-privacidade", element: <LegalDocumentPage slug="privacy" /> },
       { path: "meus-dados", element: <MyDataPage /> },
       { path: "seja-parceiro", element: <PartnerPage /> },
+      { path: "seja-afiliado", element: <AffiliateSignupPage /> },
       { path: "quem-sou-eu", element: <AboutPage /> },
       // Endereço antigo dos "Termos de compra e garantia", que agora fazem parte dos Termos de Uso.
       { path: "termos", element: <Navigate to="/termos-de-uso" replace /> },
       { path: "*", element: <NotFoundPage /> },
+    ],
+  },
+  {
+    path: "afiliado",
+    element: <AffiliateRoot />,
+    errorElement: <RouteErrorPage />,
+    children: [
+      { path: "entrar", element: <AffiliateLoginPage /> },
+      { path: "nova-senha", element: <AffiliateNewPasswordPage /> },
+      {
+        element: <AffiliateProtected />,
+        children: [
+          { index: true, element: <AffiliateHomePage /> },
+          { path: "divulgar", element: <AffiliateSharePage /> },
+          { path: "extrato", element: <AffiliateStatementPage /> },
+          { path: "perfil", element: <AffiliateProfilePage /> },
+        ],
+      },
     ],
   },
   {
@@ -115,6 +146,7 @@ export const router = createBrowserRouter([
           { path: "parceiros", element: <PartnersPage /> },
           { path: "parceiros/novo", element: <PartnerEditorPage /> },
           { path: "parceiros/:id", element: <PartnerEditorPage /> },
+          { path: "parceiros/afiliados/:id", element: <AffiliateDetailPage /> },
           { path: "crm", element: <CrmPage /> },
           { path: "crm/novo", element: <LeadEditorPage /> },
           { path: "crm/:id", element: <LeadEditorPage /> },

@@ -1,3 +1,4 @@
+import type { Affiliate } from "@/domain/affiliate";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord } from "@/domain/customer";
 import type { EmailAccount, EmailAccountListItem } from "@/domain/email-account";
@@ -49,6 +50,14 @@ const maskPartner = (partner: Partner): Partner => ({
   whatsapp: maskPhone(partner.whatsapp),
   pixKey: maskSecret(partner.pixKey),
   notes: maskNote(partner.notes),
+});
+
+const maskAffiliate = (affiliate: Affiliate): Affiliate => ({
+  ...affiliate,
+  email: maskEmail(affiliate.email) ?? affiliate.email,
+  whatsapp: maskPhone(affiliate.whatsapp),
+  pixKey: maskSecret(affiliate.pixKey),
+  statusNote: maskNote(affiliate.statusNote),
 });
 
 const maskEmailItem = <T extends EmailAccountListItem | EmailAccount>(item: T): T => ({
@@ -127,6 +136,17 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
     revenues: readOnly(deps.revenues, { listAll: null, findById: null }),
     partners: readOnly(deps.partners, { listAll: each(maskPartner), findById: maybe(maskPartner) }),
     coupons: readOnly(deps.coupons, { listAll: null, findById: null }),
+    affiliates: readOnly(deps.affiliates, {
+      getProgram: null,
+      listAffiliates: each(maskAffiliate),
+      findAffiliate: maybe(maskAffiliate),
+      documentOf: () => null,
+      listCommissions: null,
+      listClicks: null,
+      listCoupons: null,
+      listAnnouncements: null,
+      getAccountRule: null,
+    }),
     emailAccounts: readOnly(deps.emailAccounts, {
       listAll: each(maskEmailItem),
       findById: maybe(maskEmailAccount),

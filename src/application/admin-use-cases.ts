@@ -1,3 +1,4 @@
+import type { AffiliateAdminRepository } from "./affiliate-ports";
 import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, withoutHidden, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
@@ -110,6 +111,7 @@ export interface AdminDeps {
   profileLogins: AdminProfileLoginRepository;
   deliveryMessages: AdminDeliveryMessageRepository;
   coupons: AdminCouponRepository;
+  affiliates: AffiliateAdminRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;

@@ -12,6 +12,7 @@ import {
   placeOrder,
   type PlacedOrder,
 } from "@/application/use-cases";
+import { attachStoredAffiliateClick } from "./useAffiliateRef";
 import { useAsync } from "./useAsync";
 
 const { store } = container;
@@ -52,6 +53,7 @@ export function usePlaceOrder() {
     setState({ status: "submitting" });
     try {
       const placed = await placeOrder(store, accountIds, data);
+      await attachStoredAffiliateClick(placed.order.code);
       setState({ status: "idle" });
       return placed;
     } catch (error) {
