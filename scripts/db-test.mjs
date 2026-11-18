@@ -723,6 +723,7 @@ async function main() {
   await deliveryMessageChecks();
   await whatsappDeliveryChecks();
   await whatsappAiChecks();
+  await whatsappFlowChecks();
   await supportMergeChecks();
   await tagColorChecks();
 
@@ -2649,3 +2650,42 @@ async function whatsappAiChecks() {
   await db.query(`insert into public.notifications (kind, title, link) values ('whatsapp', 'Bia está esperando você no WhatsApp', '/admin/whatsapp?c=x')`);
   check((await asAdmin(() => db.query(`select id from public.notifications where kind = 'whatsapp'`))).rows.length === 1, "aviso de WhatsApp aparece para o Jota");
 }
+
+async function whatsappFlowChecks() {
+  console.log("\nfluxos do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const graph = JSON.stringify({ nodes: [{ id: "inicio", type: "start", position: { x: 0, y: 0 }, data: { trigger: "first_contact", keywords: [] } }], edges: [] });
+
+  const created = await asAdmin(() => db.query(`insert into public.whatsapp_flows (name, graph) values ('Atendimento', $1) returning id, enabled`, [graph]));
+  const flowId = created.rows[0].id;
+  check(created.rows[0].enabled === false, "fluxo novo nasce desligado");
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_flows (name, graph) values ('Ruim', '{"nodes": {}}')`)), /check constraint|whatsapp_flows/),
+    "grafo fora do formato é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_flows (name) values ('   ')`)), /check constraint|whatsapp_flows/),
+    "fluxo sem nome é recusado",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`insert into public.whatsapp_flows (name) values ('X')`)), /row-level security|permission denied/),
+    "quem não tem Automação não cria fluxo",
+  );
+  check(await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_flows`)), /permission denied/), "visitante não lê os fluxos");
+
+  const contact = (await db.query(`select id from public.whatsapp_contacts order by created_at limit 1`)).rows[0];
+  await db.query(`update public.whatsapp_contacts set handler = 'ai', flow_id = $1, flow_node = 'menu' where id = $2`, [flowId, contact.id]);
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_contacts set flow_node = 'x' where id = $1`, [contact.id])), /permission denied/),
+    "o painel não mexe em onde a conversa parou no fluxo",
+  );
+  await asAdmin(() => db.query(`update public.whatsapp_contacts set handler = 'staff' where id = $1`, [contact.id]));
+  const reset = (await db.query(`select flow_id, flow_node from public.whatsapp_contacts where id = $1`, [contact.id])).rows[0];
+  check(reset.flow_id === null && reset.flow_node === null, "assumir a conversa encerra o fluxo em andamento");
+
+  await db.query(`update public.whatsapp_contacts set flow_id = $1, flow_node = 'menu' where id = $2`, [flowId, contact.id]);
+  await asAdmin(() => db.query(`delete from public.whatsapp_flows where id = $1`, [flowId]));
+  const orphan = (await db.query(`select flow_id from public.whatsapp_contacts where id = $1`, [contact.id])).rows[0];
+  check(orphan.flow_id === null, "apagar o fluxo solta as conversas que estavam nele");
+}
+
