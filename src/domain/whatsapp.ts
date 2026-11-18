@@ -176,4 +176,4 @@ export interface AiDraft {
   faq: readonly { question: string; answer: string }[];
 }
 
-export type InboundOutcome = "duplicate" | "ignored" | "opted_out" | "staff" | "ai_off" | "replied" | "handoff";
+export type InboundOutcome = "duplicate" | "ignored" | "opted_out" | "staff" | "ai_off" | "replied" | "handoff" | "flow";

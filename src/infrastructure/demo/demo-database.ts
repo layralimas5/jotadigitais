@@ -1,4 +1,5 @@
 import type { Country } from "@/domain/country";
+import type { WhatsAppFlow } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord, HiddenCustomer } from "@/domain/customer";
@@ -66,6 +67,10 @@ export interface DemoState {
   whatsappContacts?: WhatsAppContact[];
   /** Mensagens de cada conversa, pelo id do contato. */
   whatsappChat?: Record<string, WhatsAppChatMessage[]>;
+  /** Fluxos de Automação > Fluxos. Sem nada salvo, vale o modelo pronto. */
+  whatsappFlows?: WhatsAppFlow[];
+  /** Onde cada conversa parou no fluxo, pelo id do contato. */
+  whatsappFlowState?: Record<string, { flowId: string; node: string }>;
   coupons?: StoredCoupon[];
   /** Sem a lista guardada, valem os países de fábrica. */
   countries?: Country[];

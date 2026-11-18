@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { Logo, LogoMark } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
@@ -22,6 +22,7 @@ import { usePreviewSubmitGuard } from "./preview/usePreviewSubmitGuard";
 import { usePanelApp } from "./pwa/usePanelApp";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
+import { FocusLayoutProvider } from "./focus-layout";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
 /** Cadastros com a própria barra fixa de salvar no celular: ali a navegação de baixo sai do caminho. */
@@ -334,7 +335,8 @@ export function AdminProtected() {
   usePreviewSubmitGuard(previewing, mainRef);
   const editing = matchesAny([...EDITOR_ROUTES, ...WIDE_EDITOR_ROUTES], location.pathname);
   const formPage = matchesAny(FORM_ROUTES, location.pathname);
-  const sidebar = useSidebarCollapsed();
+  const [focus, setFocus] = useState(false);
+  const sidebar = useSidebarCollapsed(focus);
 
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;
   // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
@@ -353,11 +355,13 @@ export function AdminProtected() {
         <main
           ref={mainRef}
           id="conteudo"
-          className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}
+          className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && !focus && "mx-auto md:max-w-[68rem]")}
         >
-          <Suspense fallback={<LoadingBlock />}>
-            <Outlet />
-          </Suspense>
+          <FocusLayoutProvider onChange={setFocus}>
+            <Suspense fallback={<LoadingBlock />}>
+              <Outlet />
+            </Suspense>
+          </FocusLayoutProvider>
         </main>
       </div>
       {!editing && <BottomNav access={access} />}

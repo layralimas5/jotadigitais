@@ -1,3 +1,4 @@
+import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, withoutHidden, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
@@ -343,6 +344,12 @@ export const saveWhatsAppAi = (deps: AdminDeps, settings: WhatsAppAiSettings): P
   deps.whatsapp.saveAiSettings(settings);
 
 export const setWhatsAppAiEnabled = (deps: AdminDeps, enabled: boolean): Promise<WhatsAppAiSettings> => deps.whatsapp.setAiEnabled(enabled);
+
+export const listWhatsAppFlows = (deps: AdminDeps): Promise<WhatsAppFlow[]> => deps.whatsapp.listFlows();
+
+export const saveWhatsAppFlow = (deps: AdminDeps, flow: WhatsAppFlowDraft): Promise<WhatsAppFlow> => deps.whatsapp.saveFlow(flow);
+
+export const deleteWhatsAppFlow = (deps: AdminDeps, id: string): Promise<void> => deps.whatsapp.deleteFlow(id);
 
 export const listWhatsAppFaq = (deps: AdminDeps): Promise<WhatsAppFaq[]> => deps.whatsapp.listFaq();
 

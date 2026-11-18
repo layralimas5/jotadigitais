@@ -1,4 +1,5 @@
 import type { Coupon, CouponData, CouponPreview } from "@/domain/coupon";
+import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Country } from "@/domain/country";
 import type { Account, AccountData } from "@/domain/account";
 import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
@@ -340,6 +341,10 @@ export interface AdminWhatsAppRepository {
   sendReply(contactId: string, text: string): Promise<void>;
   /** Modo teste: finge uma mensagem de cliente e roda o fluxo inteiro. Devolve a conversa criada. */
   simulateInbound(phone: string, name: string | null, text: string): Promise<{ contactId: string; outcome: InboundOutcome }>;
+  /** Fluxos de Automação > Fluxos, na ordem em que aparecem. */
+  listFlows(): Promise<WhatsAppFlow[]>;
+  saveFlow(flow: WhatsAppFlowDraft): Promise<WhatsAppFlow>;
+  deleteFlow(id: string): Promise<void>;
 }
 
 export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order", "google_calendar"] as const;

@@ -173,3 +173,27 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 - Botão "Receber meu acesso" entregar o login (fase 2): hoje o toque chega como mensagem comum para a IA.
 - Áudios gravados, lembrete de pedido não pago, pós-venda e a aba Relatório.
 - "Abrir no WhatsApp" de Pedidos e Clientes levar para a conversa do painel.
+
+## Fluxos (Automação > Fluxos, 17/11)
+
+Quadro de arrastar (React Flow 12.12.1) onde o Jota monta o passo a passo do WhatsApp. O fluxo responde **antes** da IA.
+
+- Blocos: Início (primeira mensagem, palavra-chave ou qualquer mensagem), Mensagem, Pergunta (até 3 opções viram botões
+  da Meta; mais que isso, lista; o cliente também pode responder o número), Condição (cliente, afiliado, aluno, horário
+  da loja), IA assume, Chamar o Jota e Fim.
+- Motor único em `supabase/functions/_shared/whatsapp-flow.ts` (sem imports): roda na `whatsapp-webhook`, no simulador
+  da aba e no modo demonstração. Prioridade dos gatilhos: palavra-chave, depois primeiro contato, depois qualquer mensagem.
+- Onde a conversa parou fica em `whatsapp_contacts.flow_id/flow_node` (só a função mexe). Assumir ou devolver a conversa
+  encerra o fluxo (trigger `whatsapp_contacts_reset_flow`).
+- Tabela `whatsapp_flows` (migration `20261212120000_whatsapp_flows.sql`), RLS por `automation`.
+- A aba abre em modo foco: o menu lateral encolhe e a página usa a largura toda.
+
+### Ativar
+
+1. Migration `20261212120000_whatsapp_flows.sql`.
+2. Publicar de novo a `whatsapp-webhook` e a `whatsapp-panel` (o processamento passou a seguir o fluxo).
+3. Em Automação > Fluxos, "Começar pelo modelo pronto", ajustar os textos, testar no painel ao lado e ligar.
+
+### Falta
+
+- Bloco "Esperar" (1h, 1 dia) e gatilhos de pagamento (pago, não pago): precisam de agendamento (pg_cron).

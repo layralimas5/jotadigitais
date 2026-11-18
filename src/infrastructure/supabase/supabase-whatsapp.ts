@@ -18,6 +18,7 @@ import {
   type WhatsAppMessage,
   type WhatsAppSettings,
 } from "@/domain/whatsapp";
+import { parseFlowGraph, type WhatsAppFlow, type WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import { fail } from "./supabase-repositories";
 
 const PANEL_FUNCTION = "whatsapp-panel";
@@ -146,9 +147,18 @@ const simulatorSchema = z.object({
   toolsUsed: z.array(z.string()),
 });
 
+const FLOW_COLUMNS = "id, name, enabled, graph, updated_at";
+
+const flowRowSchema = z.object({ id: z.string(), name: z.string(), enabled: z.boolean(), graph: z.unknown(), updated_at: z.string() });
+
+const toFlow = (raw: unknown): WhatsAppFlow => {
+  const row = flowRowSchema.parse(raw);
+  return { id: row.id, name: row.name, enabled: row.enabled, graph: parseFlowGraph(row.graph), updatedAt: row.updated_at };
+};
+
 const inboundSchema = z.object({
   contactId: z.string(),
-  outcome: z.enum(["duplicate", "ignored", "opted_out", "staff", "ai_off", "replied", "handoff"]),
+  outcome: z.enum(["duplicate", "ignored", "opted_out", "staff", "ai_off", "replied", "handoff", "flow"]),
 });
 
 const PANEL_ERROR_MESSAGE: Record<string, string> = {
@@ -316,5 +326,26 @@ export class SupabaseWhatsAppRepository implements AdminWhatsAppRepository {
     const { data, error } = await this.client.functions.invoke(PANEL_FUNCTION, { body: { action: "simulate_inbound", phone, name, text } });
     if (error) await failFromPanel(error);
     return inboundSchema.parse(data);
+  }
+
+  async listFlows(): Promise<WhatsAppFlow[]> {
+    const { data, error } = await this.client.from("whatsapp_flows").select(FLOW_COLUMNS).order("position").order("created_at");
+    if (error) fail(error);
+    return data.map(toFlow);
+  }
+
+  async saveFlow(flow: WhatsAppFlowDraft): Promise<WhatsAppFlow> {
+    const row = { name: flow.name, enabled: flow.enabled, graph: flow.graph };
+    const query = flow.id
+      ? this.client.from("whatsapp_flows").update(row).eq("id", flow.id)
+      : this.client.from("whatsapp_flows").insert(row);
+    const { data, error } = await query.select(FLOW_COLUMNS).single();
+    if (error) fail(error);
+    return toFlow(data);
+  }
+
+  async deleteFlow(id: string): Promise<void> {
+    const { error } = await this.client.from("whatsapp_flows").delete().eq("id", id);
+    if (error) fail(error);
   }
 }

@@ -1,3 +1,4 @@
+import { FLOW_LIMITS, FLOW_NAME_MAX, flowProblems, type FlowEdge, type FlowNode } from "@/domain/whatsapp-flow";
 import { z } from "zod";
 import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
 import {
@@ -588,6 +589,34 @@ export const whatsAppFaqSchema = z
     }),
   )
   .max(AI_LIMITS.faq, `No máximo ${AI_LIMITS.faq} perguntas.`);
+
+/** Fluxo salvo: nome, limites da Meta nos textos e opções, e um início só. Ligado exige o fluxo completo. */
+export const whatsAppFlowSchema = z
+  .object({
+    name: requiredText(FLOW_NAME_MAX, "Dê um nome ao fluxo."),
+    enabled: z.boolean(),
+    graph: z.object({
+      nodes: z.array(z.custom<FlowNode>()).max(FLOW_LIMITS.nodes, `No máximo ${FLOW_LIMITS.nodes} blocos.`),
+      edges: z.array(z.custom<FlowEdge>()),
+    }),
+  })
+  .superRefine((flow, ctx) => {
+    for (const node of flow.graph.nodes) {
+      if ((node.type === "message" || node.type === "question") && node.data.text.length > FLOW_LIMITS.text)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `Texto com mais de ${FLOW_LIMITS.text} caracteres.` });
+      if (node.type === "question") {
+        if (node.data.options.length > FLOW_LIMITS.options)
+          ctx.addIssue({ code: "custom", path: ["graph"], message: `Uma pergunta tem mais de ${FLOW_LIMITS.options} opções.` });
+        if (node.data.options.some((option) => option.label.length > FLOW_LIMITS.optionLabel))
+          ctx.addIssue({ code: "custom", path: ["graph"], message: `Opção com mais de ${FLOW_LIMITS.optionLabel} caracteres (limite do WhatsApp).` });
+      }
+      if (node.type === "handoff" && node.data.note.length > FLOW_LIMITS.note)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `Recado com mais de ${FLOW_LIMITS.note} caracteres.` });
+      if (node.type === "start" && node.data.keywords.length > FLOW_LIMITS.keywords)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `No máximo ${FLOW_LIMITS.keywords} palavras-chave.` });
+    }
+    if (flow.enabled) for (const problem of flowProblems(flow.graph)) ctx.addIssue({ code: "custom", path: ["graph"], message: problem });
+  });
 
 // ---------------------------------------------------------------------------
 // Financeiro (mesmas regras da tabela expenses)
