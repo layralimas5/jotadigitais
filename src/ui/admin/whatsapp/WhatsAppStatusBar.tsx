@@ -1,12 +1,9 @@
-import { MessagesSquare, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getWhatsAppAi, getWhatsAppSettings, setWhatsAppAiEnabled } from "@/application/admin-use-cases";
 import { WEEKDAYS, aiAnswersAt, type WhatsAppAiSettings, type WhatsAppMode } from "@/domain/whatsapp";
-import { Link } from "react-router-dom";
 import { cn } from "@/ui/lib/cn";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
-import { WHATSAPP_PATH, aiSettingsLink } from "./links";
 
 /** "Seg a Sáb", "Seg, Qua e Sex". */
 export function daysLabel(days: readonly number[]): string {
@@ -77,16 +74,14 @@ function AiSwitch({ ai, onChange }: { ai: WhatsAppAiSettings; onChange: (next: W
 }
 
 interface WhatsAppStatusBarProps {
-  /** Em qual aba a faixa está: o atalho leva para a outra. */
-  current: "conversations" | "automation";
   /** Avisa a tela quando a IA liga ou desliga por aqui (o formulário da IA acompanha). */
   onAiChange?: (ai: WhatsAppAiSettings) => void;
   /** Configuração recém-salva pela aba Automação > IA: a faixa mostra o horário novo sem buscar de novo. */
   saved?: WhatsAppAiSettings | null;
 }
 
-/** Linha igual no topo das abas WhatsApp e Automação: liga e desliga a IA, modo, horário e o atalho entre as duas. */
-export function WhatsAppStatusBar({ current, onAiChange, saved }: WhatsAppStatusBarProps) {
+/** Linha no topo da aba WhatsApp: liga e desliga a IA, quem responde agora, horário e modo. */
+export function WhatsAppStatusBar({ onAiChange, saved }: WhatsAppStatusBarProps) {
   const ai = useAdminQuery(getWhatsAppAi, "whatsapp-ai");
   const settings = useAdminQuery(getWhatsAppSettings, "whatsapp-settings");
   const [local, setLocal] = useState<WhatsAppAiSettings | null>(null);
@@ -100,7 +95,6 @@ export function WhatsAppStatusBar({ current, onAiChange, saved }: WhatsAppStatus
     return <div aria-hidden className="h-11 animate-pulse border-y border-line motion-reduce:animate-none" />;
   }
   const now = nowLabel(local);
-  const Shortcut = current === "conversations" ? SlidersHorizontal : MessagesSquare;
 
   return (
     <section
@@ -121,13 +115,6 @@ export function WhatsAppStatusBar({ current, onAiChange, saved }: WhatsAppStatus
         <span aria-hidden className="text-line-strong">/</span>
         <ModeLabel mode={settings.data.mode} />
       </p>
-      <Link
-        to={current === "conversations" ? aiSettingsLink() : WHATSAPP_PATH}
-        className="ml-auto inline-flex items-center gap-1.5 rounded-md text-xs font-medium text-fog transition-colors hover:text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric"
-      >
-        <Shortcut aria-hidden className="size-3.5" />
-        {current === "conversations" ? "Configurar IA" : "Ver conversas"}
-      </Link>
     </section>
   );
 }

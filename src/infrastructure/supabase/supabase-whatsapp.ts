@@ -5,6 +5,7 @@ import { WhatsAppAiUnavailableError, WhatsAppWindowClosedError } from "@/domain/
 import {
   CONTACT_KINDS,
   type AiDraft,
+  type FlowTestDraft,
   type InboundOutcome,
   type SimulatorReply,
   type SimulatorTurn,
@@ -145,6 +146,7 @@ const simulatorSchema = z.object({
   reply: z.string().nullable(),
   handoff: z.object({ reason: z.string(), summary: z.string() }).nullable(),
   toolsUsed: z.array(z.string()),
+  options: z.array(z.string()).default([]),
 });
 
 const FLOW_COLUMNS = "id, name, enabled, graph, updated_at";
@@ -158,11 +160,11 @@ const toFlow = (raw: unknown): WhatsAppFlow => {
 
 const inboundSchema = z.object({
   contactId: z.string(),
-  outcome: z.enum(["duplicate", "ignored", "opted_out", "staff", "ai_off", "replied", "handoff", "flow"]),
+  outcome: z.enum(["duplicate", "ignored", "opted_out", "staff", "ai_off", "replied", "handoff"]),
 });
 
 const PANEL_ERROR_MESSAGE: Record<string, string> = {
-  forbidden: "Só quem tem acesso à Automação pode usar o WhatsApp do painel.",
+  forbidden: "Só quem tem acesso ao WhatsApp e automação pode usar o WhatsApp do painel.",
   invalid: "Dados inválidos. Confira os textos e tente de novo.",
   not_found: "Essa conversa não existe mais. Atualize a lista.",
   not_test: "Simular cliente só funciona no modo teste.",
@@ -277,8 +279,9 @@ export class SupabaseWhatsAppRepository implements AdminWhatsAppRepository {
     return this.listFaq();
   }
 
-  async simulate(history: readonly SimulatorTurn[], draft: AiDraft): Promise<SimulatorReply> {
-    const { data, error } = await this.client.functions.invoke(PANEL_FUNCTION, { body: { action: "simulate", history, draft } });
+  async simulate(history: readonly SimulatorTurn[], draft: AiDraft | null, flowTest?: FlowTestDraft): Promise<SimulatorReply> {
+    const body = { action: "simulate", history, draft: draft ?? undefined, ...(flowTest ?? {}) };
+    const { data, error } = await this.client.functions.invoke(PANEL_FUNCTION, { body });
     if (error) await failFromPanel(error);
     return simulatorSchema.parse(data);
   }

@@ -3,6 +3,7 @@ import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_WHATSAPP_SETTINGS,
   type AiDraft,
+  type FlowTestDraft,
   type InboundOutcome,
   type SimulatorReply,
   type SimulatorTurn,
@@ -16,17 +17,7 @@ import {
   type WhatsAppMessage,
   type WhatsAppSettings,
 } from "@/domain/whatsapp";
-import {
-  answerFlow,
-  pickFlow,
-  renderWithOptions,
-  startFlow,
-  templateGraph,
-  type FlowStep,
-  type WhatsAppFlow,
-  type WhatsAppFlowDraft,
-} from "@/domain/whatsapp-flow";
-import { isBusinessHours } from "@/domain/whatsapp";
+import { templateGraph, type WhatsAppFlow, type WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 
 const SEED_FLOWS = (): WhatsAppFlow[] => [
@@ -173,11 +164,12 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
     );
   }
 
-  async simulate(history: readonly SimulatorTurn[], draft: AiDraft): Promise<SimulatorReply> {
+  async simulate(history: readonly SimulatorTurn[], draft: AiDraft | null, flowTest?: FlowTestDraft): Promise<SimulatorReply> {
     await simulateLatency();
     void history;
     void draft;
-    return { reply: DEMO_AI_REPLY, handoff: null, toolsUsed: [] };
+    void flowTest;
+    return { reply: DEMO_AI_REPLY, handoff: null, toolsUsed: [], options: [] };
   }
 
   /** Lê as conversas guardadas; na primeira vez, grava os exemplos. */
@@ -212,8 +204,6 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
       const contact = this.conversations(state).contacts.find((item) => item.id === contactId);
       if (!contact) return;
       contact.handler = handler;
-      // Mudou quem atende: o fluxo em andamento acaba, como no banco.
-      delete this.flowState(state)[contactId];
       if (handler === "ai") {
         contact.handoffSummary = null;
         contact.unreadCount = 0;
@@ -257,7 +247,6 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
       this.append(state, contactId, "staff", text);
       const contact = this.conversations(state).contacts.find((item) => item.id === contactId);
       if (contact) contact.handler = "staff";
-      delete this.flowState(state)[contactId];
     });
   }
 
@@ -267,7 +256,6 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
     return this.db.write((state) => {
       const { contacts } = this.conversations(state);
       let contact = contacts.find((item) => item.phone === phone);
-      const isNew = !contact;
       if (!contact) {
         contact = {
           id: newId("wa"),
@@ -287,73 +275,15 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
       this.append(state, contact.id, "customer", text);
       if (contact.handler === "staff") return { contactId: contact.id, outcome: "staff" as const };
 
-      const flow = this.runFlow(state, contact, text, isNew, ai);
-      if (flow === "handled") return { contactId: contact.id, outcome: "flow" as const };
-      if (flow === "handoff") return { contactId: contact.id, outcome: "handoff" as const };
       if (!ai.enabled) return { contactId: contact.id, outcome: "ai_off" as const };
       this.append(state, contact.id, "ai", DEMO_AI_REPLY);
       return { contactId: contact.id, outcome: "replied" as const };
     });
   }
 
-  private flowState(state: DemoState): Record<string, { flowId: string; node: string }> {
-    state.whatsappFlowState ??= {};
-    return state.whatsappFlowState;
-  }
-
   private flows(state: DemoState): WhatsAppFlow[] {
     state.whatsappFlows ??= SEED_FLOWS();
     return state.whatsappFlows;
-  }
-
-  /** O mesmo caminho da função whatsapp-webhook, com o motor compartilhado. */
-  private runFlow(
-    state: DemoState,
-    contact: WhatsAppContact,
-    text: string,
-    isNew: boolean,
-    ai: WhatsAppAiSettings,
-  ): "handled" | "handoff" | "ai" | "none" {
-    const flows = this.flows(state).filter((flow) => flow.enabled);
-    const states = this.flowState(state);
-    const hours = { schedule: ai.schedule, start: ai.businessStart, end: ai.businessEnd, days: ai.businessDays };
-    const context = { kind: contact.kind, businessHours: isBusinessHours(hours, new Date()) };
-
-    let flowId: string | null = null;
-    let step: FlowStep | null = null;
-    const saved = states[contact.id];
-    const waiting = saved ? flows.find((flow) => flow.id === saved.flowId) : undefined;
-    if (saved && waiting) {
-      const answered = answerFlow(waiting.graph, saved.node, text, context);
-      if (answered.actions.length > 0 || answered.waitingAt) {
-        flowId = waiting.id;
-        step = answered;
-      }
-    }
-    if (!step) {
-      const picked = pickFlow(flows, { body: text, isNew });
-      if (picked) {
-        flowId = picked.id;
-        step = startFlow(picked.graph, context);
-      }
-    }
-    if (step?.waitingAt && flowId) states[contact.id] = { flowId, node: step.waitingAt };
-    else delete states[contact.id];
-    if (!step || (step.actions.length === 0 && !step.waitingAt)) return "none";
-
-    for (const action of step.actions) {
-      if (action.type === "send") {
-        this.append(state, contact.id, "system", renderWithOptions(action.text, action.options));
-      } else if (action.type === "handoff") {
-        contact.handler = "staff";
-        contact.handoffSummary = action.note.trim() || "O fluxo passou a conversa para você.";
-        contact.unreadCount = 1;
-        return "handoff";
-      } else {
-        return "ai";
-      }
-    }
-    return "handled";
   }
 
   async listFlows(): Promise<WhatsAppFlow[]> {
@@ -382,8 +312,6 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
     await simulateLatency();
     this.db.write((state) => {
       state.whatsappFlows = this.flows(state).filter((flow) => flow.id !== id);
-      const states = this.flowState(state);
-      for (const [contactId, saved] of Object.entries(states)) if (saved.flowId === id) delete states[contactId];
     });
   }
 }

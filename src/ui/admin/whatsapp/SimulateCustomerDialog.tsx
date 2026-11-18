@@ -11,7 +11,6 @@ import { useToast } from "../toast";
 
 const OUTCOME_MESSAGE: Record<InboundOutcome, string> = {
   replied: "A IA respondeu. Veja a conversa.",
-  flow: "O fluxo respondeu. Veja a conversa.",
   handoff: "A IA passou a conversa para você.",
   staff: "A conversa já está com você: a IA não respondeu.",
   ai_off: "A IA está desligada ou fora do horário: a mensagem ficou esperando você.",

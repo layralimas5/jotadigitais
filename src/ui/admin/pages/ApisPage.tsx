@@ -36,8 +36,8 @@ const INTEGRATIONS: readonly StaticIntegration[] = [
     description: "Mensagens de pedido, entrega, CRM e oferta de conta já escritas, abrindo no seu WhatsApp.",
     tone: "working",
     status: "Funcionando",
-    next: "Os botões verdes abrem o WhatsApp do seu celular ou computador. A entrega automática do acesso está em modo teste: registra em Automação o que sairia, até o número oficial da Meta ser conectado.",
-    action: { to: "/admin/automacao", label: "Ver entrega automática" },
+    next: "Os botões verdes abrem o WhatsApp do seu celular ou computador. A entrega automática do acesso está em modo teste: registra em WhatsApp > Entrega automática o que sairia, até o número oficial da Meta ser conectado.",
+    action: { to: "/admin/whatsapp?aba=entrega", label: "Ver entrega automática" },
   },
   {
     id: "payments",

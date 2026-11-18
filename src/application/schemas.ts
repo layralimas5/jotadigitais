@@ -612,8 +612,8 @@ export const whatsAppFlowSchema = z
       }
       if (node.type === "handoff" && node.data.note.length > FLOW_LIMITS.note)
         ctx.addIssue({ code: "custom", path: ["graph"], message: `Recado com mais de ${FLOW_LIMITS.note} caracteres.` });
-      if (node.type === "start" && node.data.keywords.length > FLOW_LIMITS.keywords)
-        ctx.addIssue({ code: "custom", path: ["graph"], message: `No máximo ${FLOW_LIMITS.keywords} palavras-chave.` });
+      if (node.type === "customer" && node.data.text.length > FLOW_LIMITS.customer)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `Mensagem do cliente com mais de ${FLOW_LIMITS.customer} caracteres.` });
     }
     if (flow.enabled) for (const problem of flowProblems(flow.graph)) ctx.addIssue({ code: "custom", path: ["graph"], message: problem });
   });

@@ -19,7 +19,6 @@ import {
   TicketPercent,
   Users,
   Wallet,
-  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { matchPath } from "react-router-dom";
@@ -84,8 +83,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/clientes", label: "Clientes", icon: Users, inBottomNav: false, description: "Quem já comprou", roles: STORE, area: "customers" },
       { to: "/admin/parceiros", label: "Parceiros", icon: Handshake, inBottomNav: false, description: "Fornecedores e comissões", roles: STORE, area: "partners" },
       { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: false, description: "Leads até fechar", roles: STORE, area: "crm" },
-      { to: WHATSAPP_PATH, label: "WhatsApp", icon: MessageCircle, inBottomNav: true, description: "Conversas com clientes, com a IA", roles: STORE, area: "automation" },
-      { to: "/admin/automacao", label: "Automação", icon: Workflow, inBottomNav: false, description: "IA e mensagens do WhatsApp", roles: STORE, area: "automation" },
+      { to: WHATSAPP_PATH, label: "WhatsApp", icon: MessageCircle, inBottomNav: true, description: "Conversas, fluxos da IA e entrega automática", roles: STORE, area: "automation" },
     ],
   },
   {
@@ -135,6 +133,8 @@ export const homePathFor = (access: StaffAccess): string => itemsFor(access)[0]?
 const EXTRA_ROUTES: readonly { pattern: string; roles: readonly AdminRole[] }[] = [
   { pattern: "/admin/mais", roles: ALL_STAFF },
   { pattern: "/admin/minha-conta", roles: ALL_STAFF },
+  // Endereço antigo da Automação: agora é a aba WhatsApp (o redirecionamento confere o acesso de novo lá).
+  { pattern: "/admin/automacao", roles: ALL_STAFF },
 ];
 
 /** A pessoa pode abrir este endereço do painel? Vale para a seção e tudo o que está dentro dela. */

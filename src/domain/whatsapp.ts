@@ -166,6 +166,15 @@ export interface SimulatorReply {
   reply: string | null;
   handoff: { reason: string; summary: string } | null;
   toolsUsed: string[];
+  /** Botões que a resposta levaria no WhatsApp (pergunta de fluxo). */
+  options: string[];
+}
+
+/** Teste de um fluxo da tela (mesmo sem salvar), como um contato de certo tipo, dentro ou fora do horário. */
+export interface FlowTestDraft {
+  flow: { id?: string; name: string; graph: unknown };
+  contactKind: WhatsAppContactKind;
+  businessHours: boolean;
 }
 
 /** Rascunho da tela de IA que o simulador usa antes de salvar. */
@@ -176,4 +185,4 @@ export interface AiDraft {
   faq: readonly { question: string; answer: string }[];
 }
 
-export type InboundOutcome = "duplicate" | "ignored" | "opted_out" | "staff" | "ai_off" | "replied" | "handoff" | "flow";
+export type InboundOutcome = "duplicate" | "ignored" | "opted_out" | "staff" | "ai_off" | "replied" | "handoff";

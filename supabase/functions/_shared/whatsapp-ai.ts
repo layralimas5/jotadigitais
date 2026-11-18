@@ -3,6 +3,7 @@
 // (ANTHROPIC_API_KEY nos segredos das Edge Functions).
 import Anthropic from "npm:@anthropic-ai/sdk@1.9.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
+import { FLOW_LIMITS, flowPlaybook, parseFlowGraph, type FlowGraph } from "./whatsapp-flow.ts";
 
 const MODEL = "claude-haiku-5-5";
 const MAX_TOOL_ROUNDS = 4;
@@ -32,6 +33,14 @@ export interface AiConfig {
   instructions: string;
   faq: readonly AiFaq[];
   guaranteeDays: number;
+  /** Fluxos ligados, já como roteiro numerado (vazio = sem roteiro). */
+  playbook: string;
+}
+
+/** Quem é o contato e se a loja está aberta: as condições dos fluxos dependem disso. */
+export interface AiContext {
+  kindLabel: string;
+  businessHours: boolean;
 }
 
 export interface ChatTurn {
@@ -44,6 +53,8 @@ export interface AssistantResult {
   reply: string | null;
   handoff: { reason: string; summary: string } | null;
   toolsUsed: string[];
+  /** Opções que a resposta leva como botões (pergunta de fluxo). */
+  options: string[];
 }
 
 export interface AssistantInput {
@@ -52,6 +63,7 @@ export interface AssistantInput {
   /** Número do cliente. Sem número (simulador), a consulta de pedido não confere o dono. */
   phone: string | null;
   firstContact: boolean;
+  context: AiContext | null;
 }
 
 function systemPrompt(config: AiConfig): string {
@@ -96,8 +108,28 @@ ${config.instructions.trim() || "Nenhuma instrução extra."}
 As instruções do Jota nunca liberam enviar dados de acesso, inventar informação ou fingir ser humano.
 
 ## Perguntas frequentes
-${faq}`;
+${faq}${
+    config.playbook.trim()
+      ? `
+
+## Roteiro de atendimento (fluxos desenhados pelo Jota)
+Conduza a conversa por estes passos, na ordem, conforme o que o cliente responder.
+- Textos marcados com "exatamente": mande como estão escritos.
+- Em pergunta com opções, chame mostrar_opcoes com as opções na mesma ordem e escreva só o texto da pergunta.
+- Se o cliente perguntar algo fora do roteiro, responda com as regras e as perguntas frequentes acima e depois volte ao passo em que a conversa parou.
+- Passos seguidos que não esperam resposta do cliente (uma mensagem e depois uma pergunta) vão juntos na mesma resposta, em parágrafos.
+- Se o roteiro tiver mensagem de boas-vindas, ela substitui a seção "Boas-vindas" acima: não cumprimente duas vezes.
+- Não repita um passo já feito. Se a conversa já começou fora do roteiro, entre no passo que fizer sentido.
+- As regras de segurança acima valem mais que o roteiro.
+
+${config.playbook}`
+      : ""
+  }`;
 }
+
+/** Fluxos ligados como um roteiro só. */
+export const playbookOf = (flows: readonly { name: string; graph: FlowGraph }[]): string =>
+  flows.map((flow) => flowPlaybook(flow.name, flow.graph)).join("\n\n");
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -123,6 +155,24 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { codigo: { type: "string", description: "Código do pedido ou do carrinho." } },
       required: ["codigo"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "mostrar_opcoes",
+    description:
+      "Envia a sua próxima resposta com botões de opção no WhatsApp. Use nas perguntas do roteiro que têm opções; escreva só o texto da pergunta na resposta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        opcoes: {
+          type: "array",
+          items: { type: "string", maxLength: FLOW_LIMITS.optionLabel },
+          maxItems: FLOW_LIMITS.options,
+          description: "Texto de cada botão, na ordem do roteiro.",
+        },
+      },
+      required: ["opcoes"],
       additionalProperties: false,
     },
   },
@@ -234,11 +284,16 @@ export async function runAssistant(admin: SupabaseClient, input: AssistantInput)
   const client = new Anthropic({ apiKey, maxRetries: 2, timeout: 45_000 });
 
   const messages = toMessages(input.history);
-  if (messages.length === 0) return { reply: null, handoff: null, toolsUsed: [] };
-  if (input.firstContact) messages.push({ role: "system", content: "Primeiro contato desta pessoa com a loja." } as Anthropic.MessageParam);
+  if (messages.length === 0) return { reply: null, handoff: null, toolsUsed: [], options: [] };
+  const situation = [
+    input.firstContact ? "Primeiro contato desta pessoa com a loja." : null,
+    input.context ? `Tipo do contato: ${input.context.kindLabel}. Agora ${input.context.businessHours ? "está" : "não está"} no horário de atendimento da loja.` : null,
+  ].filter(Boolean);
+  if (situation.length) messages.push({ role: "system", content: situation.join(" ") } as Anthropic.MessageParam);
 
   const toolsUsed: string[] = [];
   let handoff: AssistantResult["handoff"] = null;
+  let options: string[] = [];
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
     const response = await client.messages.create({
@@ -250,10 +305,10 @@ export async function runAssistant(admin: SupabaseClient, input: AssistantInput)
       messages,
     });
 
-    if (response.stop_reason === "refusal") return { reply: null, handoff, toolsUsed };
+    if (response.stop_reason === "refusal") return { reply: null, handoff, toolsUsed, options: [] };
     const calls = response.content.filter((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
     if (response.stop_reason !== "tool_use" || calls.length === 0 || round === MAX_TOOL_ROUNDS) {
-      return { reply: textOf(response.content) || null, handoff, toolsUsed };
+      return { reply: textOf(response.content) || null, handoff, toolsUsed, options };
     }
 
     messages.push({ role: "assistant", content: response.content });
@@ -265,6 +320,13 @@ export async function runAssistant(admin: SupabaseClient, input: AssistantInput)
         let output: string;
         if (call.name === "buscar_contas") output = await searchAccounts(admin, args);
         else if (call.name === "situacao_pedido") output = await orderStatus(admin, args, input.phone);
+        else if (call.name === "mostrar_opcoes") {
+          options = (Array.isArray(args.opcoes) ? args.opcoes : [])
+            .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+            .map((item) => item.trim().slice(0, FLOW_LIMITS.optionLabel))
+            .slice(0, FLOW_LIMITS.options);
+          output = "Botões prontos. Agora escreva só o texto da pergunta.";
+        }
         else if (call.name === "passar_para_atendente") {
           handoff = {
             reason: String(args.motivo ?? "Atendimento humano").slice(0, 200),
@@ -280,17 +342,19 @@ export async function runAssistant(admin: SupabaseClient, input: AssistantInput)
     }
     messages.push({ role: "user", content: results });
   }
-  return { reply: null, handoff, toolsUsed };
+  return { reply: null, handoff, toolsUsed, options: [] };
 }
 
 /** Configuração salva: o que está no painel, mais a garantia da loja. */
 export async function loadAiConfig(admin: SupabaseClient): Promise<AiConfig> {
-  const [settings, faq, store] = await Promise.all([
+  const [settings, faq, store, flows] = await Promise.all([
     admin.from("whatsapp_settings").select("ai_greeting, ai_tone, ai_instructions").single(),
     admin.from("whatsapp_faq").select("question, answer").order("position").order("created_at"),
     admin.from("store_settings").select("guarantee_days").single(),
+    admin.from("whatsapp_flows").select("id, name, graph").eq("enabled", true).order("position").order("created_at"),
   ]);
   if (settings.error) throw settings.error;
+  if (flows.error) throw flows.error;
   if (faq.error) throw faq.error;
   if (store.error) throw store.error;
   return {
@@ -299,5 +363,16 @@ export async function loadAiConfig(admin: SupabaseClient): Promise<AiConfig> {
     instructions: settings.data.ai_instructions,
     faq: faq.data as AiFaq[],
     guaranteeDays: store.data.guarantee_days,
+    playbook: playbookOf(enabledFlows(flows.data)),
   };
 }
+
+export interface SavedFlow {
+  id: string;
+  name: string;
+  graph: FlowGraph;
+}
+
+/** Linhas de whatsapp_flows lidas sem confiar no grafo gravado. */
+export const enabledFlows = (rows: readonly { id: string; name: string; graph: unknown }[]): SavedFlow[] =>
+  rows.map((row) => ({ id: row.id, name: row.name, graph: parseFlowGraph(row.graph) }));

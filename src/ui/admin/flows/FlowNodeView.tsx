@@ -5,14 +5,12 @@ import {
   FLOW_CHECK_LABEL,
   FLOW_LIMITS,
   FLOW_NODE_INFO,
-  FLOW_TRIGGER_LABEL,
   OTHER_HANDLE,
   newOptionId,
   optionHandle,
   type FlowCheck,
   type FlowNode,
   type FlowNodeType,
-  type FlowTrigger,
 } from "@/domain/whatsapp-flow";
 import { cn } from "@/ui/lib/cn";
 import { useFlowEdit } from "./flowEditContext";
@@ -58,7 +56,7 @@ function FlowNodeViewBase({ id, type, data, selected }: NodeProps<CanvasNode>) {
   const { updateNode, deleteNode } = useFlowEdit();
   const node = { type, data } as NodeContent;
   const { icon: Icon, tone } = NODE_LOOK[type];
-  const singleOutput = node.type === "start" || node.type === "message";
+  const singleOutput = node.type === "start" || node.type === "message" || node.type === "customer";
   const label = FLOW_NODE_INFO[type].label;
 
   return (
@@ -88,39 +86,17 @@ function FlowNodeViewBase({ id, type, data, selected }: NodeProps<CanvasNode>) {
         )}
       </div>
 
-      {node.type === "start" && (
-        <div className="space-y-1">
-          <select
-            aria-label="Quando o fluxo começa"
-            value={node.data.trigger}
-            onChange={(event) => updateNode(id, { ...node.data, trigger: event.target.value as FlowTrigger })}
-            className={SELECT}
-          >
-            {(Object.keys(FLOW_TRIGGER_LABEL) as FlowTrigger[]).map((trigger) => (
-              <option key={trigger} value={trigger}>
-                {FLOW_TRIGGER_LABEL[trigger]}
-              </option>
-            ))}
-          </select>
-          {node.data.trigger === "keyword" && (
-            <input
-              aria-label="Palavras-chave, separadas por vírgula"
-              defaultValue={node.data.keywords.join(", ")}
-              onBlur={(event) =>
-                updateNode(id, {
-                  ...node.data,
-                  keywords: event.target.value
-                    .split(",")
-                    .map((word) => word.trim().slice(0, FLOW_LIMITS.keyword))
-                    .filter(Boolean)
-                    .slice(0, FLOW_LIMITS.keywords),
-                })
-              }
-              placeholder="Palavras-chave: afiliado, parceria"
-              className={FIELD}
-            />
-          )}
-        </div>
+      {node.type === "start" && <p className="px-1.5 text-xs text-fog">Começo do atendimento</p>}
+
+      {node.type === "customer" && (
+        <GrowingText
+          aria-label="O que o cliente diz"
+          value={node.data.text}
+          maxLength={FLOW_LIMITS.customer}
+          onChange={(event) => updateNode(id, { text: event.target.value })}
+          placeholder="O que o cliente diz. Ex.: pergunta o preço"
+          className="italic"
+        />
       )}
 
       {(node.type === "message" || node.type === "question") && (
@@ -207,7 +183,7 @@ function FlowNodeViewBase({ id, type, data, selected }: NodeProps<CanvasNode>) {
           </ul>
         </>
       )}
-      {node.type === "ai" && <p className="px-1.5 text-xs text-mist">A IA conversa a partir daqui, com o que está na aba IA de atendimento.</p>}
+      {node.type === "ai" && <p className="px-1.5 text-xs text-mist">A IA conversa livre daqui em diante, com as regras e as perguntas frequentes da aba IA.</p>}
       {node.type === "handoff" && (
         <GrowingText
           aria-label="Recado para o Jota"
@@ -217,7 +193,7 @@ function FlowNodeViewBase({ id, type, data, selected }: NodeProps<CanvasNode>) {
           placeholder="Recado para você (opcional)"
         />
       )}
-      {node.type === "end" && <p className="px-1.5 text-xs text-mist">Não manda mais nada.</p>}
+      {node.type === "end" && <p className="px-1.5 text-xs text-mist">Este caminho acaba aqui.</p>}
 
       {singleOutput && <Handle type="source" position={Position.Bottom} className={HANDLE} />}
     </div>
@@ -228,6 +204,7 @@ export const FlowNodeView = memo(FlowNodeViewBase);
 
 export const NODE_TYPES = {
   start: FlowNodeView,
+  customer: FlowNodeView,
   message: FlowNodeView,
   question: FlowNodeView,
   condition: FlowNodeView,

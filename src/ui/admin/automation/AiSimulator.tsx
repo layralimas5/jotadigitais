@@ -2,6 +2,7 @@ import { RotateCcw, SendHorizontal, Sparkles } from "lucide-react";
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { simulateWhatsAppAi } from "@/application/admin-use-cases";
 import type { AiDraft, SimulatorTurn } from "@/domain/whatsapp";
+import { renderWithOptions } from "@/domain/whatsapp-flow";
 import { Button } from "@/ui/components/Button";
 import { InlineError } from "../components/AdminUi";
 import { useMutation } from "../hooks";
@@ -51,7 +52,11 @@ export function AiSimulator({ draft }: { draft: AiDraft }) {
       .join(" ");
     setTurns([
       ...history,
-      { role: "assistant", text: result.reply ?? "(A IA não respondeu. No atendimento real, a conversa iria para você.)", note: note || undefined },
+      {
+        role: "assistant",
+        text: result.reply ? renderWithOptions(result.reply, result.options) : "(A IA não respondeu. No atendimento real, a conversa iria para você.)",
+        note: note || undefined,
+      },
     ]);
   };
 

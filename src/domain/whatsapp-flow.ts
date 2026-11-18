@@ -1,41 +1,23 @@
-import type {
-  FlowCheck,
-  FlowEdge,
-  FlowGraph,
-  FlowNode,
-  FlowNodeType,
-  FlowTrigger,
-} from "../../supabase/functions/_shared/whatsapp-flow";
+import type { FlowCheck, FlowEdge, FlowGraph, FlowNode, FlowNodeType } from "../../supabase/functions/_shared/whatsapp-flow";
 
 export {
   FLOW_LIMITS,
   OTHER_HANDLE,
-  RETRY_TEXT,
-  answerFlow,
+  flowPlaybook,
   flowProblems,
-  matchOption,
   optionHandle,
   parseFlowGraph,
-  pickFlow,
   renderWithOptions,
-  startFlow,
-  startNodeOf,
-  triggerMatches,
-  type FlowAction,
   type FlowCheck,
-  type FlowContactKind,
-  type FlowContext,
   type FlowEdge,
   type FlowGraph,
   type FlowNode,
   type FlowNodeType,
   type FlowOption,
   type FlowPosition,
-  type FlowStep,
-  type FlowTrigger,
 } from "../../supabase/functions/_shared/whatsapp-flow";
 
-/** Um fluxo de Automação > Fluxos. Só os ligados rodam no WhatsApp. */
+/** Um fluxo de WhatsApp > Fluxos. Só os ligados entram no roteiro da IA. */
 export interface WhatsAppFlow {
   id: string;
   name: string;
@@ -53,12 +35,6 @@ export interface WhatsAppFlowDraft {
 
 export const FLOW_NAME_MAX = 80;
 
-export const FLOW_TRIGGER_LABEL: Record<FlowTrigger, string> = {
-  first_contact: "Primeira mensagem do cliente",
-  keyword: "Mensagem com palavra-chave",
-  any_message: "Qualquer mensagem",
-};
-
 export const FLOW_CHECK_LABEL: Record<FlowCheck, string> = {
   is_customer: "É cliente (já comprou)?",
   is_affiliate: "É afiliado?",
@@ -66,19 +42,20 @@ export const FLOW_CHECK_LABEL: Record<FlowCheck, string> = {
   business_hours: "Está no horário da loja?",
 };
 
-/** Nome e explicação de cada bloco, na paleta e no painel de edição. */
+/** Nome e explicação de cada bloco, na paleta e no próprio bloco. */
 export const FLOW_NODE_INFO: Record<FlowNodeType, { label: string; hint: string }> = {
-  start: { label: "Início", hint: "Quando o fluxo começa." },
-  message: { label: "Mensagem", hint: "Envia um texto e segue para o próximo bloco." },
-  question: { label: "Pergunta", hint: "Envia botões e segue pelo caminho que o cliente escolher." },
+  start: { label: "Início", hint: "Começo do atendimento." },
+  customer: { label: "Mensagem do cliente", hint: "O que o cliente diz nesse ponto. A IA reconhece pela ideia, não pela frase exata." },
+  message: { label: "Mensagem", hint: "A IA manda este texto como está escrito." },
+  question: { label: "Pergunta", hint: "A IA pergunta com botões e segue pelo caminho que o cliente escolher." },
   condition: { label: "Condição", hint: "Segue por Sim ou Não conforme o cliente." },
-  ai: { label: "IA assume", hint: "A partir daqui a IA conversa sozinha." },
+  ai: { label: "Conversa livre", hint: "A IA conversa livre a partir daqui, com as regras e perguntas frequentes." },
   handoff: { label: "Chamar o Jota", hint: "Passa a conversa para você e avisa no celular." },
-  end: { label: "Fim", hint: "Encerra o fluxo sem mandar mais nada." },
+  end: { label: "Fim", hint: "Encerra este caminho sem mandar mais nada." },
 };
 
 /** Blocos que o Jota pode adicionar (o início já vem em todo fluxo). */
-export const ADDABLE_NODE_TYPES: readonly Exclude<FlowNodeType, "start">[] = ["message", "question", "condition", "ai", "handoff", "end"];
+export const ADDABLE_NODE_TYPES: readonly Exclude<FlowNodeType, "start">[] = ["customer", "message", "question", "condition", "ai", "handoff", "end"];
 
 const randomId = (prefix: string) =>
   `${prefix}_${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10)}`;
@@ -90,6 +67,7 @@ export const newEdgeId = () => randomId("e");
 export function createNode(type: Exclude<FlowNodeType, "start">, position: { x: number; y: number }): FlowNode {
   const id = newNodeId();
   switch (type) {
+    case "customer":
     case "message":
       return { id, type, position, data: { text: "" } };
     case "question":
@@ -118,7 +96,7 @@ export function createNode(type: Exclude<FlowNodeType, "start">, position: { x: 
 
 /** Fluxo vazio: só o início. */
 export function blankGraph(): FlowGraph {
-  return { nodes: [{ id: newNodeId(), type: "start", position: { x: 0, y: 0 }, data: { trigger: "keyword", keywords: [] } }], edges: [] };
+  return { nodes: [{ id: newNodeId(), type: "start", position: { x: 0, y: 0 }, data: {} }], edges: [] };
 }
 
 const edge = (source: string, target: string, sourceHandle: string | null = null): FlowEdge => ({
@@ -128,10 +106,12 @@ const edge = (source: string, target: string, sourceHandle: string | null = null
   target,
 });
 
-/** Modelo pronto do atendimento da Jota Digitais: boas-vindas, menu e o caminho de cada opção. */
+/** Modelo pronto do atendimento da Jota Digitais: boas-vindas, menu, o caminho de cada opção e o pedido de desconto. */
 export function templateGraph(): FlowGraph {
   const nodes: FlowNode[] = [
-    { id: "inicio", type: "start", position: { x: 0, y: 0 }, data: { trigger: "first_contact", keywords: [] } },
+    { id: "inicio", type: "start", position: { x: 0, y: 0 }, data: {} },
+    { id: "pede_desconto", type: "customer", position: { x: 420, y: 150 }, data: { text: "Pede desconto ou pergunta se faz mais barato" } },
+    { id: "desconto_jota", type: "handoff", position: { x: 420, y: 330 }, data: { note: "Pediu desconto." } },
     {
       id: "boas_vindas",
       type: "message",
@@ -169,13 +149,15 @@ export function templateGraph(): FlowGraph {
     {
       id: "afiliado_msg",
       type: "message",
-      position: { x: 400, y: 560 },
+      position: { x: 420, y: 560 },
       data: { text: "Que bom! O programa de afiliados paga comissão por cada venda indicada. O Jota vai te explicar como funciona." },
     },
-    { id: "afiliado_jota", type: "handoff", position: { x: 400, y: 740 }, data: { note: "Quer ser afiliado." } },
+    { id: "afiliado_jota", type: "handoff", position: { x: 420, y: 740 }, data: { note: "Quer ser afiliado." } },
   ];
   const edges: FlowEdge[] = [
     edge("inicio", "boas_vindas"),
+    edge("inicio", "pede_desconto"),
+    edge("pede_desconto", "desconto_jota"),
     edge("boas_vindas", "menu"),
     edge("menu", "ia_vendas", "opt:comprar"),
     edge("menu", "e_cliente", "opt:suporte"),

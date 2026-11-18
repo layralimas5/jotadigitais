@@ -1,141 +1,120 @@
 import { FlaskConical } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  getWhatsAppSettings,
-  listWhatsAppContacts,
-} from "@/application/admin-use-cases";
-import { ErrorState } from "@/ui/components/StateViews";
+import { getWhatsAppSettings } from "@/application/admin-use-cases";
+import type { WhatsAppAiSettings } from "@/domain/whatsapp";
 import { cn } from "@/ui/lib/cn";
+import { AiSetupPanel } from "../automation/AiSetupPanel";
+import { MessageTemplatesPanel } from "../automation/MessageTemplatesPanel";
+import { WhatsAppDeliveryPanel } from "../automation/WhatsAppDeliveryPanel";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
-import { useAdminQuery, usePolling } from "../hooks";
-import {
-  ConversationList,
-  type ConversationFilter,
-  type KindFilter,
-} from "../whatsapp/ConversationList";
-import { ConversationView } from "../whatsapp/ConversationView";
-import { SimulateCustomerDialog } from "../whatsapp/SimulateCustomerDialog";
+import { useFocusLayout } from "../focus-layout";
+import { useAdminQuery } from "../hooks";
+import { InboxPanel } from "../whatsapp/InboxPanel";
+import { TAB_PARAM, WHATSAPP_TABS, whatsAppTabOf, type WhatsAppTab } from "../whatsapp/links";
 import { WhatsAppStatusBar } from "../whatsapp/WhatsAppStatusBar";
 import { compactButton } from "../whatsapp/styles";
 
-const REFRESH_MS = 10_000;
-const CONTACT_PARAM = "c";
+// O quadro de fluxos (React Flow) só baixa quando a aba Fluxos é aberta.
+const FlowsPanel = lazy(() => import("../flows/FlowsPanel").then((module) => ({ default: module.FlowsPanel })));
 
+const TAB_LABEL: Record<WhatsAppTab, string> = {
+  conversas: "Conversas",
+  fluxos: "Fluxos",
+  ia: "IA de atendimento",
+  entrega: "Entrega automática",
+  mensagens: "Mensagens",
+};
+
+function Tabs({ value, onChange }: { value: WhatsAppTab; onChange: (tab: WhatsAppTab) => void }) {
+  return (
+    <div role="tablist" aria-label="Partes do WhatsApp" className="flex gap-5 overflow-x-auto border-b border-line [scrollbar-width:none]">
+      {WHATSAPP_TABS.map((tab) => {
+        const active = tab === value;
+        return (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab)}
+            className={cn(
+              "-mb-px shrink-0 border-b-2 pt-1 pb-2.5 text-sm whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-electric",
+              active ? "border-white font-medium text-white" : "border-transparent text-mist hover:text-fog",
+            )}
+          >
+            {TAB_LABEL[tab]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** WhatsApp: conversas, fluxos que guiam a IA, a IA, a entrega automática e as mensagens, num lugar só. */
 export default function WhatsAppPage() {
-  const contacts = useAdminQuery(listWhatsAppContacts, "whatsapp-contacts");
   const settings = useAdminQuery(getWhatsAppSettings, "whatsapp-settings");
   const [params, setParams] = useSearchParams();
-  const [filter, setFilter] = useState<ConversationFilter>("all");
-  const [kind, setKind] = useState<KindFilter>("any");
+  const tab = whatsAppTabOf(params.get(TAB_PARAM));
   const [simulating, setSimulating] = useState(false);
+  const [conversationOpen, setConversationOpen] = useState(false);
+  // A faixa de cima e a aba IA mexem na mesma configuração: uma conta para a outra o que mudou.
+  const [aiFromBar, setAiFromBar] = useState<WhatsAppAiSettings | null>(null);
+  const [aiFromForm, setAiFromForm] = useState<WhatsAppAiSettings | null>(null);
+  // As abas pesadas só carregam quando abertas; depois ficam montadas para não perder o que está sendo editado.
+  const [opened, setOpened] = useState<ReadonlySet<WhatsAppTab>>(() => new Set([tab]));
+  useEffect(() => setOpened((current) => (current.has(tab) ? current : new Set([...current, tab]))), [tab]);
+  // O quadro de fluxos usa a tela toda: o menu lateral encolhe enquanto a aba estiver aberta.
+  useFocusLayout(tab === "fluxos");
 
-  const reloadContacts = contacts.reload;
-  const reloadVisible = useCallback(() => {
-    if (document.visibilityState === "visible") reloadContacts();
-  }, [reloadContacts]);
-  usePolling(reloadVisible, REFRESH_MS);
-
-  const selectedId = params.get(CONTACT_PARAM);
-  const select = (id: string | null) => {
-    const next = new URLSearchParams(params);
-    if (id) next.set(CONTACT_PARAM, id);
-    else next.delete(CONTACT_PARAM);
-    setParams(next);
+  const setTab = (next: WhatsAppTab) => {
+    const nextParams = new URLSearchParams(params);
+    if (next === "conversas") nextParams.delete(TAB_PARAM);
+    else nextParams.set(TAB_PARAM, next);
+    setParams(nextParams, { replace: true });
   };
 
-  const list = contacts.status === "success" ? contacts.data : null;
-  const selected = list?.find((contact) => contact.id === selectedId) ?? null;
   const mode = settings.status === "success" ? settings.data.mode : "test";
+  const hideTop = tab === "conversas" && conversationOpen;
 
   return (
     <div className="space-y-5">
-      {/* No celular, com uma conversa aberta, o topo sai para as mensagens terem espaço. */}
-      <div className={cn("space-y-5", selected && "max-md:hidden")}>
+      <div className={cn("space-y-5", hideTop && "max-md:hidden")}>
         <PageHeader
           title="WhatsApp"
-          description="A IA atende e chama você quando precisa."
+          description="Conversas, os fluxos que guiam a IA e a entrega automática."
           action={
+            tab === "conversas" &&
             mode === "test" && (
-              <button
-                type="button"
-                className={compactButton.secondary}
-                onClick={() => setSimulating(true)}
-              >
-                <FlaskConical aria-hidden className="size-3.5" /> Simular
-                cliente
+              <button type="button" className={compactButton.secondary} onClick={() => setSimulating(true)}>
+                <FlaskConical aria-hidden className="size-3.5" /> Simular cliente
               </button>
             )
           }
         />
-        <WhatsAppStatusBar current="conversations" />
+        <WhatsAppStatusBar onAiChange={setAiFromBar} saved={aiFromForm} />
+        <Tabs value={tab} onChange={setTab} />
       </div>
 
-      {contacts.status === "loading" && <LoadingBlock />}
-      {contacts.status === "error" && (
-        <ErrorState
-          message={contacts.error.message}
-          onRetry={contacts.reload}
-        />
-      )}
-      {list && (
-        <div
-          className={cn(
-            "grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border border-line bg-surface/40 md:h-[calc(100dvh-15.5rem)] md:min-h-[28rem] md:grid-cols-[minmax(17rem,21rem)_minmax(0,1fr)]",
-            selected && "max-md:h-[calc(100dvh-10.5rem)]",
-          )}
-        >
-          {/* No celular é uma tela de cada vez: a lista ou a conversa aberta. */}
-          <div
-            className={cn(
-              "min-h-0 md:border-r md:border-line",
-              selected && "max-md:hidden",
-            )}
-          >
-            <ConversationList
-              contacts={list}
-              selectedId={selectedId}
-              filter={filter}
-              kind={kind}
-              onFilter={setFilter}
-              onKind={setKind}
-              onSelect={select}
-            />
-          </div>
-          <div className={cn("min-h-0", !selected && "max-md:hidden")}>
-            {selected ? (
-              <ConversationView
-                key={selected.id}
-                contact={selected}
-                mode={mode}
-                onChanged={reloadContacts}
-                onBack={() => select(null)}
-              />
-            ) : (
-              <div className="grid h-full place-items-center bg-night px-6 text-center">
-                <div>
-                  <p className="text-sm font-medium text-fog">
-                    Nenhuma conversa aberta
-                  </p>
-                  <p className="mt-1 text-xs text-mist">
-                    Escolha uma na lista. As que esperam você têm o número rosa.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <SimulateCustomerDialog
-        open={simulating}
-        onClose={() => setSimulating(false)}
-        onDone={(contactId) => {
-          setSimulating(false);
-          reloadContacts();
-          select(contactId);
-        }}
-      />
+      <div hidden={tab !== "conversas"}>
+        {opened.has("conversas") && <InboxPanel simulating={simulating} onSimulatingChange={setSimulating} onOpenChange={setConversationOpen} />}
+      </div>
+      <div hidden={tab !== "fluxos"}>
+        {opened.has("fluxos") && (
+          <Suspense fallback={<LoadingBlock />}>
+            <FlowsPanel />
+          </Suspense>
+        )}
+      </div>
+      <div hidden={tab !== "ia"}>
+        {opened.has("ia") && <AiSetupPanel enabledOverride={aiFromBar?.enabled ?? null} onSaved={setAiFromForm} />}
+      </div>
+      <div hidden={tab !== "entrega"} className="max-w-[68rem]">
+        {opened.has("entrega") && <WhatsAppDeliveryPanel />}
+      </div>
+      <div hidden={tab !== "mensagens"} className="max-w-[68rem] space-y-6">
+        {opened.has("mensagens") && <MessageTemplatesPanel />}
+      </div>
     </div>
   );
 }

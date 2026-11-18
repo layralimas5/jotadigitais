@@ -2673,19 +2673,10 @@ async function whatsappFlowChecks() {
   );
   check(await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_flows`)), /permission denied/), "visitante não lê os fluxos");
 
-  const contact = (await db.query(`select id from public.whatsapp_contacts order by created_at limit 1`)).rows[0];
-  await db.query(`update public.whatsapp_contacts set handler = 'ai', flow_id = $1, flow_node = 'menu' where id = $2`, [flowId, contact.id]);
-  check(
-    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_contacts set flow_node = 'x' where id = $1`, [contact.id])), /permission denied/),
-    "o painel não mexe em onde a conversa parou no fluxo",
-  );
-  await asAdmin(() => db.query(`update public.whatsapp_contacts set handler = 'staff' where id = $1`, [contact.id]));
-  const reset = (await db.query(`select flow_id, flow_node from public.whatsapp_contacts where id = $1`, [contact.id])).rows[0];
-  check(reset.flow_id === null && reset.flow_node === null, "assumir a conversa encerra o fluxo em andamento");
-
-  await db.query(`update public.whatsapp_contacts set flow_id = $1, flow_node = 'menu' where id = $2`, [flowId, contact.id]);
+  await asAdmin(() => db.query(`update public.whatsapp_flows set enabled = true where id = $1`, [flowId]));
+  const enabled = await asAdmin(() => db.query(`select enabled from public.whatsapp_flows where id = $1`, [flowId]));
+  check(enabled.rows[0]?.enabled === true, "o Jota liga o fluxo e ele entra no roteiro da IA");
   await asAdmin(() => db.query(`delete from public.whatsapp_flows where id = $1`, [flowId]));
-  const orphan = (await db.query(`select flow_id from public.whatsapp_contacts where id = $1`, [contact.id])).rows[0];
-  check(orphan.flow_id === null, "apagar o fluxo solta as conversas que estavam nele");
+  check((await db.query(`select count(*)::int as total from public.whatsapp_flows`)).rows[0].total === 0, "o Jota apaga o fluxo");
 }
 

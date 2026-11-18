@@ -195,13 +195,17 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
     [setDirty],
   );
 
-  // Cada saída leva a um lugar só: ligar de novo troca o destino.
+  // Opção, Sim/Não e "Outra resposta" levam a um lugar só (ligar de novo troca o destino). A saída comum pode
+  // abrir vários caminhos: depois das boas-vindas, o cliente pode pedir desconto ou escolher uma opção.
   const onConnect = useCallback(
     (connection: Connection) => {
+      const exclusive = connection.sourceHandle != null;
       setEdges((current) =>
         addEdge(
           { ...connection, id: newEdgeId() },
-          current.filter((edge) => !(edge.source === connection.source && (edge.sourceHandle ?? null) === (connection.sourceHandle ?? null))),
+          exclusive
+            ? current.filter((edge) => !(edge.source === connection.source && (edge.sourceHandle ?? null) === connection.sourceHandle))
+            : current,
         ),
       );
       setDirty(true);
@@ -393,7 +397,7 @@ function Editor({ switcher, flow, draft, onSaved, onDeleted, onDirtyChange }: Fl
               </button>
             </div>
             <div className="min-h-0 flex-1">
-              <FlowSimulator graph={graph} />
+              <FlowSimulator flow={{ id: flow?.id, name: name.trim() || "Fluxo em teste", graph }} />
             </div>
           </aside>
         )}

@@ -25,6 +25,7 @@ import type {
   WhatsAppHandler,
   WhatsAppMessage,
   WhatsAppSettings,
+  FlowTestDraft,
 } from "@/domain/whatsapp";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import type { ProfileLogin } from "@/domain/delivery-login";
@@ -329,7 +330,8 @@ export interface AdminWhatsAppRepository {
   /** Substitui a lista inteira, na ordem dada. */
   saveFaq(items: readonly WhatsAppFaqDraft[]): Promise<WhatsAppFaq[]>;
   /** Testa a IA com o rascunho da tela. Nada é gravado nem enviado. */
-  simulate(history: readonly SimulatorTurn[], draft: AiDraft): Promise<SimulatorReply>;
+  /** Testa a IA: com o rascunho da aba IA (null = o que está salvo) e, na aba Fluxos, com o fluxo da tela. */
+  simulate(history: readonly SimulatorTurn[], draft: AiDraft | null, flowTest?: FlowTestDraft): Promise<SimulatorReply>;
 
   /** Conversas, a mais recente primeiro. */
   listContacts(): Promise<WhatsAppContact[]>;

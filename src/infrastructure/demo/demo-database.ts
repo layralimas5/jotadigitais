@@ -69,8 +69,6 @@ export interface DemoState {
   whatsappChat?: Record<string, WhatsAppChatMessage[]>;
   /** Fluxos de Automação > Fluxos. Sem nada salvo, vale o modelo pronto. */
   whatsappFlows?: WhatsAppFlow[];
-  /** Onde cada conversa parou no fluxo, pelo id do contato. */
-  whatsappFlowState?: Record<string, { flowId: string; node: string }>;
   coupons?: StoredCoupon[];
   /** Sem a lista guardada, valem os países de fábrica. */
   countries?: Country[];

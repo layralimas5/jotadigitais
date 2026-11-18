@@ -49,7 +49,6 @@ const WIDE_EDITOR_ROUTES = ["/admin/site"];
 const FORM_ROUTES = [
   ...EDITOR_ROUTES,
   "/admin/clientes/:key",
-  "/admin/automacao",
   "/admin/apis",
   "/admin/configuracoes",
   "/admin/suporte/:id",

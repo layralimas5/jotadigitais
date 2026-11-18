@@ -42,7 +42,7 @@ const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPag
 const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
 const LeadEditorPage = lazy(() => import("@/ui/admin/pages/LeadEditorPage"));
 const CustomerEditorPage = lazy(() => import("@/ui/admin/pages/CustomerEditorPage"));
-const AutomationPage = lazy(() => import("@/ui/admin/pages/AutomationPage"));
+const LegacyAutomationRedirect = lazy(() => import("@/ui/admin/pages/LegacyAutomationRedirect"));
 const WhatsAppPage = lazy(() => import("@/ui/admin/pages/WhatsAppPage"));
 const PrivacyPage = lazy(() => import("@/ui/admin/pages/PrivacyPage"));
 const ApisPage = lazy(() => import("@/ui/admin/pages/ApisPage"));
@@ -120,7 +120,7 @@ export const router = createBrowserRouter([
           { path: "crm/novo", element: <LeadEditorPage /> },
           { path: "crm/:id", element: <LeadEditorPage /> },
           { path: "whatsapp", element: <WhatsAppPage /> },
-          { path: "automacao", element: <AutomationPage /> },
+          { path: "automacao", element: <LegacyAutomationRedirect /> },
           { path: "apis", element: <ApisPage /> },
           { path: "privacidade", element: <PrivacyPage /> },
           { path: "mais", element: <MorePage /> },

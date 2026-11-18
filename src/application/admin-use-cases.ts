@@ -25,6 +25,7 @@ import type {
   WhatsAppHandler,
   WhatsAppMessage,
   WhatsAppSettings,
+  FlowTestDraft,
 } from "@/domain/whatsapp";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
@@ -365,8 +366,12 @@ export async function saveWhatsAppAiSetup(
   return { settings: saved, faq: await deps.whatsapp.saveFaq(faq) };
 }
 
-export const simulateWhatsAppAi = (deps: AdminDeps, history: readonly SimulatorTurn[], draft: AiDraft): Promise<SimulatorReply> =>
-  deps.whatsapp.simulate(history, draft);
+export const simulateWhatsAppAi = (
+  deps: AdminDeps,
+  history: readonly SimulatorTurn[],
+  draft: AiDraft | null,
+  flowTest?: FlowTestDraft,
+): Promise<SimulatorReply> => deps.whatsapp.simulate(history, draft, flowTest);
 
 export const listWhatsAppContacts = (deps: AdminDeps): Promise<WhatsAppContact[]> => deps.whatsapp.listContacts();
 

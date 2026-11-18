@@ -7,7 +7,8 @@
 // Deploy: npx supabase functions deploy whatsapp-panel
 // Segredos: ANTHROPIC_API_KEY e, no modo live, WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
-import { loadAiConfig, runAssistant, type AiConfig, type ChatTurn } from "../_shared/whatsapp-ai.ts";
+import { enabledFlows, loadAiConfig, playbookOf, runAssistant, type AiConfig, type ChatTurn } from "../_shared/whatsapp-ai.ts";
+import { FLOW_LIMITS, parseFlowGraph } from "../_shared/whatsapp-flow.ts";
 import { insideWindow } from "../_shared/whatsapp-cloud.ts";
 import { processInbound, recordOutbound } from "../_shared/whatsapp-inbound.ts";
 
@@ -61,14 +62,41 @@ function parseHistory(raw: unknown): ChatTurn[] | null {
   return turns as ChatTurn[];
 }
 
+const CONTACT_KIND_LABEL: Record<string, string> = {
+  lead: "interessado (ainda não comprou)",
+  customer: "cliente (já comprou)",
+  affiliate: "afiliado",
+  student: "aluno",
+};
+
+/**
+ * Fluxo da tela de Fluxos, mesmo sem salvar e mesmo desligado: entra no roteiro no lugar da versão salva.
+ * Os demais fluxos ligados continuam valendo, como no atendimento real.
+ */
+async function withDraftFlow(admin: SupabaseClient, config: AiConfig, raw: unknown): Promise<AiConfig | null> {
+  if (raw === undefined) return config;
+  if (!isRecord(raw)) return null;
+  const name = text(raw.name, 80);
+  const graph = parseFlowGraph(raw.graph);
+  if (!name || graph.nodes.length > FLOW_LIMITS.nodes) return null;
+  const id = typeof raw.id === "string" ? raw.id : null;
+  const { data, error } = await admin.from("whatsapp_flows").select("id, name, graph").eq("enabled", true).order("position").order("created_at");
+  if (error) throw error;
+  const others = enabledFlows(data).filter((flow) => flow.id !== id);
+  return { ...config, playbook: playbookOf([...others, { name, graph }]) };
+}
+
 async function simulate(admin: SupabaseClient, body: Record<string, unknown>): Promise<Response> {
   const history = parseHistory(body.history);
   if (!history) return failWith("invalid");
-  const config = parseDraft(body.draft, await loadAiConfig(admin));
+  const drafted = parseDraft(body.draft ?? undefined, await loadAiConfig(admin));
+  const config = drafted && (await withDraftFlow(admin, drafted, body.flow ?? undefined));
   if (!config) return failWith("invalid");
+  const kind = typeof body.contactKind === "string" ? CONTACT_KIND_LABEL[body.contactKind] : undefined;
   if (!Deno.env.get("ANTHROPIC_API_KEY")) return failWith("ai_unavailable");
   const firstContact = history.filter((turn) => turn.role === "user").length === 1;
-  const result = await runAssistant(admin, { config, history, phone: null, firstContact });
+  const context = { kindLabel: kind ?? CONTACT_KIND_LABEL.lead!, businessHours: body.businessHours !== false };
+  const result = await runAssistant(admin, { config, history, phone: null, firstContact, context });
   return json(result);
 }
 

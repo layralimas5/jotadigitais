@@ -1,6 +1,5 @@
 import { RotateCcw } from "lucide-react";
-import { Suspense, lazy, useEffect, useId, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useId, useState, type FormEvent } from "react";
 import { siteConfig } from "@/app/config";
 import { getMessageTemplates, saveMessageTemplates } from "@/application/admin-use-cases";
 import { fieldErrorsOf, messageTemplatesSchema } from "@/application/schemas";
@@ -15,19 +14,10 @@ import {
   type TemplateValues,
   type TemplateVariable,
 } from "@/domain/message-template";
-import type { WhatsAppAiSettings } from "@/domain/whatsapp";
 import { Button } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
-import { AiSetupPanel } from "../automation/AiSetupPanel";
-import { WhatsAppDeliveryPanel } from "../automation/WhatsAppDeliveryPanel";
-import { useFocusLayout } from "../focus-layout";
-import { WhatsAppStatusBar } from "../whatsapp/WhatsAppStatusBar";
-
-// O quadro de fluxos (React Flow) só baixa quando a aba Fluxos é aberta.
-const FlowsPanel = lazy(() => import("../flows/FlowsPanel").then((module) => ({ default: module.FlowsPanel })));
-import { FilterChips } from "../components/FilterChips";
-import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { InlineError, LoadingBlock } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useInsertAtCursor } from "../lib/use-insert-at-cursor";
 import { useToast } from "../toast";
@@ -175,66 +165,10 @@ function TemplatesForm({ initial }: { initial: MessageTemplates }) {
   );
 }
 
-type AutomationTab = "entrega" | "fluxos" | "ia" | "mensagens";
-const TAB_PARAM = "aba";
-const TABS: readonly AutomationTab[] = ["entrega", "fluxos", "ia", "mensagens"];
-
-const tabOf = (value: string | null): AutomationTab => TABS.find((tab) => tab === value) ?? "entrega";
-
-export default function AutomationPage() {
+/** WhatsApp > Mensagens: os textos de cada momento da venda. */
+export function MessageTemplatesPanel() {
   const templates = useAdminQuery(getMessageTemplates, "message-templates");
-  const [params, setParams] = useSearchParams();
-  const tab = tabOf(params.get(TAB_PARAM));
-  // A faixa de cima e a aba IA mexem na mesma configuração: uma conta para a outra o que mudou.
-  const [aiFromBar, setAiFromBar] = useState<WhatsAppAiSettings | null>(null);
-  const [aiFromForm, setAiFromForm] = useState<WhatsAppAiSettings | null>(null);
-  // O quadro só carrega quando a aba Fluxos é aberta; depois fica montado para não perder o que está sendo editado.
-  const [flowsOpened, setFlowsOpened] = useState(tab === "fluxos");
-  // O quadro usa a tela toda: o menu lateral encolhe enquanto a aba Fluxos estiver aberta.
-  useFocusLayout(tab === "fluxos");
-  useEffect(() => {
-    if (tab === "fluxos") setFlowsOpened(true);
-  }, [tab]);
-
-  const setTab = (next: AutomationTab) => {
-    const nextParams = new URLSearchParams(params);
-    if (next === "entrega") nextParams.delete(TAB_PARAM);
-    else nextParams.set(TAB_PARAM, next);
-    setParams(nextParams, { replace: true });
-  };
-
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Automação" description="Entrega do acesso, fluxos, IA de atendimento e as mensagens do WhatsApp." />
-      <WhatsAppStatusBar current="automation" onAiChange={setAiFromBar} saved={aiFromForm} />
-      <FilterChips<AutomationTab>
-        label="Parte da automação"
-        value={tab}
-        onChange={setTab}
-        options={[
-          { value: "entrega", label: "Entrega automática" },
-          { value: "fluxos", label: "Fluxos" },
-          { value: "ia", label: "IA de atendimento" },
-          { value: "mensagens", label: "Mensagens" },
-        ]}
-      />
-      {tab === "entrega" && <WhatsAppDeliveryPanel />}
-      <div hidden={tab !== "fluxos"}>
-        {flowsOpened && (
-          <Suspense fallback={<LoadingBlock />}>
-            <FlowsPanel />
-          </Suspense>
-        )}
-      </div>
-      {/* Ficam montadas: trocar de aba não apaga o que está sendo editado. */}
-      <div hidden={tab !== "ia"}>
-        <AiSetupPanel enabledOverride={aiFromBar?.enabled ?? null} onSaved={setAiFromForm} />
-      </div>
-      <div hidden={tab !== "mensagens"} className="space-y-6">
-        {templates.status === "loading" && <LoadingBlock />}
-        {templates.status === "error" && <ErrorState message={templates.error.message} onRetry={templates.reload} />}
-        {templates.status === "success" && <TemplatesForm initial={templates.data} />}
-      </div>
-    </div>
-  );
+  if (templates.status === "loading") return <LoadingBlock />;
+  if (templates.status === "error") return <ErrorState message={templates.error.message} onRetry={templates.reload} />;
+  return <TemplatesForm initial={templates.data} />;
 }
