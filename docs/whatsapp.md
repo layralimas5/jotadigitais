@@ -110,7 +110,7 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 
 ## Fase 1 pronta: entrega em modo teste
 
-- Migration `20261209120000_whatsapp_delivery`: `whatsapp_settings` (liga e desliga pelo painel; `mode` só pelo
+- Migration `20261213120000_whatsapp_delivery`: `whatsapp_settings` (liga e desliga pelo painel; `mode` só pelo
   SQL), `whatsapp_messages` (fila e registro, escrita só pela função), `whatsapp_delivery_items` (login aberto, só
   `service_role`) e o gatilho `queue_whatsapp_payment` em `orders`.
 - Função `whatsapp-send`: em `mode = 'test'` grava o aviso de pagamento e o acesso de cada conta com as senhas
@@ -141,7 +141,7 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 
 ## Fases 3 e 4 prontas em modo teste: IA, aba WhatsApp e Automação > IA (17/11)
 
-- Migration `20261211120000_whatsapp_ai`: configuração da IA em `whatsapp_settings` (começa **desligada**), `whatsapp_faq`
+- Migration `20261214120000_whatsapp_ai`: configuração da IA em `whatsapp_settings` (começa **desligada**), `whatsapp_faq`
   (já com as dúvidas do site), `whatsapp_contacts`, `whatsapp_chat`, `whatsapp_register_inbound` (registro atômico, sem
   duplicar reenvio da Meta) e o aviso `whatsapp` no sininho/push.
 - Funções: `whatsapp-webhook` (Meta, assinatura conferida) e `whatsapp-panel` (simulador, resposta do Jota e "Simular
@@ -157,7 +157,7 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 
 ### Ativar (depois da fase 1)
 
-1. SQL Editor: a migration `20261211120000_whatsapp_ai.sql` (e registrar em `schema_migrations`).
+1. SQL Editor: a migration `20261214120000_whatsapp_ai.sql` (e registrar em `schema_migrations`).
 2. `npx supabase secrets set ANTHROPIC_API_KEY=... SITE_URL=https://jotadigitais.com.br`
 3. `npx supabase functions deploy whatsapp-panel` e `npx supabase functions deploy whatsapp-webhook --no-verify-jwt`
 4. Testar: Automação > IA de atendimento > Testar a IA; depois WhatsApp > Simular cliente com a IA ligada.
@@ -189,13 +189,13 @@ automático (as mensagens esperam o Jota).
 - `supabase/functions/_shared/whatsapp-flow.ts`: `flowPlaybook` transforma o grafo em passos numerados;
   `whatsapp-ai.ts` põe os fluxos ligados no prompt (seção "Roteiro de atendimento") e manda o tipo do contato e o
   horário da loja junto com a conversa.
-- Tabela `whatsapp_flows` (migration `20261212120000_whatsapp_flows.sql`), RLS por `automation`.
+- Tabela `whatsapp_flows` (migration `20261215120000_whatsapp_flows.sql`), RLS por `automation`.
 - WhatsApp e Automação viraram uma aba só (`/admin/whatsapp?aba=conversas|fluxos|ia|entrega|mensagens`);
   `/admin/automacao` redireciona. A aba Fluxos abre em modo foco (menu lateral encolhido, largura toda).
 
 ### Ativar
 
-1. Migration `20261212120000_whatsapp_flows.sql`.
+1. Migration `20261215120000_whatsapp_flows.sql`.
 2. Publicar de novo a `whatsapp-webhook` e a `whatsapp-panel`.
 3. Em WhatsApp > Fluxos, "Começar pelo modelo pronto", ajustar os textos, testar e ligar.
 
