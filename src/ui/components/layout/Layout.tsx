@@ -29,7 +29,10 @@ const FIRST_VISIT_WAIT_MS = 2500;
  * Assim ninguém vê o texto de fábrica trocar pelo editado. Quem já visitou abre na hora, com a cópia.
  */
 function FirstVisitGate({ children }: { children: ReactNode }) {
-  const ready = useSiteContentReady() && useStoreSettingsReady();
+  // Os dois hooks rodam sempre, na mesma ordem (o && pulava o segundo e o React reclamava).
+  const contentReady = useSiteContentReady();
+  const settingsReady = useStoreSettingsReady();
+  const ready = contentReady && settingsReady;
   const [waitedEnough, setWaitedEnough] = useState(false);
   useEffect(() => {
     if (ready) return;
