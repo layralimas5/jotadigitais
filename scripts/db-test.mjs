@@ -723,6 +723,7 @@ async function main() {
   await deliveryMessageChecks();
   await supportMergeChecks();
   await tagColorChecks();
+  await affiliateChecks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -2474,4 +2475,200 @@ async function tagColorChecks() {
   await asAdmin(() => db.query(`delete from public.account_tag_colors where tag_key = 'fixed:shop-full'`));
   const left = await db.query(`select count(*)::int as n from public.account_tag_colors`);
   check(left.rows[0].n === 1, "tirar a cor apaga só a linha da tag");
+}
+
+const AFFILIATE_A = "00000000-0000-0000-0000-0000000af001";
+const AFFILIATE_B = "00000000-0000-0000-0000-0000000af002";
+const AFFILIATE_C = "00000000-0000-0000-0000-0000000af003";
+
+async function affiliateChecks() {
+  console.log("\nafiliados");
+  const { createHash } = await import("node:crypto");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asAffiliate = (userId, fn) => as("authenticated", userId, fn);
+  // Os testes anteriores gastam o limite do checkout sem IP; aqui cada pedido começa do zero.
+  await db.exec(`delete from public.rate_limit_hits; grant usage on schema public to service_role;`);
+
+  const program = await as("anon", null, () => db.query(`select enabled, commission_kind, commission_value, terms from public.affiliate_program`));
+  check(program.rows.length === 1 && program.rows[0].enabled === false, "visitante lê as regras do programa (desligado de fábrica)");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`update public.affiliate_program set enabled = true`)), /permission denied/),
+    "visitante não liga o programa",
+  );
+  const strangerTurnsOn = await as("authenticated", STRANGER_ID, () => db.query(`update public.affiliate_program set enabled = true returning id`));
+  check(strangerTurnsOn.rows.length === 0, "usuário sem acesso a Parceiros não mexe no programa");
+  await asAdmin(() => db.query(`update public.affiliate_program set enabled = true, commission_kind = 'percent', commission_value = 10, terms = 'Termos do programa v1'`));
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.affiliate_program set commission_value = 95`)), /affiliate_program_commission/),
+    "comissão acima de 90% é recusada",
+  );
+  const termsSha = createHash("sha256").update("Termos do programa v1").digest("hex");
+
+  await db.exec(`insert into auth.users (id, email) values
+    ('${AFFILIATE_A}', 'ana@exemplo.com'), ('${AFFILIATE_B}', 'bruno@exemplo.com'), ('${AFFILIATE_C}', 'carla@exemplo.com')`);
+  const register = (userId, name, document, sha = termsSha, ip = "10.9.0.1") =>
+    as("service_role", null, () =>
+      db.query(`select public.register_affiliate($1, $2, $3, '(84) 99999-0000', $4, $5, $6) as data`, [userId, name, `${name}@exemplo.com`, document, sha, ip]),
+    ).then((result) => result.rows[0].data);
+
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.register_affiliate($1, 'Invasor', 'x@x.com', null, $2, $3, null)`, [AFFILIATE_A, cpfFrom("123456789"), termsSha])), /permission denied/),
+    "visitante não chama o cadastro direto (só a função do servidor)",
+  );
+  check(await rejects(() => register(AFFILIATE_A, "Ana Souza", cpfFrom("123456789"), "0".repeat(64)), /outdated_terms/), "cadastro com termos antigos é recusado");
+  check(await rejects(() => register(AFFILIATE_A, "Ana Souza", "11111111111"), /invalid_document/), "CPF inválido é recusado");
+  check(await rejects(() => register(AFFILIATE_A, "Ana Souza", cpfFrom("12345678").padEnd(14, "0")), /invalid_document/), "CNPJ não serve para afiliado");
+  const ana = await register(AFFILIATE_A, "Ána Souza", cpfFrom("123456789"));
+  check(ana.status === "pending" && /^ana[0-9a-f]{3}$/.test(ana.code), `cadastro entra pendente, com código ${ana.code}`);
+  check(await rejects(() => register(AFFILIATE_C, "Clone", cpfFrom("123456789")), /document_taken/), "o mesmo CPF não cadastra dois afiliados");
+  const bruno = await register(AFFILIATE_B, "Bruno Lima", cpfFrom("987654321"));
+
+  const stored = await db.query(`select document, document_encrypted is not null as cifrado from public.affiliates where id = $1`, [ana.id]);
+  check(stored.rows[0].document === null && stored.rows[0].cifrado, "CPF do afiliado fica só cifrado");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select document_encrypted from public.affiliates`)), /permission denied/),
+    "nem o painel lê o CPF cifrado direto",
+  );
+  const own = await asAffiliate(AFFILIATE_A, () => db.query(`select a.id, public.affiliate_document_of(a.id) as cpf from public.affiliates a`));
+  check(own.rows.length === 1 && own.rows[0].cpf === cpfFrom("123456789"), "afiliado vê só a própria linha, com o CPF aberto");
+  const adminView = await asAdmin(() => db.query(`select public.affiliate_document_of($1) as cpf`, [ana.id]));
+  check(adminView.rows[0].cpf === cpfFrom("123456789"), "Jota vê o CPF do afiliado");
+
+  const selfApprove = await asAffiliate(AFFILIATE_A, () => db.query(`update public.affiliates set status = 'approved' returning id`));
+  check(selfApprove.rows.length === 0, "afiliado não se aprova sozinho");
+  check(
+    await rejects(() => asAffiliate(AFFILIATE_A, () => db.query(`update public.affiliates set pix_key = 'x'`)), /permission denied/),
+    "afiliado não grava direto na tabela",
+  );
+  check(
+    (await asAffiliate(AFFILIATE_A, () => db.query(`select count(*)::int as n from public.affiliate_account_commissions()`))).rows[0].n === 0,
+    "pendente ainda não vê a vitrine de afiliado",
+  );
+  check((await as("anon", null, () => db.query(`select public.track_affiliate_click($1, null) as data`, [ana.code]))).rows[0].data === null, "link de afiliado pendente não conta clique");
+
+  await asAdmin(() => db.query(`update public.affiliates set status = 'approved' where id in ($1, $2)`, [ana.id, bruno.id]));
+  const approved = await db.query(`select approved_at from public.affiliates where id = $1`, [ana.id]);
+  check(approved.rows[0].approved_at !== null, "aprovar grava a data da aprovação");
+
+  await asAffiliate(AFFILIATE_A, () => db.query(`select public.update_my_affiliate_profile('Ana Souza', '84 98888-7777', null, 'ana@pix.com')`));
+  const profile = await db.query(`select name, whatsapp, pix_key, document_encrypted is not null as cpf from public.affiliates where id = $1`, [ana.id]);
+  check(profile.rows[0].pix_key === "ana@pix.com" && profile.rows[0].whatsapp === "84988887777" && profile.rows[0].cpf, "afiliado troca os próprios dados e mantém o CPF");
+  check(
+    await rejects(() => asAffiliate(AFFILIATE_A, () => db.query(`select public.update_my_affiliate_profile('Ana', null, $1, null)`, [cpfFrom("987654321")])), /document_taken/),
+    "afiliado não usa o CPF de outro",
+  );
+
+  const accountId = await newAccount("afiliado-link");
+  const closedId = await newAccount("afiliado-fechada");
+  await asAdmin(() => db.query(`update public.accounts set affiliate_enabled = false where id = $1`, [closedId]));
+  const shareable = await asAffiliate(AFFILIATE_A, () => db.query(`select account_id, commission_cents from public.affiliate_account_commissions()`));
+  const linkRow = shareable.rows.find((row) => row.account_id === accountId);
+  check(linkRow?.commission_cents === 3700 && !shareable.rows.some((row) => row.account_id === closedId), "aprovado vê as contas liberadas com a comissão (10% de R$ 370)");
+  check(
+    (await as("authenticated", STRANGER_ID, () => db.query(`select count(*)::int as n from public.affiliate_account_commissions()`))).rows[0].n === 0,
+    "quem não é afiliado não vê comissão de conta",
+  );
+
+  console.log("\nafiliados: link e comissão");
+  const click = (await as("anon", null, () => db.query(`select public.track_affiliate_click($1, $2) as data`, [ana.code.toUpperCase(), accountId]))).rows[0].data;
+  check(typeof click?.click_id === "string" && click.link_days === 30, "visitante abre o link e recebe o clique por 30 dias");
+  check((await as("anon", null, () => db.query(`select public.track_affiliate_click('naoexiste', null) as data`))).rows[0].data === null, "código desconhecido não conta clique");
+
+  // Testes anteriores publicam Termos novos: o checkout daqui aceita a versão mais recente.
+  const latest = async (slug) =>
+    (await db.query(`select version, sha256 from public.legal_documents where slug = $1 order by published_at desc, version desc limit 1`, [slug])).rows[0];
+  const [terms, privacy] = [await latest("terms"), await latest("privacy")];
+  const previousConsent = CONSENT;
+  CONSENT = `'${terms.version}', '${terms.sha256}', '${privacy.version}', '${privacy.sha256}'`;
+  const buyer = (n) => ({ email: `afiliado${n}@exemplo.com`, whatsapp: `1195559000${n}`, document: cpfFrom(`8${n}${n}111333`.slice(0, 9)) });
+  const order = (await placeWithCoupon(accountId, buyer(1), "pix", null, null)).rows[0].data;
+  const attach = (code, clickId) => as("anon", null, () => db.query(`select public.attach_affiliate_click($1, $2) as ok`, [code, clickId])).then((r) => r.rows[0].ok);
+  check(await attach(order.code, click.click_id), "pedido criado pelo link fica com o afiliado");
+  check(!(await attach(order.code, click.click_id)), "o pedido não troca de afiliado depois de ligado");
+  const commissionOf = (code) => db.query(`select * from public.affiliate_commissions where order_code = $1`, [code]).then((r) => r.rows[0] ?? null);
+  check((await commissionOf(order.code)) === null, "sem pagamento, nada de comissão");
+
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [order.code]);
+  const pending = await commissionOf(order.code);
+  check(pending?.status === "pending" && pending.amount_cents === 3700 && pending.via === "link" && pending.release_at === null, "pago: comissão de R$ 37 pendente, pelo link");
+  await db.query(`update public.orders set status = 'delivered' where code = $1`, [order.code]);
+  const delivered = await commissionOf(order.code);
+  const days = (new Date(delivered.release_at) - Date.now()) / 86_400_000;
+  check(delivered.status === "pending" && days > 14 && days <= 15, "entregue: libera quando a garantia acaba (15 dias)");
+
+  const theirs = await asAffiliate(AFFILIATE_A, () => db.query(`select order_code from public.affiliate_commissions`));
+  const others = await asAffiliate(AFFILIATE_B, () => db.query(`select order_code from public.affiliate_commissions`));
+  check(theirs.rows.length === 1 && others.rows.length === 0, "cada afiliado vê só as próprias comissões");
+  check(
+    (await as("authenticated", STRANGER_ID, () => db.query(`select count(*)::int as n from public.affiliate_commissions`))).rows[0].n === 0,
+    "usuário qualquer não vê comissão",
+  );
+
+  const canceledOrder = (await placeWithCoupon(await newAccount("afiliado-cancela"), buyer(2), "pix", null, null)).rows[0].data;
+  await attach(canceledOrder.code, click.click_id);
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [canceledOrder.code]);
+  await db.query(`update public.orders set status = 'canceled' where code = $1`, [canceledOrder.code]);
+  const canceled = await commissionOf(canceledOrder.code);
+  check(canceled.status === "canceled" && canceled.canceled_reason === "order_canceled", "pedido cancelado cancela a comissão sozinho");
+
+  await asAdmin(() => db.query(`insert into public.coupons (code, kind, value, affiliate_id) values ('BRUNO10', 'percent', 10, $1)`, [bruno.id]));
+  const couponOrder = (await placeWithCoupon(await newAccount("afiliado-cupom"), buyer(3), "pix", null, "BRUNO10")).rows[0].data;
+  await attach(couponOrder.code, click.click_id);
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [couponOrder.code]);
+  const byCoupon = await commissionOf(couponOrder.code);
+  check(byCoupon.via === "coupon" && byCoupon.affiliate_id === bruno.id && byCoupon.amount_cents === 3330, "cupom do afiliado vence o link e a comissão sai do valor com desconto");
+
+  const selfOrder = (await placeWithCoupon(await newAccount("afiliado-proprio"), { ...buyer(4), document: cpfFrom("123456789") }, "pix", null, null)).rows[0].data;
+  await attach(selfOrder.code, click.click_id);
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [selfOrder.code]);
+  const self = await commissionOf(selfOrder.code);
+  check(self.status === "canceled" && self.canceled_reason === "self_purchase", "compra com o CPF do próprio afiliado não rende comissão");
+
+  const closedOrder = (await placeWithCoupon(closedId, buyer(5), "pix", null, null)).rows[0].data;
+  await attach(closedOrder.code, click.click_id);
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [closedOrder.code]);
+  check((await commissionOf(closedOrder.code)) === null, "conta fora do programa não gera comissão");
+
+  const fixedId = await newAccount("afiliado-fixa");
+  await asAdmin(() => db.query(`update public.accounts set affiliate_commission_kind = 'fixed', affiliate_commission_value = 5000 where id = $1`, [fixedId]));
+  const fixedOrder = (await placeWithCoupon(fixedId, buyer(6), "pix", null, null)).rows[0].data;
+  await attach(fixedOrder.code, click.click_id);
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [fixedOrder.code]);
+  check((await commissionOf(fixedOrder.code)).amount_cents === 5000, "comissão própria da conta (R$ 50 fixo) vale no lugar da padrão");
+
+  const oldOrder = (await placeWithCoupon(await newAccount("afiliado-velho"), buyer(7), "pix", null, null)).rows[0].data;
+  await db.query(`update public.orders set created_at = now() - interval '1 hour' where code = $1`, [oldOrder.code]);
+  check(!(await attach(oldOrder.code, click.click_id)), "pedido antigo não aceita afiliado depois");
+
+  check(
+    await rejects(() => asAffiliate(AFFILIATE_A, () => db.query(`select public.cancel_affiliate_commission($1)`, [pending.id])), /forbidden/),
+    "afiliado não cancela comissão",
+  );
+  await asAdmin(() => db.query(`select public.cancel_affiliate_commission($1)`, [pending.id]));
+  check((await commissionOf(order.code)).canceled_reason === "manual", "Jota cancela uma comissão pendente à mão");
+
+  console.log("\nafiliados: mural, ranking e cupom");
+  await asAdmin(() => db.query(`insert into public.affiliate_announcements (title, body) values ('Contas novas', 'Chegaram 5 contas de TikTok.')`));
+  const muralA = await asAffiliate(AFFILIATE_A, () => db.query(`select title from public.affiliate_announcements`));
+  check(muralA.rows.length === 1, "afiliado aprovado lê o mural");
+  check(
+    await rejects(() => asAffiliate(AFFILIATE_A, () => db.query(`insert into public.affiliate_announcements (title, body) values ('x', 'y')`)), /row-level security/),
+    "afiliado não escreve no mural",
+  );
+  await asAdmin(() => db.query(`update public.affiliates set status = 'suspended' where id = $1`, [bruno.id]));
+  const muralB = await asAffiliate(AFFILIATE_B, () => db.query(`select title from public.affiliate_announcements`));
+  check(muralB.rows.length === 0, "afiliado suspenso perde o mural");
+  check((await asAffiliate(AFFILIATE_B, () => db.query(`select * from public.my_affiliate_coupon()`))).rows.length === 0, "suspenso não vê o cupom");
+  await asAdmin(() => db.query(`update public.affiliates set status = 'approved' where id = $1`, [bruno.id]));
+  const coupon = await asAffiliate(AFFILIATE_B, () => db.query(`select code from public.my_affiliate_coupon()`));
+  check(coupon.rows[0]?.code === "BRUNO10", "afiliado vê o próprio cupom");
+
+  const ranking = await asAffiliate(AFFILIATE_A, () => db.query(`select * from public.affiliate_ranking(30)`));
+  const me = ranking.rows.find((row) => row.is_me);
+  check(me?.display_name === "Ana S." && ranking.rows.length === 2, "ranking mostra primeiro nome e inicial, e marca quem está vendo");
+  check(
+    (await as("authenticated", STRANGER_ID, () => db.query(`select count(*)::int as n from public.affiliate_ranking(30)`))).rows[0].n === 0,
+    "quem não é afiliado não vê o ranking",
+  );
+  CONSENT = previousConsent;
 }
