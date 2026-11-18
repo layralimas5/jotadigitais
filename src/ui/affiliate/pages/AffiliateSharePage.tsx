@@ -2,6 +2,7 @@ import { Download, ExternalLink, ImageDown, QrCode, Search } from "lucide-react"
 import qrcode from "qrcode-generator";
 import { useMemo, useState } from "react";
 import { container } from "@/app/container";
+import type { AffiliatePortalService } from "@/application/affiliate-ports";
 import { shareableAccounts, type ShareableAccount } from "@/application/affiliate-use-cases";
 import { listAccounts } from "@/application/use-cases";
 import { formatCount, type Account } from "@/domain/account";
@@ -14,11 +15,11 @@ import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { cn } from "@/ui/lib/cn";
 import { AffiliateSpinner } from "../AffiliateLayout";
 import { CopyButton, LinkBox, PanelSection } from "../components/AffiliateUi";
-import { affiliatePortal, useAffiliateMe } from "../session";
+import { useAffiliateMe, useAffiliatePortal } from "../session";
 
 type PlatformFilter = Platform | "all";
 
-async function loadShareable(me: AffiliateMe) {
+async function loadShareable(affiliatePortal: AffiliatePortalService, me: AffiliateMe) {
   const [accounts, commissions, clicks, sales] = await Promise.all([
     listAccounts(container.store, { onlyAvailable: true }),
     affiliatePortal.accountCommissions(),
@@ -154,7 +155,8 @@ function AccountShareCard({ item, me }: { item: ShareableAccount<Account>; me: A
 export default function AffiliateSharePage() {
   useDocumentMeta("Divulgar contas");
   const me = useAffiliateMe();
-  const data = useAsync(() => loadShareable(me), `affiliate-share:${me.id}:${me.status}`);
+  const affiliatePortal = useAffiliatePortal();
+  const data = useAsync(() => loadShareable(affiliatePortal, me), `affiliate-share:${me.id}:${me.status}`);
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState<PlatformFilter>("all");
 

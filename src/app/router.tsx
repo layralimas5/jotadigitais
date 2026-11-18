@@ -43,6 +43,8 @@ const CouponsPage = lazy(() => import("@/ui/admin/pages/CouponsPage"));
 const CouponEditorPage = lazy(() => import("@/ui/admin/pages/CouponEditorPage"));
 const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
 const AffiliateDetailPage = lazy(() => import("@/ui/admin/pages/AffiliateDetailPage"));
+const DeveloperAffiliatesPage = lazy(() => import("@/ui/admin/pages/DeveloperAffiliatesPage"));
+const AffiliatePreviewRoot = lazy(() => import("@/ui/admin/affiliates/AffiliatePreviewRoot"));
 const EmailAccountsPage = lazy(() => import("@/ui/admin/pages/EmailAccountsPage"));
 const EmailAccountEditorPage = lazy(() => import("@/ui/admin/pages/EmailAccountEditorPage"));
 const UsersPage = lazy(() => import("@/ui/admin/pages/UsersPage"));
@@ -116,6 +118,17 @@ export const router = createBrowserRouter([
     children: [
       { path: "login", element: <LoginPage /> },
       {
+        // "Ver como" de um afiliado: tela cheia, fora do menu do painel.
+        path: "ver-afiliado/:id",
+        element: <AffiliatePreviewRoot />,
+        children: [
+          { index: true, element: <AffiliateHomePage /> },
+          { path: "divulgar", element: <AffiliateSharePage /> },
+          { path: "extrato", element: <AffiliateStatementPage /> },
+          { path: "perfil", element: <AffiliateProfilePage /> },
+        ],
+      },
+      {
         element: <AdminProtected />,
         children: [
           { index: true, element: <Navigate to="dashboard" replace /> },
@@ -147,6 +160,8 @@ export const router = createBrowserRouter([
           { path: "parceiros/novo", element: <PartnerEditorPage /> },
           { path: "parceiros/:id", element: <PartnerEditorPage /> },
           { path: "parceiros/afiliados/:id", element: <AffiliateDetailPage /> },
+          { path: "afiliados", element: <DeveloperAffiliatesPage /> },
+          { path: "afiliados/:id", element: <AffiliateDetailPage backPath="/admin/afiliados" /> },
           { path: "crm", element: <CrmPage /> },
           { path: "crm/novo", element: <LeadEditorPage /> },
           { path: "crm/:id", element: <LeadEditorPage /> },

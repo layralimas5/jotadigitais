@@ -316,6 +316,32 @@ export class SupabaseAffiliateAdminRepository implements AffiliateAdminRepositor
     };
   }
 
+  async listAccountRules(): Promise<ReadonlyMap<string, AccountAffiliateRule>> {
+    const { data, error } = await this.client.from("accounts").select("id, affiliate_enabled, affiliate_commission_kind, affiliate_commission_value");
+    if (error) fail(error);
+    const rows = z
+      .array(
+        z.object({
+          id: z.string(),
+          affiliate_enabled: z.boolean(),
+          affiliate_commission_kind: z.enum(COMMISSION_KINDS).nullable(),
+          affiliate_commission_value: z.number().nullable(),
+        }),
+      )
+      .parse(data);
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          enabled: row.affiliate_enabled,
+          commission:
+            row.affiliate_commission_kind && row.affiliate_commission_value !== null
+              ? { kind: row.affiliate_commission_kind, value: row.affiliate_commission_value }
+              : null,
+        },
+      ]),
+    );
+  }
   async saveAccountRule(accountId: string, rule: AccountAffiliateRule): Promise<void> {
     const { error } = await this.client
       .from("accounts")

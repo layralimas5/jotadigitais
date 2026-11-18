@@ -36,6 +36,8 @@ export interface AffiliateAdminRepository {
   saveAnnouncement(id: string | null, data: AffiliateAnnouncementData): Promise<AffiliateAnnouncement>;
   removeAnnouncement(id: string): Promise<void>;
   getAccountRule(accountId: string): Promise<AccountAffiliateRule>;
+  /** Regra de todas as contas de uma vez, pelo id (conta sem linha aqui = regra padrão). */
+  listAccountRules(): Promise<ReadonlyMap<string, AccountAffiliateRule>>;
   saveAccountRule(accountId: string, rule: AccountAffiliateRule): Promise<void>;
 }
 

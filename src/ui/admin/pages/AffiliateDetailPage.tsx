@@ -18,10 +18,11 @@ import { normalizeCouponCode } from "@/domain/coupon";
 import { formatBRL } from "@/domain/money";
 import { AffiliateStatusBadge } from "@/ui/components/affiliate/AffiliateBadges";
 import { CommissionList } from "@/ui/components/affiliate/CommissionList";
-import { Button } from "@/ui/components/Button";
+import { Button, ButtonLink } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { affiliatePreviewPath } from "../affiliates/AffiliatePreviewRoot";
 import { partnersTabPath } from "../affiliates/PartnersTabs";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SelectField, TextAreaField } from "../components/FormControls";
@@ -30,7 +31,7 @@ import { useAdminQuery, useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { useToast } from "../toast";
 
-const BACK_PATH = partnersTabPath("afiliados");
+const DEFAULT_BACK_PATH = partnersTabPath("afiliados");
 
 const STATUS_HINT: Record<AffiliateStatus, string> = {
   pending: "Ainda não divulga: o link não conta clique nem venda.",
@@ -251,7 +252,7 @@ function CouponSection({ detail, onSaved }: { detail: AffiliateDetail; onSaved: 
   );
 }
 
-function AffiliateDetailView({ detail, reload }: { detail: AffiliateDetail; reload: () => void }) {
+function AffiliateDetailView({ detail, reload, backPath }: { detail: AffiliateDetail; reload: () => void; backPath: string }) {
   const toast = useToast();
   const { affiliate, totals } = detail;
   const [canceling, setCanceling] = useState<AffiliateCommission | null>(null);
@@ -271,12 +272,17 @@ function AffiliateDetailView({ detail, reload }: { detail: AffiliateDetail; relo
 
   return (
     <>
-      <Link to={BACK_PATH} className="inline-flex items-center gap-2 text-sm text-mist hover:text-white">
+      <Link to={backPath} className="inline-flex items-center gap-2 text-sm text-mist hover:text-white">
         <ArrowLeft aria-hidden className="size-4" /> Voltar para os afiliados
       </Link>
       <div className="mt-4">
         <PageHeader
           title={affiliate.name}
+          action={
+            <ButtonLink to={affiliatePreviewPath(affiliate.id)} variant="secondary">
+              <Eye aria-hidden className="size-4" /> Ver como {affiliate.name.split(" ")[0]}
+            </ButtonLink>
+          }
           description={
             <span className="flex flex-wrap items-center gap-2">
               <AffiliateStatusBadge status={affiliate.status} /> <span className="font-mono text-xs">?ref={affiliate.code}</span>
@@ -336,7 +342,8 @@ function AffiliateDetailView({ detail, reload }: { detail: AffiliateDetail; relo
   );
 }
 
-export default function AffiliateDetailPage() {
+/** `backPath`: a aba Afiliados do Jota (padrão) ou a aba Afiliados do painel da desenvolvedora. */
+export default function AffiliateDetailPage({ backPath = DEFAULT_BACK_PATH }: { backPath?: string }) {
   const { id = "" } = useParams();
   const detail = useAdminQuery((deps) => loadAffiliateDetail(deps, id), `affiliate:${id}`);
 
@@ -348,12 +355,12 @@ export default function AffiliateDetailPage() {
         title="Afiliado não encontrado"
         description="Ele pode ter sido apagado. Volte para a lista de afiliados."
         action={
-          <Link to={BACK_PATH} className="text-sm font-medium text-electric hover:text-white">
+          <Link to={backPath} className="text-sm font-medium text-electric hover:text-white">
             Voltar para os afiliados
           </Link>
         }
       />
     );
   }
-  return <AffiliateDetailView detail={detail.data} reload={detail.reload} />;
+  return <AffiliateDetailView detail={detail.data} reload={detail.reload} backPath={backPath} />;
 }

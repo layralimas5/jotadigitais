@@ -327,6 +327,10 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
     return ruleOf(stateOf(this.db.read()), accountId);
   }
 
+  async listAccountRules(): Promise<ReadonlyMap<string, AccountAffiliateRule>> {
+    return new Map(Object.entries(stateOf(this.db.read()).accountRules));
+  }
+
   async saveAccountRule(accountId: string, rule: AccountAffiliateRule): Promise<void> {
     await simulateLatency();
     this.db.write((state) => {

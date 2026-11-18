@@ -18,7 +18,7 @@ import { cn } from "@/ui/lib/cn";
 import { csvMoney, downloadCsv } from "@/ui/lib/csv";
 import { AffiliateSpinner } from "../AffiliateLayout";
 import { StatTile } from "../components/AffiliateUi";
-import { affiliatePortal, useAffiliateMe } from "../session";
+import { useAffiliateMe, useAffiliatePortal } from "../session";
 
 const PERIODS = [
   { id: "30d", label: "Últimos 30 dias" },
@@ -62,6 +62,7 @@ type StateFilter = CommissionState | "all";
 export default function AffiliateStatementPage() {
   useDocumentMeta("Extrato do afiliado");
   const me = useAffiliateMe();
+  const affiliatePortal = useAffiliatePortal();
   const commissions = useAsync(() => affiliatePortal.listCommissions(), `affiliate-statement:${me.id}`);
   const [period, setPeriod] = useState<PeriodId>("30d");
   const [customFrom, setCustomFrom] = useState("");

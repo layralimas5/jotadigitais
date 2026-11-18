@@ -10,7 +10,7 @@ import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { cn } from "@/ui/lib/cn";
 import { AffiliateSpinner } from "../AffiliateLayout";
 import { CopyButton, LinkBox, PanelSection, StatTile } from "../components/AffiliateUi";
-import { affiliatePortal, useAffiliateMe } from "../session";
+import { useAffiliateMe, useAffiliatePath, useAffiliatePortal } from "../session";
 
 const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -28,12 +28,13 @@ function Stats({ home }: { home: AffiliateHome }) {
 
 function QuickShare({ home }: { home: AffiliateHome }) {
   const { me, program } = home;
+  const pathTo = useAffiliatePath();
   const link = affiliateLink(window.location.origin, me.code);
   return (
     <PanelSection
       title="Seu link da loja"
       action={
-        <Link to="/afiliado/divulgar" className="inline-flex items-center gap-1 text-sm font-medium text-electric hover:text-white">
+        <Link to={pathTo("divulgar")} className="inline-flex items-center gap-1 text-sm font-medium text-electric hover:text-white">
           Links por conta <ArrowRight aria-hidden className="size-4" />
         </Link>
       }
@@ -111,6 +112,8 @@ function Ranking({ home }: { home: AffiliateHome }) {
 export default function AffiliateHomePage() {
   useDocumentMeta("Painel do afiliado");
   const me = useAffiliateMe();
+  const affiliatePortal = useAffiliatePortal();
+  const pathTo = useAffiliatePath();
   const home = useAsync(() => loadAffiliateHome(affiliatePortal, me), `affiliate-home:${me.id}:${me.status}`);
 
   if (home.status === "loading") return <AffiliateSpinner />;
@@ -138,7 +141,7 @@ export default function AffiliateHomePage() {
         <PanelSection
           title="Últimas vendas"
           action={
-            <Link to="/afiliado/extrato" className="inline-flex items-center gap-1 text-sm font-medium text-electric hover:text-white">
+            <Link to={pathTo("extrato")} className="inline-flex items-center gap-1 text-sm font-medium text-electric hover:text-white">
               Extrato completo <ArrowRight aria-hidden className="size-4" />
             </Link>
           }

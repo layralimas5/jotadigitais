@@ -11,7 +11,7 @@ import { PasswordField } from "@/ui/components/form/PasswordField";
 import { Logo } from "@/ui/components/Logo";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { AffiliateSpinner } from "../AffiliateLayout";
-import { affiliatePortal, useAffiliateSession } from "../session";
+import { useAffiliateSession, useAffiliatePortal } from "../session";
 
 type Mode = "sign-in" | "forgot" | "sent";
 
@@ -22,6 +22,7 @@ interface FromState {
 const HOME = "/afiliado";
 
 function ForgotForm({ initialEmail, onSent, onBack }: { initialEmail: string; onSent: () => void; onBack: () => void }) {
+  const affiliatePortal = useAffiliatePortal();
   const [email, setEmail] = useState(initialEmail);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -61,7 +62,7 @@ function ForgotForm({ initialEmail, onSent, onBack }: { initialEmail: string; on
 
 export default function AffiliateLoginPage() {
   useDocumentMeta("Entrar como afiliado");
-  const { state, refresh } = useAffiliateSession();
+  const { state, refresh, portal: affiliatePortal } = useAffiliateSession();
   const location = useLocation();
   const [mode, setMode] = useState<Mode>("sign-in");
   const [email, setEmail] = useState("");

@@ -146,6 +146,7 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
       listCoupons: null,
       listAnnouncements: null,
       getAccountRule: null,
+      listAccountRules: null,
     }),
     emailAccounts: readOnly(deps.emailAccounts, {
       listAll: each(maskEmailItem),

@@ -9,7 +9,7 @@ import { PasswordField } from "@/ui/components/form/PasswordField";
 import { useAsync } from "@/ui/hooks/useAsync";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { PanelSection } from "../components/AffiliateUi";
-import { affiliatePortal, useAffiliateMe, useAffiliateSession } from "../session";
+import { useAffiliateMe, useAffiliateSession } from "../session";
 
 function Notice({ tone, children }: { tone: "ok" | "error"; children: string }) {
   return (
@@ -27,7 +27,7 @@ function Notice({ tone, children }: { tone: "ok" | "error"; children: string }) 
 }
 
 function ProfileForm({ me, currentDocument }: { me: AffiliateMe; currentDocument: string | null }) {
-  const { refresh } = useAffiliateSession();
+  const { refresh, portal: affiliatePortal, preview } = useAffiliateSession();
   const [name, setName] = useState(me.name);
   const [whatsapp, setWhatsapp] = useState(me.whatsapp ?? "");
   const [document, setDocument] = useState("");
@@ -85,7 +85,7 @@ function ProfileForm({ me, currentDocument }: { me: AffiliateMe; currentDocument
       />
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
       <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
+        <Button type="submit" disabled={pending || preview !== null}>
           {pending ? "Salvando…" : "Salvar dados"}
         </Button>
       </div>
@@ -94,6 +94,7 @@ function ProfileForm({ me, currentDocument }: { me: AffiliateMe; currentDocument
 }
 
 function PasswordForm() {
+  const { portal: affiliatePortal, preview } = useAffiliateSession();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -126,7 +127,7 @@ function PasswordForm() {
       <PasswordField label="Repita a senha" name="confirmation" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} error={errors.confirmation} />
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
       <div className="flex justify-end">
-        <Button type="submit" variant="secondary" disabled={pending}>
+        <Button type="submit" variant="secondary" disabled={pending || preview !== null}>
           {pending ? "Salvando…" : "Trocar senha"}
         </Button>
       </div>
@@ -137,6 +138,7 @@ function PasswordForm() {
 export default function AffiliateProfilePage() {
   useDocumentMeta("Perfil do afiliado");
   const me = useAffiliateMe();
+  const { portal: affiliatePortal, preview } = useAffiliateSession();
   const document = useAsync(() => affiliatePortal.myDocument(me.id), `affiliate-document:${me.id}:${me.name}`);
 
   return (
@@ -147,6 +149,7 @@ export default function AffiliateProfilePage() {
           Situação: <strong className="text-white">{AFFILIATE_STATUS_LABEL[me.status]}</strong> · Seu código: <span className="font-mono text-white">{me.code}</span>
         </p>
       </div>
+      {preview && <p className="rounded-2xl border border-line bg-surface px-4 py-3 text-sm text-mist">Visualização: os campos aparecem como o afiliado vê, mas nada é salvo. CPF e Pix ficam ocultos.</p>}
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <PanelSection title="Seus dados">
           {document.status === "success" || document.status === "error" ? (

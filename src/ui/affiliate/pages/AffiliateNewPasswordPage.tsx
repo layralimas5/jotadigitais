@@ -8,12 +8,12 @@ import { PasswordField } from "@/ui/components/form/PasswordField";
 import { Logo } from "@/ui/components/Logo";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { AffiliateSpinner } from "../AffiliateLayout";
-import { affiliatePortal, useAffiliateSession } from "../session";
+import { useAffiliateSession } from "../session";
 
 /** Destino do link "Esqueceu sua senha?": a sessão vem no próprio link e só dá para criar a senha nova. */
 export default function AffiliateNewPasswordPage() {
   useDocumentMeta("Nova senha do afiliado");
-  const { state, refresh } = useAffiliateSession();
+  const { state, refresh, portal: affiliatePortal } = useAffiliateSession();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
