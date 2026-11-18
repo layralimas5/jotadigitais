@@ -1,7 +1,21 @@
+import type { SyntheticEvent } from "react";
+import { useImageBottomColor } from "@/ui/hooks/useImageBottomColor";
 import { cn } from "@/ui/lib/cn";
 
-/** O print real do perfil dentro da mesma moldura de celular do mockup. O print já traz a barra de status do aparelho. */
-export function PhoneScreenshot({ src, alt, className }: { src: string; alt: string; className?: string }) {
+interface PhoneScreenshotProps {
+  src: string;
+  alt: string;
+  className?: string;
+  onLoad?: (event: SyntheticEvent<HTMLImageElement>) => void;
+}
+
+/**
+ * Print em pé dentro da moldura de celular. A moldura tem sempre o mesmo tamanho (perfil, Central e os outros
+ * prints ficam iguais); o print aparece inteiro, sem corte nem zoom, encostado no topo como numa tela de verdade.
+ * Se ele for mais curto que a tela (print recortado), o resto da tela fica com a cor do fim do print.
+ */
+export function PhoneScreenshot({ src, alt, className, onLoad }: PhoneScreenshotProps) {
+  const fill = useImageBottomColor(src);
   return (
     <div
       className={cn(
@@ -9,8 +23,11 @@ export function PhoneScreenshot({ src, alt, className }: { src: string; alt: str
         className,
       )}
     >
-      <div className="relative aspect-[9/19.5] overflow-hidden rounded-[2.1rem] bg-zinc-950">
-        <img src={src} alt={alt} decoding="async" className="size-full object-cover object-top" />
+      <div
+        className="relative aspect-[9/19.5] overflow-hidden rounded-[2.1rem] bg-zinc-950 transition-colors duration-300"
+        style={fill ? { backgroundColor: fill } : undefined}
+      >
+        <img src={src} alt={alt} decoding="async" onLoad={onLoad} className="size-full object-contain object-top" />
       </div>
     </div>
   );

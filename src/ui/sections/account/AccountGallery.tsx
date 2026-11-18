@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BadgeDollarSign, BarChart3, ChevronLeft, ChevronRight, ImageIcon, Info, Maximize2, ShoppingBag, UserRound, type LucideIcon } from "lucide-react";
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode, type SyntheticEvent } from "react";
 import { shopTierOf, type Account } from "@/domain/account";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { PhoneProfile } from "@/ui/components/account/PhoneProfile";
@@ -19,18 +19,13 @@ interface GalleryView {
   stage: ReactNode;
 }
 
+/** A tela da Central é a mesma em toda conta com Shop: imagem fixa, na mesma moldura dos prints. */
 function CentralPreview() {
   return (
-    <div className="relative w-[17.5rem] overflow-hidden rounded-[2.6rem] border border-white/15 bg-zinc-950 p-2.5 shadow-[0_40px_120px_-30px_rgb(255_102_196/0.45)]">
-      <img
-        src="/images/tiktok-shop-central.webp"
-        alt="Tela da Central de Criadores do TikTok Shop com o passo a passo para publicar o primeiro vídeo com produtos."
-        width={738}
-        height={880}
-        decoding="async"
-        className="w-full rounded-[2.1rem]"
-      />
-    </div>
+    <PhoneScreenshot
+      src="/images/tiktok-shop-central-celular.webp"
+      alt="Tela da Central de Criadores do TikTok Shop com o passo a passo para publicar o primeiro vídeo com produtos e o kit de ferramentas."
+    />
   );
 }
 
@@ -44,8 +39,8 @@ interface PrintShapes {
 }
 
 /**
- * O print como veio do celular ou do computador: cantos arredondados, sem moldura de aparelho.
- * Print deitado (Studio do YouTube, tela de computador) ocupa a largura toda do quadro; em pé, a altura.
+ * Print em pé vai dentro da moldura de celular, como o do perfil. Print deitado (Studio do YouTube, tela de
+ * computador) não cabe num celular: ocupa a largura toda do quadro, com cantos arredondados.
  */
 interface ScreenshotStageProps {
   src: string;
@@ -56,28 +51,29 @@ interface ScreenshotStageProps {
 }
 
 function ScreenshotStage({ src, alt, landscape, onMeasure, onZoom }: ScreenshotStageProps) {
+  const measure = (event: SyntheticEvent<HTMLImageElement>) =>
+    onMeasure(event.currentTarget.naturalWidth > event.currentTarget.naturalHeight);
   return (
     <button
       type="button"
       onClick={onZoom}
       aria-label={`Ampliar: ${alt}`}
       className={cn(
-        "group relative block cursor-zoom-in rounded-[1.75rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric",
-        landscape && "w-full",
+        "group relative block cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-electric",
+        landscape ? "w-full rounded-xl sm:rounded-2xl" : "rounded-[2.6rem]",
       )}
     >
-      <img
-        src={src}
-        alt={alt}
-        decoding="async"
-        onLoad={(event) => onMeasure(event.currentTarget.naturalWidth > event.currentTarget.naturalHeight)}
-        className={cn(
-          "block h-auto object-contain shadow-[0_40px_120px_-30px_rgb(39_153_255/0.45)] ring-1 ring-white/15",
-          landscape
-            ? "w-full rounded-xl sm:rounded-2xl"
-            : "max-h-[28rem] w-auto max-w-[min(100%,40rem)] rounded-[1.75rem] sm:max-h-[34rem]",
-        )}
-      />
+      {landscape ? (
+        <img
+          src={src}
+          alt={alt}
+          decoding="async"
+          onLoad={measure}
+          className="block h-auto w-full rounded-xl object-contain shadow-[0_40px_120px_-30px_rgb(39_153_255/0.45)] ring-1 ring-white/15 sm:rounded-2xl"
+        />
+      ) : (
+        <PhoneScreenshot src={src} alt={alt} onLoad={measure} />
+      )}
       <ZoomHint />
     </button>
   );
@@ -274,7 +270,8 @@ export function AccountGallery({ account }: { account: Account }) {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={active?.id}
-            className={cn("relative flex w-full justify-center px-3 sm:px-6", active?.id === "profile" && "max-sm:[zoom:0.8]")}
+            // No celular a moldura encolhe um pouco para caber na tela com folga; print deitado já usa a largura.
+            className={cn("relative flex w-full justify-center px-3 sm:px-6", !activeIsLandscape && "max-sm:[zoom:0.85]")}
             initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.98 }}

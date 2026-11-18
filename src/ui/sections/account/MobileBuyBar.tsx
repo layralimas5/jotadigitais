@@ -1,3 +1,4 @@
+import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
@@ -39,7 +40,11 @@ export function MobileBuyBar({ account, visible }: MobileBuyBarProps) {
         >
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="truncate text-xs text-mist">{account.displayName}</p>
+              {account.compareAtPrice === null ? (
+                <p className="truncate text-xs text-mist">{account.displayName}</p>
+              ) : (
+                <PreviousPrice account={account} className="text-xs" />
+              )}
               <p className="font-display text-base font-bold whitespace-nowrap text-white tabular-nums min-[380px]:text-lg">{formatBRL(account.price)}</p>
               <p className="text-[0.65rem] text-mist">Pix ou até {MAX_CARD_INSTALLMENTS}x</p>
             </div>

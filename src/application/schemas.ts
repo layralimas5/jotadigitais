@@ -284,6 +284,8 @@ export const accountBaseSchema = z.object({
     .int()
     .min(100, "O preço mínimo é R$ 1,00.")
     .max(100_000_000, "Preço alto demais."),
+  // Contas de antes da oferta (e o banco antes da migration) chegam sem: valem como sem oferta.
+  compareAtPrice: z.number().int().max(100_000_000, "Preço alto demais.").nullable().default(null),
   status: z.enum(ACCOUNT_STATUSES),
   description: optionalText(2000),
   avatarUrl: optionalImageUrl,
@@ -304,7 +306,13 @@ export const accountBaseSchema = z.object({
   tags: accountTagsSchema,
 });
 
-export const accountDataSchema = z.intersection(accountBaseSchema, platformStatsSchema);
+/** Mesma regra da checagem `accounts_compare_at_price` no banco: o valor riscado é maior que o preço. */
+export const accountDataSchema = z
+  .intersection(accountBaseSchema, platformStatsSchema)
+  .refine((account) => account.compareAtPrice === null || account.compareAtPrice > account.price, {
+    path: ["compareAtPrice"],
+    message: "O valor com desconto precisa ser menor que o valor da conta.",
+  });
 
 /** Nome do país criado na ficha da conta. */
 export const countryNameField = z
