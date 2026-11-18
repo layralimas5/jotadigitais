@@ -52,7 +52,7 @@ const FORM_ROUTES = [
   "/admin/configuracoes",
   "/admin/suporte/:id",
   "/admin/parceiros/afiliados/:id",
-  "/admin/afiliados/:id",
+  "/admin/acessos/afiliados/:id",
 ];
 
 /** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */

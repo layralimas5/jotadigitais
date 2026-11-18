@@ -3,7 +3,6 @@ import {
   Globe,
   HardDrive,
   Handshake,
-  HeartHandshake,
   ImageIcon,
   KeyRound,
   LifeBuoy,
@@ -95,7 +94,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/privacidade", label: "Privacidade", icon: ShieldCheck, inBottomNav: false, description: "LGPD e pedidos dos titulares", roles: STORE },
       { to: "/admin/armazenamento", label: "Armazenamento", icon: HardDrive, inBottomNav: false, description: "Quanto o banco e os arquivos ocupam", roles: EVERYONE },
       { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "Google Agenda e outras conexões", roles: STORE },
-      { to: "/admin/afiliados", label: "Afiliados", icon: HeartHandshake, inBottomNav: false, description: "Conferir cada afiliado e ver como ele vê", roles: DEVELOPER },
       { to: SUPPORT_PATH, label: "Suporte", icon: LifeBuoy, inBottomNav: false, description: "Chamados de ajustes no sistema e no site", roles: EVERYONE },
       { to: ACCESS_PATH, label: "Acessos", icon: KeyRound, inBottomNav: false, description: "TI: e-mail, senha e sessões de cada usuário", roles: DEVELOPER },
       { to: SETTINGS_PATH, label: "Configurações", icon: Settings, inBottomNav: false, description: "Perfil, senha e backup", roles: ALL_STAFF },
@@ -104,7 +102,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
 ];
 
 /** Até este número de seções, o celular mostra todas na barra de baixo, sem "Mais". */
-export const MAX_BOTTOM_NAV = 6;
+export const MAX_BOTTOM_NAV = 5;
 
 /** O papel vê a seção, ou o ajudante tem a área dela liberada. */
 const canSee = (item: Pick<NavItem, "roles" | "area">, access: StaffAccess) =>

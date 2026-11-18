@@ -26,7 +26,7 @@ cliques, link geral, cupom, mural, ranking dos 30 dias, últimas vendas), Divulg
 conta), Extrato (período, situação, planilha) e Perfil (dados, CPF, chave Pix, senha). Recuperação de senha por
 e-mail cai em `/afiliado/nova-senha`.
 
-**Painel da desenvolvedora:** aba **Afiliados** (`/admin/afiliados`, só a desenvolvedora) com a lista, a ficha de cada um e o **Ver como** (`/admin/ver-afiliado/:id`): o painel do afiliado do jeito que ele vê, só leitura, com e-mail, WhatsApp, Pix e CPF mascarados. A ficha do afiliado na aba Parceiros também tem o botão Ver como.
+**Painel da desenvolvedora:** os afiliados ficam em **Acessos** (`/admin/acessos`, abaixo da equipe da loja), cada um com a ficha (`/admin/acessos/afiliados/:id`) e o **Ver como** (`/admin/ver-afiliado/:id`): o painel do afiliado do jeito que ele vê, só leitura, com e-mail, WhatsApp, Pix e CPF mascarados. A ficha do afiliado na aba Parceiros também tem o botão Ver como.
 
 ## Regras (iguais no banco e na tela)
 

@@ -8,7 +8,7 @@ import { AffiliateSessionProvider } from "@/ui/affiliate/session";
 import { HOME_PATH } from "../navigation";
 import { useAdminSession } from "../session";
 
-export const DEVELOPER_AFFILIATES_PATH = "/admin/afiliados";
+export const DEVELOPER_AFFILIATES_PATH = "/admin/acessos";
 export const affiliatePreviewPath = (id: string) => `/admin/ver-afiliado/${id}`;
 
 /**
