@@ -723,6 +723,7 @@ async function main() {
   await deliveryMessageChecks();
   await whatsappDeliveryChecks();
   await whatsappAiChecks();
+  await whatsappSafeguardChecks();
   await whatsappFlowChecks();
   await supportMergeChecks();
   await tagColorChecks();
@@ -2674,6 +2675,57 @@ async function whatsappAiChecks() {
 
   await db.query(`insert into public.notifications (kind, title, link) values ('whatsapp', 'Bia está esperando você no WhatsApp', '/admin/whatsapp?c=x')`);
   check((await asAdmin(() => db.query(`select id from public.notifications where kind = 'whatsapp' and title like 'Bia%'`))).rows.length === 1, "aviso de WhatsApp aparece para o Jota");
+}
+
+/** Proteções antes de ligar: número sem o nono dígito, aviso que não saiu e LGPD das conversas. */
+async function whatsappSafeguardChecks() {
+  console.log("\nproteções do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asService = (fn) => as("service_role", null, fn);
+  const register = (phone, body, waId) =>
+    asService(() => db.query(`select * from public.whatsapp_register_inbound($1, 'Teste', $2, $3)`, [phone, body, waId]));
+
+  const keys = await db.query(
+    `select public.whatsapp_phone_key('27999998888') as a, public.whatsapp_phone_key('5527999998888') as b, public.whatsapp_phone_key('552799998888') as c`,
+  );
+  check(keys.rows[0].a === keys.rows[0].b && keys.rows[0].b === keys.rows[0].c, "mesmo celular com ou sem 55 e nono dígito vira a mesma chave");
+
+  const account = (await db.query(`select id from public.accounts limit 1`)).rows[0].id;
+  await db.query(
+    `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at)
+     values ('JD-WASF01', $1, '@conta.prot', 'Prot', 'tiktok', 'Lia Souza', 'lia@exemplo.com', '27966667777', 'pix', 37000, 'delivered', now())`,
+    [account],
+  );
+  const noNine = (await register("552766667777", "Oi", "wamid.sf1")).rows[0];
+  const kind = await asAdmin(() => db.query(`select kind from public.whatsapp_contacts where id = $1`, [noNine.contact_id]));
+  check(kind.rows[0]?.kind === "customer", "cliente que chega sem o nono dígito é reconhecido como cliente");
+
+  await db.query(
+    `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at)
+     values ('JD-WASF02', $1, '@conta.fila', 'Fila', 'tiktok', 'Rui Lima', 'rui@exemplo.com', '27955554444', 'pix', 37000, 'paid', now())`,
+    [account],
+  );
+  await db.query(
+    `insert into public.whatsapp_messages (order_id, kind, to_phone, status, created_at)
+     select id, 'payment_confirmed', '5527955554444', 'queued', now() - interval '40 minutes' from public.orders where code = 'JD-WASF02'`,
+  );
+  await db.query(`select public.whatsapp_alert_pending_access()`);
+  const stuck = await db.query(`select body from public.notifications where title = 'Aviso de pagamento não saiu: JD-WASF02'`);
+  check(stuck.rows.length === 1 && stuck.rows[0].body.includes("Rui"), "aviso de pagamento parado na fila vira alerta para o Jota");
+
+  const gone = (await asAdmin(() => db.query(`select public.anonymize_data_subject('27966667777') as data`))).rows[0].data;
+  const left = await db.query(`select id from public.whatsapp_contacts where id = $1`, [noNine.contact_id]);
+  check(gone.deleted_whatsapp_conversations === 1 && left.rows.length === 0, "apagar os dados do titular apaga a conversa do WhatsApp (mesmo sem o nono dígito)");
+
+  const old = (await register("5527922223333", "Oi, faz tempo", "wamid.sf2")).rows[0];
+  await db.query(`update public.whatsapp_contacts set last_message_at = now() - interval '13 months' where id = $1`, [old.contact_id]);
+  const fresh = (await register("5527922224444", "Oi, hoje", "wamid.sf3")).rows[0];
+  const retention = (await asAdmin(() => db.query(`select public.apply_retention_policy() as data`))).rows[0].data;
+  const remaining = await db.query(`select id from public.whatsapp_contacts where id in ($1, $2)`, [old.contact_id, fresh.contact_id]);
+  check(
+    retention.deleted_whatsapp_conversations === 1 && remaining.rows.length === 1 && remaining.rows[0].id === fresh.contact_id,
+    "retenção apaga conversa parada há mais de 12 meses e mantém a recente",
+  );
 }
 
 async function whatsappFlowChecks() {

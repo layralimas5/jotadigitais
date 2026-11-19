@@ -1,12 +1,16 @@
 // Recebe as mensagens do WhatsApp oficial (Meta Cloud API) e responde pela IA (docs/whatsapp.md).
 // GET: verificação do webhook no painel da Meta (hub.verify_token).
-// POST: eventos. Confere a assinatura X-Hub-Signature-256 com o segredo do app e sempre devolve 200 depois de
-// processar: a Meta reenvia o que não recebe 200, e o wa_message_id único evita responder duas vezes.
+// POST: eventos. Confere a assinatura X-Hub-Signature-256 com o segredo do app, devolve 200 na hora e processa em
+// seguida (EdgeRuntime.waitUntil): a Meta reenvia o que não recebe 200 a tempo, e o wa_message_id único evita
+// responder duas vezes.
 //
 // Deploy: npx supabase functions deploy whatsapp-webhook --no-verify-jwt
 // Segredos: WHATSAPP_VERIFY_TOKEN, WHATSAPP_APP_SECRET, WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, ANTHROPIC_API_KEY.
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
 import { processInbound, type InboundMessage } from "../_shared/whatsapp-inbound.ts";
+
+/** Runtime das Edge Functions do Supabase: mantém a função viva depois de responder. */
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
 interface MetaMessage {
   from: string;
@@ -71,6 +75,7 @@ function inboundMessages(payload: MetaPayload): InboundMessage[] {
           body: bodyOf(message),
           waMessageId: message.id,
           buttonPayload: message.type === "button" ? (message.button?.payload ?? null) : null,
+          media: message.type in MEDIA_LABEL ? message.type : null,
         });
       }
     }
@@ -102,13 +107,19 @@ Deno.serve(async (request) => {
   }
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const messages = inboundMessages(payload);
   // Uma por vez e na ordem: mensagens seguidas do mesmo cliente entram no histórico antes da próxima resposta.
-  for (const message of inboundMessages(payload)) {
-    try {
-      await processInbound(admin, message);
-    } catch (error) {
-      console.error("whatsapp-webhook", message.waMessageId, error);
+  const work = (async () => {
+    for (const message of messages) {
+      try {
+        await processInbound(admin, message);
+      } catch (error) {
+        console.error("whatsapp-webhook", message.waMessageId, error);
+      }
     }
-  }
+  })();
+  // A Meta espera o 200 em poucos segundos e reenvia se demorar. Responde na hora e a IA trabalha depois.
+  if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
+  else await work;
   return new Response("ok", { status: 200 });
 });

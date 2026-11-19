@@ -148,6 +148,21 @@ grant select on public.whatsapp_chat to authenticated;
 -- ---------------------------------------------------------------------------
 
 /**
+ * Mesma chave de `samePhone` (_shared/whatsapp-delivery.ts): só dígitos, com o 55, e celular do Brasil sem o nono
+ * dígito. A Meta às vezes manda o número sem ele; o checkout grava com.
+ */
+create or replace function public.whatsapp_phone_key(p_phone text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  with digits as (select regexp_replace(coalesce(p_phone, ''), '\D', '', 'g') as d),
+  full_id as (select case when d like '55%' and char_length(d) >= 12 then d else '55' || d end as id from digits)
+  select case when char_length(id) = 13 and substr(id, 5, 1) = '9' then left(id, 4) || substr(id, 6) else id end from full_id;
+$$;
+
+/**
  * Chamada pelas funções (chave de serviço) a cada mensagem do cliente. A Meta reenvia o mesmo evento quando não
  * recebe 200 a tempo: com o mesmo wa_message_id nada é gravado de novo e `duplicate` volta verdadeiro.
  * Quem já tem pedido pago ou entregue com esse WhatsApp entra como cliente.
@@ -173,7 +188,7 @@ begin
     select 1 from public.orders o
     where o.status in ('paid', 'delivered')
       and o.customer_whatsapp is not null
-      and right(regexp_replace(o.customer_whatsapp, '\D', '', 'g'), 11) = right(p_phone, 11)
+      and public.whatsapp_phone_key(o.customer_whatsapp) = public.whatsapp_phone_key(p_phone)
   );
 
   insert into public.whatsapp_contacts as wc (phone, name, kind)

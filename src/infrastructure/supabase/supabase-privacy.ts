@@ -160,7 +160,13 @@ function toDataRequest(raw: unknown): DataRequest {
   };
 }
 
-const anonymizationSchema = z.object({ anonymized_orders: z.number(), kept_orders: z.number(), deleted_customers: z.number() });
+// deleted_whatsapp_conversations chega com a migration 20261218120000; antes dela, conta zero.
+const anonymizationSchema = z.object({
+  anonymized_orders: z.number(),
+  kept_orders: z.number(),
+  deleted_customers: z.number(),
+  deleted_whatsapp_conversations: z.number().default(0),
+});
 
 const retentionSchema = z.object({
   anonymized_orders: z.number(),
@@ -168,6 +174,7 @@ const retentionSchema = z.object({
   deleted_notifications: z.number(),
   deleted_requests: z.number(),
   deleted_attempts: z.number(),
+  deleted_whatsapp_conversations: z.number().default(0),
 });
 
 export class SupabasePrivacyRepository implements AdminPrivacyRepository {
@@ -188,7 +195,12 @@ export class SupabasePrivacyRepository implements AdminPrivacyRepository {
     const { data, error } = await this.client.rpc("anonymize_data_subject", { p_contact: contact });
     if (error) fail(error);
     const result = anonymizationSchema.parse(data);
-    return { anonymizedOrders: result.anonymized_orders, keptOrders: result.kept_orders, deletedCustomers: result.deleted_customers };
+    return {
+      anonymizedOrders: result.anonymized_orders,
+      keptOrders: result.kept_orders,
+      deletedCustomers: result.deleted_customers,
+      deletedConversations: result.deleted_whatsapp_conversations,
+    };
   }
 
   async applyRetention(): Promise<RetentionResult> {
@@ -201,6 +213,7 @@ export class SupabasePrivacyRepository implements AdminPrivacyRepository {
       deletedNotifications: result.deleted_notifications,
       deletedRequests: result.deleted_requests,
       deletedAttempts: result.deleted_attempts,
+      deletedConversations: result.deleted_whatsapp_conversations,
     };
   }
 }

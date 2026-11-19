@@ -159,11 +159,48 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 
 ### Ativar (junto com as fases 1, 3 e 4)
 
-1. SQL Editor: `20261217120000_whatsapp_access_alert.sql` (depois da 20261216 dos afiliados, se ela subir antes).
+1. SQL Editor: `20261217120000_whatsapp_access_alert.sql` e `20261218120000_whatsapp_safeguards.sql` (depois da
+   20261216 dos afiliados, se ela subir antes).
    Se o pg_cron não estiver ligado na hora, ligar em Database > Extensions e rodar:
    `select cron.schedule('whatsapp-acesso-pendente', '*/5 * * * *', 'select public.whatsapp_alert_pending_access()');`
 2. Publicar de novo `whatsapp-send` (--no-verify-jwt), `whatsapp-webhook` (--no-verify-jwt) e `whatsapp-panel`.
 3. Testar: WhatsApp > Simular cliente com o número de um pedido pago e "Quero receber meu acesso. Pedido JD-...".
+
+## Proteções antes de ligar (19/11)
+
+- **Teto da IA** (`AI_LIMITS` em `_shared/whatsapp-inbound.ts`): 20 respostas por conversa por hora e 400 por dia
+  na loja toda. Passou disso, a conversa vai para o Jota com o motivo. Protege os créditos da Anthropic.
+- **Áudio:** a IA responde pedindo por escrito. **Foto, vídeo e arquivo:** a conversa vai para o Jota ("pode ser
+  comprovante"). Só quando a IA está atendendo; com o Jota, segue como mensagem comum.
+- **Aviso que não saiu:** o alerta de 30 minutos também pega o aviso de pagamento parado na fila ou recusado pela
+  Meta ("Aviso de pagamento não saiu").
+- **Meta sem reenvio:** a `whatsapp-webhook` responde 200 na hora e processa depois (`EdgeRuntime.waitUntil`).
+- **Número sem o nono dígito** também no banco (`whatsapp_phone_key`): o cliente é reconhecido como cliente.
+- **LGPD** (migration `20261218120000_whatsapp_safeguards.sql`): conversa parada há 12 meses é apagada na retenção
+  (que passa a rodar todo dia pelo pg_cron), o registro de envios também, e "Apagar dados do titular" em Privacidade
+  apaga as conversas do número. O painel mostra quantas conversas saíram.
+
+### Política de Privacidade (publicar pelo painel, Site > Documentos legais, junto com o "ligar de verdade")
+
+A política é editada e versionada pelo painel, por isso o texto não mudou no código. Pela seção 16 da própria
+política, o aviso aos clientes vem antes de a mudança valer. Acrescentar:
+
+- **Seção 3, "Quando você fala com a gente":** "No WhatsApp oficial da loja, guardamos as mensagens trocadas (as
+  suas, as do atendimento automático e as do Jota), o seu nome no WhatsApp e o número."
+- **Seção 4, novo item "Atendimento automático no WhatsApp":** "Um assistente com inteligência artificial responde
+  dúvidas, mostra contas disponíveis, informa a situação do seu pedido e envia o acesso da conta comprada no número
+  informado na compra. Quando não sabe responder, ou se você pedir, passa a conversa para uma pessoa. Se você
+  perguntar, ele diz que é automático. Escreva *parar* para não receber mais mensagens automáticas e *voltar* para
+  religar."
+- **Seção 5, legítimo interesse:** incluir "atendimento automático das conversas no WhatsApp"; a entrega do acesso
+  já está em execução de contrato.
+- **Seção 6, dois operadores:** "**Meta (WhatsApp Business Platform)**: transmite as mensagens do WhatsApp oficial
+  da loja. [Política](https://www.whatsapp.com/legal/business-policy)" e "**Anthropic (assistente de IA)**: recebe o
+  texto da conversa para escrever a resposta automática; não usa esses dados para treinar modelos.
+  [Política](https://www.anthropic.com/legal/privacy)"
+- **Seção 7:** citar Anthropic e Meta junto de Supabase, Netlify e Google (servidores nos EUA).
+- **Seção 8, novo prazo:** "**Conversas no WhatsApp oficial**: 12 meses depois da última mensagem. As senhas
+  enviadas não ficam guardadas no histórico."
 
 ## Fases 3 e 4 prontas em modo teste: IA, aba WhatsApp e Automação > IA (17/11)
 

@@ -17,6 +17,8 @@ export interface InboundMessage {
   waMessageId: string | null;
   /** Payload do botão de resposta rápida do modelo (ex.: `acesso:JD-ABC123`). */
   buttonPayload?: string | null;
+  /** Tipo da mídia quando não é texto (audio, image, document, video...). O `body` traz só a etiqueta, ex.: [áudio]. */
+  media?: string | null;
 }
 
 interface Settings {
@@ -60,6 +62,35 @@ const KIND_LABEL: Record<string, string> = { lead: "interessado (ainda não comp
 const OPT_OUT_REPLY = "Pronto, não vou mais mandar mensagens automáticas. Se quiser voltar, é só escrever *voltar*.";
 const OPT_IN_REPLY = "Combinado, o atendimento automático voltou. Como posso te ajudar?";
 const FAILURE_SUMMARY = "A IA não conseguiu responder esta mensagem. Responda pelo painel.";
+
+/** Teto de respostas da IA: protege os créditos da Anthropic de quem manda mensagem sem parar. */
+export const AI_LIMITS = { perContactHour: 20, perDay: 400 } as const;
+
+const AUDIO_REPLY = "Ainda não consigo ouvir áudio por aqui. Pode me mandar por escrito? Assim te respondo na hora.";
+
+/** Foto, vídeo e arquivo a IA não lê: quase sempre é comprovante ou print de problema, coisa para o Jota ver. */
+const FILE_MEDIA: Record<string, string> = { image: "uma foto", document: "um arquivo", video: "um vídeo" };
+
+async function aiRepliesSince(admin: SupabaseClient, since: Date, contactId?: string): Promise<number> {
+  let query = admin.from("whatsapp_chat").select("id", { count: "exact", head: true }).eq("author", "ai").gte("created_at", since.toISOString());
+  if (contactId) query = query.eq("contact_id", contactId);
+  const { count, error } = await query;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Resumo da passagem quando a IA bateu no teto; nulo se ainda pode responder. */
+async function aiLimitReached(admin: SupabaseClient, contactId: string, now: Date): Promise<string | null> {
+  const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  if ((await aiRepliesSince(admin, hourAgo, contactId)) >= AI_LIMITS.perContactHour) {
+    return `A IA parou nesta conversa: ${AI_LIMITS.perContactHour} respostas na última hora. Confira se é um cliente de verdade.`;
+  }
+  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if ((await aiRepliesSince(admin, dayAgo)) >= AI_LIMITS.perDay) {
+    return `A IA chegou ao limite de ${AI_LIMITS.perDay} respostas em 24 horas e parou de responder. Responda pelo painel.`;
+  }
+  return null;
+}
 
 async function settingsOf(admin: SupabaseClient): Promise<Settings> {
   const { data, error } = await admin
@@ -130,6 +161,22 @@ export async function processInbound(admin: SupabaseClient, message: InboundMess
   if (!settings.ai_enabled || !aiAnswersAt(hours, new Date())) {
     if (contact.unread_count === 1) await notify(admin, contact.contact_id, `${message.name ?? "Cliente"} mandou mensagem`, message.body);
     return "ai_off";
+  }
+
+  if (message.media === "audio") {
+    await recordOutbound(admin, contact.contact_id, message.phone, "system", AUDIO_REPLY, mode);
+    return "replied";
+  }
+  const file = message.media ? FILE_MEDIA[message.media] : undefined;
+  if (file) {
+    await handOff(admin, contact.contact_id, message.name, `Mandou ${file}. Pode ser comprovante de pagamento ou print de problema: confira.`);
+    return "handoff";
+  }
+
+  const limit = await aiLimitReached(admin, contact.contact_id, new Date());
+  if (limit) {
+    await handOff(admin, contact.contact_id, message.name, limit);
+    return "handoff";
   }
 
   try {

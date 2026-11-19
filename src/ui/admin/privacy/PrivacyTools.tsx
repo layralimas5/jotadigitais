@@ -15,6 +15,7 @@ function anonymizationSummary(result: AnonymizationResult): string {
     plural(result.anonymizedOrders, "pedido anonimizado", "pedidos anonimizados"),
     plural(result.keptOrders, "pedido mantido pela nota fiscal (sem o Instagram)", "pedidos mantidos pela nota fiscal (sem o Instagram)"),
     plural(result.deletedCustomers, "cadastro apagado", "cadastros apagados"),
+    plural(result.deletedConversations, "conversa do WhatsApp apagada", "conversas do WhatsApp apagadas"),
   ].join(", ");
 }
 
@@ -25,6 +26,7 @@ function retentionSummary(result: RetentionResult): string {
     plural(result.deletedNotifications, "aviso apagado", "avisos apagados"),
     plural(result.deletedRequests, "solicitação antiga apagada", "solicitações antigas apagadas"),
     plural(result.deletedAttempts, "tentativa apagada", "tentativas apagadas"),
+    plural(result.deletedConversations, "conversa do WhatsApp apagada", "conversas do WhatsApp apagadas"),
   ].join(", ");
 }
 
