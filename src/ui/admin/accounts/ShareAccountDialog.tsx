@@ -196,7 +196,7 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
           rows={9}
           value={offer.message}
           onChange={(event) => offer.edit(event.target.value)}
-          hint={`O texto padrão fica em Automação, no modelo “${messageModelOf(mode, buyer)}”.`}
+          hint={`O texto padrão fica em WhatsApp > Mensagens, no modelo “${messageModelOf(mode, buyer)}”.`}
         />
         {buyerMode && buyer && buyer.status !== "awaiting_payment" && !access.email && !hasProfileLogin(access.profile) && (
           <p className="rounded-xl border border-amber-300/30 bg-amber-300/[0.06] px-4 py-3 text-xs text-amber-100">

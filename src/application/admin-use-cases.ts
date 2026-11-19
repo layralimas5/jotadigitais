@@ -1,3 +1,4 @@
+import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, withoutHidden, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
@@ -10,6 +11,27 @@ import { ACCOUNT_EXPENSE_CATEGORY, accountBalanceOf, type AccountBalance, type E
 import type { Cents } from "@/domain/money";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type {
+  AiDraft,
+  InboundOutcome,
+  SimulatorReply,
+  SimulatorTurn,
+  WhatsAppAiSettings,
+  WhatsAppChatMessage,
+  WhatsAppContact,
+  WhatsAppContactKind,
+  WhatsAppFaq,
+  WhatsAppFaqDraft,
+  WhatsAppFollowUps,
+  WhatsAppHandler,
+  WhatsAppMessage,
+  WhatsAppReport,
+  ReportPeriod,
+  WhatsAppSettings,
+  FlowTestDraft,
+} from "@/domain/whatsapp";
+import { AFTER_SALE_DAY_OPTIONS, REMINDER_MINUTE_OPTIONS } from "@/domain/whatsapp";
+import { z } from "zod";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
 import { TooManyDeliveryMessagesError } from "@/domain/errors";
@@ -32,6 +54,7 @@ import type {
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
+  AdminWhatsAppRepository,
   AdminOrderRepository,
   AdminPartnerRepository,
   AdminPreferenceRepository,
@@ -109,6 +132,7 @@ export interface AdminDeps {
   emailAccounts: AdminEmailAccountRepository;
   profileLogins: AdminProfileLoginRepository;
   deliveryMessages: AdminDeliveryMessageRepository;
+  whatsapp: AdminWhatsAppRepository;
   coupons: AdminCouponRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;
@@ -305,6 +329,88 @@ export async function saveDefaultDeliveryMessage(deps: AdminDeps, body: unknown)
   const current = await deps.templates.getAll();
   return saveMessageTemplates(deps, { ...current, order_delivered: body });
 }
+
+export function getWhatsAppSettings(deps: AdminDeps): Promise<WhatsAppSettings> {
+  return deps.whatsapp.getSettings();
+}
+
+export function setWhatsAppAutoDelivery(deps: AdminDeps, enabled: boolean): Promise<WhatsAppSettings> {
+  return deps.whatsapp.setAutoDelivery(enabled);
+}
+
+const followUpsSchema = z.object({
+  paymentReminder: z.boolean(),
+  reminderMinutes: z.union(REMINDER_MINUTE_OPTIONS.map((value) => z.literal(value))),
+  afterSale: z.boolean(),
+  afterSaleDays: z.union(AFTER_SALE_DAY_OPTIONS.map((value) => z.literal(value))),
+});
+
+export function saveWhatsAppFollowUps(deps: AdminDeps, followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {
+  return deps.whatsapp.saveFollowUps(followUpsSchema.parse(followUps));
+}
+
+export const getWhatsAppReport = (deps: AdminDeps, days: ReportPeriod): Promise<WhatsAppReport> => deps.whatsapp.getReport(days);
+
+export const WHATSAPP_LOG_LIMIT = 40;
+
+export function listWhatsAppMessages(deps: AdminDeps): Promise<WhatsAppMessage[]> {
+  return deps.whatsapp.listMessages(WHATSAPP_LOG_LIMIT);
+}
+
+export const getWhatsAppAi = (deps: AdminDeps): Promise<WhatsAppAiSettings> => deps.whatsapp.getAiSettings();
+
+export const saveWhatsAppAi = (deps: AdminDeps, settings: WhatsAppAiSettings): Promise<WhatsAppAiSettings> =>
+  deps.whatsapp.saveAiSettings(settings);
+
+export const setWhatsAppAiEnabled = (deps: AdminDeps, enabled: boolean): Promise<WhatsAppAiSettings> => deps.whatsapp.setAiEnabled(enabled);
+
+export const listWhatsAppFlows = (deps: AdminDeps): Promise<WhatsAppFlow[]> => deps.whatsapp.listFlows();
+
+export const saveWhatsAppFlow = (deps: AdminDeps, flow: WhatsAppFlowDraft): Promise<WhatsAppFlow> => deps.whatsapp.saveFlow(flow);
+
+export const deleteWhatsAppFlow = (deps: AdminDeps, id: string): Promise<void> => deps.whatsapp.deleteFlow(id);
+
+export const listWhatsAppFaq = (deps: AdminDeps): Promise<WhatsAppFaq[]> => deps.whatsapp.listFaq();
+
+export const saveWhatsAppFaq = (deps: AdminDeps, items: readonly WhatsAppFaqDraft[]): Promise<WhatsAppFaq[]> => deps.whatsapp.saveFaq(items);
+
+/** Configuração e perguntas salvas juntas: a IA lê as duas. */
+export async function saveWhatsAppAiSetup(
+  deps: AdminDeps,
+  settings: WhatsAppAiSettings,
+  faq: readonly WhatsAppFaqDraft[],
+): Promise<{ settings: WhatsAppAiSettings; faq: WhatsAppFaq[] }> {
+  const saved = await deps.whatsapp.saveAiSettings(settings);
+  return { settings: saved, faq: await deps.whatsapp.saveFaq(faq) };
+}
+
+export const simulateWhatsAppAi = (
+  deps: AdminDeps,
+  history: readonly SimulatorTurn[],
+  draft: AiDraft | null,
+  flowTest?: FlowTestDraft,
+): Promise<SimulatorReply> => deps.whatsapp.simulate(history, draft, flowTest);
+
+export const listWhatsAppContacts = (deps: AdminDeps): Promise<WhatsAppContact[]> => deps.whatsapp.listContacts();
+
+export const listWhatsAppChat = (deps: AdminDeps, contactId: string): Promise<WhatsAppChatMessage[]> => deps.whatsapp.listChat(contactId);
+
+export const setWhatsAppHandler = (deps: AdminDeps, contactId: string, handler: WhatsAppHandler): Promise<void> =>
+  deps.whatsapp.setHandler(contactId, handler);
+
+export const setWhatsAppContactKind = (deps: AdminDeps, contactId: string, kind: WhatsAppContactKind): Promise<void> =>
+  deps.whatsapp.setContactKind(contactId, kind);
+
+export const markWhatsAppRead = (deps: AdminDeps, contactId: string): Promise<void> => deps.whatsapp.markRead(contactId);
+
+export const sendWhatsAppReply = (deps: AdminDeps, contactId: string, text: string): Promise<void> => deps.whatsapp.sendReply(contactId, text);
+
+export const simulateWhatsAppInbound = (
+  deps: AdminDeps,
+  phone: string,
+  name: string | null,
+  text: string,
+): Promise<{ contactId: string; outcome: InboundOutcome }> => deps.whatsapp.simulateInbound(phone, name, text);
 
 export function listDeliveryMessages(deps: AdminDeps): Promise<DeliveryMessage[]> {
   return deps.deliveryMessages.listAll();

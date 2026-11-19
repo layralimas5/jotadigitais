@@ -12,7 +12,7 @@ import type { Order } from "./order";
  * - `support`: a Layra abriu, respondeu ou viu um chamado (só para o Jota);
  * - `reminder`: lembretes calculados na hora a partir dos pedidos e do CRM.
  */
-export type NotificationKind = "order" | "payment" | "news" | "privacy" | "security" | "support" | "reminder";
+export type NotificationKind = "order" | "payment" | "news" | "privacy" | "security" | "support" | "whatsapp" | "reminder";
 
 export interface AppNotification {
   /** Identifica a notificação para apagar: o mesmo aviso não volta depois de apagado. */

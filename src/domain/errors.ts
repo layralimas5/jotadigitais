@@ -334,3 +334,19 @@ export class DeliveryMessageNotFoundError extends Error {
     this.name = "DeliveryMessageNotFoundError";
   }
 }
+
+/** Passaram 24h da última mensagem do cliente: a Meta só deixa puxar conversa com modelo aprovado. */
+export class WhatsAppWindowClosedError extends Error {
+  constructor() {
+    super("Já passaram 24h da última mensagem deste cliente. O WhatsApp só libera responder quando ele mandar mensagem de novo.");
+    this.name = "WhatsAppWindowClosedError";
+  }
+}
+
+/** A IA não está configurada no servidor (falta a chave da Anthropic). */
+export class WhatsAppAiUnavailableError extends Error {
+  constructor() {
+    super("A IA ainda não está conectada: falta cadastrar a chave da Anthropic no servidor.");
+    this.name = "WhatsAppAiUnavailableError";
+  }
+}

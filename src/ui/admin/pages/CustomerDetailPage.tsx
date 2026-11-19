@@ -33,7 +33,8 @@ import { OrderStatusBadge } from "../components/OrderStatusBadge";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { formatDate, formatIsoDate } from "../lib/dates";
 import { personMessage } from "../lib/messages";
-import { formatPhone, whatsappChatUrl } from "../lib/whatsapp";
+import { formatPhone } from "../lib/whatsapp";
+import { WhatsAppContactLink } from "../whatsapp/WhatsAppContactLink";
 
 function BackLink() {
   return (
@@ -58,14 +59,13 @@ function ContactActions({ customer }: { customer: CustomerSummary }) {
   return (
     <div className="flex flex-wrap gap-2">
       {customer.whatsapp && (
-        <a
-          href={whatsappChatUrl(customer.whatsapp, personMessage(templates, "customer_hello", customer.name))}
-          target="_blank"
-          rel="noreferrer"
+        <WhatsAppContactLink
+          phone={customer.whatsapp}
+          text={personMessage(templates, "customer_hello", customer.name)}
           className={buttonClasses({ className: "bg-[#25d366] shadow-none hover:bg-[#3ee07c] hover:shadow-none" })}
         >
           <MessageCircle aria-hidden className="size-4" /> WhatsApp
-        </a>
+        </WhatsAppContactLink>
       )}
       {customer.email && (
         <a href={`mailto:${customer.email}`} className={buttonClasses({ variant: "secondary" })}>

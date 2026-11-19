@@ -1,0 +1,38 @@
+/* Tema do quadro de fluxos, nas cores do painel. */
+.jota-flow .react-flow {
+  --xy-background-color: transparent;
+  --xy-edge-stroke-default: #4a4a62;
+  --xy-edge-stroke-selected-default: #2799ff;
+  --xy-connectionline-stroke-default: #2799ff;
+  --xy-controls-button-background-color-default: #12121d;
+  --xy-controls-button-background-color-hover-default: #1e1e2c;
+  --xy-controls-button-color-default: #d4d4dc;
+  --xy-controls-button-border-color-default: #2c2c3e;
+  --xy-attribution-background-color-default: transparent;
+  --xy-node-boxshadow-selected-default: none;
+  --xy-selection-background-color-default: rgb(39 153 255 / 0.08);
+  --xy-selection-border-default: 1px dashed rgb(39 153 255 / 0.6);
+}
+
+.jota-flow .react-flow__controls {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: none;
+  border: 1px solid #2c2c3e;
+}
+
+.jota-flow .react-flow__attribution a {
+  color: #6b6b7e;
+}
+
+.jota-flow .react-flow__node:focus-visible {
+  outline: 2px solid #2799ff;
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jota-flow .react-flow__viewport {
+    transition: none !important;
+  }
+}

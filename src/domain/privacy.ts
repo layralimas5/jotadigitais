@@ -97,6 +97,8 @@ export interface AnonymizationResult {
   /** Pagos ou entregues: ficam pela nota fiscal e pela defesa (só perdem o Instagram). */
   keptOrders: number;
   deletedCustomers: number;
+  /** Conversas do WhatsApp do titular, apagadas inteiras. */
+  deletedConversations: number;
 }
 
 export interface RetentionResult {
@@ -105,6 +107,8 @@ export interface RetentionResult {
   deletedNotifications: number;
   deletedRequests: number;
   deletedAttempts: number;
+  /** Conversas do WhatsApp sem mensagem há 12 meses. */
+  deletedConversations: number;
 }
 
 export const PRIVACY_RESPONSE_DAYS = 15;

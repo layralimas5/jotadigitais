@@ -7,6 +7,7 @@ import {
   KeyRound,
   LifeBuoy,
   LayoutDashboard,
+  MessageCircle,
   Mail,
   Package,
   PlugZap,
@@ -18,7 +19,6 @@ import {
   TicketPercent,
   Users,
   Wallet,
-  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { matchPath } from "react-router-dom";
@@ -46,6 +46,7 @@ export interface NavGroup {
 export const HOME_PATH = "/admin/dashboard";
 export const SETTINGS_PATH = "/admin/configuracoes";
 export const SUPPORT_PATH = "/admin/suporte";
+export const WHATSAPP_PATH = "/admin/whatsapp";
 
 const EVERYONE: readonly AdminRole[] = ["admin", "developer"];
 /** Telas pessoais (perfil, senha): todo mundo que entra, inclusive o ajudante. */
@@ -81,8 +82,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     items: [
       { to: "/admin/clientes", label: "Clientes", icon: Users, inBottomNav: false, description: "Quem já comprou", roles: STORE, area: "customers" },
       { to: "/admin/parceiros", label: "Parceiros", icon: Handshake, inBottomNav: false, description: "Fornecedores e comissões", roles: STORE, area: "partners" },
-      { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: true, description: "Leads até fechar", roles: STORE, area: "crm" },
-      { to: "/admin/automacao", label: "Automação", icon: Workflow, inBottomNav: false, description: "Mensagens do WhatsApp", roles: STORE, area: "automation" },
+      { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: false, description: "Leads até fechar", roles: STORE, area: "crm" },
+      { to: WHATSAPP_PATH, label: "WhatsApp", icon: MessageCircle, inBottomNav: true, description: "Conversas, fluxos da IA e entrega automática", roles: STORE, area: "automation" },
     ],
   },
   {
@@ -132,6 +133,8 @@ export const homePathFor = (access: StaffAccess): string => itemsFor(access)[0]?
 const EXTRA_ROUTES: readonly { pattern: string; roles: readonly AdminRole[] }[] = [
   { pattern: "/admin/mais", roles: ALL_STAFF },
   { pattern: "/admin/minha-conta", roles: ALL_STAFF },
+  // Endereço antigo da Automação: agora é a aba WhatsApp (o redirecionamento confere o acesso de novo lá).
+  { pattern: "/admin/automacao", roles: ALL_STAFF },
 ];
 
 /** A pessoa pode abrir este endereço do painel? Vale para a seção e tudo o que está dentro dela. */

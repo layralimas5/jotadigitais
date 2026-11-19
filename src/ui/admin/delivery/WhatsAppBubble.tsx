@@ -4,7 +4,7 @@ import { cn } from "@/ui/lib/cn";
 const BOLD = /(\*[^*\n]+\*)/g;
 
 /** Mostra o *negrito* do WhatsApp como ele vai aparecer na conversa. */
-function WhatsAppText({ text }: { text: string }) {
+export function WhatsAppText({ text }: { text: string }) {
   return (
     <>
       {text.split(BOLD).map((part, index) =>

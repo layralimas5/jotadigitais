@@ -1,4 +1,5 @@
 import type { Country } from "@/domain/country";
+import type { WhatsAppFlow } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord, HiddenCustomer } from "@/domain/customer";
@@ -17,6 +18,7 @@ import type { Partner } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { SupportCannedReply, SupportLabel, SupportTicket } from "@/domain/support-ticket";
 import type { Testimonial } from "@/domain/testimonial";
+import type { WhatsAppAiSettings, WhatsAppChatMessage, WhatsAppContact, WhatsAppFaq, WhatsAppFollowUps } from "@/domain/whatsapp";
 import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
 
 /** Banco do modo demonstração. O ambiente de teste do painel usa outra chave, para nada se misturar. */
@@ -58,6 +60,16 @@ export interface DemoState {
   /** Login do perfil de cada conta, pelo id dela. */
   profileLogins?: Record<string, ProfileLogin>;
   deliveryMessages?: DeliveryMessage[];
+  whatsappAutoDelivery?: boolean;
+  whatsappFollowUps?: WhatsAppFollowUps;
+  /** Atendimento com IA e conversas do WhatsApp. Sem nada salvo, valem os exemplos de fábrica. */
+  whatsappAi?: WhatsAppAiSettings;
+  whatsappFaq?: WhatsAppFaq[];
+  whatsappContacts?: WhatsAppContact[];
+  /** Mensagens de cada conversa, pelo id do contato. */
+  whatsappChat?: Record<string, WhatsAppChatMessage[]>;
+  /** Fluxos de Automação > Fluxos. Sem nada salvo, vale o modelo pronto. */
+  whatsappFlows?: WhatsAppFlow[];
   coupons?: StoredCoupon[];
   /** Sem a lista guardada, valem os países de fábrica. */
   countries?: Country[];

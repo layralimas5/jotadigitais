@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
-import { Suspense, useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { Logo, LogoMark } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
@@ -13,14 +13,16 @@ import { PageCrumb } from "./topbar/PageCrumb";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import { canUseStoreArea, type StaffAccess } from "@/domain/admin-user";
 import { supportRoleOf } from "@/domain/support-ticket";
-import { bottomNavItemsFor, canOpen, fitsBottomNav, homePathFor, moreItemsFor, navGroupsFor, SUPPORT_PATH } from "./navigation";
+import { bottomNavItemsFor, canOpen, fitsBottomNav, homePathFor, moreItemsFor, navGroupsFor, SUPPORT_PATH, WHATSAPP_PATH } from "./navigation";
 import { AttentionCount, SupportAttentionProvider, useSupportAttention } from "./support/SupportAttention";
+import { WhatsAppAttentionProvider, useWhatsAppAttention, whatsAppAttentionLabel } from "./whatsapp/WhatsAppAttention";
 import { AdminViewProvider, useAdminView } from "./admin-view";
 import { PreviewBanner, SidebarPreviewEntry } from "./preview/PreviewControls";
 import { usePreviewSubmitGuard } from "./preview/usePreviewSubmitGuard";
 import { usePanelApp } from "./pwa/usePanelApp";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
+import { FocusLayoutProvider } from "./focus-layout";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
 /** Cadastros com a própria barra fixa de salvar no celular: ali a navegação de baixo sai do caminho. */
@@ -47,7 +49,6 @@ const WIDE_EDITOR_ROUTES = ["/admin/site"];
 const FORM_ROUTES = [
   ...EDITOR_ROUTES,
   "/admin/clientes/:key",
-  "/admin/automacao",
   "/admin/apis",
   "/admin/configuracoes",
   "/admin/suporte/:id",
@@ -148,6 +149,7 @@ interface SidebarProps {
 function Sidebar({ access, canPreview, collapsed, onToggle }: SidebarProps) {
   const reduceMotion = useReducedMotion();
   const attention = useSupportAttention();
+  const whatsapp = useWhatsAppAttention();
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[var(--sidebar-w,15rem)] flex-col border-r border-line bg-night transition-[width] duration-300 ease-out motion-reduce:transition-none md:flex">
       <SidebarToggle collapsed={collapsed} onToggle={onToggle} />
@@ -171,7 +173,8 @@ function Sidebar({ access, canPreview, collapsed, onToggle }: SidebarProps) {
               ))}
             <ul className="space-y-0.5">
               {group.items.map(({ to, label, icon: Icon }) => {
-                const count = to === SUPPORT_PATH ? attention : 0;
+                const count = to === SUPPORT_PATH ? attention : to === WHATSAPP_PATH ? whatsapp : 0;
+                const countLabel = to === WHATSAPP_PATH ? whatsAppAttentionLabel(count) : undefined;
                 return (
                   <li key={to}>
                     <NavLink
@@ -195,7 +198,7 @@ function Sidebar({ access, canPreview, collapsed, onToggle }: SidebarProps) {
                           ) : (
                             <>
                               <span className={cn("relative whitespace-nowrap", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
-                              {count > 0 && <AttentionCount count={count} className="relative ml-auto" />}
+                              {count > 0 && <AttentionCount count={count} label={countLabel} className="relative ml-auto" />}
                             </>
                           )}
                         </>
@@ -284,6 +287,7 @@ function BottomNav({ access }: { access: StaffAccess }) {
   const { pathname } = useLocation();
   const entries = bottomNavOf(access);
   const attention = useSupportAttention();
+  const whatsapp = useWhatsAppAttention();
   // Sem lugar próprio na barra, o número do Suporte aparece no "Mais".
   const attentionTarget = entries.some((entry) => entry.to === SUPPORT_PATH) ? SUPPORT_PATH : "/admin/mais";
   return (
@@ -308,6 +312,9 @@ function BottomNav({ access }: { access: StaffAccess }) {
                 <Icon aria-hidden className={cn("relative size-5", isActive ? "text-electric" : "text-mist")} />
                 <span className={cn("relative", isActive ? "text-white" : "text-mist")}>{label}</span>
                 {to === attentionTarget && <AttentionCount count={attention} className="absolute top-1 left-1/2 ml-2" />}
+                {to === WHATSAPP_PATH && (
+                  <AttentionCount count={whatsapp} label={whatsAppAttentionLabel(whatsapp)} className="absolute top-1 left-1/2 ml-2" />
+                )}
               </>
               );
             }}
@@ -327,7 +334,8 @@ export function AdminProtected() {
   usePreviewSubmitGuard(previewing, mainRef);
   const editing = matchesAny([...EDITOR_ROUTES, ...WIDE_EDITOR_ROUTES], location.pathname);
   const formPage = matchesAny(FORM_ROUTES, location.pathname);
-  const sidebar = useSidebarCollapsed();
+  const [focus, setFocus] = useState(false);
+  const sidebar = useSidebarCollapsed(focus);
 
   if (state.status === "loading") return <LoadingBlock label="Abrindo o sistema" />;
   // Sem login, ou com a senha certa mas sem o código do app: a tela de login cuida das duas etapas.
@@ -346,19 +354,22 @@ export function AdminProtected() {
         <main
           ref={mainRef}
           id="conteudo"
-          className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && "mx-auto md:max-w-[68rem]")}
+          className={cn("px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16", formPage && !focus && "mx-auto md:max-w-[68rem]")}
         >
-          <Suspense fallback={<LoadingBlock />}>
-            <Outlet />
-          </Suspense>
+          <FocusLayoutProvider onChange={setFocus}>
+            <Suspense fallback={<LoadingBlock />}>
+              <Outlet />
+            </Suspense>
+          </FocusLayoutProvider>
         </main>
       </div>
       {!editing && <BottomNav access={access} />}
     </>
   );
   // O ajudante não usa o suporte: nada de consultar os chamados para ele. No modo visualização o contador é o do Jota.
-  if (access.role === "helper") return panel;
-  return <SupportAttentionProvider role={supportRoleOf(access.role)}>{panel}</SupportAttentionProvider>;
+  const withWhatsApp = <WhatsAppAttentionProvider enabled={canUseStoreArea(access, "automation")}>{panel}</WhatsAppAttentionProvider>;
+  if (access.role === "helper") return withWhatsApp;
+  return <SupportAttentionProvider role={supportRoleOf(access.role)}>{withWhatsApp}</SupportAttentionProvider>;
 }
 
 export function AdminRoot() {

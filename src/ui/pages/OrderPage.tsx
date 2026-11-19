@@ -1,12 +1,14 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { Clock, Inbox, Sparkles } from "lucide-react";
+import { Clock, Inbox, MessageCircle, Sparkles } from "lucide-react";
 import { Fragment, useEffect, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { OrderNotFoundError } from "@/domain/errors";
 import { formatBRL } from "@/domain/money";
 import { chargedAmounts, isCartMember, type Order } from "@/domain/order";
 import { PAYMENT_PLAN_LABEL } from "@/domain/payment";
-import { ButtonLink } from "@/ui/components/Button";
+import { whatsappMessageUrl } from "@/domain/store-settings";
+import { accessRequestText } from "@/domain/whatsapp";
+import { ButtonLink, buttonClasses } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
@@ -130,6 +132,8 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
   const { orderPage } = useSiteContent();
   useDocumentMeta(`Pedido ${order.code}`);
   const awaiting = order.status === "awaiting_payment";
+  // Pago: a mensagem com o código faz o acesso sair sozinho no WhatsApp (entrega automática).
+  const canRequestAccess = (order.status === "paid" || order.status === "delivered") && !isCartMember(order) && whatsappUrl;
   const charged = chargedAmounts(order);
 
   return (
@@ -191,6 +195,17 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
       </div>
 
       <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        {canRequestAccess && (
+          <a
+            href={whatsappMessageUrl(whatsappUrl, accessRequestText(order.cartCode ?? order.code))}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonClasses({ className: "gap-2" })}
+          >
+            <MessageCircle aria-hidden className="size-4" />
+            Receber acesso no WhatsApp
+          </a>
+        )}
         <ButtonLink to="/contas" variant="secondary">
           Voltar para a vitrine
         </ButtonLink>

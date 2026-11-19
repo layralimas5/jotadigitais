@@ -15,8 +15,10 @@ import {
   type RetentionResult,
   type SubjectData,
   contactOf,
+  isEmailContact,
   matchesContact,
 } from "@/domain/privacy";
+import { samePhone } from "@/domain/whatsapp";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 import { MAX_NOTIFICATIONS, notificationsOf } from "./demo-repositories";
 
@@ -173,7 +175,11 @@ export class DemoPrivacyRepository implements AdminPrivacyRepository {
       for (const order of kept) order.customer.instagram = null;
       const before = state.customers?.length ?? 0;
       state.customers = (state.customers ?? []).filter((customer) => !matchesContact(customer, contact));
-      return { anonymizedOrders, keptOrders: kept.length, deletedCustomers: before - state.customers.length };
+      const conversations = state.whatsappContacts ?? [];
+      const removed = isEmailContact(contact) ? [] : conversations.filter((item) => samePhone(item.phone, contact));
+      state.whatsappContacts = conversations.filter((item) => !removed.includes(item));
+      for (const item of removed) delete state.whatsappChat?.[item.id];
+      return { anonymizedOrders, keptOrders: kept.length, deletedCustomers: before - state.customers.length, deletedConversations: removed.length };
     });
   }
 
@@ -206,7 +212,13 @@ export class DemoPrivacyRepository implements AdminPrivacyRepository {
         if (state.privacyAttempts) state.privacyAttempts[email] = recent;
       }
 
+      const conversations = state.whatsappContacts ?? [];
+      const stale = conversations.filter((item) => olderThan(item.lastMessageAt, 365));
+      state.whatsappContacts = conversations.filter((item) => !stale.includes(item));
+      for (const item of stale) delete state.whatsappChat?.[item.id];
+
       return {
+        deletedConversations: stale.length,
         anonymizedOrders,
         deletedLeads: leads.length - state.leads.length,
         deletedNotifications: notifications.length - state.notifications.length,
