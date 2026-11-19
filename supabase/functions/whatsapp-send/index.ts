@@ -4,49 +4,31 @@
 // Modo teste (whatsapp_settings.mode = 'test', o padrão): nada sai para o cliente. Grava no registro a mensagem do
 // modelo "Pagamento confirmado" e, para cada conta, a mensagem "Conta entregue" que sairia depois do toque no botão,
 // com as senhas mascaradas.
-// Modo live: envia o modelo aprovado pela Cloud API da Meta. O acesso sai quando o cliente toca no botão
-// (função whatsapp-webhook, fase 2).
+// Modo live: se o cliente falou com a loja nas últimas 24h, o acesso sai direto. Senão vai o modelo aprovado com o
+// botão "Receber meu acesso", e o acesso sai quando ele toca (whatsapp-webhook).
 //
 // Deploy: npx supabase functions deploy whatsapp-send --no-verify-jwt
 // Segredos: WHATSAPP_SEND_SECRET (o mesmo valor de whatsapp_send_secret no Vault).
 //           No modo live: WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID e, opcional, WHATSAPP_API_VERSION.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
-import { DEFAULT_MESSAGE_TEMPLATES, fillDeliveryTemplate, type DeliveryLoginValues } from "../_shared/message-template.ts";
+import { deliverAccess, deliveryItems, deliveryTemplate, deliveryText, logDelivery, promptValuesOf, type DeliveryItem } from "../_shared/whatsapp-access.ts";
+import { insideWindow } from "../_shared/whatsapp-cloud.ts";
 import {
-  MASKED_SECRET,
   PAYMENT_TEMPLATE,
   accessButtonPayload,
-  firstName,
-  joinHandles,
   paymentPromptParams,
   paymentPromptText,
+  phoneVariants,
   type PaymentPromptValues,
 } from "../_shared/whatsapp-delivery.ts";
 
-const STORE_NAME = "Jota Digitais";
 const DEFAULT_API_VERSION = "v24.0";
-
-const PLATFORM_LABEL: Record<string, string> = { tiktok: "TikTok", instagram: "Instagram", youtube: "YouTube", facebook: "Facebook" };
 
 interface QueuedMessage {
   id: string;
   order_id: string | null;
   kind: "payment_confirmed" | "delivery";
   to_phone: string;
-}
-
-interface DeliveryItem {
-  order_id: string;
-  code: string;
-  cart_code: string | null;
-  customer_name: string;
-  account_handle: string;
-  account_platform: string;
-  total_cents: number;
-  email: string | null;
-  email_password: string | null;
-  profile_username: string | null;
-  profile_password: string | null;
 }
 
 class SendError extends Error {}
@@ -64,8 +46,6 @@ function sameSecret(a: string, b: string): boolean {
   for (let i = 0; i < left.length; i += 1) diff |= left[i] ^ right[i];
   return diff === 0;
 }
-
-const formatBRL = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
 /** Marca a mensagem como "enviando" só se ainda estava na fila: chamada repetida não manda duas vezes. */
 async function claim(admin: SupabaseClient, id: string): Promise<QueuedMessage | null> {
@@ -86,47 +66,17 @@ async function settingsMode(admin: SupabaseClient): Promise<"test" | "live"> {
   return data.mode === "live" ? "live" : "test";
 }
 
-async function deliveryItems(admin: SupabaseClient, orderId: string): Promise<DeliveryItem[]> {
-  const { data, error } = await admin.rpc("whatsapp_delivery_items", { p_order_id: orderId });
+/** Conversa do comprador com a janela de 24h aberta: aí o acesso pode sair direto, sem o modelo e sem o toque. */
+async function openConversation(admin: SupabaseClient, phone: string): Promise<{ id: string; phone: string; name: string | null } | null> {
+  const { data, error } = await admin
+    .from("whatsapp_contacts")
+    .select("id, phone, name, last_inbound_at")
+    .in("phone", phoneVariants(phone))
+    .order("last_inbound_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
-  return data as DeliveryItem[];
-}
-
-async function deliveryTemplate(admin: SupabaseClient): Promise<string> {
-  const { data, error } = await admin.from("message_templates").select("body").eq("key", "order_delivered").maybeSingle();
-  if (error) throw error;
-  return data?.body ?? DEFAULT_MESSAGE_TEMPLATES.order_delivered;
-}
-
-function promptValuesOf(items: DeliveryItem[]): PaymentPromptValues {
-  const main = items[0]!;
-  return {
-    name: firstName(main.customer_name),
-    orderCode: main.cart_code ?? main.code,
-    accounts: joinHandles(items.map((item) => item.account_handle)),
-  };
-}
-
-function loginOf(item: DeliveryItem, masked: boolean): DeliveryLoginValues {
-  const secret = (value: string | null) => (value === null ? null : masked ? MASKED_SECRET : value);
-  return {
-    email: item.email ? { email: item.email, password: secret(item.email_password) } : null,
-    profile:
-      item.profile_username || item.profile_password ? { username: item.profile_username, password: secret(item.profile_password) } : null,
-  };
-}
-
-/** Texto "Conta entregue" da aba Automação para uma conta. `masked` troca as senhas para o registro. */
-function deliveryText(body: string, item: DeliveryItem, masked: boolean): string {
-  const values = {
-    nome: firstName(item.customer_name),
-    pedido: item.code,
-    conta: item.account_handle,
-    valor: formatBRL(item.total_cents),
-    rede: PLATFORM_LABEL[item.account_platform] ?? item.account_platform,
-    loja: STORE_NAME,
-  };
-  return fillDeliveryTemplate(body, values, loginOf(item, masked));
+  return data && insideWindow(data.last_inbound_at) ? data : null;
 }
 
 async function sendTemplate(to: string, values: PaymentPromptValues): Promise<string> {
@@ -165,19 +115,12 @@ async function finish(admin: SupabaseClient, id: string, fields: Record<string, 
 
 /** Modo teste: registra o aviso de pagamento e, logo abaixo, o acesso de cada conta como sairia após o toque. */
 async function recordTest(admin: SupabaseClient, message: QueuedMessage, items: DeliveryItem[]) {
-  const now = new Date().toISOString();
-  await finish(admin, message.id, { status: "test", body: paymentPromptText(promptValuesOf(items)), sent_at: now });
+  await finish(admin, message.id, { status: "test", body: paymentPromptText(promptValuesOf(items)), sent_at: new Date().toISOString() });
   const body = await deliveryTemplate(admin);
-  const rows = items.map((item) => ({
-    order_id: item.order_id,
-    kind: "delivery",
-    to_phone: message.to_phone,
-    body: deliveryText(body, item, true),
-    status: "test",
-    sent_at: now,
-  }));
-  const { error } = await admin.from("whatsapp_messages").insert(rows);
-  if (error) throw error;
+  await logDelivery(
+    admin,
+    items.map((item) => ({ orderId: item.order_id, phone: message.to_phone, body: deliveryText(body, item, true), status: "test", error: null, waMessageId: null })),
+  );
 }
 
 async function process(admin: SupabaseClient, messageId: string): Promise<string> {
@@ -199,6 +142,13 @@ async function process(admin: SupabaseClient, messageId: string): Promise<string
   }
 
   const values = promptValuesOf(items);
+  const conversation = await openConversation(admin, message.to_phone);
+  if (conversation) {
+    // O cliente falou com a loja nas últimas 24h: o acesso vai direto, com o texto editável, sem esperar o botão.
+    await finish(admin, message.id, { status: "sent", body: `${paymentPromptText(values)} (janela aberta: acesso enviado direto)`, sent_at: new Date().toISOString() });
+    const outcome = await deliverAccess(admin, { contactId: conversation.id, phone: conversation.phone, name: conversation.name, code: values.orderCode, mode: "live" });
+    return outcome === "delivered" ? "delivered" : "failed";
+  }
   try {
     const waId = await sendTemplate(message.to_phone, values);
     await finish(admin, message.id, { status: "sent", body: paymentPromptText(values), wa_message_id: waId, sent_at: new Date().toISOString() });

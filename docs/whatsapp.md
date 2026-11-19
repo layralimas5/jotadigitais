@@ -139,6 +139,32 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 3. SQL: `update public.whatsapp_settings set mode = 'live';`
 4. Fase 2 (webhook do botão) precisa estar no ar antes disso, senão o toque em "Receber meu acesso" não responde.
 
+## Fase 2 pronta em modo teste: "Receber meu acesso" entrega sozinho (19/11)
+
+- O toque no botão do modelo (payload `acesso:JD-...`) ou a mensagem da página do pedido ("Quero receber meu acesso.
+  Pedido JD-..."), ou qualquer mensagem com o código de um pedido pago, entrega o acesso de cada conta do pedido (e do
+  carrinho) antes da IA. Vale com a IA desligada ou a conversa com o Jota: é a entrega automática, ligada pelo
+  `auto_delivery`.
+- Só sai para o número da compra. A Meta às vezes manda o celular sem o nono dígito: `samePhone` trata as duas formas
+  como iguais. Outro número recebe a resposta de segurança e a conversa vai para o Jota.
+- Modo live: o pedido pago vira entregue (reenviar de pedido já entregue não mexe na garantia), o Jota recebe "Acesso
+  entregue" e o envio aparece em Entrega automática. Se a Meta recusar, a conversa vai para o Jota.
+- Na conversa e no registro a senha fica `••••••`; ao cliente sai a senha de verdade.
+- `whatsapp-send` no modo live: se o cliente falou com a loja nas últimas 24h, o acesso sai direto, sem o modelo.
+- Página do pedido pago: botão "Receber acesso no WhatsApp" com a mensagem pronta (`accessRequestText`).
+- Alerta: 30 minutos depois do aviso de pagamento, pedido ainda só pago vira aviso "Acesso não pedido" para o Jota
+  (migration `20261217120000_whatsapp_access_alert.sql`, função `whatsapp_alert_pending_access`, pg_cron a cada 5 min).
+- Código: `_shared/whatsapp-access.ts` (entrega), `_shared/whatsapp-outbound.ts` (envio, avisos e passagem, antes
+  dentro do inbound). "Simular cliente" e o modo demo também entregam.
+
+### Ativar (junto com as fases 1, 3 e 4)
+
+1. SQL Editor: `20261217120000_whatsapp_access_alert.sql` (depois da 20261216 dos afiliados, se ela subir antes).
+   Se o pg_cron não estiver ligado na hora, ligar em Database > Extensions e rodar:
+   `select cron.schedule('whatsapp-acesso-pendente', '*/5 * * * *', 'select public.whatsapp_alert_pending_access()');`
+2. Publicar de novo `whatsapp-send` (--no-verify-jwt), `whatsapp-webhook` (--no-verify-jwt) e `whatsapp-panel`.
+3. Testar: WhatsApp > Simular cliente com o número de um pedido pago e "Quero receber meu acesso. Pedido JD-...".
+
 ## Fases 3 e 4 prontas em modo teste: IA, aba WhatsApp e Automação > IA (17/11)
 
 - Migration `20261214120000_whatsapp_ai`: configuração da IA em `whatsapp_settings` (começa **desligada**), `whatsapp_faq`
@@ -170,7 +196,6 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
 
 ### Falta
 
-- Botão "Receber meu acesso" entregar o login (fase 2): hoje o toque chega como mensagem comum para a IA.
 - Áudios gravados, lembrete de pedido não pago, pós-venda e a aba Relatório.
 - "Abrir no WhatsApp" de Pedidos e Clientes levar para a conversa do painel.
 

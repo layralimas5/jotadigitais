@@ -17,6 +17,9 @@ const OUTCOME_MESSAGE: Record<InboundOutcome, string> = {
   ignored: "Esse número está na lista de ignorados: a IA não respondeu.",
   opted_out: "Esse cliente pediu para parar as mensagens automáticas.",
   duplicate: "Mensagem repetida: nada mudou.",
+  access_delivered: "Pedido de acesso: o login de cada conta foi registrado na conversa (senhas mascaradas).",
+  access_wrong_phone: "O código é de um pedido feito com outro número: nada foi entregue e a conversa veio para você.",
+  access_failed: "O WhatsApp recusou a entrega: a conversa veio para você entregar pelo card de Pedidos.",
 };
 
 const TEST_PHONE = "5527900000001";
@@ -60,7 +63,7 @@ export function SimulateCustomerDialog({ open, onClose, onDone }: SimulateCustom
       open={open}
       onClose={onClose}
       title="Simular mensagem de cliente"
-      description="Só no modo teste. Roda o atendimento inteiro (IA, passagem para você, avisos) sem mandar nada para ninguém."
+      description="Só no modo teste. Roda o atendimento inteiro (IA, passagem para você, avisos e entrega do acesso quando a mensagem traz o código de um pedido pago) sem mandar nada para ninguém."
     >
       <form noValidate onSubmit={onSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -69,7 +72,7 @@ export function SimulateCustomerDialog({ open, onClose, onDone }: SimulateCustom
         </div>
         <TextAreaField
           label="Mensagem"
-          placeholder="Ex.: Tem conta de TikTok até 400 reais?"
+          placeholder="Ex.: Tem conta de TikTok até 400 reais? Ou: Quero receber meu acesso. Pedido JD-ABC123."
           value={text}
           maxLength={1000}
           onChange={(event) => setText(event.target.value)}

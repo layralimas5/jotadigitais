@@ -65,7 +65,13 @@ function inboundMessages(payload: MetaPayload): InboundMessage[] {
       const names = new Map((change.value.contacts ?? []).map((contact) => [contact.wa_id, contact.profile?.name ?? null]));
       for (const message of change.value.messages) {
         if (!/^\d{10,15}$/.test(message.from)) continue;
-        result.push({ phone: message.from, name: names.get(message.from) ?? null, body: bodyOf(message), waMessageId: message.id });
+        result.push({
+          phone: message.from,
+          name: names.get(message.from) ?? null,
+          body: bodyOf(message),
+          waMessageId: message.id,
+          buttonPayload: message.type === "button" ? (message.button?.payload ?? null) : null,
+        });
       }
     }
   }

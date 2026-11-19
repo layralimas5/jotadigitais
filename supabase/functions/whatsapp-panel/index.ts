@@ -2,7 +2,8 @@
 // Só quem tem a área Automação (o Jota, a Lay ou ajudante com essa área) usa.
 //   simulate:         testa a IA com a configuração da tela (mesmo sem salvar). Nada é gravado nem enviado.
 //   reply:            o Jota responde o cliente pelo painel. A conversa passa a ser dele (a IA para de responder).
-//   simulate_inbound: no modo teste, finge uma mensagem de cliente e roda o fluxo inteiro (IA, passagem, avisos).
+//   simulate_inbound: no modo teste, finge uma mensagem de cliente e roda o fluxo inteiro (IA, passagem, avisos e
+//                     entrega do acesso quando a mensagem traz o código do pedido).
 //
 // Deploy: npx supabase functions deploy whatsapp-panel
 // Segredos: ANTHROPIC_API_KEY e, no modo live, WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID.
@@ -10,7 +11,8 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.1
 import { enabledFlows, loadAiConfig, playbookOf, runAssistant, type AiConfig, type ChatTurn } from "../_shared/whatsapp-ai.ts";
 import { FLOW_LIMITS, parseFlowGraph } from "../_shared/whatsapp-flow.ts";
 import { insideWindow } from "../_shared/whatsapp-cloud.ts";
-import { processInbound, recordOutbound } from "../_shared/whatsapp-inbound.ts";
+import { processInbound } from "../_shared/whatsapp-inbound.ts";
+import { recordOutbound } from "../_shared/whatsapp-outbound.ts";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",

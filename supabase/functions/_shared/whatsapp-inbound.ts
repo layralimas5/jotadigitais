@@ -1,8 +1,11 @@
 // O que acontece com cada mensagem do cliente: registra, decide se a IA responde, responde (ou só registra, no modo
-// teste), seguindo o roteiro dos fluxos desenhados em WhatsApp > Fluxos, e chama o Jota quando precisa. Usado pela whatsapp-webhook (Meta) e pelo "Simular cliente" do painel.
+// teste), seguindo o roteiro dos fluxos desenhados em WhatsApp > Fluxos, e chama o Jota quando precisa. Pedido de acesso
+// (botão do modelo ou código do pedido) entrega o login antes de tudo. Usado pela whatsapp-webhook (Meta) e pelo
+// "Simular cliente" do painel.
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
-import { CloudSendError, sendCloudOptions, sendCloudText } from "./whatsapp-cloud.ts";
-import { renderWithOptions } from "./whatsapp-flow.ts";
+import { deliverAccess } from "./whatsapp-access.ts";
+import { accessCodeOf } from "./whatsapp-delivery.ts";
+import { conversationLink, handOff, notify as notifyJota, recordOutbound } from "./whatsapp-outbound.ts";
 import { loadAiConfig, runAssistant, type ChatTurn } from "./whatsapp-ai.ts";
 import { aiAnswersAt, isBusinessHours, isOptIn, isOptOut, type AiSchedule } from "./whatsapp-schedule.ts";
 
@@ -12,10 +15,13 @@ export interface InboundMessage {
   name: string | null;
   body: string;
   waMessageId: string | null;
+  /** Payload do botão de resposta rápida do modelo (ex.: `acesso:JD-ABC123`). */
+  buttonPayload?: string | null;
 }
 
 interface Settings {
   mode: "test" | "live";
+  auto_delivery: boolean;
   ai_enabled: boolean;
   ai_schedule: AiSchedule;
   business_start: string;
@@ -33,7 +39,21 @@ interface Registered {
   unread_count: number;
 }
 
-export type InboundOutcome = "duplicate" | "ignored" | "opted_out" | "staff" | "ai_off" | "replied" | "handoff";
+export type InboundOutcome =
+  | "duplicate"
+  | "ignored"
+  | "opted_out"
+  | "staff"
+  | "ai_off"
+  | "replied"
+  | "handoff"
+  | "access_delivered"
+  | "access_wrong_phone"
+  | "access_failed";
+
+const ACCESS_OUTCOME = { delivered: "access_delivered", wrong_phone: "access_wrong_phone", failed: "access_failed" } as const;
+
+const notify = (admin: SupabaseClient, contactId: string, title: string, body: string) => notifyJota(admin, conversationLink(contactId), title, body);
 
 const KIND_LABEL: Record<string, string> = { lead: "interessado (ainda não comprou)", customer: "cliente (já comprou)", affiliate: "afiliado", student: "aluno" };
 
@@ -44,48 +64,10 @@ const FAILURE_SUMMARY = "A IA não conseguiu responder esta mensagem. Responda p
 async function settingsOf(admin: SupabaseClient): Promise<Settings> {
   const { data, error } = await admin
     .from("whatsapp_settings")
-    .select("mode, ai_enabled, ai_schedule, business_start, business_end, business_days, ignored_numbers")
+    .select("mode, auto_delivery, ai_enabled, ai_schedule, business_start, business_end, business_days, ignored_numbers")
     .single();
   if (error) throw error;
   return data as Settings;
-}
-
-/** Envia (modo live) ou só registra (modo teste) uma mensagem da loja na conversa. */
-export async function recordOutbound(
-  admin: SupabaseClient,
-  contactId: string,
-  phone: string,
-  author: "ai" | "staff" | "system",
-  body: string,
-  mode: "test" | "live",
-  /** Pergunta de fluxo: sai como botões ou lista; na conversa fica o texto com as opções numeradas. */
-  options: readonly string[] = [],
-): Promise<{ status: "test" | "sent" | "failed"; error: string | null }> {
-  let status: "test" | "sent" | "failed" = "test";
-  let waId: string | null = null;
-  let error: string | null = null;
-  if (mode === "live") {
-    try {
-      waId = options.length > 0 ? await sendCloudOptions(phone, body, options) : await sendCloudText(phone, body);
-      status = "sent";
-    } catch (reason) {
-      if (!(reason instanceof CloudSendError)) throw reason;
-      status = "failed";
-      error = reason.message;
-    }
-  }
-  const recorded = renderWithOptions(body, options);
-  const { error: insertError } = await admin
-    .from("whatsapp_chat")
-    .insert({ contact_id: contactId, direction: "out", author, body: recorded, status, error, wa_message_id: waId });
-  if (insertError) throw insertError;
-  const { error: updateError } = await admin
-    .from("whatsapp_contacts")
-    // Respondida pela loja (IA, Jota ou aviso automático): sai da contagem de "esperando você".
-    .update({ last_message_at: new Date().toISOString(), last_message_preview: recorded.slice(0, 160), unread_count: 0 })
-    .eq("id", contactId);
-  if (updateError) throw updateError;
-  return { status, error };
 }
 
 async function historyOf(admin: SupabaseClient, contactId: string): Promise<ChatTurn[]> {
@@ -102,24 +84,6 @@ async function historyOf(admin: SupabaseClient, contactId: string): Promise<Chat
     .map((row) => ({ role: row.author === "customer" ? "user" : "assistant", text: row.body }));
 }
 
-/** Passa a conversa para o Jota e avisa no celular (sininho + push, kind whatsapp). */
-export async function handOff(admin: SupabaseClient, contactId: string, name: string | null, summary: string) {
-  const { error } = await admin.from("whatsapp_contacts").update({ handler: "staff", handoff_summary: summary.slice(0, 1000), unread_count: 1 }).eq("id", contactId);
-  if (error) throw error;
-  await notify(admin, contactId, `${name ?? "Cliente"} está esperando você no WhatsApp`, summary);
-}
-
-async function notify(admin: SupabaseClient, contactId: string, title: string, body: string) {
-  const { error } = await admin.from("notifications").insert({
-    kind: "whatsapp",
-    title: title.slice(0, 120),
-    body: body.slice(0, 500) || null,
-    link: `/admin/whatsapp?c=${contactId}`,
-  });
-  // O aviso é extra: falhar aqui não pode impedir a resposta ao cliente.
-  if (error) console.error("whatsapp notify", error);
-}
-
 export async function processInbound(admin: SupabaseClient, message: InboundMessage, forceMode?: "test"): Promise<InboundOutcome> {
   const settings = await settingsOf(admin);
   const mode = forceMode ?? settings.mode;
@@ -134,6 +98,13 @@ export async function processInbound(admin: SupabaseClient, message: InboundMess
   if (contact.duplicate) return "duplicate";
 
   if (settings.ignored_numbers.includes(message.phone)) return "ignored";
+
+  // Pedido de acesso vale mesmo com a IA desligada ou a conversa com o Jota: é a entrega automática, não a IA.
+  const accessCode = settings.auto_delivery ? accessCodeOf(message.body, message.buttonPayload) : null;
+  if (accessCode) {
+    const access = await deliverAccess(admin, { contactId: contact.contact_id, phone: message.phone, name: message.name, code: accessCode, mode });
+    if (access !== "not_ready") return ACCESS_OUTCOME[access];
+  }
 
   if (isOptOut(message.body)) {
     if (!contact.opted_out) {
@@ -171,7 +142,7 @@ export async function processInbound(admin: SupabaseClient, message: InboundMess
       firstContact: contact.is_new,
       context: { kindLabel: KIND_LABEL[profile.kind] ?? profile.kind, businessHours: isBusinessHours(hours, new Date()) },
     });
-    if (result.reply) await recordOutbound(admin, contact.contact_id, message.phone, "ai", result.reply, mode, result.options);
+    if (result.reply) await recordOutbound(admin, contact.contact_id, message.phone, "ai", result.reply, mode, { options: result.options });
     if (result.handoff) {
       await handOff(admin, contact.contact_id, message.name, `${result.handoff.reason}. ${result.handoff.summary}`);
       return "handoff";

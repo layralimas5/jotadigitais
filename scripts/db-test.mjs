@@ -2434,6 +2434,31 @@ async function whatsappDeliveryChecks() {
   const seen = await asAdmin(() => db.query(`select o.code from public.whatsapp_messages m join public.orders o on o.id = m.order_id`));
   const seenCodes = seen.rows.map((row) => row.code);
   check(seenCodes.includes("JD-WAP001") && seenCodes.includes("JD-WAP002"), "admin vê o registro das mensagens");
+
+  // Fase 2: aviso ao Jota quando ninguém pede o acesso em 30 minutos.
+  const alertsCount = async () => (await db.query(`select count(*)::int as n from public.notifications where title like 'Acesso não pedido%'`)).rows[0].n;
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP004'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP005", "11955556666");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP005'`));
+  const markSent = (code, minutes) =>
+    db.query(
+      `update public.whatsapp_messages m set status = 'sent', sent_at = now() - make_interval(mins => $2) from public.orders o where o.id = m.order_id and o.code = $1`,
+      [code, minutes],
+    );
+  await markSent("JD-WAP005", 10);
+  await db.query(`select public.whatsapp_alert_pending_access()`);
+  check((await alertsCount()) === 0, "antes de 30 minutos o Jota não é avisado");
+  await markSent("JD-WAP005", 40);
+  await markSent("JD-WAP002", 40);
+  const alerted = (await db.query(`select public.whatsapp_alert_pending_access() as n`)).rows[0].n;
+  check(alerted === 1 && (await alertsCount()) === 1, "pedido ainda pago 30 minutos depois do aviso vira alerta (entregue não)");
+  await db.query(`select public.whatsapp_alert_pending_access()`);
+  check((await alertsCount()) === 1, "o mesmo pedido não é avisado duas vezes");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.whatsapp_alert_pending_access()`)), /permission denied/),
+    "painel não dispara os alertas",
+  );
 }
 
 /** Entrega da conta: mensagens salvas para quem cuida dos pedidos e login do perfil com a senha cifrada. */
@@ -2648,7 +2673,7 @@ async function whatsappAiChecks() {
   );
 
   await db.query(`insert into public.notifications (kind, title, link) values ('whatsapp', 'Bia está esperando você no WhatsApp', '/admin/whatsapp?c=x')`);
-  check((await asAdmin(() => db.query(`select id from public.notifications where kind = 'whatsapp'`))).rows.length === 1, "aviso de WhatsApp aparece para o Jota");
+  check((await asAdmin(() => db.query(`select id from public.notifications where kind = 'whatsapp' and title like 'Bia%'`))).rows.length === 1, "aviso de WhatsApp aparece para o Jota");
 }
 
 async function whatsappFlowChecks() {

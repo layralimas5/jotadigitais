@@ -1,5 +1,13 @@
 import type { AiSchedule } from "../../supabase/functions/_shared/whatsapp-schedule";
-export { PAYMENT_TEMPLATE, paymentPromptText } from "../../supabase/functions/_shared/whatsapp-delivery";
+export {
+  MASKED_SECRET,
+  PAYMENT_TEMPLATE,
+  WRONG_PHONE_REPLY,
+  accessCodeOf,
+  accessRequestText,
+  paymentPromptText,
+  samePhone,
+} from "../../supabase/functions/_shared/whatsapp-delivery";
 
 export type WhatsAppMessageKind = "payment_confirmed" | "delivery";
 export type WhatsAppMessageStatus = "queued" | "sending" | "test" | "sent" | "failed";
@@ -185,4 +193,14 @@ export interface AiDraft {
   faq: readonly { question: string; answer: string }[];
 }
 
-export type InboundOutcome = "duplicate" | "ignored" | "opted_out" | "staff" | "ai_off" | "replied" | "handoff";
+export type InboundOutcome =
+  | "duplicate"
+  | "ignored"
+  | "opted_out"
+  | "staff"
+  | "ai_off"
+  | "replied"
+  | "handoff"
+  | "access_delivered"
+  | "access_wrong_phone"
+  | "access_failed";

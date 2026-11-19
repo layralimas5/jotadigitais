@@ -39,3 +39,39 @@ export function joinHandles(handles: readonly string[]): string {
 
 /** No registro do painel a senha aparece assim: a mensagem real sai com ela, o histórico não guarda. */
 export const MASKED_SECRET = "••••••";
+
+/** Resposta quando o código é de um pedido feito com outro número: a conversa vai para o Jota. */
+export const WRONG_PHONE_REPLY =
+  "Esse pedido foi feito com outro número de WhatsApp. Por segurança, o acesso só sai no número informado na compra. " +
+  "Já chamei o Jota para te ajudar por aqui.";
+
+/** Texto que a página do pedido pago deixa pronto no WhatsApp: o código faz o acesso sair sozinho. */
+export const accessRequestText = (orderCode: string) => `Quero receber meu acesso. Pedido ${orderCode}.`;
+
+const ORDER_CODE = /\bJD-[A-Z0-9]{6}\b/i;
+
+/**
+ * Pedido de acesso que chegou no WhatsApp: o toque em "Receber meu acesso" (payload `acesso:JD-...`) ou a mensagem
+ * da página do pedido, que traz o código. Sem código, é conversa comum.
+ */
+export function accessCodeOf(body: string, buttonPayload: string | null = null): string | null {
+  const source = buttonPayload?.startsWith("acesso:") ? buttonPayload.slice("acesso:".length) : body;
+  return source.match(ORDER_CODE)?.[0]?.toUpperCase() ?? null;
+}
+
+/**
+ * Celular do Brasil sem o nono dígito: a Meta às vezes manda o número do cliente sem ele (55 + DDD + 8 dígitos),
+ * enquanto o checkout grava com. As duas formas viram a mesma chave.
+ */
+function phoneKey(phone: string): string {
+  const id = toWhatsAppId(phone);
+  return id.length === 13 && id.startsWith("55") && id[4] === "9" ? id.slice(0, 4) + id.slice(5) : id;
+}
+
+export const samePhone = (a: string, b: string): boolean => phoneKey(a) === phoneKey(b);
+
+/** As duas formas do mesmo celular (com e sem o nono dígito), para achar a conversa de quem comprou. */
+export function phoneVariants(phone: string): string[] {
+  const key = phoneKey(phone);
+  return key.length === 12 && key.startsWith("55") ? [key, `${key.slice(0, 4)}9${key.slice(4)}`] : [key];
+}

@@ -2,6 +2,10 @@ import type { AdminWhatsAppRepository } from "@/application/ports";
 import {
   DEFAULT_AI_SETTINGS,
   DEFAULT_WHATSAPP_SETTINGS,
+  MASKED_SECRET,
+  WRONG_PHONE_REPLY,
+  accessCodeOf,
+  samePhone,
   type AiDraft,
   type FlowTestDraft,
   type InboundOutcome,
@@ -273,12 +277,37 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
         contacts.push(contact);
       }
       this.append(state, contact.id, "customer", text);
+      const access = this.deliverAccess(state, contact, text);
+      if (access) return { contactId: contact.id, outcome: access };
       if (contact.handler === "staff") return { contactId: contact.id, outcome: "staff" as const };
 
       if (!ai.enabled) return { contactId: contact.id, outcome: "ai_off" as const };
       this.append(state, contact.id, "ai", DEMO_AI_REPLY);
       return { contactId: contact.id, outcome: "replied" as const };
     });
+  }
+
+  /** Pedido de acesso com o código de um pedido pago: entrega (senhas mascaradas) ou, de outro número, chama o Jota. */
+  private deliverAccess(state: DemoState, contact: WhatsAppContact, text: string): InboundOutcome | null {
+    if (state.whatsappAutoDelivery === false) return null;
+    const code = accessCodeOf(text);
+    const delivered = (status: string) => status === "paid" || status === "delivered";
+    const target = code ? state.orders.find((order) => order.code === code && delivered(order.status)) : undefined;
+    if (!target) return null;
+    if (!target.customer.whatsapp || !samePhone(target.customer.whatsapp, contact.phone)) {
+      this.append(state, contact.id, "system", WRONG_PHONE_REPLY);
+      contact.handler = "staff";
+      contact.handoffSummary = `Pediu o acesso do pedido ${target.code}, mas o número não é o da compra.`;
+      contact.unreadCount = 1;
+      return "access_wrong_phone";
+    }
+    const cart = target.cartCode;
+    const items = state.orders.filter((order) => delivered(order.status) && (order.code === target.code || (cart !== null && order.cartCode === cart)));
+    for (const item of items) {
+      this.append(state, contact.id, "system", `Conta ${item.accountHandle} entregue (pedido ${item.code}).
+Login e senha: ${MASKED_SECRET}`);
+    }
+    return "access_delivered";
   }
 
   private flows(state: DemoState): WhatsAppFlow[] {
