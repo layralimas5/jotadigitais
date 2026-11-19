@@ -3,6 +3,7 @@ import { saveSiteContent } from "@/application/admin-use-cases";
 import { fieldErrorsOf, siteContentSchema } from "@/application/schemas";
 import { DEFAULT_SITE_CONTENT, type SiteContent, type SiteSectionKey } from "@/domain/site-content";
 import { useMutation } from "../hooks";
+import { cacheSiteContent } from "@/ui/lib/site-cache";
 
 const sameContent = (a: SiteContent, b: SiteContent) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -49,6 +50,8 @@ export function useSiteDraft(initial: SiteContent) {
     }
     const published = await runSave(draft);
     if (!published) return { ok: false, section: null };
+    // Mesmo endereço do site: quem salvou já abre o site com o texto novo, sem ver o antigo antes.
+    cacheSiteContent(published);
     setSaved(published);
     setDraft(published);
     setShowErrors(false);

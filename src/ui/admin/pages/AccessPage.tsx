@@ -1,6 +1,6 @@
 import { ChevronRight, Eye, UserPlus } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { container } from "@/app/container";
 import { listAccessUsers } from "@/application/access-use-cases";
 import { listAdminUsers } from "@/application/admin-use-cases";
@@ -9,6 +9,7 @@ import { sameEmail, type AdminRole, type StaffPermission } from "@/domain/admin-
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
+import { Modal } from "../components/Modal";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery } from "../hooks";
@@ -43,45 +44,76 @@ function subjectOf(user: AccessUser, permissionsById: PermissionsById | null): V
   return permissions ? { name: displayName(user), access: { role: "helper", permissions } } : null;
 }
 
-/** Cartão inteiro clicável: abre a ficha do usuário. "Ver como" fica por cima do link. */
-function AccessCard({ user, isYou, subject }: { user: AccessUser; isYou: boolean; subject: ViewSubject | null }) {
+function YouBadge() {
+  return <span className="rounded-full border border-electric/40 bg-electric/10 px-2 py-0.5 text-[0.68rem] font-semibold text-electric-soft">Você</span>;
+}
+
+/** Linha da lista: clicar abre o card flutuante com os detalhes e as ações. */
+function AccessRow({ user, isYou, onOpen }: { user: AccessUser; isYou: boolean; onOpen: () => void }) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/[0.03] focus-visible:bg-white/[0.04] focus-visible:outline-none sm:px-5"
+      >
+        <PersonAvatar name={displayName(user)} src={user.avatarUrl} />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="truncate font-semibold text-white">{displayName(user)}</span>
+            <RoleBadge role={user.role} />
+            {isYou && <YouBadge />}
+          </span>
+          <span className="block truncate text-sm text-mist">{user.email}</span>
+        </span>
+        <ChevronRight aria-hidden className="size-5 shrink-0 text-mist" />
+      </button>
+    </li>
+  );
+}
+
+/** Card flutuante no meio da tela: os dados do acesso e o caminho para a ficha e para o "Ver como". */
+function AccessDetailCard({
+  user,
+  isYou,
+  subject,
+  onClose,
+}: {
+  user: AccessUser | null;
+  isYou: boolean;
+  subject: ViewSubject | null;
+  onClose: () => void;
+}) {
   const { enter } = usePreviewToggle();
   return (
-    <li className="relative rounded-3xl border border-line bg-surface/60 p-4 transition-colors hover:border-line-strong hover:bg-surface sm:p-5">
-      <div className="flex items-center gap-4">
-        <PersonAvatar name={displayName(user)} src={user.avatarUrl} />
-        <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-2">
-            <Link
-              to={accessPath(user.id)}
-              className="truncate font-semibold text-white after:absolute after:inset-0 after:rounded-3xl hover:text-electric-soft focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-electric"
-            >
-              {displayName(user)}
-            </Link>
-            <RoleBadge role={user.role} />
-            {isYou && (
-              <span className="rounded-full border border-electric/40 bg-electric/10 px-2 py-0.5 text-[0.68rem] font-semibold text-electric-soft">Você</span>
+    <Modal open={user !== null} title={user ? displayName(user) : ""} onClose={onClose} placement="center">
+      {user && (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <PersonAvatar name={displayName(user)} src={user.avatarUrl} />
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-center gap-2">
+                <RoleBadge role={user.role} />
+                {isYou && <YouBadge />}
+              </p>
+              <p className="mt-1 truncate text-sm text-fog">{user.email}</p>
+              <p className="text-xs text-mist">{user.whatsapp ? `WhatsApp ${formatPhone(user.whatsapp)}` : "Sem WhatsApp cadastrado"}</p>
+            </div>
+          </div>
+          <AccessFacts user={user} />
+          <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
+            {subject && (
+              <Button variant="secondary" onClick={() => enter(subject)}>
+                <Eye aria-hidden className="size-4" /> Ver como
+              </Button>
             )}
-          </p>
-          <p className="mt-0.5 truncate text-sm text-fog">{user.email}</p>
-          <p className="text-xs text-mist">{user.whatsapp ? `WhatsApp ${formatPhone(user.whatsapp)}` : "Sem WhatsApp cadastrado"}</p>
-        </div>
-        <span className="hidden items-center gap-1 text-sm font-medium text-electric-soft sm:flex">
-          Abrir ficha <ChevronRight aria-hidden className="size-4" />
-        </span>
-        <ChevronRight aria-hidden className="size-5 text-mist sm:hidden" />
-      </div>
-      <div className="mt-4">
-        <AccessFacts user={user} />
-      </div>
-      {subject && (
-        <div className="relative z-10 mt-4 flex justify-end border-t border-line pt-4">
-          <Button variant="secondary" onClick={() => enter(subject)} aria-label={`Ver o painel como ${subject.name}`}>
-            <Eye aria-hidden className="size-4" /> Ver como
-          </Button>
+            <ButtonLink to={accessPath(user.id)}>
+              Abrir ficha <ChevronRight aria-hidden className="size-4" />
+            </ButtonLink>
+          </div>
         </div>
       )}
-    </li>
+    </Modal>
   );
 }
 
@@ -91,6 +123,8 @@ function AccessList({ users, permissionsById }: { users: AccessUser[]; permissio
   const navigate = useNavigate();
   const currentEmail = state.status === "signed-in" ? state.session.email : "";
   const [sending, setSending] = useState<AccessToSend | null>(() => createdAccessOf(location.state));
+  const [openId, setOpenId] = useState<string | null>(null);
+  const openUser = users.find((user) => user.id === openId) ?? null;
 
   const closeSending = () => {
     setSending(null);
@@ -100,11 +134,17 @@ function AccessList({ users, permissionsById }: { users: AccessUser[]; permissio
 
   return (
     <>
-      <ul aria-label="Usuários" className="grid gap-3">
+      <ul aria-label="Usuários" className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/60">
         {users.map((user) => (
-          <AccessCard key={user.id} user={user} isYou={sameEmail(user.email, currentEmail)} subject={subjectOf(user, permissionsById)} />
+          <AccessRow key={user.id} user={user} isYou={sameEmail(user.email, currentEmail)} onOpen={() => setOpenId(user.id)} />
         ))}
       </ul>
+      <AccessDetailCard
+        user={openUser}
+        isYou={openUser ? sameEmail(openUser.email, currentEmail) : false}
+        subject={openUser ? subjectOf(openUser, permissionsById) : null}
+        onClose={() => setOpenId(null)}
+      />
       <SendAccessDialog access={sending} onClose={closeSending} />
     </>
   );
@@ -138,7 +178,10 @@ export default function AccessPage() {
       {users.status === "loading" && <LoadingBlock />}
       {users.status === "error" && <ErrorState message={users.error.message} onRetry={users.reload} />}
       {users.status === "success" && users.data.length === 0 && <EmptyState title="Nenhum usuário" description="Cadastre quem vai usar o sistema." />}
-      {users.status === "success" && users.data.length > 0 && <AccessList users={users.data} permissionsById={permissionsById} />}
+      <section aria-labelledby="access-staff-title" className="space-y-3">
+        <h2 id="access-staff-title" className="font-display text-lg font-semibold text-white">Equipe da loja</h2>
+        {users.status === "success" && users.data.length > 0 && <AccessList users={users.data} permissionsById={permissionsById} />}
+      </section>
     </div>
   );
 }

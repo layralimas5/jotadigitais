@@ -1,11 +1,11 @@
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { CookieBanner } from "@/ui/components/cookies/CookieBanner";
 import { CookieConsentProvider } from "@/ui/components/cookies/CookieConsentProvider";
 import { WhatsAppWidget } from "@/ui/components/whatsapp/WhatsAppWidget";
 import { CartProvider } from "@/ui/hooks/useCart";
-import { SiteContentProvider } from "@/ui/hooks/useSiteContent";
-import { StoreSettingsProvider } from "@/ui/hooks/useStoreSettings";
+import { SiteContentProvider, useSiteContentReady } from "@/ui/hooks/useSiteContent";
+import { StoreSettingsProvider, useStoreSettingsReady } from "@/ui/hooks/useStoreSettings";
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 
@@ -19,6 +19,32 @@ function ScrollManager() {
     window.scrollTo(0, 0);
   }, [pathname, hash]);
   return null;
+}
+
+/** Tempo máximo esperando o banco na primeira visita; passou disso, o site aparece com o texto original. */
+const FIRST_VISIT_WAIT_MS = 2500;
+
+/**
+ * Primeira visita (sem cópia no navegador): o site fica invisível, ocupando o lugar, até os textos salvos chegarem.
+ * Assim ninguém vê o texto de fábrica trocar pelo editado. Quem já visitou abre na hora, com a cópia.
+ */
+function FirstVisitGate({ children }: { children: ReactNode }) {
+  // Os dois hooks rodam sempre, na mesma ordem (o && pulava o segundo e o React reclamava).
+  const contentReady = useSiteContentReady();
+  const settingsReady = useStoreSettingsReady();
+  const ready = contentReady && settingsReady;
+  const [waitedEnough, setWaitedEnough] = useState(false);
+  useEffect(() => {
+    if (ready) return;
+    const timer = window.setTimeout(() => setWaitedEnough(true), FIRST_VISIT_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [ready]);
+  const visible = ready || waitedEnough;
+  return (
+    <div className="contents" style={visible ? undefined : { visibility: "hidden" }} aria-busy={!visible || undefined}>
+      {children}
+    </div>
+  );
 }
 
 function PageFallback() {
@@ -42,6 +68,7 @@ export function Layout() {
         Pular para o conteúdo
       </a>
       <ScrollManager />
+      <FirstVisitGate>
       <Header />
       <main id="conteudo" className="relative min-h-screen">
         <Suspense fallback={<PageFallback />}>
@@ -51,6 +78,7 @@ export function Layout() {
       <Footer />
       <WhatsAppWidget />
       <CookieBanner />
+      </FirstVisitGate>
       </CartProvider>
       </CookieConsentProvider>
       </SiteContentProvider>
