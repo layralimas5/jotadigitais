@@ -2,7 +2,7 @@ import type { Account } from "./account";
 import type { CustomerSummary } from "./customer";
 import type { Cents } from "./money";
 import type { Order } from "./order";
-import { POINTS_PER_REFERRED_PURCHASE, matchReferralPartner } from "./referral";
+import { POINTS_PER_REFERRED_PURCHASE, REFERRAL_PAYOUT_POINTS, matchReferralPartner } from "./referral";
 
 /** Quem fornece contas para a loja e recebe uma parte de cada venda finalizada. */
 export interface PartnerData {
@@ -24,6 +24,8 @@ export interface PartnerData {
 export interface Partner extends PartnerData {
   id: string;
   createdAt: string;
+  /** Pontos por indicação que o Jota já pagou, somados a cada "Já paguei". */
+  referralPointsPaid: number;
 }
 
 export interface PartnerSummary {
@@ -42,6 +44,22 @@ export interface PartnerSummary {
   referredRevenue: Cents;
   /** Pontos por indicação: cada compra paga de um cliente indicado soma `POINTS_PER_REFERRED_PURCHASE`. */
   points: number;
+  /** Pontos que ainda não foram pagos. */
+  pointsOwed: number;
+  /** Pagamentos de `REFERRAL_PAYOUT_POINTS` pontos já completos e esperando o Jota. */
+  payoutsDue: number;
+  /** Quantos pontos faltam para fechar o próximo pagamento. */
+  pointsToNextPayout: number;
+}
+
+/** Pontos ganhos menos os pagos, em blocos de `REFERRAL_PAYOUT_POINTS`. */
+export function referralPayoutOf(points: number, paid: number): Pick<PartnerSummary, "pointsOwed" | "payoutsDue" | "pointsToNextPayout"> {
+  const pointsOwed = Math.max(points - paid, 0);
+  return {
+    pointsOwed,
+    payoutsDue: Math.floor(pointsOwed / REFERRAL_PAYOUT_POINTS),
+    pointsToNextPayout: REFERRAL_PAYOUT_POINTS - (pointsOwed % REFERRAL_PAYOUT_POINTS),
+  };
 }
 
 /** Mesmo limite da checagem `partners_tags` no banco. */
@@ -88,6 +106,7 @@ export function summarizePartners(
   return partners.map((partner) => {
     const referredCustomers = referrals.get(partner.id) ?? [];
     const referredPurchases = referredCustomers.reduce((sum, customer) => sum + customer.purchases, 0);
+    const points = referredPurchases * POINTS_PER_REFERRED_PURCHASE;
     const owned = accounts.filter((account) => account.partnerId === partner.id);
     const ownedIds = new Set(owned.map((account) => account.id));
     const revenue = orders
@@ -102,7 +121,8 @@ export function summarizePartners(
       commission: commissionOf(revenue, partner.commissionPercent),
       referredCustomers,
       referredPurchases,
-      points: referredPurchases * POINTS_PER_REFERRED_PURCHASE,
+      points,
+      ...referralPayoutOf(points, partner.referralPointsPaid),
       referredRevenue: referredCustomers.reduce((sum, customer) => sum + customer.totalSpent, 0),
     };
   });

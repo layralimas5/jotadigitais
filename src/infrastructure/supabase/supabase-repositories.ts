@@ -887,7 +887,7 @@ export class SupabaseRevenueRepository implements AdminRevenueRepository {
   }
 }
 
-const PARTNER_COLUMNS = "id, name, whatsapp, instagram, tags, pix_key, commission_percent, notes, active, created_at";
+const PARTNER_COLUMNS = "id, name, whatsapp, instagram, tags, pix_key, commission_percent, notes, active, created_at, referral_points_paid";
 
 const partnerRowSchema = z.object({
   id: z.string(),
@@ -901,6 +901,7 @@ const partnerRowSchema = z.object({
   notes: z.string().nullable(),
   active: z.boolean(),
   created_at: z.string(),
+  referral_points_paid: z.number().int().nonnegative(),
 });
 
 function toPartner(raw: unknown): Partner {
@@ -916,6 +917,7 @@ function toPartner(raw: unknown): Partner {
     notes: row.notes,
     active: row.active,
     createdAt: row.created_at,
+    referralPointsPaid: row.referral_points_paid,
   };
 }
 
@@ -960,6 +962,15 @@ export class SupabasePartnerRepository implements AdminPartnerRepository {
       .maybeSingle();
     if (error) fail(error);
     if (!data) throw new PartnerNotFoundError();
+    return toPartner(data);
+  }
+
+  async addPaidReferralPoints(id: string, points: number): Promise<Partner> {
+    const { data, error } = await this.client.rpc("pay_partner_referral_points", { p_partner_id: id, p_points: points });
+    if (error) {
+      if (error.message.includes("partner_not_found")) throw new PartnerNotFoundError();
+      fail(error);
+    }
     return toPartner(data);
   }
 

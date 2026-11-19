@@ -6,7 +6,8 @@ import type { Coupon } from "@/domain/coupon";
 import { sortCountries, type Country } from "@/domain/country";
 import type { DashboardSource } from "@/domain/dashboard";
 import { accessOf, type AccountAccess, type EmailAccount, type EmailAccountListItem } from "@/domain/email-account";
-import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
+import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError, NoReferralPayoutDueError, PartnerNotFoundError } from "@/domain/errors";
+import { REFERRAL_PAYOUT_POINTS } from "@/domain/referral";
 import { ACCOUNT_EXPENSE_CATEGORY, accountBalanceOf, type AccountBalance, type Expense, type Revenue } from "@/domain/finance";
 import type { Cents } from "@/domain/money";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
@@ -551,6 +552,14 @@ export async function findPartnerSummary(deps: AdminDeps, id: string): Promise<P
 export function savePartner(deps: AdminDeps, id: string | null, raw: unknown): Promise<Partner> {
   const data = parseOrThrow(partnerDataSchema, raw);
   return id ? deps.partners.update(id, data) : deps.partners.create(data);
+}
+
+/** "Já paguei": registra um pagamento de indicação, só se o parceiro tiver um completo esperando. */
+export async function markReferralPayoutPaid(deps: AdminDeps, id: string): Promise<Partner> {
+  const summary = await findPartnerSummary(deps, id);
+  if (!summary) throw new PartnerNotFoundError();
+  if (summary.payoutsDue === 0) throw new NoReferralPayoutDueError();
+  return deps.partners.addPaidReferralPoints(id, REFERRAL_PAYOUT_POINTS);
 }
 
 export function deletePartner(deps: AdminDeps, id: string): Promise<void> {

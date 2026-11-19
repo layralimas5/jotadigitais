@@ -393,6 +393,8 @@ export interface AdminPartnerRepository {
   findById(id: string): Promise<Partner | null>;
   create(data: PartnerData): Promise<Partner>;
   update(id: string, data: PartnerData): Promise<Partner>;
+  /** Soma pontos de indicação pagos (o "Já paguei" do Jota). */
+  addPaidReferralPoints(id: string, points: number): Promise<Partner>;
   /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
   remove(id: string): Promise<void>;
 }
