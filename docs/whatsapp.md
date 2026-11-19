@@ -81,6 +81,9 @@ Como ficam conectadas:
 Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`,
 `WHATSAPP_VERIFY_TOKEN`, `ANTHROPIC_API_KEY`.
 
+A chave da Anthropic, o token e o número são todos da conta do Jota (conta Anthropic e Meta no nome dele, cobrança
+dele). Nunca usar a chave do Vynkio nem qualquer outra chave da Lay.
+
 ## Modelos para pedir aprovação na Meta (categoria utilidade)
 
 - **Pagamento confirmado** (`pagamento_confirmado`, pt_BR; texto idêntico ao de `paymentPromptText` em
@@ -255,7 +258,7 @@ política, o aviso aos clientes vem antes de a mudança valer. Acrescentar:
 ### Ativar (depois da fase 1)
 
 1. SQL Editor: a migration `20261214120000_whatsapp_ai.sql` (e registrar em `schema_migrations`).
-2. `npx supabase secrets set ANTHROPIC_API_KEY=... SITE_URL=https://jotadigitais.com.br`
+2. `npx supabase secrets set ANTHROPIC_API_KEY=<chave da conta Anthropic do Jota> SITE_URL=https://jotadigitais.com.br`
 3. `npx supabase functions deploy whatsapp-panel` e `npx supabase functions deploy whatsapp-webhook --no-verify-jwt`
 4. Testar: Automação > IA de atendimento > Testar a IA; depois WhatsApp > Simular cliente com a IA ligada.
 
