@@ -29,7 +29,7 @@ import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
 import { canOpen, FINALIZED_PATH } from "../navigation";
-import { whatsappChatUrl } from "../lib/whatsapp";
+import { WhatsAppContactLink } from "../whatsapp/WhatsAppContactLink";
 import { useToast } from "../toast";
 
 type Tab = OrderStage | "all";
@@ -73,11 +73,6 @@ const DONE_MESSAGE: Record<OrderStatus, string> = {
 };
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-
-function whatsappLink(order: Order, templates: MessageTemplates): string | null {
-  if (!order.customer.whatsapp) return null;
-  return whatsappChatUrl(order.customer.whatsapp, orderMessage(templates, order));
-}
 
 const PART_STATUS_LABEL: Record<OrderPayment["status"], string> = { pending: "Aguardando", paid: "Pago", canceled: "Cancelado" };
 const PART_STATUS_TONE: Record<OrderPayment["status"], string> = {
@@ -195,7 +190,6 @@ interface OrderCardProps {
 }
 
 function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy, onAction, onConfirmPix, showFinalized }: OrderCardProps) {
-  const whatsapp = whatsappLink(order, templates);
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
   return (
@@ -231,10 +225,14 @@ function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy
                 <Mail aria-hidden className="size-3.5" /> {order.customer.email}
               </a>
             )}
-            {whatsapp && (
-              <a href={whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-emerald-300 hover:underline">
+            {order.customer.whatsapp && (
+              <WhatsAppContactLink
+                phone={order.customer.whatsapp}
+                text={orderMessage(templates, order)}
+                className="inline-flex items-center gap-1 text-emerald-300 hover:underline"
+              >
                 <MessageCircle aria-hidden className="size-3.5" /> WhatsApp
-              </a>
+              </WhatsAppContactLink>
             )}
           </dd>
         </div>

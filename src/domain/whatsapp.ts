@@ -66,6 +66,40 @@ export const WHATSAPP_STATUS_LABEL: Record<WhatsAppMessageStatus, string> = {
   canceled: "Não saiu",
 };
 
+// ---------------------------------------------------------------------------
+// Relatório (aba WhatsApp > Relatório)
+// ---------------------------------------------------------------------------
+
+export const REPORT_PERIODS = [7, 30, 90] as const;
+export type ReportPeriod = (typeof REPORT_PERIODS)[number];
+
+/** Números de um período. Envios do modo teste contam junto. */
+export interface WhatsAppReport {
+  days: ReportPeriod;
+  /** Conversas em que o cliente escreveu no período. */
+  conversations: number;
+  newContacts: number;
+  received: number;
+  aiReplies: number;
+  staffReplies: number;
+  /** Conversas do período resolvidas sem o Jota escrever nada. */
+  aiOnly: number;
+  /** Vezes que a IA passou a conversa para o Jota. */
+  handoffs: number;
+  waitingNow: number;
+  accessDelivered: number;
+  remindersSent: number;
+  /** Lembretes cujo pedido acabou pago. */
+  remindersPaid: number;
+  afterSalesSent: number;
+  /** Pedidos pagos de quem já tinha conversado no WhatsApp antes de comprar. */
+  chatSales: number;
+  chatSalesCents: number;
+}
+
+/** Parte de um total em porcentagem inteira; zero quando não há total. */
+export const shareOf = (part: number, total: number): number => (total > 0 ? Math.round((part / total) * 100) : 0);
+
 export const DEFAULT_FOLLOW_UPS: WhatsAppFollowUps = { paymentReminder: false, reminderMinutes: 15, afterSale: false, afterSaleDays: 3 };
 
 export const DEFAULT_WHATSAPP_SETTINGS: WhatsAppSettings = { autoDelivery: true, mode: "test", followUps: DEFAULT_FOLLOW_UPS };

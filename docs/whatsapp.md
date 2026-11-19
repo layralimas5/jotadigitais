@@ -220,6 +220,22 @@ política, o aviso aos clientes vem antes de a mudança valer. Acrescentar:
 2. Secret `SITE_URL` (já pedido na fase 3) e publicar de novo a `whatsapp-send`.
 3. No ao vivo: aprovar `pedido_aguardando` e `pos_venda` na Meta antes de ligar os dois na tela.
 
+## Relatório e "Abrir no WhatsApp" (19/11)
+
+- **WhatsApp > Relatório** (7, 30 ou 90 dias; função `whatsapp_report`, migration
+  `20261220120000_whatsapp_report.sql`): conversas, contatos novos, % resolvidas pela IA sem o Jota escrever,
+  passadas para o Jota (e quantas esperam agora), respostas da IA e do Jota, vendas de quem conversou antes de
+  comprar (quantidade e valor), acessos entregues, pagos depois do lembrete e pós-venda enviados. No modo teste
+  avisa que os envios foram só registrados.
+- **"Abrir no WhatsApp"** de Pedidos, Finalizados, Clientes e ficha do cliente (`WhatsAppContactLink`): se o número
+  já conversou com o oficial, abre a conversa do painel; senão, o WhatsApp do aparelho com a mensagem pronta, como
+  antes. Usa a mesma lista de conversas que o menu já carrega (sem consulta a mais) e reconhece o número com ou sem
+  o nono dígito. Quem não tem a área Automação continua indo para o WhatsApp do aparelho.
+
+### Ativar
+
+1. SQL Editor: `20261220120000_whatsapp_report.sql` (depois da 20261219).
+
 ## Fases 3 e 4 prontas em modo teste: IA, aba WhatsApp e Automação > IA (17/11)
 
 - Migration `20261214120000_whatsapp_ai`: configuração da IA em `whatsapp_settings` (começa **desligada**), `whatsapp_faq`
@@ -251,8 +267,8 @@ política, o aviso aos clientes vem antes de a mudança valer. Acrescentar:
 
 ### Falta
 
-- Áudios gravados e a aba Relatório.
-- "Abrir no WhatsApp" de Pedidos e Clientes levar para a conversa do painel.
+- Áudios gravados.
+- No Relatório, abrir a conversa de origem de cada venda.
 
 ## Fluxos: o roteiro da IA (WhatsApp > Fluxos, 17/11)
 

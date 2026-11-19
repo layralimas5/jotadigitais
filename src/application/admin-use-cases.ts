@@ -25,6 +25,8 @@ import type {
   WhatsAppFollowUps,
   WhatsAppHandler,
   WhatsAppMessage,
+  WhatsAppReport,
+  ReportPeriod,
   WhatsAppSettings,
   FlowTestDraft,
 } from "@/domain/whatsapp";
@@ -346,6 +348,8 @@ const followUpsSchema = z.object({
 export function saveWhatsAppFollowUps(deps: AdminDeps, followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {
   return deps.whatsapp.saveFollowUps(followUpsSchema.parse(followUps));
 }
+
+export const getWhatsAppReport = (deps: AdminDeps, days: ReportPeriod): Promise<WhatsAppReport> => deps.whatsapp.getReport(days);
 
 export const WHATSAPP_LOG_LIMIT = 40;
 

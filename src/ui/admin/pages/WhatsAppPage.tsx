@@ -7,6 +7,7 @@ import { cn } from "@/ui/lib/cn";
 import { AiSetupPanel } from "../automation/AiSetupPanel";
 import { MessageTemplatesPanel } from "../automation/MessageTemplatesPanel";
 import { WhatsAppDeliveryPanel } from "../automation/WhatsAppDeliveryPanel";
+import { WhatsAppReportPanel } from "../automation/WhatsAppReportPanel";
 import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { useFocusLayout } from "../focus-layout";
 import { useAdminQuery } from "../hooks";
@@ -24,6 +25,7 @@ const TAB_LABEL: Record<WhatsAppTab, string> = {
   ia: "IA de atendimento",
   entrega: "Entrega automática",
   mensagens: "Mensagens",
+  relatorio: "Relatório",
 };
 
 function Tabs({ value, onChange }: { value: WhatsAppTab; onChange: (tab: WhatsAppTab) => void }) {
@@ -51,7 +53,7 @@ function Tabs({ value, onChange }: { value: WhatsAppTab; onChange: (tab: WhatsAp
   );
 }
 
-/** WhatsApp: conversas, fluxos que guiam a IA, a IA, a entrega automática e as mensagens, num lugar só. */
+/** WhatsApp: conversas, fluxos que guiam a IA, a IA, a entrega automática, as mensagens e o relatório, num lugar só. */
 export default function WhatsAppPage() {
   const settings = useAdminQuery(getWhatsAppSettings, "whatsapp-settings");
   const [params, setParams] = useSearchParams();
@@ -114,6 +116,9 @@ export default function WhatsAppPage() {
       </div>
       <div hidden={tab !== "mensagens"} className="max-w-[68rem] space-y-6">
         {opened.has("mensagens") && <MessageTemplatesPanel />}
+      </div>
+      <div hidden={tab !== "relatorio"} className="max-w-[68rem]">
+        {opened.has("relatorio") && <WhatsAppReportPanel mode={mode} />}
       </div>
     </div>
   );

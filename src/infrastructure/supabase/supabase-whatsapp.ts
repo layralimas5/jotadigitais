@@ -17,7 +17,9 @@ import {
   type WhatsAppFaqDraft,
   type WhatsAppHandler,
   type WhatsAppMessage,
+  type ReportPeriod,
   type WhatsAppFollowUps,
+  type WhatsAppReport,
   type WhatsAppSettings,
 } from "@/domain/whatsapp";
 import { parseFlowGraph, type WhatsAppFlow, type WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
@@ -49,6 +51,47 @@ const toSettings = (raw: unknown): WhatsAppSettings => {
     },
   };
 };
+
+const count = z.number().int().nonnegative();
+
+const reportSchema = z.object({
+  days: z.union([z.literal(7), z.literal(30), z.literal(90)]),
+  conversations: count,
+  new_contacts: count,
+  received: count,
+  ai_replies: count,
+  staff_replies: count,
+  ai_only: count,
+  handoffs: count,
+  waiting_now: count,
+  access_delivered: count,
+  reminders_sent: count,
+  reminders_paid: count,
+  after_sales_sent: count,
+  chat_sales: count,
+  chat_sales_cents: count,
+});
+
+function toReport(raw: unknown): WhatsAppReport {
+  const row = reportSchema.parse(raw);
+  return {
+    days: row.days,
+    conversations: row.conversations,
+    newContacts: row.new_contacts,
+    received: row.received,
+    aiReplies: row.ai_replies,
+    staffReplies: row.staff_replies,
+    aiOnly: row.ai_only,
+    handoffs: row.handoffs,
+    waitingNow: row.waiting_now,
+    accessDelivered: row.access_delivered,
+    remindersSent: row.reminders_sent,
+    remindersPaid: row.reminders_paid,
+    afterSalesSent: row.after_sales_sent,
+    chatSales: row.chat_sales,
+    chatSalesCents: row.chat_sales_cents,
+  };
+}
 
 const MESSAGE_COLUMNS = "id, kind, status, to_phone, body, error, created_at, sent_at, order:orders(code, customer_name)";
 
@@ -220,6 +263,12 @@ export class SupabaseWhatsAppRepository implements AdminWhatsAppRepository {
       .single();
     if (error) fail(error);
     return toSettings(data);
+  }
+
+  async getReport(days: ReportPeriod): Promise<WhatsAppReport> {
+    const { data, error } = await this.client.rpc("whatsapp_report", { p_days: days });
+    if (error) fail(error);
+    return toReport(data);
   }
 
   async saveFollowUps(followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {

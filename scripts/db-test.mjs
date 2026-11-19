@@ -2774,6 +2774,18 @@ async function whatsappFollowUpChecks() {
   check((await run()) === 0, "a próxima rodada não repete o mesmo pedido");
   check(await rejects(() => asAdmin(() => db.query(`select public.whatsapp_queue_followups()`)), /permission denied/), "painel não dispara a fila");
   await asAdmin(() => db.query(`update public.whatsapp_settings set payment_reminder = false, after_sale = false`));
+
+  // Relatório: venda de quem conversou antes de comprar conta; quem comprou antes de conversar, não.
+  await db.query(`insert into public.whatsapp_contacts (phone, created_at) values ('5527981119999', now() - interval '2 days')`);
+  await order("JD-FUP007", "paid", "27981119999", "1 hour");
+  await db.query(`update public.whatsapp_messages set status = 'sent' where kind = 'payment_reminder'`);
+  await db.query(`update public.orders set status = 'paid' where code = 'JD-FUP001'`);
+  const report = (await asAdmin(() => db.query(`select public.whatsapp_report(30) as data`))).rows[0].data;
+  check(report.days === 30 && report.conversations >= 1 && report.received >= report.conversations, "relatório conta as conversas do período");
+  check(report.chat_sales === 1 && report.chat_sales_cents === 37000, "venda de quem conversou antes de comprar entra no relatório");
+  check(report.reminders_sent === 1 && report.reminders_paid === 1, "lembrete que virou pagamento aparece no relatório");
+  check(await rejects(() => asAdmin(() => db.query(`select public.whatsapp_report(15)`)), /invalid_period/), "período fora de 7, 30 ou 90 é recusado");
+  check(await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.whatsapp_report(7)`)), /forbidden/), "quem não tem Automação não vê o relatório");
 }
 
 async function whatsappFlowChecks() {

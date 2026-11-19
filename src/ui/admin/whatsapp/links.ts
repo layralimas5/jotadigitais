@@ -1,10 +1,10 @@
-/** Endereços da aba WhatsApp: conversas, fluxos, IA, entrega e mensagens ficam todos em /admin/whatsapp?aba=. */
+/** Endereços da aba WhatsApp: conversas, fluxos, IA, entrega, mensagens e relatório ficam todos em /admin/whatsapp?aba=. */
 import { WHATSAPP_PATH } from "../navigation";
 
 export { WHATSAPP_PATH };
 
-export type WhatsAppTab = "conversas" | "fluxos" | "ia" | "entrega" | "mensagens";
-export const WHATSAPP_TABS: readonly WhatsAppTab[] = ["conversas", "fluxos", "ia", "entrega", "mensagens"];
+export type WhatsAppTab = "conversas" | "fluxos" | "ia" | "entrega" | "mensagens" | "relatorio";
+export const WHATSAPP_TABS: readonly WhatsAppTab[] = ["conversas", "fluxos", "ia", "entrega", "mensagens", "relatorio"];
 export const TAB_PARAM = "aba";
 
 export const whatsAppTabOf = (value: string | null): WhatsAppTab => WHATSAPP_TABS.find((tab) => tab === value) ?? "conversas";

@@ -17,7 +17,9 @@ import {
   type WhatsAppContactKind,
   type WhatsAppFaq,
   type WhatsAppFaqDraft,
+  type ReportPeriod,
   type WhatsAppFollowUps,
+  type WhatsAppReport,
   type WhatsAppHandler,
   type WhatsAppMessage,
   type WhatsAppSettings,
@@ -155,6 +157,36 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
 
   async listMessages(): Promise<WhatsAppMessage[]> {
     return [];
+  }
+
+  /** Só as conversas do navegador: sem envios, lembretes nem vendas originadas no modo demonstração. */
+  async getReport(days: ReportPeriod): Promise<WhatsAppReport> {
+    await simulateLatency();
+    const state = this.db.read();
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+    const contacts = state.whatsappContacts ?? seedConversations().contacts;
+    const chat = state.whatsappChat ?? seedConversations().chat;
+    const inPeriod = (message: WhatsAppChatMessage) => new Date(message.createdAt).getTime() >= since;
+    const messages = Object.values(chat).flat().filter(inPeriod);
+    const active = contacts.filter((contact) => (chat[contact.id] ?? []).some((message) => message.author === "customer" && inPeriod(message)));
+    const staffTouched = (contact: WhatsAppContact) => (chat[contact.id] ?? []).some((message) => message.author === "staff" && inPeriod(message));
+    return {
+      days,
+      conversations: active.length,
+      newContacts: active.length,
+      received: messages.filter((message) => message.author === "customer").length,
+      aiReplies: messages.filter((message) => message.author === "ai").length,
+      staffReplies: messages.filter((message) => message.author === "staff").length,
+      aiOnly: active.filter((contact) => contact.handler === "ai" && !staffTouched(contact)).length,
+      handoffs: contacts.filter((contact) => contact.handoffSummary !== null).length,
+      waitingNow: contacts.filter((contact) => contact.handler === "staff" && contact.unreadCount > 0).length,
+      accessDelivered: messages.filter((message) => message.author === "system" && message.body.includes("entregue")).length,
+      remindersSent: 0,
+      remindersPaid: 0,
+      afterSalesSent: 0,
+      chatSales: 0,
+      chatSalesCents: 0,
+    };
   }
 
   async getAiSettings(): Promise<WhatsAppAiSettings> {

@@ -25,6 +25,8 @@ import type {
   WhatsAppFollowUps,
   WhatsAppHandler,
   WhatsAppMessage,
+  WhatsAppReport,
+  ReportPeriod,
   WhatsAppSettings,
   FlowTestDraft,
 } from "@/domain/whatsapp";
@@ -322,6 +324,7 @@ export interface AdminWhatsAppRepository {
   saveFollowUps(followUps: WhatsAppFollowUps): Promise<WhatsAppSettings>;
   /** Mais recentes primeiro. */
   listMessages(limit: number): Promise<WhatsAppMessage[]>;
+  getReport(days: ReportPeriod): Promise<WhatsAppReport>;
 
   getAiSettings(): Promise<WhatsAppAiSettings>;
   saveAiSettings(settings: WhatsAppAiSettings): Promise<WhatsAppAiSettings>;
