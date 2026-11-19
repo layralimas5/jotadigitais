@@ -7,6 +7,7 @@ import { deleteAccounts, listAllAccounts, saveAccount } from "@/application/admi
 import { ACCOUNT_STATUSES, MONETIZED_PLATFORMS, formatCount, isMonetized, type Account, type AccountStatus } from "@/domain/account";
 import { sortCountries, type Country } from "@/domain/country";
 import { formatBRL } from "@/domain/money";
+import { STOCK_CATEGORY_LABEL, countStockByCategory, stockCategoryOf, type StockCategory } from "@/domain/stock";
 import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
 import { ButtonLink } from "@/ui/components/Button";
 import { AccountAvatar } from "@/ui/components/account/AccountAvatar";
@@ -15,6 +16,7 @@ import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { ACCOUNT_STATUS_LABEL, audienceLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
+import { StockByCategory } from "../accounts/StockByCategory";
 import { DeleteDialog, MobileSelectAll, RowTrashButton, SelectAllCheckbox, SelectCheckbox, SelectionBar } from "../components/BulkSelection";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterSelect } from "../components/FilterSelect";
@@ -254,6 +256,7 @@ export default function AccountsListPage() {
   const [status, setStatus] = useState<AccountStatus | "all">("all");
   const [monetization, setMonetization] = useState<MonetizationFilter>("all");
   const [country, setCountry] = useState<string>("all");
+  const [category, setCategory] = useState<StockCategory | null>(null);
   const [sharing, setSharing] = useState<Account | null>(null);
 
   /** Só os países que têm conta cadastrada, Brasil primeiro. */
@@ -269,6 +272,8 @@ export default function AccountsListPage() {
     return hasFacebook ? [...MONETIZED_PLATFORMS, "facebook"] : [...MONETIZED_PLATFORMS];
   }, [accounts]);
 
+  const stockCounts = useMemo(() => (accounts.status === "success" ? countStockByCategory(accounts.data) : []), [accounts]);
+
   const visible = useMemo(() => {
     if (accounts.status !== "success") return [];
     const needle = normalizeSearch(query);
@@ -278,9 +283,10 @@ export default function AccountsListPage() {
         (status === "all" || account.status === status) &&
         (country === "all" || account.country === country) &&
         matchesMonetization(account, monetization) &&
+        (category === null || stockCategoryOf(account) === category) &&
         (!needle || normalizeSearch(`${account.displayName} ${account.handle}`).includes(needle)),
     );
-  }, [accounts, query, platform, status, country, monetization]);
+  }, [accounts, query, platform, status, country, monetization, category]);
 
   const visibleIds = useMemo(() => visible.map((account) => account.id), [visible]);
   const selection = useSelection(visibleIds);
@@ -322,6 +328,8 @@ export default function AccountsListPage() {
           </ButtonLink>
         }
       />
+
+      <StockByCategory counts={stockCounts} selected={category} onSelect={setCategory} />
 
       <div className="flex flex-col gap-3 2xl:flex-row">
         <label className="relative min-w-0 flex-1">
@@ -380,7 +388,14 @@ export default function AccountsListPage() {
         />
       )}
       {accounts.status === "success" && total > 0 && visible.length === 0 && (
-        <EmptyState title="Nenhuma conta com esses filtros" description="Mude a busca, a rede, o status, o país ou a monetização." />
+        <EmptyState
+          title="Nenhuma conta com esses filtros"
+          description={
+            category
+              ? `Nenhuma conta de ${STOCK_CATEGORY_LABEL[category]} com esses filtros. Toque no tipo de novo para ver todas.`
+              : "Mude a busca, a rede, o status, o país ou a monetização."
+          }
+        />
       )}
       {visible.length > 0 && (
         <>
