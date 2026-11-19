@@ -87,10 +87,11 @@ Segredos (Edge Functions): `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSA
   `supabase/functions/_shared/whatsapp-delivery.ts`): "Oi, {{1}}! O pagamento do pedido {{2}} foi confirmado.
   Toque em *Receber meu acesso* para receber os dados de {{3}} aqui no WhatsApp." Botão de resposta rápida:
   Receber meu acesso. Exemplos: Bruna / JD-ABC123 / @conta.exemplo.
-- **Pedido aguardando pagamento**: "Oi, {{1}}! Seu pedido {{2}} da conta {{3}} está reservado até {{4}}. Para
-  pagar: {{5}}"
-- **Pós-venda**: "Oi, {{1}}! Deu tudo certo com a conta {{2}}? Se precisar de ajuda com a troca de dados, é só
-  responder aqui."
+- **Pedido aguardando pagamento** (`pedido_aguardando`, pt_BR; texto de `reminderText`): "Oi, {{1}}! Seu pedido
+  {{2}} da conta {{3}} está reservado até {{4}}. Para pagar, é só abrir {{5}} antes desse horário." Exemplos: Bruna /
+  JD-ABC123 / @conta.exemplo / 14:30 / https://jotadigitais.com.br/pedido/JD-ABC123
+- **Pós-venda** (`pos_venda`, pt_BR; texto de `afterSaleText`): "Oi, {{1}}! Deu tudo certo com a conta {{2}}? Se
+  precisar de ajuda com a troca de nome, foto ou @, é só responder esta mensagem." Exemplos: Bruna / @conta.exemplo
 
 ## O que depende do Jota
 
@@ -202,6 +203,23 @@ política, o aviso aos clientes vem antes de a mudança valer. Acrescentar:
 - **Seção 8, novo prazo:** "**Conversas no WhatsApp oficial**: 12 meses depois da última mensagem. As senhas
   enviadas não ficam guardadas no histórico."
 
+## Lembrete e pós-venda prontos em modo teste (19/11)
+
+- WhatsApp > Entrega automática > **Lembretes automáticos**: dois liga e desliga (começam desligados), com quando
+  (10/15/30/60 minutos antes de a reserva vencer; 1 a 15 dias depois da entrega) e o texto que o cliente recebe.
+- `whatsapp_queue_followups` (migration `20261219120000_whatsapp_followups.sql`, pg_cron a cada 5 min) põe na fila e
+  chama a `whatsapp-send` (pelo `whatsapp_dispatch`). Um por pedido, só o principal do carrinho, nunca para quem
+  escreveu "parar". Pós-venda só no dia seguinte a completar o prazo: ligar não dispara para entregas antigas.
+- `whatsapp-send`: no modo teste só registra; no live, conversa aberta recebe texto livre (fica na conversa, a IA vê),
+  senão vai o modelo. Pedido que mudou antes de sair (pago, cancelado, vencido) fica como "Não saiu".
+
+### Ativar
+
+1. SQL Editor: `20261219120000_whatsapp_followups.sql` (agenda sozinha se o pg_cron estiver ligado; senão:
+   `select cron.schedule('whatsapp-lembretes', '*/5 * * * *', 'select public.whatsapp_queue_followups()');`).
+2. Secret `SITE_URL` (já pedido na fase 3) e publicar de novo a `whatsapp-send`.
+3. No ao vivo: aprovar `pedido_aguardando` e `pos_venda` na Meta antes de ligar os dois na tela.
+
 ## Fases 3 e 4 prontas em modo teste: IA, aba WhatsApp e Automação > IA (17/11)
 
 - Migration `20261214120000_whatsapp_ai`: configuração da IA em `whatsapp_settings` (começa **desligada**), `whatsapp_faq`
@@ -233,7 +251,7 @@ política, o aviso aos clientes vem antes de a mudança valer. Acrescentar:
 
 ### Falta
 
-- Áudios gravados, lembrete de pedido não pago, pós-venda e a aba Relatório.
+- Áudios gravados e a aba Relatório.
 - "Abrir no WhatsApp" de Pedidos e Clientes levar para a conversa do painel.
 
 ## Fluxos: o roteiro da IA (WhatsApp > Fluxos, 17/11)
@@ -263,5 +281,4 @@ automático (as mensagens esperam o Jota).
 
 ### Falta
 
-- Atendimento ativo (a loja chama primeiro): modelos aprovados na Meta, gatilhos de pedido não pago, pós-venda e
-  garantia acabando, e o agendador (pg_cron).
+- Aviso de garantia acabando (mesmo desenho do pós-venda, falta o modelo).

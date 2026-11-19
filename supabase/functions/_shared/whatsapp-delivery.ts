@@ -75,3 +75,45 @@ export function phoneVariants(phone: string): string[] {
   const key = phoneKey(phone);
   return key.length === 12 && key.startsWith("55") ? [key, `${key.slice(0, 4)}9${key.slice(4)}`] : [key];
 }
+
+// ---------------------------------------------------------------------------
+// Lembrete de pedido não pago e pós-venda. Textos idênticos aos modelos cadastrados na Meta.
+// ---------------------------------------------------------------------------
+
+export const REMINDER_TEMPLATE = { name: "pedido_aguardando", language: "pt_BR" } as const;
+export const AFTER_SALE_TEMPLATE = { name: "pos_venda", language: "pt_BR" } as const;
+
+/** Variáveis do lembrete, na ordem {{1}} a {{5}}. `until` é a hora (ex.: 14:30) e `link`, a página do pedido. */
+export interface ReminderValues {
+  name: string;
+  orderCode: string;
+  accounts: string;
+  until: string;
+  link: string;
+}
+
+export function reminderText(values: ReminderValues): string {
+  return (
+    `Oi, ${values.name}! Seu pedido ${values.orderCode} da conta ${values.accounts} está reservado até ${values.until}. ` +
+    `Para pagar, é só abrir ${values.link} antes desse horário.`
+  );
+}
+
+export const reminderParams = (values: ReminderValues): string[] =>
+  [values.name, values.orderCode, values.accounts, values.until, values.link].map((value) => value.replace(/\s+/g, " ").trim());
+
+/** Variáveis do pós-venda, na ordem {{1}} e {{2}}. */
+export interface AfterSaleValues {
+  name: string;
+  accounts: string;
+}
+
+export function afterSaleText(values: AfterSaleValues): string {
+  return (
+    `Oi, ${values.name}! Deu tudo certo com a conta ${values.accounts}? ` +
+    "Se precisar de ajuda com a troca de nome, foto ou @, é só responder esta mensagem."
+  );
+}
+
+export const afterSaleParams = (values: AfterSaleValues): string[] =>
+  [values.name, values.accounts].map((value) => value.replace(/\s+/g, " ").trim());

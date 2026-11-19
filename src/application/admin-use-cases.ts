@@ -22,11 +22,14 @@ import type {
   WhatsAppContactKind,
   WhatsAppFaq,
   WhatsAppFaqDraft,
+  WhatsAppFollowUps,
   WhatsAppHandler,
   WhatsAppMessage,
   WhatsAppSettings,
   FlowTestDraft,
 } from "@/domain/whatsapp";
+import { AFTER_SALE_DAY_OPTIONS, REMINDER_MINUTE_OPTIONS } from "@/domain/whatsapp";
+import { z } from "zod";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
 import { TooManyDeliveryMessagesError } from "@/domain/errors";
@@ -331,6 +334,17 @@ export function getWhatsAppSettings(deps: AdminDeps): Promise<WhatsAppSettings> 
 
 export function setWhatsAppAutoDelivery(deps: AdminDeps, enabled: boolean): Promise<WhatsAppSettings> {
   return deps.whatsapp.setAutoDelivery(enabled);
+}
+
+const followUpsSchema = z.object({
+  paymentReminder: z.boolean(),
+  reminderMinutes: z.union(REMINDER_MINUTE_OPTIONS.map((value) => z.literal(value))),
+  afterSale: z.boolean(),
+  afterSaleDays: z.union(AFTER_SALE_DAY_OPTIONS.map((value) => z.literal(value))),
+});
+
+export function saveWhatsAppFollowUps(deps: AdminDeps, followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {
+  return deps.whatsapp.saveFollowUps(followUpsSchema.parse(followUps));
 }
 
 export const WHATSAPP_LOG_LIMIT = 40;

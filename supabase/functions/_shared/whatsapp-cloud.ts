@@ -56,3 +56,18 @@ export const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export const insideWindow = (lastInboundAt: string | null, now = Date.now()): boolean =>
   lastInboundAt !== null && now - new Date(lastInboundAt).getTime() < WINDOW_MS;
+
+/** Modelo aprovado na Meta: único jeito de puxar conversa fora da janela de 24h. */
+export function sendCloudTemplate(
+  to: string,
+  template: { name: string; language: string },
+  params: readonly string[],
+  /** Payload do botão de resposta rápida (índice 0), quando o modelo tem um. */
+  quickReplyPayload?: string,
+): Promise<string> {
+  const components: Record<string, unknown>[] = [{ type: "body", parameters: params.map((text) => ({ type: "text", text })) }];
+  if (quickReplyPayload) {
+    components.push({ type: "button", sub_type: "quick_reply", index: "0", parameters: [{ type: "payload", payload: quickReplyPayload }] });
+  }
+  return postMessage({ to, type: "template", template: { name: template.name, language: { code: template.language }, components } });
+}

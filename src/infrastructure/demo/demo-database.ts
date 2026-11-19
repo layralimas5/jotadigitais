@@ -18,7 +18,7 @@ import type { Partner } from "@/domain/partner";
 import type { StoreSettings } from "@/domain/store-settings";
 import type { SupportCannedReply, SupportLabel, SupportTicket } from "@/domain/support-ticket";
 import type { Testimonial } from "@/domain/testimonial";
-import type { WhatsAppAiSettings, WhatsAppChatMessage, WhatsAppContact, WhatsAppFaq } from "@/domain/whatsapp";
+import type { WhatsAppAiSettings, WhatsAppChatMessage, WhatsAppContact, WhatsAppFaq, WhatsAppFollowUps } from "@/domain/whatsapp";
 import { SEED_ACCOUNTS, SEED_TESTIMONIALS } from "./seed";
 
 /** Banco do modo demonstração. O ambiente de teste do painel usa outra chave, para nada se misturar. */
@@ -61,6 +61,7 @@ export interface DemoState {
   profileLogins?: Record<string, ProfileLogin>;
   deliveryMessages?: DeliveryMessage[];
   whatsappAutoDelivery?: boolean;
+  whatsappFollowUps?: WhatsAppFollowUps;
   /** Atendimento com IA e conversas do WhatsApp. Sem nada salvo, valem os exemplos de fábrica. */
   whatsappAi?: WhatsAppAiSettings;
   whatsappFaq?: WhatsAppFaq[];

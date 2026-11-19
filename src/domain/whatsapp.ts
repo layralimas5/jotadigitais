@@ -5,19 +5,36 @@ export {
   WRONG_PHONE_REPLY,
   accessCodeOf,
   accessRequestText,
+  afterSaleText,
   paymentPromptText,
+  reminderText,
   samePhone,
 } from "../../supabase/functions/_shared/whatsapp-delivery";
 
-export type WhatsAppMessageKind = "payment_confirmed" | "delivery";
-export type WhatsAppMessageStatus = "queued" | "sending" | "test" | "sent" | "failed";
+export type WhatsAppMessageKind = "payment_confirmed" | "delivery" | "payment_reminder" | "after_sale";
+export type WhatsAppMessageStatus = "queued" | "sending" | "test" | "sent" | "failed" | "canceled";
 /** test: só registra no painel; live: envia pela API oficial da Meta. */
 export type WhatsAppMode = "test" | "live";
+
+/** Lembrete de pedido não pago e pós-venda: ligados pelo Jota, disparados pelo agendador do banco. */
+export interface WhatsAppFollowUps {
+  paymentReminder: boolean;
+  /** Minutos antes de a reserva vencer. */
+  reminderMinutes: number;
+  afterSale: boolean;
+  /** Dias depois da entrega. */
+  afterSaleDays: number;
+}
 
 export interface WhatsAppSettings {
   autoDelivery: boolean;
   mode: WhatsAppMode;
+  followUps: WhatsAppFollowUps;
 }
+
+/** Mesmos limites da migration 20261219120000_whatsapp_followups. */
+export const REMINDER_MINUTE_OPTIONS = [10, 15, 30, 60] as const;
+export const AFTER_SALE_DAY_OPTIONS = [1, 2, 3, 5, 7, 15] as const;
 
 /** Uma mensagem automática: na fila, registrada em modo teste, enviada ou com falha. Senhas vêm mascaradas. */
 export interface WhatsAppMessage {
@@ -36,6 +53,8 @@ export interface WhatsAppMessage {
 export const WHATSAPP_KIND_LABEL: Record<WhatsAppMessageKind, string> = {
   payment_confirmed: "Pagamento confirmado",
   delivery: "Acesso da conta",
+  payment_reminder: "Lembrete de pagamento",
+  after_sale: "Pós-venda",
 };
 
 export const WHATSAPP_STATUS_LABEL: Record<WhatsAppMessageStatus, string> = {
@@ -44,9 +63,12 @@ export const WHATSAPP_STATUS_LABEL: Record<WhatsAppMessageStatus, string> = {
   test: "Teste",
   sent: "Enviada",
   failed: "Falhou",
+  canceled: "Não saiu",
 };
 
-export const DEFAULT_WHATSAPP_SETTINGS: WhatsAppSettings = { autoDelivery: true, mode: "test" };
+export const DEFAULT_FOLLOW_UPS: WhatsAppFollowUps = { paymentReminder: false, reminderMinutes: 15, afterSale: false, afterSaleDays: 3 };
+
+export const DEFAULT_WHATSAPP_SETTINGS: WhatsAppSettings = { autoDelivery: true, mode: "test", followUps: DEFAULT_FOLLOW_UPS };
 
 // ---------------------------------------------------------------------------
 // Atendimento com IA e conversas (abas WhatsApp e Automação > IA)

@@ -17,6 +17,7 @@ import {
   type WhatsAppContactKind,
   type WhatsAppFaq,
   type WhatsAppFaqDraft,
+  type WhatsAppFollowUps,
   type WhatsAppHandler,
   type WhatsAppMessage,
   type WhatsAppSettings,
@@ -128,7 +129,20 @@ export class DemoWhatsAppRepository implements AdminWhatsAppRepository {
   constructor(private readonly db: DemoDatabase) {}
 
   async getSettings(): Promise<WhatsAppSettings> {
-    return { ...DEFAULT_WHATSAPP_SETTINGS, autoDelivery: this.db.read().whatsappAutoDelivery ?? DEFAULT_WHATSAPP_SETTINGS.autoDelivery };
+    const state = this.db.read();
+    return {
+      ...DEFAULT_WHATSAPP_SETTINGS,
+      autoDelivery: state.whatsappAutoDelivery ?? DEFAULT_WHATSAPP_SETTINGS.autoDelivery,
+      followUps: state.whatsappFollowUps ?? DEFAULT_WHATSAPP_SETTINGS.followUps,
+    };
+  }
+
+  async saveFollowUps(followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.whatsappFollowUps = followUps;
+    });
+    return this.getSettings();
   }
 
   async setAutoDelivery(enabled: boolean): Promise<WhatsAppSettings> {

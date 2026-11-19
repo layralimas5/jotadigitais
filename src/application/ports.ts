@@ -22,6 +22,7 @@ import type {
   WhatsAppContactKind,
   WhatsAppFaq,
   WhatsAppFaqDraft,
+  WhatsAppFollowUps,
   WhatsAppHandler,
   WhatsAppMessage,
   WhatsAppSettings,
@@ -318,6 +319,7 @@ export interface AdminMessageTemplateRepository {
 export interface AdminWhatsAppRepository {
   getSettings(): Promise<WhatsAppSettings>;
   setAutoDelivery(enabled: boolean): Promise<WhatsAppSettings>;
+  saveFollowUps(followUps: WhatsAppFollowUps): Promise<WhatsAppSettings>;
   /** Mais recentes primeiro. */
   listMessages(limit: number): Promise<WhatsAppMessage[]>;
 

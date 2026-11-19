@@ -724,6 +724,7 @@ async function main() {
   await whatsappDeliveryChecks();
   await whatsappAiChecks();
   await whatsappSafeguardChecks();
+  await whatsappFollowUpChecks();
   await whatsappFlowChecks();
   await supportMergeChecks();
   await tagColorChecks();
@@ -2726,6 +2727,53 @@ async function whatsappSafeguardChecks() {
     retention.deleted_whatsapp_conversations === 1 && remaining.rows.length === 1 && remaining.rows[0].id === fresh.contact_id,
     "retenção apaga conversa parada há mais de 12 meses e mantém a recente",
   );
+}
+
+/** Lembrete de pedido não pago e pós-venda: o que o agendador põe na fila. */
+async function whatsappFollowUpChecks() {
+  console.log("\nlembrete e pós-venda do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const run = async () => (await db.query(`select public.whatsapp_queue_followups() as n`)).rows[0].n;
+  const queued = async (code, kind) =>
+    (await db.query(`select m.to_phone from public.whatsapp_messages m join public.orders o on o.id = m.order_id where o.code = $1 and m.kind = $2`, [code, kind])).rows;
+  const order = async (code, status, whatsapp, timing, cart = null) => {
+    const account = await newAccount(`fu-${code.toLowerCase()}`);
+    await db.query(
+      `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at, delivered_at, cart_code)
+       values ($1, $2, '@' || lower($1), 'FU', 'tiktok', 'Nina Reis', 'nina@exemplo.com', $3, 'pix', 37000, $4::public.order_status, now() + $5::interval, case when $4::text = 'delivered' then now() - $5::interval end, $6)`,
+      [code, account, whatsapp, status, timing, cart],
+    );
+  };
+
+  const off = await asAdmin(() => db.query(`select payment_reminder, after_sale from public.whatsapp_settings`));
+  check(off.rows[0].payment_reminder === false && off.rows[0].after_sale === false, "lembrete e pós-venda começam desligados");
+  await order("JD-FUP001", "awaiting_payment", "27981110001", "10 minutes");
+  check((await run()) === 0, "desligados, nada entra na fila");
+
+  await asAdmin(() => db.query(`update public.whatsapp_settings set payment_reminder = true, reminder_minutes = 15, after_sale = true, after_sale_days = 3`));
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set reminder_minutes = 500`)), /check constraint/),
+    "prazo do lembrete fora do limite é recusado",
+  );
+  await order("JD-FUP002", "awaiting_payment", "27981110002", "50 minutes");
+  await order("JD-FUP003", "delivered", "27981110003", "3 days 6 hours");
+  await order("JD-FUP004", "delivered", "27981110004", "10 days");
+  await order("JD-FUP005", "awaiting_payment", "27981110005", "10 minutes", "JD-FUP999");
+  await order("JD-FUP006", "awaiting_payment", "27981110006", "10 minutes");
+  await db.query(`insert into public.whatsapp_contacts (phone, opted_out) values ('552781110006', true)`);
+
+  const before = (await db.query(`select count(*)::int as n from net.requests`)).rows[0].n;
+  check((await run()) === 2, "entram só o lembrete perto de vencer e o pós-venda no prazo");
+  check((await queued("JD-FUP001", "payment_reminder"))[0]?.to_phone === "5527981110001", "lembrete vai para o número do pedido com o 55");
+  check((await queued("JD-FUP003", "after_sale")).length === 1, "pós-venda sai no dia certo depois da entrega");
+  check((await queued("JD-FUP002", "payment_reminder")).length === 0, "reserva longe de vencer ainda não recebe lembrete");
+  check((await queued("JD-FUP004", "after_sale")).length === 0, "entrega antiga não recebe pós-venda atrasado");
+  check((await queued("JD-FUP005", "payment_reminder")).length === 0, "conta de carrinho que não é a principal não recebe lembrete");
+  check((await queued("JD-FUP006", "payment_reminder")).length === 0, "quem escreveu parar (mesmo sem o nono dígito) não recebe");
+  check((await db.query(`select count(*)::int as n from net.requests`)).rows[0].n === before + 2, "cada mensagem da fila chama a whatsapp-send");
+  check((await run()) === 0, "a próxima rodada não repete o mesmo pedido");
+  check(await rejects(() => asAdmin(() => db.query(`select public.whatsapp_queue_followups()`)), /permission denied/), "painel não dispara a fila");
+  await asAdmin(() => db.query(`update public.whatsapp_settings set payment_reminder = false, after_sale = false`));
 }
 
 async function whatsappFlowChecks() {

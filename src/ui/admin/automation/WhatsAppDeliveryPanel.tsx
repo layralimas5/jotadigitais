@@ -17,6 +17,7 @@ import { WhatsAppBubble } from "../delivery/WhatsAppBubble";
 import { useAdminQuery, useMutation } from "../hooks";
 import { firstNameOf, formatPhone } from "../lib/whatsapp";
 import { useToast } from "../toast";
+import { WhatsAppFollowUpsSection } from "./WhatsAppFollowUpsSection";
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -26,6 +27,7 @@ const STATUS_TONE: Record<WhatsAppMessageStatus, string> = {
   test: "border-amber-300/40 text-amber-200",
   sent: "border-emerald-400/40 text-emerald-300",
   failed: "border-alert/50 text-[#ff7a7a]",
+  canceled: "border-line-strong text-mist",
 };
 
 /** Mensagens do mesmo disparo (aviso de pagamento e o acesso de cada conta) ficam juntas, na ordem em que saem. */
@@ -101,7 +103,7 @@ function MessageItem({ message }: { message: WhatsAppMessage }) {
     <li className="space-y-2">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium text-fog">{WHATSAPP_KIND_LABEL[message.kind]}</span>
-        {message.kind === "delivery" && message.orderCode && <span className="font-mono text-mist">{message.orderCode}</span>}
+        {message.kind !== "payment_confirmed" && message.orderCode && <span className="font-mono text-mist">{message.orderCode}</span>}
         <span className={cn("rounded-full border px-2 py-0.5 font-medium", STATUS_TONE[message.status])}>
           {WHATSAPP_STATUS_LABEL[message.status]}
         </span>
@@ -166,7 +168,7 @@ function DeliveryLog() {
       {log.status === "error" && <ErrorState message={log.error.message} onRetry={log.reload} />}
       {log.status === "success" &&
         (log.data.length === 0 ? (
-          <EmptyState title="Nenhum envio ainda" description="Quando um pedido for pago, a mensagem aparece aqui." />
+          <EmptyState title="Nenhum envio ainda" description="Quando um pedido for pago, ou um lembrete sair, a mensagem aparece aqui." />
         ) : (
           <div className="space-y-4">
             {groupByDispatch(log.data).map((group) => (
@@ -188,6 +190,7 @@ export function WhatsAppDeliveryPanel() {
         <>
           <ModeNotice mode={settings.data.mode} />
           <AutoDeliveryToggle initial={settings.data} />
+          <WhatsAppFollowUpsSection initial={settings.data} />
         </>
       )}
       <DeliveryLog />

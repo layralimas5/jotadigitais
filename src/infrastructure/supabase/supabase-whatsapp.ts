@@ -17,6 +17,7 @@ import {
   type WhatsAppFaqDraft,
   type WhatsAppHandler,
   type WhatsAppMessage,
+  type WhatsAppFollowUps,
   type WhatsAppSettings,
 } from "@/domain/whatsapp";
 import { parseFlowGraph, type WhatsAppFlow, type WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
@@ -24,19 +25,37 @@ import { fail } from "./supabase-repositories";
 
 const PANEL_FUNCTION = "whatsapp-panel";
 
-const settingsRowSchema = z.object({ auto_delivery: z.boolean(), mode: z.enum(["test", "live"]) });
+const SETTINGS_COLUMNS = "auto_delivery, mode, payment_reminder, reminder_minutes, after_sale, after_sale_days";
+
+const settingsRowSchema = z.object({
+  auto_delivery: z.boolean(),
+  mode: z.enum(["test", "live"]),
+  payment_reminder: z.boolean(),
+  reminder_minutes: z.number().int(),
+  after_sale: z.boolean(),
+  after_sale_days: z.number().int(),
+});
 
 const toSettings = (raw: unknown): WhatsAppSettings => {
   const row = settingsRowSchema.parse(raw);
-  return { autoDelivery: row.auto_delivery, mode: row.mode };
+  return {
+    autoDelivery: row.auto_delivery,
+    mode: row.mode,
+    followUps: {
+      paymentReminder: row.payment_reminder,
+      reminderMinutes: row.reminder_minutes,
+      afterSale: row.after_sale,
+      afterSaleDays: row.after_sale_days,
+    },
+  };
 };
 
 const MESSAGE_COLUMNS = "id, kind, status, to_phone, body, error, created_at, sent_at, order:orders(code, customer_name)";
 
 const messageRowSchema = z.object({
   id: z.string(),
-  kind: z.enum(["payment_confirmed", "delivery"]),
-  status: z.enum(["queued", "sending", "test", "sent", "failed"]),
+  kind: z.enum(["payment_confirmed", "delivery", "payment_reminder", "after_sale"]),
+  status: z.enum(["queued", "sending", "test", "sent", "failed", "canceled"]),
   to_phone: z.string(),
   body: z.string().nullable(),
   error: z.string().nullable(),
@@ -187,7 +206,7 @@ export class SupabaseWhatsAppRepository implements AdminWhatsAppRepository {
   constructor(private readonly client: SupabaseClient) {}
 
   async getSettings(): Promise<WhatsAppSettings> {
-    const { data, error } = await this.client.from("whatsapp_settings").select("auto_delivery, mode").single();
+    const { data, error } = await this.client.from("whatsapp_settings").select(SETTINGS_COLUMNS).single();
     if (error) fail(error);
     return toSettings(data);
   }
@@ -197,7 +216,23 @@ export class SupabaseWhatsAppRepository implements AdminWhatsAppRepository {
       .from("whatsapp_settings")
       .update({ auto_delivery: enabled })
       .eq("id", true)
-      .select("auto_delivery, mode")
+      .select(SETTINGS_COLUMNS)
+      .single();
+    if (error) fail(error);
+    return toSettings(data);
+  }
+
+  async saveFollowUps(followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {
+    const { data, error } = await this.client
+      .from("whatsapp_settings")
+      .update({
+        payment_reminder: followUps.paymentReminder,
+        reminder_minutes: followUps.reminderMinutes,
+        after_sale: followUps.afterSale,
+        after_sale_days: followUps.afterSaleDays,
+      })
+      .eq("id", true)
+      .select(SETTINGS_COLUMNS)
       .single();
     if (error) fail(error);
     return toSettings(data);
