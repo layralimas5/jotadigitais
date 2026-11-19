@@ -15,6 +15,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { TextAreaField, ToggleField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
 import { useAdminQuery, useMutation } from "../hooks";
+import { ReferralPayoutCard } from "../partners/ReferralPayout";
 import { formatDate } from "../lib/dates";
 import { formatPercent, parsePercent } from "../lib/percent";
 import { firstNameOf, whatsappChatUrl } from "../lib/whatsapp";
@@ -153,6 +154,16 @@ function SummaryCard({ summary }: { summary: PartnerSummary }) {
           <dd className="font-semibold text-white tabular-nums">{summary.points}</dd>
         </div>
         <div className="flex justify-between gap-3">
+          <dt className="text-mist">Pontos já pagos</dt>
+          <dd className="text-white tabular-nums">{partner.referralPointsPaid}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-mist">Para o próximo pagamento</dt>
+          <dd className="text-white tabular-nums">
+            {summary.payoutsDue > 0 ? "completo" : `faltam ${summary.pointsToNextPayout}`}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3">
           <dt className="text-mist">Clientes indicados</dt>
           <dd className="text-white tabular-nums">{summary.referredCustomers.length}</dd>
         </div>
@@ -179,7 +190,7 @@ function SummaryCard({ summary }: { summary: PartnerSummary }) {
   );
 }
 
-function PartnerEditor({ summary }: { summary: PartnerSummary | null }) {
+function PartnerEditor({ summary, onPaid }: { summary: PartnerSummary | null; onPaid: () => void }) {
   const navigate = useNavigate();
   const toast = useToast();
   const partner = summary?.partner ?? null;
@@ -337,6 +348,7 @@ function PartnerEditor({ summary }: { summary: PartnerSummary | null }) {
 
         {summary && (
           <aside className="space-y-4 lg:sticky lg:top-24">
+            {summary.payoutsDue > 0 && <ReferralPayoutCard summary={summary} onPaid={onPaid} />}
             <SummaryCard summary={summary} />
           </aside>
         )}
@@ -387,5 +399,5 @@ export default function PartnerEditorPage() {
       />
     );
   }
-  return <PartnerEditor key={id ?? "new"} summary={summary.data} />;
+  return <PartnerEditor key={id ?? "new"} summary={summary.data} onPaid={summary.reload} />;
 }

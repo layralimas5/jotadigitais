@@ -712,6 +712,7 @@ async function main() {
   await cartChecks();
   await accountCountryChecks();
   await partnerTagChecks();
+  await referralPayoutChecks();
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
@@ -2284,6 +2285,39 @@ async function partnerTagChecks() {
     await rejects(() => as("anon", null, () => db.query(`select tags from public.partners`)), /permission denied/),
     "visitante não vê os apelidos dos parceiros",
   );
+}
+
+async function referralPayoutChecks() {
+  console.log("\npagamento por indicação do parceiro");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const created = await asAdmin(() => db.query(`insert into public.partners (name, commission_percent) values ('Paga Pontos', 10) returning id, referral_points_paid`));
+  const id = created.rows[0].id;
+  check(created.rows[0].referral_points_paid === 0, "parceiro novo nasce com 0 pontos pagos");
+  const paid = await asAdmin(() => db.query(`select public.pay_partner_referral_points($1, 10) as partner`, [id]));
+  check(paid.rows[0].partner.referral_points_paid === 10, "\"Já paguei\" soma 10 pontos pagos e devolve o parceiro");
+  await asAdmin(() => db.query(`select public.pay_partner_referral_points($1, 10)`, [id]));
+  check((await db.query(`select referral_points_paid from public.partners where id = $1`, [id])).rows[0].referral_points_paid === 20, "dois pagamentos somam 20");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.pay_partner_referral_points($1, 0)`, [id])), /invalid_points/),
+    "pagamento de 0 pontos é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.pay_partner_referral_points(gen_random_uuid(), 10)`)), /partner_not_found/),
+    "parceiro que não existe é recusado",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.pay_partner_referral_points($1, 10)`, [id])), /forbidden/),
+    "quem não é da equipe não marca pagamento",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.pay_partner_referral_points($1, 10)`, [id])), /permission denied/),
+    "visitante não chama o pagamento",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.partners set referral_points_paid = -1 where id = $1`, [id])), /partners_referral_points_paid/),
+    "pontos pagos negativos são recusados",
+  );
+  await asAdmin(() => db.query(`delete from public.partners where id = $1`, [id]));
 }
 
 async function webPushChecks() {

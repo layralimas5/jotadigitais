@@ -1,17 +1,14 @@
-import { isMonetized, shopTierOf, type Account, type AccountStatus } from "@/domain/account";
+import type { Account, AccountStatus } from "@/domain/account";
 import { DEFAULT_COUNTRY, sortCountries, type Country } from "@/domain/country";
+import { stockCategoryOf, type StockCategory } from "@/domain/stock";
 import type { AccountFilter, AccountSort } from "./ports";
 
 const OTHER_NETWORKS_GROUP = 3;
 
+const FEATURED_GROUP: Partial<Record<StockCategory, number>> = { shop_full: 0, shop_pilot: 1, tiktok_monetized: 2 };
+
 /** Foco da loja, pedido do Jota: 0 = TikTok Shop ativo, 1 = Shop piloto, 2 = TikTok monetizado, 3 = o resto (outras redes). */
-function featuredGroupOf(account: Account): number {
-  if (account.platform !== "tiktok") return OTHER_NETWORKS_GROUP;
-  const shop = shopTierOf(account);
-  if (shop === "full") return 0;
-  if (shop === "pilot") return 1;
-  return isMonetized(account) ? 2 : OTHER_NETWORKS_GROUP;
-}
+const featuredGroupOf = (account: Account): number => FEATURED_GROUP[stockCategoryOf(account)] ?? OTHER_NETWORKS_GROUP;
 
 const byRecent = (a: Account, b: Account) => b.listedAt.localeCompare(a.listedAt);
 const brazilFirst = (a: Account, b: Account) => Number(a.country !== DEFAULT_COUNTRY) - Number(b.country !== DEFAULT_COUNTRY);

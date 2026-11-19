@@ -794,7 +794,8 @@ export class DemoRevenueRepository implements AdminRevenueRepository {
 const byName = (a: Partner, b: Partner) => a.name.localeCompare(b.name, "pt-BR");
 
 /** Parceiros salvos no navegador antes dos apelidos não têm a lista. */
-const withTags = (partner: Partner): Partner => ({ ...partner, tags: partner.tags ?? [] });
+/** Parceiros salvos no navegador antes dos apelidos e do "Já paguei" vêm sem esses campos. */
+const withTags = (partner: Partner): Partner => ({ ...partner, tags: partner.tags ?? [], referralPointsPaid: partner.referralPointsPaid ?? 0 });
 
 export class DemoPartnerRepository implements AdminPartnerRepository {
   constructor(private readonly db: DemoDatabase) {}
@@ -810,7 +811,7 @@ export class DemoPartnerRepository implements AdminPartnerRepository {
 
   async create(data: PartnerData): Promise<Partner> {
     await simulateLatency();
-    const partner: Partner = { ...data, id: newId("ptn"), createdAt: new Date().toISOString() };
+    const partner: Partner = { ...data, id: newId("ptn"), createdAt: new Date().toISOString(), referralPointsPaid: 0 };
     return this.db.write((state) => {
       state.partners = [...(state.partners ?? []), partner];
       return partner;
@@ -823,6 +824,17 @@ export class DemoPartnerRepository implements AdminPartnerRepository {
       const current = (state.partners ?? []).find((partner) => partner.id === id);
       if (!current) throw new PartnerNotFoundError();
       const updated: Partner = { ...current, ...data };
+      state.partners = (state.partners ?? []).map((partner) => (partner.id === id ? updated : partner));
+      return updated;
+    });
+  }
+
+  async addPaidReferralPoints(id: string, points: number): Promise<Partner> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const current = (state.partners ?? []).find((partner) => partner.id === id);
+      if (!current) throw new PartnerNotFoundError();
+      const updated: Partner = { ...withTags(current), referralPointsPaid: (current.referralPointsPaid ?? 0) + points };
       state.partners = (state.partners ?? []).map((partner) => (partner.id === id ? updated : partner));
       return updated;
     });
