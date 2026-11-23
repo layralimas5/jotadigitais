@@ -13,6 +13,7 @@ export interface PushKindOption {
 export const PUSH_KIND_OPTIONS: readonly PushKindOption[] = [
   { kind: "order", label: "Venda nova", description: "Alguém fez um pedido no site." },
   { kind: "payment", label: "Pagamento confirmado", description: "O cartão ou o Pix caiu e a conta está pronta para entregar." },
+  { kind: "whatsapp", label: "WhatsApp", description: "Um cliente está esperando você na conversa (a IA passou para você)." },
   { kind: "support", label: "Suporte e pendências", description: "Chamado novo, resposta ou algo esperando você aprovar." },
   { kind: "security", label: "Segurança", description: "Login de aparelho novo e tentativas bloqueadas." },
   { kind: "privacy", label: "Privacidade (LGPD)", description: "Um cliente pediu os dados dele em Meus dados." },

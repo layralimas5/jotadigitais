@@ -21,7 +21,7 @@ export const STAFF_PERMISSION_LABEL: Record<StaffPermission, string> = {
   customers: "Clientes",
   partners: "Parceiros",
   crm: "CRM",
-  automation: "Automação",
+  automation: "WhatsApp e automação",
   finance: "Dashboard, financeiro e finalizados",
   site: "Site e depoimentos",
 };

@@ -5,6 +5,7 @@ import { loadAffiliatesBoard } from "@/application/affiliate-use-cases";
 import { deletePartners, listPartnerSummaries } from "@/application/admin-use-cases";
 import { formatBRL } from "@/domain/money";
 import type { PartnerSummary } from "@/domain/partner";
+import { REFERRAL_PAYOUT_POINTS } from "@/domain/referral";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
@@ -21,6 +22,7 @@ import { PartnersTabBar, usePartnersTab, type PartnersTab } from "../affiliates/
 import { formatPercent } from "../lib/percent";
 import { useBulkDelete, type Noun } from "../lib/use-bulk-delete";
 import { useSelection, type Selection } from "../lib/use-selection";
+import { PayoutDueBadge, ReferralPayoutAlerts } from "../partners/ReferralPayout";
 
 const PARTNER_NOUN: Noun = { one: "parceiro", many: "parceiros", feminine: false };
 
@@ -58,6 +60,7 @@ function PartnerIdentity({ summary }: { summary: PartnerSummary }) {
           >
             {partner.name}
           </Link>
+          {summary.payoutsDue > 0 && <PayoutDueBadge />}
           {!partner.active && <InactiveBadge />}
         </p>
         <p className="truncate text-xs text-mist">{formatPercent(partner.commissionPercent)} de comissão</p>
@@ -205,11 +208,12 @@ function PartnersListTab() {
             <Kpi
               label="Pontos por indicação"
               value={String(data.reduce((sum, summary) => sum + summary.points, 0))}
-              hint="1 ponto por compra paga de cliente indicado"
+              hint={`1 ponto por compra paga de cliente indicado; a cada ${REFERRAL_PAYOUT_POINTS}, um pagamento`}
             />
             <Kpi label="Contas de parceiros no estoque" value={String(data.reduce((sum, summary) => sum + summary.inStock, 0))} />
             <Kpi label="Comissão total" value={formatBRL(data.reduce((sum, summary) => sum + summary.commission, 0))} hint="Sobre todas as vendas finalizadas" />
           </dl>
+          <ReferralPayoutAlerts summaries={data} onPaid={summaries.reload} />
           <SearchInput label="Buscar parceiro" placeholder="Buscar por nome, Instagram ou WhatsApp" value={query} onChange={setQuery} />
           {visible.length === 0 ? (
             <EmptyState title="Ninguém encontrado" description="Confira o nome ou o número digitado." />

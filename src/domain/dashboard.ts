@@ -8,6 +8,8 @@ import { isReservationExpired, type Order } from "./order";
 import { summarizePartners, type Partner } from "./partner";
 import { PLATFORMS, type Platform } from "./platform";
 import { deliveredAtOf, finalizedSales } from "./sale";
+import { countStockByCategory, type StockCount } from "./stock";
+import { alertsReadyToNotify, type StockAlert } from "./stock-alert";
 
 export interface DashboardSource {
   orders: Order[];
@@ -17,6 +19,7 @@ export interface DashboardSource {
   leads: Lead[];
   partners: Partner[];
   customers: CustomerRecord[];
+  stockAlerts: StockAlert[];
 }
 
 export interface StockByPlatform {
@@ -75,6 +78,12 @@ export interface Dashboard {
   followUpsDue: number;
   /** Parte dos parceiros nas vendas finalizadas no período. */
   commissionInPeriod: Cents;
+  /** Parceiros que completaram os pontos de um pagamento de indicação e esperam o Jota pagar. */
+  partnersToPay: number;
+  /** Pessoas da lista de espera que pediram um tipo que já tem conta disponível. */
+  stockAlertsReady: number;
+  /** Tipos de conta com estoque acabando. */
+  lowStock: StockCount[];
   accounts: AccountStatusCount;
   stock: StockByPlatform[];
   stockValue: Cents;
@@ -152,6 +161,11 @@ export function buildDashboard(source: DashboardSource, period: DashboardPeriod,
       return status === "overdue" || status === "today";
     }).length,
     commissionInPeriod: summarizePartners(partners, accounts, finalizedInPeriod).reduce((sum, summary) => sum + summary.commission, 0),
+    partnersToPay: summarizePartners(partners, accounts, orders, groupCustomers(orders, source.customers, source.revenues)).filter(
+      (summary) => summary.payoutsDue > 0,
+    ).length,
+    stockAlertsReady: alertsReadyToNotify(source.stockAlerts, accounts).length,
+    lowStock: countStockByCategory(accounts).filter((count) => count.low),
     accounts: countByStatus(accounts),
     stock: PLATFORMS.map((platform) => ({
       platform,

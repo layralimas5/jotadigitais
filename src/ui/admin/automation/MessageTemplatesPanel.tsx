@@ -1,4 +1,4 @@
-import { Clock, MessageCircle, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { siteConfig } from "@/app/config";
 import { getMessageTemplates, saveMessageTemplates } from "@/application/admin-use-cases";
@@ -17,7 +17,7 @@ import {
 import { Button } from "@/ui/components/Button";
 import { ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
-import { InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { InlineError, LoadingBlock } from "../components/AdminUi";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useInsertAtCursor } from "../lib/use-insert-at-cursor";
 import { useToast } from "../toast";
@@ -165,33 +165,10 @@ function TemplatesForm({ initial }: { initial: MessageTemplates }) {
   );
 }
 
-function AutoSendNotice() {
-  return (
-    <div className="flex gap-4 rounded-3xl border border-electric/30 bg-electric/[0.06] p-5">
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-electric/15 text-electric">
-        <Clock aria-hidden className="size-5" />
-      </span>
-      <div className="text-sm">
-        <p className="font-semibold text-white">Envio automático: em breve</p>
-        <p className="mt-1 leading-relaxed text-mist">
-          Hoje estas mensagens já vêm prontas quando você clica em <MessageCircle aria-hidden className="inline size-3.5" />{" "}
-          WhatsApp em Pedidos, Clientes e CRM. O disparo sozinho, a cada mudança de pedido, precisa da API oficial do
-          WhatsApp Business (Meta) e de um número só para a loja. Quando ligarmos, os textos daqui continuam valendo.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-export default function AutomationPage() {
+/** WhatsApp > Mensagens: os textos de cada momento da venda. */
+export function MessageTemplatesPanel() {
   const templates = useAdminQuery(getMessageTemplates, "message-templates");
-  return (
-    <div className="space-y-6">
-      <PageHeader title="Automação" description="Mensagens do WhatsApp para cada momento da venda." />
-      <AutoSendNotice />
-      {templates.status === "loading" && <LoadingBlock />}
-      {templates.status === "error" && <ErrorState message={templates.error.message} onRetry={templates.reload} />}
-      {templates.status === "success" && <TemplatesForm initial={templates.data} />}
-    </div>
-  );
+  if (templates.status === "loading") return <LoadingBlock />;
+  if (templates.status === "error") return <ErrorState message={templates.error.message} onRetry={templates.reload} />;
+  return <TemplatesForm initial={templates.data} />;
 }

@@ -712,6 +712,7 @@ async function main() {
   await cartChecks();
   await accountCountryChecks();
   await partnerTagChecks();
+  await referralPayoutChecks();
   await c6PixChecks();
   await accountMockupChecks();
   await supportChecks();
@@ -721,6 +722,11 @@ async function main() {
   await supportPriorityChecks();
   await webPushChecks();
   await deliveryMessageChecks();
+  await whatsappDeliveryChecks();
+  await whatsappAiChecks();
+  await whatsappSafeguardChecks();
+  await whatsappFollowUpChecks();
+  await whatsappFlowChecks();
   await supportMergeChecks();
   await tagColorChecks();
   await affiliateChecks();
@@ -2282,6 +2288,39 @@ async function partnerTagChecks() {
   );
 }
 
+async function referralPayoutChecks() {
+  console.log("\npagamento por indicação do parceiro");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const created = await asAdmin(() => db.query(`insert into public.partners (name, commission_percent) values ('Paga Pontos', 10) returning id, referral_points_paid`));
+  const id = created.rows[0].id;
+  check(created.rows[0].referral_points_paid === 0, "parceiro novo nasce com 0 pontos pagos");
+  const paid = await asAdmin(() => db.query(`select public.pay_partner_referral_points($1, 10) as partner`, [id]));
+  check(paid.rows[0].partner.referral_points_paid === 10, "\"Já paguei\" soma 10 pontos pagos e devolve o parceiro");
+  await asAdmin(() => db.query(`select public.pay_partner_referral_points($1, 10)`, [id]));
+  check((await db.query(`select referral_points_paid from public.partners where id = $1`, [id])).rows[0].referral_points_paid === 20, "dois pagamentos somam 20");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.pay_partner_referral_points($1, 0)`, [id])), /invalid_points/),
+    "pagamento de 0 pontos é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.pay_partner_referral_points(gen_random_uuid(), 10)`)), /partner_not_found/),
+    "parceiro que não existe é recusado",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.pay_partner_referral_points($1, 10)`, [id])), /forbidden/),
+    "quem não é da equipe não marca pagamento",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.pay_partner_referral_points($1, 10)`, [id])), /permission denied/),
+    "visitante não chama o pagamento",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.partners set referral_points_paid = -1 where id = $1`, [id])), /partners_referral_points_paid/),
+    "pontos pagos negativos são recusados",
+  );
+  await asAdmin(() => db.query(`delete from public.partners where id = $1`, [id]));
+}
+
 async function webPushChecks() {
   console.log("\npush no celular");
   const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
@@ -2341,6 +2380,122 @@ async function webPushChecks() {
 
   await asAdmin(() => db.query(`select public.delete_push_subscription($1)`, [endpoint]));
   check((await db.query(`select count(*)::int as n from public.push_subscriptions`)).rows[0].n === 0, "desligar apaga a inscrição do aparelho");
+}
+
+/** Entrega automática pelo WhatsApp: fila no pagamento, dados só para a função e liga e desliga no painel. */
+async function whatsappDeliveryChecks() {
+  console.log("\nentrega automática pelo WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const queuedFor = async (code) =>
+    (await db.query(`select m.kind, m.to_phone, m.status from public.whatsapp_messages m join public.orders o on o.id = m.order_id where o.code = $1`, [code])).rows;
+  const requestsCount = async () => (await db.query(`select count(*)::int as n from net.requests`)).rows[0].n;
+  const newOrder = (code, whatsapp, extra = "") =>
+    db.query(
+      `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at${extra ? ", cart_code" : ""})
+       values ($1, $2, '@conta.entregue', 'Entregue', 'tiktok', 'Bruna Zap', 'bruna@exemplo.com', $3, 'pix', 37000, 'awaiting_payment', now() + interval '1 hour'${extra ? ", $4" : ""})`,
+      extra ? [code, accountId, whatsapp, extra] : [code, accountId, whatsapp],
+    );
+
+  const settings = await asAdmin(() => db.query(`select auto_delivery, mode from public.whatsapp_settings`));
+  check(settings.rows[0]?.auto_delivery === true && settings.rows[0]?.mode === "test", "entrega começa ligada e em modo teste");
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set mode = 'live'`)), /permission denied/),
+    "painel não tira do modo teste",
+  );
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_messages`)), /permission denied/),
+    "visitante não lê as mensagens",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_messages (kind, to_phone) values ('delivery', '5511999999999')`)), /permission denied/),
+    "mensagem só entra pelo banco e pela função",
+  );
+
+  const accountId = (await db.query(`select id from public.accounts limit 1`)).rows[0].id;
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  // Como o painel salva (supabase-delivery.ts): update na conta que já tem login, sem upsert.
+  await asAdmin(() =>
+    db.query(`update public.account_profile_logins set username = 'perfil.zap', password = 'SenhaPerfil1' where account_id = $1`, [accountId]),
+  );
+  const saved = await asAdmin(() => db.query(`select l.profile_password_plain as password from public.account_profile_logins l where account_id = $1`, [accountId]));
+  check(saved.rows[0]?.password === "SenhaPerfil1", "salvar de novo o login do perfil grava a senha nova");
+  await asAdmin(() => db.query(`insert into public.email_accounts (email, password, account_id) values ('zap@exemplo.com', 'SenhaEmail1', $1)`, [accountId]));
+
+  const before = await requestsCount();
+  await newOrder("JD-WAP001", "11987654321");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP001'`));
+  const first = await queuedFor("JD-WAP001");
+  check(first.length === 1 && first[0].kind === "payment_confirmed" && first[0].to_phone === "5511987654321" && first[0].status === "queued", "pedido pago entra na fila com o 55 no número");
+  check((await requestsCount()) === before, "sem os segredos no Vault a mensagem só espera na fila");
+
+  await db.query(`select vault.create_secret('https://exemplo.supabase.co/functions/v1/whatsapp-send', 'whatsapp_send_url')`);
+  await db.query(`select vault.create_secret('segredo-zap', 'whatsapp_send_secret')`);
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP001'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP002", "5511912345678");
+  await asAdmin(() => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP002'`));
+  const call = await db.query(`select url, body, headers from net.requests order by id desc limit 1`);
+  check(
+    call.rows[0]?.url.endsWith("/whatsapp-send") && call.rows[0]?.headers["x-whatsapp-secret"] === "segredo-zap" && call.rows[0]?.body.message_id,
+    "pagamento confirmado no painel também chama a whatsapp-send com o segredo",
+  );
+  check((await queuedFor("JD-WAP002"))[0]?.to_phone === "5511912345678", "número que já tem o 55 não ganha outro");
+
+  await db.query(`grant usage on schema public to service_role`);
+  const orderId = (await db.query(`select id from public.orders where code = 'JD-WAP002'`)).rows[0].id;
+  const items = await as("service_role", null, () => db.query(`select * from public.whatsapp_delivery_items($1)`, [orderId]));
+  const item = items.rows[0];
+  check(
+    items.rows.length === 1 && item.email === "zap@exemplo.com" && item.email_password === "SenhaEmail1" && item.profile_username === "perfil.zap" && item.profile_password === "SenhaPerfil1",
+    "função recebe o login aberto da conta",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`select * from public.whatsapp_delivery_items($1)`, [orderId])), /permission denied/),
+    "ninguém do painel chama a função com as senhas",
+  );
+
+  await asAdmin(() => db.query(`update public.whatsapp_settings set auto_delivery = false`));
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP002'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP003", "11911112222");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP003'`));
+  check((await queuedFor("JD-WAP003")).length === 0, "com a entrega desligada nada entra na fila");
+  await asAdmin(() => db.query(`update public.whatsapp_settings set auto_delivery = true`));
+
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP003'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP004", "11933334444", "JD-WAP999");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP004'`));
+  check((await queuedFor("JD-WAP004")).length === 0, "conta de carrinho que não é a principal não dispara outra mensagem");
+
+  const seen = await asAdmin(() => db.query(`select o.code from public.whatsapp_messages m join public.orders o on o.id = m.order_id`));
+  const seenCodes = seen.rows.map((row) => row.code);
+  check(seenCodes.includes("JD-WAP001") && seenCodes.includes("JD-WAP002"), "admin vê o registro das mensagens");
+
+  // Fase 2: aviso ao Jota quando ninguém pede o acesso em 30 minutos.
+  const alertsCount = async () => (await db.query(`select count(*)::int as n from public.notifications where title like 'Acesso não pedido%'`)).rows[0].n;
+  await db.query(`update public.orders set status = 'delivered' where code = 'JD-WAP004'`);
+  await db.query(`update public.accounts set status = 'available' where id = $1`, [accountId]);
+  await newOrder("JD-WAP005", "11955556666");
+  await as("postgres", null, () => db.query(`update public.orders set status = 'paid' where code = 'JD-WAP005'`));
+  const markSent = (code, minutes) =>
+    db.query(
+      `update public.whatsapp_messages m set status = 'sent', sent_at = now() - make_interval(mins => $2) from public.orders o where o.id = m.order_id and o.code = $1`,
+      [code, minutes],
+    );
+  await markSent("JD-WAP005", 10);
+  await db.query(`select public.whatsapp_alert_pending_access()`);
+  check((await alertsCount()) === 0, "antes de 30 minutos o Jota não é avisado");
+  await markSent("JD-WAP005", 40);
+  await markSent("JD-WAP002", 40);
+  const alerted = (await db.query(`select public.whatsapp_alert_pending_access() as n`)).rows[0].n;
+  check(alerted === 1 && (await alertsCount()) === 1, "pedido ainda pago 30 minutos depois do aviso vira alerta (entregue não)");
+  await db.query(`select public.whatsapp_alert_pending_access()`);
+  check((await alertsCount()) === 1, "o mesmo pedido não é avisado duas vezes");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.whatsapp_alert_pending_access()`)), /permission denied/),
+    "painel não dispara os alertas",
+  );
 }
 
 /** Entrega da conta: mensagens salvas para quem cuida dos pedidos e login do perfil com a senha cifrada. */
@@ -2674,3 +2829,223 @@ async function affiliateChecks() {
   );
   CONSENT = previousConsent;
 }
+/** IA do WhatsApp: configuração pelo painel, conversas escritas só pelas funções e registro atômico da mensagem. */
+async function whatsappAiChecks() {
+  console.log("\natendimento com IA do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asService = (fn) => as("service_role", null, fn);
+  const register = (phone, body, waId, name = "Bia") =>
+    asService(() => db.query(`select * from public.whatsapp_register_inbound($1, $2, $3, $4)`, [phone, name, body, waId]));
+
+  const ai = await asAdmin(() => db.query(`select ai_enabled, ai_schedule, business_days from public.whatsapp_settings`));
+  check(ai.rows[0]?.ai_enabled === false && ai.rows[0]?.ai_schedule === "always", "IA começa desligada e respondendo 24h");
+  await asAdmin(() =>
+    db.query(`update public.whatsapp_settings set ai_enabled = true, ai_tone = 'Direto', ai_schedule = 'off_hours', business_days = '{1,2,3}', ignored_numbers = '{5527999998888}'`),
+  );
+  check((await db.query(`select ai_tone from public.whatsapp_settings`)).rows[0].ai_tone === "Direto", "painel salva a configuração da IA");
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set business_start = '19:00', business_end = '08:00'`)), /whatsapp_business_hours/),
+    "horário que fecha antes de abrir é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set ignored_numbers = '{abc}'`)), /ignored_numbers/),
+    "número ignorado fora do formato é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set business_days = '{7}'`)), /business_days/),
+    "dia da semana inexistente é recusado",
+  );
+
+  const faq = await asAdmin(() => db.query(`select question from public.whatsapp_faq order by position`));
+  check(faq.rows.length >= 5 && faq.rows[0].question === "Como recebo a conta?", "perguntas frequentes já vêm com as do site");
+  await asAdmin(() => db.query(`insert into public.whatsapp_faq (question, answer, position) values ('Aceita boleto?', 'Não, só Pix e cartão.', 99)`));
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`insert into public.whatsapp_faq (question, answer) values ('Oi?', 'Oi')`)), /row-level security|permission denied/),
+    "quem não tem Automação não mexe nas perguntas",
+  );
+  check(await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_faq`)), /permission denied/), "visitante não lê as perguntas");
+
+  await db.query(`grant usage on schema public to service_role`);
+  await db.query(`grant select, insert, update, delete on all tables in schema public to service_role`);
+  const first = (await register("5527911112222", "Oi, tem conta de TikTok?", "wamid.1")).rows[0];
+  check(first.is_new === true && first.duplicate === false && first.handler === "ai" && first.unread_count === 1, "primeira mensagem cria o contato com a IA atendendo");
+  const again = (await register("5527911112222", "Oi, tem conta de TikTok?", "wamid.1")).rows[0];
+  check(again.duplicate === true, "a Meta reenviando o mesmo evento não grava de novo");
+  const second = (await register("5527911112222", "Até 400 reais", "wamid.2")).rows[0];
+  check(second.is_new === false && second.unread_count === 2, "mensagem seguida soma no contador");
+  const chat = await asAdmin(() => db.query(`select direction, author from public.whatsapp_chat where contact_id = $1`, [first.contact_id]));
+  check(chat.rows.length === 2 && chat.rows.every((row) => row.direction === "in" && row.author === "customer"), "conversa guarda as mensagens do cliente");
+
+  const buyerAccount = (await db.query(`select id from public.accounts limit 1`)).rows[0].id;
+  await db.query(
+    `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at)
+     values ('JD-WAAI01', $1, '@conta.ia', 'IA', 'tiktok', 'Comprador', 'c@exemplo.com', '27933334444', 'pix', 37000, 'delivered', now())`,
+    [buyerAccount],
+  );
+  const buyer = (await register("5527933334444", "Recebi, obrigado", "wamid.3", "Comprador")).rows[0];
+  const buyerKind = await asAdmin(() => db.query(`select kind from public.whatsapp_contacts where id = $1`, [buyer.contact_id]));
+  check(buyerKind.rows[0]?.kind === "customer", "quem já comprou com esse WhatsApp entra como cliente");
+
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_chat (contact_id, direction, author, body) values ($1, 'out', 'staff', 'oi')`, [first.contact_id])), /permission denied/),
+    "painel não grava mensagem direto (só pela função)",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_contacts set opted_out = false where id = $1`, [first.contact_id])), /permission denied/),
+    "painel não desfaz o pedido de parar do cliente",
+  );
+  await asAdmin(() => db.query(`update public.whatsapp_contacts set handler = 'staff', unread_count = 0, kind = 'affiliate' where id = $1`, [first.contact_id]));
+  const changed = await asAdmin(() => db.query(`select handler, unread_count, kind from public.whatsapp_contacts where id = $1`, [first.contact_id]));
+  check(changed.rows[0]?.handler === "staff" && changed.rows[0]?.unread_count === 0 && changed.rows[0]?.kind === "affiliate", "painel assume, marca como lido e muda o tipo");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select * from public.whatsapp_register_inbound('5511900000000', null, 'x', null)`)), /permission denied/),
+    "painel não chama o registro de mensagem recebida",
+  );
+  check(
+    (await as("authenticated", STRANGER_ID, () => db.query(`select id from public.whatsapp_contacts`))).rows.length === 0,
+    "quem não tem Automação não vê as conversas",
+  );
+
+  await db.query(`insert into public.notifications (kind, title, link) values ('whatsapp', 'Bia está esperando você no WhatsApp', '/admin/whatsapp?c=x')`);
+  check((await asAdmin(() => db.query(`select id from public.notifications where kind = 'whatsapp' and title like 'Bia%'`))).rows.length === 1, "aviso de WhatsApp aparece para o Jota");
+}
+
+/** Proteções antes de ligar: número sem o nono dígito, aviso que não saiu e LGPD das conversas. */
+async function whatsappSafeguardChecks() {
+  console.log("\nproteções do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asService = (fn) => as("service_role", null, fn);
+  const register = (phone, body, waId) =>
+    asService(() => db.query(`select * from public.whatsapp_register_inbound($1, 'Teste', $2, $3)`, [phone, body, waId]));
+
+  const keys = await db.query(
+    `select public.whatsapp_phone_key('27999998888') as a, public.whatsapp_phone_key('5527999998888') as b, public.whatsapp_phone_key('552799998888') as c`,
+  );
+  check(keys.rows[0].a === keys.rows[0].b && keys.rows[0].b === keys.rows[0].c, "mesmo celular com ou sem 55 e nono dígito vira a mesma chave");
+
+  const account = (await db.query(`select id from public.accounts limit 1`)).rows[0].id;
+  await db.query(
+    `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at)
+     values ('JD-WASF01', $1, '@conta.prot', 'Prot', 'tiktok', 'Lia Souza', 'lia@exemplo.com', '27966667777', 'pix', 37000, 'delivered', now())`,
+    [account],
+  );
+  const noNine = (await register("552766667777", "Oi", "wamid.sf1")).rows[0];
+  const kind = await asAdmin(() => db.query(`select kind from public.whatsapp_contacts where id = $1`, [noNine.contact_id]));
+  check(kind.rows[0]?.kind === "customer", "cliente que chega sem o nono dígito é reconhecido como cliente");
+
+  await db.query(
+    `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at)
+     values ('JD-WASF02', $1, '@conta.fila', 'Fila', 'tiktok', 'Rui Lima', 'rui@exemplo.com', '27955554444', 'pix', 37000, 'paid', now())`,
+    [account],
+  );
+  await db.query(
+    `insert into public.whatsapp_messages (order_id, kind, to_phone, status, created_at)
+     select id, 'payment_confirmed', '5527955554444', 'queued', now() - interval '40 minutes' from public.orders where code = 'JD-WASF02'`,
+  );
+  await db.query(`select public.whatsapp_alert_pending_access()`);
+  const stuck = await db.query(`select body from public.notifications where title = 'Aviso de pagamento não saiu: JD-WASF02'`);
+  check(stuck.rows.length === 1 && stuck.rows[0].body.includes("Rui"), "aviso de pagamento parado na fila vira alerta para o Jota");
+
+  const gone = (await asAdmin(() => db.query(`select public.anonymize_data_subject('27966667777') as data`))).rows[0].data;
+  const left = await db.query(`select id from public.whatsapp_contacts where id = $1`, [noNine.contact_id]);
+  check(gone.deleted_whatsapp_conversations === 1 && left.rows.length === 0, "apagar os dados do titular apaga a conversa do WhatsApp (mesmo sem o nono dígito)");
+
+  const old = (await register("5527922223333", "Oi, faz tempo", "wamid.sf2")).rows[0];
+  await db.query(`update public.whatsapp_contacts set last_message_at = now() - interval '13 months' where id = $1`, [old.contact_id]);
+  const fresh = (await register("5527922224444", "Oi, hoje", "wamid.sf3")).rows[0];
+  const retention = (await asAdmin(() => db.query(`select public.apply_retention_policy() as data`))).rows[0].data;
+  const remaining = await db.query(`select id from public.whatsapp_contacts where id in ($1, $2)`, [old.contact_id, fresh.contact_id]);
+  check(
+    retention.deleted_whatsapp_conversations === 1 && remaining.rows.length === 1 && remaining.rows[0].id === fresh.contact_id,
+    "retenção apaga conversa parada há mais de 12 meses e mantém a recente",
+  );
+}
+
+/** Lembrete de pedido não pago e pós-venda: o que o agendador põe na fila. */
+async function whatsappFollowUpChecks() {
+  console.log("\nlembrete e pós-venda do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const run = async () => (await db.query(`select public.whatsapp_queue_followups() as n`)).rows[0].n;
+  const queued = async (code, kind) =>
+    (await db.query(`select m.to_phone from public.whatsapp_messages m join public.orders o on o.id = m.order_id where o.code = $1 and m.kind = $2`, [code, kind])).rows;
+  const order = async (code, status, whatsapp, timing, cart = null) => {
+    const account = await newAccount(`fu-${code.toLowerCase()}`);
+    await db.query(
+      `insert into public.orders (code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, payment_method, total_cents, status, expires_at, delivered_at, cart_code)
+       values ($1, $2, '@' || lower($1), 'FU', 'tiktok', 'Nina Reis', 'nina@exemplo.com', $3, 'pix', 37000, $4::public.order_status, now() + $5::interval, case when $4::text = 'delivered' then now() - $5::interval end, $6)`,
+      [code, account, whatsapp, status, timing, cart],
+    );
+  };
+
+  const off = await asAdmin(() => db.query(`select payment_reminder, after_sale from public.whatsapp_settings`));
+  check(off.rows[0].payment_reminder === false && off.rows[0].after_sale === false, "lembrete e pós-venda começam desligados");
+  await order("JD-FUP001", "awaiting_payment", "27981110001", "10 minutes");
+  check((await run()) === 0, "desligados, nada entra na fila");
+
+  await asAdmin(() => db.query(`update public.whatsapp_settings set payment_reminder = true, reminder_minutes = 15, after_sale = true, after_sale_days = 3`));
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.whatsapp_settings set reminder_minutes = 500`)), /check constraint/),
+    "prazo do lembrete fora do limite é recusado",
+  );
+  await order("JD-FUP002", "awaiting_payment", "27981110002", "50 minutes");
+  await order("JD-FUP003", "delivered", "27981110003", "3 days 6 hours");
+  await order("JD-FUP004", "delivered", "27981110004", "10 days");
+  await order("JD-FUP005", "awaiting_payment", "27981110005", "10 minutes", "JD-FUP999");
+  await order("JD-FUP006", "awaiting_payment", "27981110006", "10 minutes");
+  await db.query(`insert into public.whatsapp_contacts (phone, opted_out) values ('552781110006', true)`);
+
+  const before = (await db.query(`select count(*)::int as n from net.requests`)).rows[0].n;
+  check((await run()) === 2, "entram só o lembrete perto de vencer e o pós-venda no prazo");
+  check((await queued("JD-FUP001", "payment_reminder"))[0]?.to_phone === "5527981110001", "lembrete vai para o número do pedido com o 55");
+  check((await queued("JD-FUP003", "after_sale")).length === 1, "pós-venda sai no dia certo depois da entrega");
+  check((await queued("JD-FUP002", "payment_reminder")).length === 0, "reserva longe de vencer ainda não recebe lembrete");
+  check((await queued("JD-FUP004", "after_sale")).length === 0, "entrega antiga não recebe pós-venda atrasado");
+  check((await queued("JD-FUP005", "payment_reminder")).length === 0, "conta de carrinho que não é a principal não recebe lembrete");
+  check((await queued("JD-FUP006", "payment_reminder")).length === 0, "quem escreveu parar (mesmo sem o nono dígito) não recebe");
+  check((await db.query(`select count(*)::int as n from net.requests`)).rows[0].n === before + 2, "cada mensagem da fila chama a whatsapp-send");
+  check((await run()) === 0, "a próxima rodada não repete o mesmo pedido");
+  check(await rejects(() => asAdmin(() => db.query(`select public.whatsapp_queue_followups()`)), /permission denied/), "painel não dispara a fila");
+  await asAdmin(() => db.query(`update public.whatsapp_settings set payment_reminder = false, after_sale = false`));
+
+  // Relatório: venda de quem conversou antes de comprar conta; quem comprou antes de conversar, não.
+  await db.query(`insert into public.whatsapp_contacts (phone, created_at) values ('5527981119999', now() - interval '2 days')`);
+  await order("JD-FUP007", "paid", "27981119999", "1 hour");
+  await db.query(`update public.whatsapp_messages set status = 'sent' where kind = 'payment_reminder'`);
+  await db.query(`update public.orders set status = 'paid' where code = 'JD-FUP001'`);
+  const report = (await asAdmin(() => db.query(`select public.whatsapp_report(30) as data`))).rows[0].data;
+  check(report.days === 30 && report.conversations >= 1 && report.received >= report.conversations, "relatório conta as conversas do período");
+  check(report.chat_sales === 1 && report.chat_sales_cents === 37000, "venda de quem conversou antes de comprar entra no relatório");
+  check(report.reminders_sent === 1 && report.reminders_paid === 1, "lembrete que virou pagamento aparece no relatório");
+  check(await rejects(() => asAdmin(() => db.query(`select public.whatsapp_report(15)`)), /invalid_period/), "período fora de 7, 30 ou 90 é recusado");
+  check(await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.whatsapp_report(7)`)), /forbidden/), "quem não tem Automação não vê o relatório");
+}
+
+async function whatsappFlowChecks() {
+  console.log("\nfluxos do WhatsApp");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const graph = JSON.stringify({ nodes: [{ id: "inicio", type: "start", position: { x: 0, y: 0 }, data: { trigger: "first_contact", keywords: [] } }], edges: [] });
+
+  const created = await asAdmin(() => db.query(`insert into public.whatsapp_flows (name, graph) values ('Atendimento', $1) returning id, enabled`, [graph]));
+  const flowId = created.rows[0].id;
+  check(created.rows[0].enabled === false, "fluxo novo nasce desligado");
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_flows (name, graph) values ('Ruim', '{"nodes": {}}')`)), /check constraint|whatsapp_flows/),
+    "grafo fora do formato é recusado",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.whatsapp_flows (name) values ('   ')`)), /check constraint|whatsapp_flows/),
+    "fluxo sem nome é recusado",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`insert into public.whatsapp_flows (name) values ('X')`)), /row-level security|permission denied/),
+    "quem não tem Automação não cria fluxo",
+  );
+  check(await rejects(() => as("anon", null, () => db.query(`select id from public.whatsapp_flows`)), /permission denied/), "visitante não lê os fluxos");
+
+  await asAdmin(() => db.query(`update public.whatsapp_flows set enabled = true where id = $1`, [flowId]));
+  const enabled = await asAdmin(() => db.query(`select enabled from public.whatsapp_flows where id = $1`, [flowId]));
+  check(enabled.rows[0]?.enabled === true, "o Jota liga o fluxo e ele entra no roteiro da IA");
+  await asAdmin(() => db.query(`delete from public.whatsapp_flows where id = $1`, [flowId]));
+  check((await db.query(`select count(*)::int as total from public.whatsapp_flows`)).rows[0].total === 0, "o Jota apaga o fluxo");
+}
+

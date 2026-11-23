@@ -17,7 +17,7 @@ import { useBulkDelete, type Noun } from "../lib/use-bulk-delete";
 import { formatDate } from "../lib/dates";
 import { useSelection, type Selection } from "../lib/use-selection";
 import { personMessage } from "../lib/messages";
-import { whatsappChatUrl } from "../lib/whatsapp";
+import { WhatsAppContactLink } from "../whatsapp/WhatsAppContactLink";
 
 const CUSTOMER_NOUN: Noun = { one: "cliente", many: "clientes", feminine: false };
 
@@ -42,15 +42,14 @@ function WhatsAppButton({ customer }: { customer: CustomerSummary }) {
   const templates = useMessageTemplates();
   if (!customer.whatsapp) return <span className="text-xs text-mist">Sem WhatsApp</span>;
   return (
-    <a
-      href={whatsappChatUrl(customer.whatsapp, personMessage(templates, "customer_hello", customer.name))}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={`Chamar ${customer.name} no WhatsApp`}
+    <WhatsAppContactLink
+      phone={customer.whatsapp}
+      text={personMessage(templates, "customer_hello", customer.name)}
+      label={`Chamar ${customer.name} no WhatsApp`}
       className="relative z-10 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-400/20"
     >
       <MessageCircle aria-hidden className="size-3.5" /> WhatsApp
-    </a>
+    </WhatsAppContactLink>
   );
 }
 

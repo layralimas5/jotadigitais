@@ -6,6 +6,9 @@ export const REFERRED_BY_MAX_LENGTH = 80;
 /** Cada compra paga de um cliente indicado rende isso ao parceiro que indicou. */
 export const POINTS_PER_REFERRED_PURCHASE = 1;
 
+/** A cada tantos pontos o Jota paga o parceiro e marca "Já paguei" (pedido dele, enquanto o pagamento não é automático). */
+export const REFERRAL_PAYOUT_POINTS = 10;
+
 /** Sem acento, sem @, minúsculo e com um espaço só entre as palavras: "  Gímena  Souza" vira "gimena souza". */
 export function normalizeReferralName(value: string): string {
   return value

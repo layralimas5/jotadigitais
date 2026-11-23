@@ -40,6 +40,7 @@ const DashboardPage = lazy(() => import("@/ui/admin/pages/DashboardPage"));
 const FinalizedPage = lazy(() => import("@/ui/admin/pages/FinalizedPage"));
 const PartnersPage = lazy(() => import("@/ui/admin/pages/PartnersPage"));
 const CouponsPage = lazy(() => import("@/ui/admin/pages/CouponsPage"));
+const StockAlertsPage = lazy(() => import("@/ui/admin/pages/StockAlertsPage"));
 const CouponEditorPage = lazy(() => import("@/ui/admin/pages/CouponEditorPage"));
 const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
 const AffiliateDetailPage = lazy(() => import("@/ui/admin/pages/AffiliateDetailPage"));
@@ -55,7 +56,8 @@ const CustomerDetailPage = lazy(() => import("@/ui/admin/pages/CustomerDetailPag
 const CrmPage = lazy(() => import("@/ui/admin/pages/CrmPage"));
 const LeadEditorPage = lazy(() => import("@/ui/admin/pages/LeadEditorPage"));
 const CustomerEditorPage = lazy(() => import("@/ui/admin/pages/CustomerEditorPage"));
-const AutomationPage = lazy(() => import("@/ui/admin/pages/AutomationPage"));
+const LegacyAutomationRedirect = lazy(() => import("@/ui/admin/pages/LegacyAutomationRedirect"));
+const WhatsAppPage = lazy(() => import("@/ui/admin/pages/WhatsAppPage"));
 const PrivacyPage = lazy(() => import("@/ui/admin/pages/PrivacyPage"));
 const ApisPage = lazy(() => import("@/ui/admin/pages/ApisPage"));
 const MorePage = lazy(() => import("@/ui/admin/pages/MorePage"));
@@ -155,6 +157,7 @@ export const router = createBrowserRouter([
           { path: "cupons", element: <CouponsPage /> },
           { path: "cupons/novo", element: <CouponEditorPage /> },
           { path: "cupons/:id", element: <CouponEditorPage /> },
+          { path: "lista-de-espera", element: <StockAlertsPage /> },
           { path: "parceiros", element: <PartnersPage /> },
           { path: "parceiros/novo", element: <PartnerEditorPage /> },
           { path: "parceiros/:id", element: <PartnerEditorPage /> },
@@ -163,7 +166,8 @@ export const router = createBrowserRouter([
           { path: "crm", element: <CrmPage /> },
           { path: "crm/novo", element: <LeadEditorPage /> },
           { path: "crm/:id", element: <LeadEditorPage /> },
-          { path: "automacao", element: <AutomationPage /> },
+          { path: "whatsapp", element: <WhatsAppPage /> },
+          { path: "automacao", element: <LegacyAutomationRedirect /> },
           { path: "apis", element: <ApisPage /> },
           { path: "privacidade", element: <PrivacyPage /> },
           { path: "mais", element: <MorePage /> },

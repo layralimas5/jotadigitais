@@ -1,5 +1,6 @@
 import type { Account } from "@/domain/account";
 import { isListedInStore, isPurchasable } from "@/domain/account";
+import { matchesAccountKind } from "@/domain/account-kind";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
 import type { CouponPreview } from "@/domain/coupon";
 import type { Country } from "@/domain/country";
@@ -19,13 +20,14 @@ import type {
   PaymentGateway,
   PrivacyService,
   SiteContentRepository,
+  StockAlertService,
   TagColorRepository,
   LegalDocumentRepository,
   StoreSettingsRepository,
   TestimonialRepository,
 } from "./ports";
 import { currentLegalConsents } from "./legal-documents";
-import { ValidationError, couponCodeField, parseOrThrow, referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
+import { ValidationError, couponCodeField, parseOrThrow, referredByFor, siteContentSchema, stockAlertSchema, type CheckoutData } from "./schemas";
 
 export interface UseCaseDeps {
   accounts: AccountRepository;
@@ -38,6 +40,12 @@ export interface UseCaseDeps {
   legal: LegalDocumentRepository;
   privacy: PrivacyService;
   coupons: CouponService;
+  stockAlerts: StockAlertService;
+}
+
+/** "Me avise quando chegar": valida no navegador e o banco confere de novo. */
+export function subscribeStockAlert(deps: Pick<UseCaseDeps, "stockAlerts">, raw: unknown): Promise<void> {
+  return deps.stockAlerts.subscribe(parseOrThrow(stockAlertSchema, raw));
 }
 
 /** Cor de fundo de cada tag, como o Jota salvou na ficha da conta. */
@@ -62,7 +70,8 @@ export function getStoreSettings(deps: UseCaseDeps): Promise<StoreSettings> {
 /** Vitrine pública: catálogo, destaques da home e contas parecidas. */
 export async function listAccounts(deps: UseCaseDeps, filter: AccountFilter): Promise<Account[]> {
   const accounts = await deps.accounts.list(filter);
-  return accounts.filter(isListedInStore);
+  const { kind } = filter;
+  return accounts.filter((account) => isListedInStore(account) && (!kind || matchesAccountKind(account, kind)));
 }
 
 /**

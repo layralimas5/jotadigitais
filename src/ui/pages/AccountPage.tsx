@@ -23,6 +23,7 @@ import {
   AccountDescription,
   AccountIncluded,
   AccountSpecs,
+  AccountStatusBox,
 } from "@/ui/sections/account/AccountDetails";
 import { AccountGallery } from "@/ui/sections/account/AccountGallery";
 import { MobileBuyBar } from "@/ui/sections/account/MobileBuyBar";
@@ -127,6 +128,7 @@ function AccountHeader({ account }: { account: Account }) {
           </div>
         ))}
       </dl>
+      <AccountStatusBox account={account} />
     </>
   );
 }

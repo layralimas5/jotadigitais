@@ -23,10 +23,14 @@ function store(collapsed: boolean): void {
 
 /**
  * Menu lateral encolhido (só ícones) ou aberto. A escolha fica neste navegador e a largura vira a variável
- * `--sidebar-w` no <html>, que o conteúdo e as barras fixas usam para acompanhar.
+ * `--sidebar-w` no <html>, que o conteúdo e as barras fixas usam para acompanhar. Com `focus` (quadro de fluxos), encolhe.
  */
-export function useSidebarCollapsed() {
-  const [collapsed, setCollapsed] = useState(readStored);
+export function useSidebarCollapsed(focus = false) {
+  const [stored, setStored] = useState(readStored);
+  // No modo foco o menu começa encolhido; abrir ali vale só até sair da tela, sem mudar a preferência.
+  const [focusOverride, setFocusOverride] = useState<boolean | null>(null);
+  useEffect(() => setFocusOverride(null), [focus]);
+  const collapsed = focus ? (focusOverride ?? true) : stored;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -37,11 +41,15 @@ export function useSidebarCollapsed() {
   }, [collapsed]);
 
   const toggle = useCallback(() => {
-    setCollapsed((current) => {
+    if (focus) {
+      setFocusOverride(!collapsed);
+      return;
+    }
+    setStored((current) => {
       store(!current);
       return !current;
     });
-  }, []);
+  }, [focus, collapsed]);
 
   return { collapsed, toggle };
 }

@@ -22,8 +22,8 @@ export function PrintCard({ proof }: { proof: Testimonial }) {
       <figure className="group relative h-full rounded-[1.5rem] border border-line bg-surface p-2 transition-colors duration-300 hover:border-white/20 sm:rounded-[1.75rem] sm:p-2.5">
         <div
           className={cn(
-            "overflow-hidden",
-            proof.kind === "result" ? "rounded-[1.35rem] sm:rounded-[1.6rem]" : "rounded-[1.1rem] bg-white sm:rounded-[1.25rem]",
+            "w-fit overflow-hidden",
+            proof.kind === "result" ? "rounded-[1.35rem] sm:rounded-[1.6rem]" : "rounded-[1.1rem] sm:rounded-[1.25rem]",
           )}
         >
           <img
@@ -34,7 +34,7 @@ export function PrintCard({ proof }: { proof: Testimonial }) {
             loading="lazy"
             decoding="async"
             draggable={false}
-            className="h-[18rem] w-auto transition-transform duration-500 group-hover:scale-[1.03] sm:h-[25rem]"
+            className="block h-[18rem] w-auto transition-transform duration-500 group-hover:scale-[1.03] sm:h-[25rem]"
           />
         </div>
         <span

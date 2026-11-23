@@ -1,4 +1,6 @@
+import { FLOW_LIMITS, FLOW_NAME_MAX, flowProblems, type FlowEdge, type FlowNode } from "@/domain/whatsapp-flow";
 import { z } from "zod";
+import { DESCRIPTION_KINDS, DESCRIPTION_TEMPLATE_MAX, type DescriptionKind } from "@/domain/account-description";
 import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
 import {
   ACCOUNT_STATUSES,
@@ -15,6 +17,7 @@ import { COUNTRY_CODE_PATTERN, DEFAULT_COUNTRY } from "@/domain/country";
 import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLocalIsoDate } from "@/domain/finance";
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
+import { AI_LIMITS } from "@/domain/whatsapp";
 import { MAX_DELIVERY_MESSAGE_NAME } from "@/domain/delivery-message";
 import {
   COUPON_CODE_PATTERN,
@@ -41,6 +44,7 @@ import {
 } from "@/domain/support-ticket";
 import { isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
 import { HEX_COLOR_PATTERN, MAX_TAG_KEY_LENGTH, TAG_KEY_PATTERN } from "@/domain/tag-color";
+import { STOCK_ALERT_CATEGORIES } from "@/domain/stock-alert";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -83,6 +87,18 @@ const requiredWhatsapp = z
   .string()
   .transform(onlyDigits)
   .refine((digits) => digits.length >= 10 && digits.length <= 13, { message: "Informe o WhatsApp com DDD." });
+
+/** Lista de espera de conta nova (site). */
+export const stockAlertSchema = z.object({
+  name: personName,
+  whatsapp: requiredWhatsapp,
+  categories: z
+    .array(z.enum(STOCK_ALERT_CATEGORIES))
+    .min(1, "Escolha pelo menos um tipo de conta.")
+    .transform((categories) => [...new Set(categories)]),
+});
+
+export type StockAlertInput = z.input<typeof stockAlertSchema>;
 
 /** CPF ou CNPJ com dígito verificador conferido; pontuação é ignorada. */
 const requiredDocument = z
@@ -239,6 +255,7 @@ export const instagramStatsSchema = z.object({
   following: count,
   professional: z.boolean(),
   monetized: z.boolean().default(false),
+  shop: z.boolean().optional(),
 });
 export const youtubeStatsSchema = z.object({
   views: count,
@@ -558,7 +575,72 @@ export const messageTemplatesSchema = z.object({
   crm_follow_up: templateBody,
   customer_hello: templateBody,
   account_offer: templateBody,
+  community_post: templateBody,
 });
+
+// ---------------------------------------------------------------------------
+// Atendimento com IA do WhatsApp (mesmas regras de whatsapp_settings e whatsapp_faq)
+// ---------------------------------------------------------------------------
+
+const requiredText = (max: number, empty: string) =>
+  z.string().trim().min(1, empty).max(max, `Use no máximo ${max} caracteres.`);
+
+const clockTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use o formato 09:00.");
+
+export const whatsAppAiSettingsSchema = z
+  .object({
+    enabled: z.boolean(),
+    greeting: requiredText(AI_LIMITS.greeting, "Escreva a mensagem de boas-vindas."),
+    tone: requiredText(AI_LIMITS.tone, "Descreva o tom de voz da IA."),
+    instructions: z.string().trim().max(AI_LIMITS.instructions, `Use no máximo ${AI_LIMITS.instructions} caracteres.`),
+    schedule: z.enum(["always", "off_hours"]),
+    businessStart: clockTime,
+    businessEnd: clockTime,
+    businessDays: z.array(z.number().int().min(0).max(6)).min(1, "Marque pelo menos um dia."),
+    ignoredNumbers: z.array(z.string().regex(/^\d{10,15}$/, "Número com DDD e DDI, só dígitos. Ex.: 5527999998888.")).max(200),
+  })
+  .refine((value) => value.businessStart < value.businessEnd, {
+    message: "O fim do horário precisa ser depois do início.",
+    path: ["businessEnd"],
+  });
+
+export const whatsAppFaqSchema = z
+  .array(
+    z.object({
+      id: z.string().optional(),
+      question: requiredText(AI_LIMITS.question, "Escreva a pergunta.").refine((value) => value.length >= 3, "Pergunta curta demais."),
+      answer: requiredText(AI_LIMITS.answer, "Escreva a resposta."),
+    }),
+  )
+  .max(AI_LIMITS.faq, `No máximo ${AI_LIMITS.faq} perguntas.`);
+
+/** Fluxo salvo: nome, limites da Meta nos textos e opções, e um início só. Ligado exige o fluxo completo. */
+export const whatsAppFlowSchema = z
+  .object({
+    name: requiredText(FLOW_NAME_MAX, "Dê um nome ao fluxo."),
+    enabled: z.boolean(),
+    graph: z.object({
+      nodes: z.array(z.custom<FlowNode>()).max(FLOW_LIMITS.nodes, `No máximo ${FLOW_LIMITS.nodes} blocos.`),
+      edges: z.array(z.custom<FlowEdge>()),
+    }),
+  })
+  .superRefine((flow, ctx) => {
+    for (const node of flow.graph.nodes) {
+      if ((node.type === "message" || node.type === "question") && node.data.text.length > FLOW_LIMITS.text)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `Texto com mais de ${FLOW_LIMITS.text} caracteres.` });
+      if (node.type === "question") {
+        if (node.data.options.length > FLOW_LIMITS.options)
+          ctx.addIssue({ code: "custom", path: ["graph"], message: `Uma pergunta tem mais de ${FLOW_LIMITS.options} opções.` });
+        if (node.data.options.some((option) => option.label.length > FLOW_LIMITS.optionLabel))
+          ctx.addIssue({ code: "custom", path: ["graph"], message: `Opção com mais de ${FLOW_LIMITS.optionLabel} caracteres (limite do WhatsApp).` });
+      }
+      if (node.type === "handoff" && node.data.note.length > FLOW_LIMITS.note)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `Recado com mais de ${FLOW_LIMITS.note} caracteres.` });
+      if (node.type === "customer" && node.data.text.length > FLOW_LIMITS.customer)
+        ctx.addIssue({ code: "custom", path: ["graph"], message: `Mensagem do cliente com mais de ${FLOW_LIMITS.customer} caracteres.` });
+    }
+    if (flow.enabled) for (const problem of flowProblems(flow.graph)) ctx.addIssue({ code: "custom", path: ["graph"], message: problem });
+  });
 
 // ---------------------------------------------------------------------------
 // Financeiro (mesmas regras da tabela expenses)
@@ -728,6 +810,11 @@ const siteImage = z.object({
   alt: copy(240),
 });
 
+const descriptionTemplatesSchema = z.object(
+  Object.fromEntries(
+    DESCRIPTION_KINDS.map((kind) => [kind, z.string().trim().max(DESCRIPTION_TEMPLATE_MAX, `Use no máximo ${DESCRIPTION_TEMPLATE_MAX} caracteres.`)]),
+  ) as Record<DescriptionKind, z.ZodString>,
+);
 const fixedSpecList = z.array(z.object({ label: copy(40), value: copy(60) })).max(8, "Use no máximo 8 linhas.");
 const titleBlock = { eyebrow: copy(40), title: copy(90), description: copy(240) };
 
@@ -838,7 +925,11 @@ export const siteContentSchema = z.object({
     perkGuarantee: platformCard,
     perkSupport: platformCard,
     aboutTitle: copy(60),
+    descriptionTemplates: descriptionTemplatesSchema,
     nicheNote: z.string().trim().max(240, "Use no máximo 240 caracteres."),
+    tiktokStatus: z.object({ title: copy(60), full: copy(240), pilot: copy(240), none: copy(240), monetized: copy(240), notMonetized: copy(240) }),
+    instagramStatus: z.object({ shop: copy(240), noShop: copy(240), monetized: copy(240), notMonetized: copy(240) }),
+    youtubeStatus: z.object({ monetized: copy(240), notMonetized: copy(240) }),
     specsTitle: copy(60),
     fixedSpecs: z.object({
       tiktok: fixedSpecList,

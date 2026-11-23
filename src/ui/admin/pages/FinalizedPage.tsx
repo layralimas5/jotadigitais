@@ -23,7 +23,7 @@ import { useDashboardPeriod } from "../dashboard/useDashboardPeriod";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
-import { whatsappChatUrl } from "../lib/whatsapp";
+import { WhatsAppContactLink } from "../whatsapp/WhatsAppContactLink";
 
 /** Sem período na URL, Finalizados mostra todas as vendas, como antes. */
 const ALL_TIME: DashboardPeriod = { kind: "preset", preset: "all" };
@@ -65,14 +65,13 @@ function SaleCard({ order, guaranteeDays, templates }: { order: Order; guarantee
           </dd>
           {order.customer.whatsapp && (
             <dd className="mt-1 text-xs">
-              <a
-                href={whatsappChatUrl(order.customer.whatsapp, orderMessage(templates, order))}
-                target="_blank"
-                rel="noreferrer"
+              <WhatsAppContactLink
+                phone={order.customer.whatsapp}
+                text={orderMessage(templates, order)}
                 className="inline-flex items-center gap-1 text-emerald-300 hover:underline"
               >
                 <MessageCircle aria-hidden className="size-3.5" /> WhatsApp
-              </a>
+              </WhatsAppContactLink>
             </dd>
           )}
         </div>

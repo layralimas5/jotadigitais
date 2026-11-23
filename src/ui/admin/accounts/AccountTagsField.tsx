@@ -116,6 +116,7 @@ const sameTag = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 export interface AccountTagsValue {
   shop: ShopTier;
+  instagramShop: boolean;
   monetized: boolean;
   tags: string[];
 }
@@ -173,6 +174,11 @@ export function AccountTagsField({ platform, value, error, onChange }: AccountTa
               <TagChip label="Shop ativo" tone="electric" color={colors[SHOP_TAG_KEY.full]} selected={value.shop === "full"} onToggle={() => onChange({ shop: value.shop === "full" ? "none" : "full" })} />
             </li>
           </>
+        )}
+        {platform === "instagram" && (
+          <li>
+            <TagChip label="Instagram Shop" tone="electric" selected={value.instagramShop} onToggle={() => onChange({ instagramShop: !value.instagramShop })} />
+          </li>
         )}
         <li>
           <TagChip label={monetizedLabel} tone="emerald" color={colors[MONETIZED_TAG_KEY]} selected={value.monetized} onToggle={() => onChange({ monetized: !value.monetized })} />

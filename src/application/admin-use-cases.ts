@@ -1,20 +1,44 @@
 import type { AffiliateAdminRepository } from "./affiliate-ports";
+import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
+import type { StockAlert } from "@/domain/stock-alert";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, withoutHidden, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { Coupon } from "@/domain/coupon";
 import { sortCountries, type Country } from "@/domain/country";
 import type { DashboardSource } from "@/domain/dashboard";
 import { accessOf, type AccountAccess, type EmailAccount, type EmailAccountListItem } from "@/domain/email-account";
-import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError } from "@/domain/errors";
+import { CannotChangeAccessError, CannotRemoveAdminUserError, InvalidTransitionError, NoReferralPayoutDueError, PartnerNotFoundError } from "@/domain/errors";
+import { REFERRAL_PAYOUT_POINTS } from "@/domain/referral";
 import { ACCOUNT_EXPENSE_CATEGORY, accountBalanceOf, type AccountBalance, type Expense, type Revenue } from "@/domain/finance";
 import type { Cents } from "@/domain/money";
 import { normalizeStageOrder, type Lead, type LeadStage } from "@/domain/lead";
 import type { MessageTemplates } from "@/domain/message-template";
+import type {
+  AiDraft,
+  InboundOutcome,
+  SimulatorReply,
+  SimulatorTurn,
+  WhatsAppAiSettings,
+  WhatsAppChatMessage,
+  WhatsAppContact,
+  WhatsAppContactKind,
+  WhatsAppFaq,
+  WhatsAppFaqDraft,
+  WhatsAppFollowUps,
+  WhatsAppHandler,
+  WhatsAppMessage,
+  WhatsAppReport,
+  ReportPeriod,
+  WhatsAppSettings,
+  FlowTestDraft,
+} from "@/domain/whatsapp";
+import { AFTER_SALE_DAY_OPTIONS, REMINDER_MINUTE_OPTIONS } from "@/domain/whatsapp";
+import { z } from "zod";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
 import { TooManyDeliveryMessagesError } from "@/domain/errors";
-import { buyerOrderOf, canTransition, type Order, type OrderStatus } from "@/domain/order";
+import { buyerOrderOf, canTransition, isReservationExpired, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
 import type { ProfileLookup } from "@/domain/profile-lookup";
@@ -26,6 +50,7 @@ import type {
   AdminAccountRepository,
   AdminCustomerRepository,
   AdminCouponRepository,
+  AdminStockAlertRepository,
   AdminCountryRepository,
   AdminDeliveryMessageRepository,
   AdminEmailAccountRepository,
@@ -33,6 +58,7 @@ import type {
   AdminExpenseRepository,
   AdminLeadRepository,
   AdminMessageTemplateRepository,
+  AdminWhatsAppRepository,
   AdminOrderRepository,
   AdminPartnerRepository,
   AdminPreferenceRepository,
@@ -60,6 +86,7 @@ import type {
   PreparedImage,
   ProfileUpdateResult,
   UploadedImage,
+  PaymentGateway,
 } from "./ports";
 import {
   accountAccessSchema,
@@ -110,8 +137,10 @@ export interface AdminDeps {
   emailAccounts: AdminEmailAccountRepository;
   profileLogins: AdminProfileLoginRepository;
   deliveryMessages: AdminDeliveryMessageRepository;
+  whatsapp: AdminWhatsAppRepository;
   coupons: AdminCouponRepository;
   affiliates: AffiliateAdminRepository;
+  stockAlerts: AdminStockAlertRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
@@ -308,6 +337,88 @@ export async function saveDefaultDeliveryMessage(deps: AdminDeps, body: unknown)
   return saveMessageTemplates(deps, { ...current, order_delivered: body });
 }
 
+export function getWhatsAppSettings(deps: AdminDeps): Promise<WhatsAppSettings> {
+  return deps.whatsapp.getSettings();
+}
+
+export function setWhatsAppAutoDelivery(deps: AdminDeps, enabled: boolean): Promise<WhatsAppSettings> {
+  return deps.whatsapp.setAutoDelivery(enabled);
+}
+
+const followUpsSchema = z.object({
+  paymentReminder: z.boolean(),
+  reminderMinutes: z.union(REMINDER_MINUTE_OPTIONS.map((value) => z.literal(value))),
+  afterSale: z.boolean(),
+  afterSaleDays: z.union(AFTER_SALE_DAY_OPTIONS.map((value) => z.literal(value))),
+});
+
+export function saveWhatsAppFollowUps(deps: AdminDeps, followUps: WhatsAppFollowUps): Promise<WhatsAppSettings> {
+  return deps.whatsapp.saveFollowUps(followUpsSchema.parse(followUps));
+}
+
+export const getWhatsAppReport = (deps: AdminDeps, days: ReportPeriod): Promise<WhatsAppReport> => deps.whatsapp.getReport(days);
+
+export const WHATSAPP_LOG_LIMIT = 40;
+
+export function listWhatsAppMessages(deps: AdminDeps): Promise<WhatsAppMessage[]> {
+  return deps.whatsapp.listMessages(WHATSAPP_LOG_LIMIT);
+}
+
+export const getWhatsAppAi = (deps: AdminDeps): Promise<WhatsAppAiSettings> => deps.whatsapp.getAiSettings();
+
+export const saveWhatsAppAi = (deps: AdminDeps, settings: WhatsAppAiSettings): Promise<WhatsAppAiSettings> =>
+  deps.whatsapp.saveAiSettings(settings);
+
+export const setWhatsAppAiEnabled = (deps: AdminDeps, enabled: boolean): Promise<WhatsAppAiSettings> => deps.whatsapp.setAiEnabled(enabled);
+
+export const listWhatsAppFlows = (deps: AdminDeps): Promise<WhatsAppFlow[]> => deps.whatsapp.listFlows();
+
+export const saveWhatsAppFlow = (deps: AdminDeps, flow: WhatsAppFlowDraft): Promise<WhatsAppFlow> => deps.whatsapp.saveFlow(flow);
+
+export const deleteWhatsAppFlow = (deps: AdminDeps, id: string): Promise<void> => deps.whatsapp.deleteFlow(id);
+
+export const listWhatsAppFaq = (deps: AdminDeps): Promise<WhatsAppFaq[]> => deps.whatsapp.listFaq();
+
+export const saveWhatsAppFaq = (deps: AdminDeps, items: readonly WhatsAppFaqDraft[]): Promise<WhatsAppFaq[]> => deps.whatsapp.saveFaq(items);
+
+/** Configuração e perguntas salvas juntas: a IA lê as duas. */
+export async function saveWhatsAppAiSetup(
+  deps: AdminDeps,
+  settings: WhatsAppAiSettings,
+  faq: readonly WhatsAppFaqDraft[],
+): Promise<{ settings: WhatsAppAiSettings; faq: WhatsAppFaq[] }> {
+  const saved = await deps.whatsapp.saveAiSettings(settings);
+  return { settings: saved, faq: await deps.whatsapp.saveFaq(faq) };
+}
+
+export const simulateWhatsAppAi = (
+  deps: AdminDeps,
+  history: readonly SimulatorTurn[],
+  draft: AiDraft | null,
+  flowTest?: FlowTestDraft,
+): Promise<SimulatorReply> => deps.whatsapp.simulate(history, draft, flowTest);
+
+export const listWhatsAppContacts = (deps: AdminDeps): Promise<WhatsAppContact[]> => deps.whatsapp.listContacts();
+
+export const listWhatsAppChat = (deps: AdminDeps, contactId: string): Promise<WhatsAppChatMessage[]> => deps.whatsapp.listChat(contactId);
+
+export const setWhatsAppHandler = (deps: AdminDeps, contactId: string, handler: WhatsAppHandler): Promise<void> =>
+  deps.whatsapp.setHandler(contactId, handler);
+
+export const setWhatsAppContactKind = (deps: AdminDeps, contactId: string, kind: WhatsAppContactKind): Promise<void> =>
+  deps.whatsapp.setContactKind(contactId, kind);
+
+export const markWhatsAppRead = (deps: AdminDeps, contactId: string): Promise<void> => deps.whatsapp.markRead(contactId);
+
+export const sendWhatsAppReply = (deps: AdminDeps, contactId: string, text: string): Promise<void> => deps.whatsapp.sendReply(contactId, text);
+
+export const simulateWhatsAppInbound = (
+  deps: AdminDeps,
+  phone: string,
+  name: string | null,
+  text: string,
+): Promise<{ contactId: string; outcome: InboundOutcome }> => deps.whatsapp.simulateInbound(phone, name, text);
+
 export function listDeliveryMessages(deps: AdminDeps): Promise<DeliveryMessage[]> {
   return deps.deliveryMessages.listAll();
 }
@@ -388,7 +499,7 @@ export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
 
 /** Tudo o que o dashboard precisa, carregado uma vez: o filtro de período recalcula sem buscar de novo. */
 export async function loadDashboardSource(deps: AdminDeps): Promise<DashboardSource> {
-  const [orders, expenses, revenues, accounts, leads, partners, customers] = await Promise.all([
+  const [orders, expenses, revenues, accounts, leads, partners, customers, stockAlerts] = await Promise.all([
     deps.orders.listAll(),
     deps.expenses.listAll(),
     deps.revenues.listAll(),
@@ -396,8 +507,9 @@ export async function loadDashboardSource(deps: AdminDeps): Promise<DashboardSou
     deps.leads.listAll(),
     deps.partners.listAll(),
     deps.customers.listAll(),
+    deps.stockAlerts.listAll(),
   ]);
-  return { orders, expenses, revenues, accounts, leads, partners, customers };
+  return { orders, expenses, revenues, accounts, leads, partners, customers, stockAlerts };
 }
 
 export interface FinalizedSalesData {
@@ -449,6 +561,14 @@ export function savePartner(deps: AdminDeps, id: string | null, raw: unknown): P
   return id ? deps.partners.update(id, data) : deps.partners.create(data);
 }
 
+/** "Já paguei": registra um pagamento de indicação, só se o parceiro tiver um completo esperando. */
+export async function markReferralPayoutPaid(deps: AdminDeps, id: string): Promise<Partner> {
+  const summary = await findPartnerSummary(deps, id);
+  if (!summary) throw new PartnerNotFoundError();
+  if (summary.payoutsDue === 0) throw new NoReferralPayoutDueError();
+  return deps.partners.addPaidReferralPoints(id, REFERRAL_PAYOUT_POINTS);
+}
+
 export function deletePartner(deps: AdminDeps, id: string): Promise<void> {
   return deps.partners.remove(id);
 }
@@ -474,6 +594,40 @@ export interface CouponSummary {
   coupon: Coupon;
   /** Desconto dado nos pedidos não cancelados com o cupom. */
   discountGiven: number;
+}
+
+/**
+ * Pix do C6 que ninguém conferiu: o cliente pagou pelo QR e fechou a página antes da conferência, e o aviso do C6
+ * não chegou. Pergunta ao C6 por cada parte Pix ainda pendente com cobrança criada e devolve os pedidos que ficaram pagos.
+ */
+export async function reconcilePendingPix(deps: AdminDeps, payments: Pick<PaymentGateway, "checkPixPayment">, now: Date = new Date()): Promise<string[]> {
+  const orders = await deps.orders.listAll();
+  const pending = orders
+    .filter((order) => order.status === "awaiting_payment" && !isReservationExpired(order, now))
+    .flatMap((order) =>
+      order.payments.filter((part) => part.method === "pix" && part.status === "pending" && part.pixCode).map((part) => ({ code: order.code, paymentId: part.id })),
+    );
+  const results = await Promise.all(pending.map(async ({ code, paymentId }) => ((await payments.checkPixPayment(code, paymentId)) ? code : null)));
+  return [...new Set(results.filter((code): code is string => code !== null))];
+}
+
+export interface StockAlertsBoard {
+  alerts: StockAlert[];
+  accounts: Account[];
+}
+
+/** Lista de espera com o estoque, para mostrar quem já pode ser avisado. */
+export async function loadStockAlertsBoard(deps: AdminDeps): Promise<StockAlertsBoard> {
+  const [alerts, accounts] = await Promise.all([deps.stockAlerts.listAll(), deps.accounts.listAll()]);
+  return { alerts, accounts };
+}
+
+export function setStockAlertNotified(deps: AdminDeps, id: string, notified: boolean): Promise<void> {
+  return deps.stockAlerts.setNotified(id, notified);
+}
+
+export function removeStockAlert(deps: AdminDeps, id: string): Promise<void> {
+  return deps.stockAlerts.remove(id);
 }
 
 /** Cupons com o quanto cada um já tirou dos pedidos (cancelados não contam). */

@@ -1,8 +1,11 @@
-import { Check } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { catalogPathOf } from "@/domain/account-kind";
 import type { ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
-import { descriptionOf, includedOf, specsOf } from "@/ui/lib/account-presenter";
+import { descriptionOf, includedOf, specsOf, statusItemsOf, type StatusText } from "@/ui/lib/account-presenter";
+import type { SiteContent } from "@/domain/site-content";
 import { editable } from "@/ui/lib/site-preview";
 import { STEP_ICONS, useSteps } from "@/ui/sections/home/HowItWorks";
 
@@ -22,7 +25,7 @@ export function AccountDescription({ account }: { account: Account }) {
   return (
     <DetailBlock id="sobre-title" title={accountPage.aboutTitle} titlePath="accountPage.aboutTitle">
       <div className="space-y-4 text-base leading-relaxed whitespace-pre-line text-fog">
-        {descriptionOf(account).map((paragraph) => (
+        {descriptionOf(account, accountPage.descriptionTemplates).map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>
         ))}
         {account.niche && accountPage.nicheNote && (
@@ -32,6 +35,63 @@ export function AccountDescription({ account }: { account: Account }) {
         )}
       </div>
     </DetailBlock>
+  );
+}
+
+/** Texto do item, como o Jota escreveu na aba Site. */
+function statusTextOf(accountPage: SiteContent["accountPage"], { section, field }: StatusText): string {
+  switch (section) {
+    case "tiktokStatus":
+      return accountPage.tiktokStatus[field];
+    case "instagramStatus":
+      return accountPage.instagramStatus[field];
+    case "youtubeStatus":
+      return accountPage.youtubeStatus[field];
+  }
+}
+
+/** Deixa claro, logo abaixo dos números, o que a conta tem: Shop (TikTok e Instagram) e monetização. */
+export function AccountStatusBox({ account }: { account: Account }) {
+  const { accountPage } = useSiteContent();
+  const items = statusItemsOf(account);
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="status-conta-title" className="mt-6 rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
+      <h2 id="status-conta-title" {...editable("accountPage.tiktokStatus.title")} className="text-sm font-semibold text-white">
+        {accountPage.tiktokStatus.title}
+      </h2>
+      <ul className="mt-3 space-y-3">
+        {items.map((item) => (
+          <li key={item.id} className="flex gap-3">
+            <span
+              aria-hidden
+              className={
+                item.has
+                  ? "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-400/15 text-emerald-300"
+                  : "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/10 text-fog"
+              }
+            >
+              {item.has ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm leading-relaxed text-mist">
+                <strong className="font-semibold text-white">{item.label}.</strong>{" "}
+                <span {...editable(`accountPage.${item.text.section}.${item.text.field}`)}>{statusTextOf(accountPage, item.text)}</span>
+              </p>
+              {item.alternative && (
+                <Link
+                  to={catalogPathOf(item.alternative.kind)}
+                  className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-electric-soft underline-offset-4 hover:underline"
+                >
+                  {item.alternative.label}
+                  <ArrowRight aria-hidden className="size-3.5" />
+                </Link>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

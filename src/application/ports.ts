@@ -1,4 +1,5 @@
 import type { Coupon, CouponData, CouponPreview } from "@/domain/coupon";
+import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Country } from "@/domain/country";
 import type { Account, AccountData } from "@/domain/account";
 import type { AccessProfileUpdate, AccessUser } from "@/domain/access-user";
@@ -9,7 +10,28 @@ import type { LegalConsent } from "@/domain/legal/legal-document";
 import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
+import type { AccountKind } from "@/domain/account-kind";
+import type { StockAlert, StockAlertData } from "@/domain/stock-alert";
 import type { MessageTemplates } from "@/domain/message-template";
+import type {
+  AiDraft,
+  InboundOutcome,
+  SimulatorReply,
+  SimulatorTurn,
+  WhatsAppAiSettings,
+  WhatsAppChatMessage,
+  WhatsAppContact,
+  WhatsAppContactKind,
+  WhatsAppFaq,
+  WhatsAppFaqDraft,
+  WhatsAppFollowUps,
+  WhatsAppHandler,
+  WhatsAppMessage,
+  WhatsAppReport,
+  ReportPeriod,
+  WhatsAppSettings,
+  FlowTestDraft,
+} from "@/domain/whatsapp";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import type { ProfileLogin } from "@/domain/delivery-login";
 import type { StoredNotification } from "@/domain/notification";
@@ -63,6 +85,8 @@ export interface AccountFilter {
   maxFollowers?: number;
   sort?: AccountSort;
   onlyAvailable?: boolean;
+  /** Recorte pelo que a conta tem (Shop, monetização). */
+  kind?: AccountKind;
 }
 
 /** Países que as contas podem ter. A vitrine lê; o painel também cria. */
@@ -101,6 +125,18 @@ export interface NewOrder {
 /** Prévia do cupom no checkout: o banco confere e devolve o desconto sobre a soma das contas. */
 export interface CouponService {
   preview(code: string, accountIds: string[]): Promise<CouponPreview>;
+}
+
+/** Inscrição do site na lista de espera de conta nova. */
+export interface StockAlertService {
+  subscribe(data: StockAlertData): Promise<void>;
+}
+
+export interface AdminStockAlertRepository {
+  listAll(): Promise<StockAlert[]>;
+  /** Marca como avisado (true) ou devolve para "aguardando" (false). */
+  setNotified(id: string, notified: boolean): Promise<void>;
+  remove(id: string): Promise<void>;
 }
 
 export interface AdminCouponRepository {
@@ -297,6 +333,43 @@ export interface AdminMessageTemplateRepository {
   save(templates: MessageTemplates): Promise<MessageTemplates>;
 }
 
+/** Entrega automática pelo WhatsApp: o liga e desliga e o registro do que saiu (ou sairia, em modo teste). */
+export interface AdminWhatsAppRepository {
+  getSettings(): Promise<WhatsAppSettings>;
+  setAutoDelivery(enabled: boolean): Promise<WhatsAppSettings>;
+  saveFollowUps(followUps: WhatsAppFollowUps): Promise<WhatsAppSettings>;
+  /** Mais recentes primeiro. */
+  listMessages(limit: number): Promise<WhatsAppMessage[]>;
+  getReport(days: ReportPeriod): Promise<WhatsAppReport>;
+
+  getAiSettings(): Promise<WhatsAppAiSettings>;
+  saveAiSettings(settings: WhatsAppAiSettings): Promise<WhatsAppAiSettings>;
+  /** Liga e desliga a IA sem mexer no resto (faixa de status das abas WhatsApp e Automação). */
+  setAiEnabled(enabled: boolean): Promise<WhatsAppAiSettings>;
+  /** Na ordem em que a IA lê. */
+  listFaq(): Promise<WhatsAppFaq[]>;
+  /** Substitui a lista inteira, na ordem dada. */
+  saveFaq(items: readonly WhatsAppFaqDraft[]): Promise<WhatsAppFaq[]>;
+  /** Testa a IA com o rascunho da tela. Nada é gravado nem enviado. */
+  /** Testa a IA: com o rascunho da aba IA (null = o que está salvo) e, na aba Fluxos, com o fluxo da tela. */
+  simulate(history: readonly SimulatorTurn[], draft: AiDraft | null, flowTest?: FlowTestDraft): Promise<SimulatorReply>;
+
+  /** Conversas, a mais recente primeiro. */
+  listContacts(): Promise<WhatsAppContact[]>;
+  listChat(contactId: string): Promise<WhatsAppChatMessage[]>;
+  setHandler(contactId: string, handler: WhatsAppHandler): Promise<void>;
+  setContactKind(contactId: string, kind: WhatsAppContactKind): Promise<void>;
+  markRead(contactId: string): Promise<void>;
+  /** O Jota responde pelo painel; a conversa passa a ser dele. Falha com `WhatsAppWindowClosedError` fora das 24h. */
+  sendReply(contactId: string, text: string): Promise<void>;
+  /** Modo teste: finge uma mensagem de cliente e roda o fluxo inteiro. Devolve a conversa criada. */
+  simulateInbound(phone: string, name: string | null, text: string): Promise<{ contactId: string; outcome: InboundOutcome }>;
+  /** Fluxos de Automação > Fluxos, na ordem em que aparecem. */
+  listFlows(): Promise<WhatsAppFlow[]>;
+  saveFlow(flow: WhatsAppFlowDraft): Promise<WhatsAppFlow>;
+  deleteFlow(id: string): Promise<void>;
+}
+
 export const ADMIN_PREFERENCE_KEYS = ["crm_stage_order", "google_calendar"] as const;
 export type AdminPreferenceKey = (typeof ADMIN_PREFERENCE_KEYS)[number];
 
@@ -336,6 +409,8 @@ export interface AdminPartnerRepository {
   findById(id: string): Promise<Partner | null>;
   create(data: PartnerData): Promise<Partner>;
   update(id: string, data: PartnerData): Promise<Partner>;
+  /** Soma pontos de indicação pagos (o "Já paguei" do Jota). */
+  addPaidReferralPoints(id: string, points: number): Promise<Partner>;
   /** As contas do parceiro ficam sem parceiro (viram da loja); vendas e pedidos não mudam. */
   remove(id: string): Promise<void>;
 }
@@ -404,6 +479,8 @@ export interface SupportTicketRepository {
   markSeen(ticketId: string, notify: boolean): Promise<void>;
   /** A Lay avisa o Jota no sininho que abriu ou respondeu o chamado (o banco monta o texto). */
   notifyAdmin(ticketId: string, event: SupportNotifyEvent): Promise<void>;
+  /** A Lay cobra o Jota num chamado aguardando ele: registra a cobrança e avisa no sininho e no celular. */
+  nudgeAdmin(ticketId: string): Promise<void>;
   /** Interno: só a desenvolvedora vê. Só ela muda (o banco confere). */
   setInternal(ticketId: string, internal: boolean): Promise<void>;
   /** O Jota aprova e finaliza um chamado que está aguardando ele (o banco confere papel e situação). */

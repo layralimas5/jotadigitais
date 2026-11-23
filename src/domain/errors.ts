@@ -82,6 +82,13 @@ export class PartnerNotFoundError extends Error {
   }
 }
 
+export class NoReferralPayoutDueError extends Error {
+  constructor() {
+    super("Este parceiro ainda não completou os pontos de um pagamento. Atualize a página para ver os pontos de agora.");
+    this.name = "NoReferralPayoutDueError";
+  }
+}
+
 export class EmailAccountNotFoundError extends Error {
   constructor() {
     super("Este e-mail não existe mais. Ele pode ter sido apagado.");
@@ -226,6 +233,13 @@ export class SupportApprovalError extends Error {
   }
 }
 
+export class SupportNudgeError extends Error {
+  constructor(message = "Só dá para cobrar o Jota em chamado que está aguardando ele.") {
+    super(message);
+    this.name = "SupportNudgeError";
+  }
+}
+
 export class PreviewReadOnlyError extends Error {
   constructor() {
     super("Modo visualização: aqui você vê o painel como o Jota, mas nada é salvo. Volte para o seu painel para mexer.");
@@ -332,5 +346,21 @@ export class DeliveryMessageNotFoundError extends Error {
   constructor() {
     super("Essa mensagem não existe mais. Pode ter sido apagada em outra aba.");
     this.name = "DeliveryMessageNotFoundError";
+  }
+}
+
+/** Passaram 24h da última mensagem do cliente: a Meta só deixa puxar conversa com modelo aprovado. */
+export class WhatsAppWindowClosedError extends Error {
+  constructor() {
+    super("Já passaram 24h da última mensagem deste cliente. O WhatsApp só libera responder quando ele mandar mensagem de novo.");
+    this.name = "WhatsAppWindowClosedError";
+  }
+}
+
+/** A IA não está configurada no servidor (falta a chave da Anthropic). */
+export class WhatsAppAiUnavailableError extends Error {
+  constructor() {
+    super("A IA ainda não está conectada: falta cadastrar a chave da Anthropic no servidor.");
+    this.name = "WhatsAppAiUnavailableError";
   }
 }

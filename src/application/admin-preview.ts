@@ -8,6 +8,7 @@ import type { Customer, Order } from "@/domain/order";
 import type { Partner } from "@/domain/partner";
 import { maskEmail, maskHandle, maskNote, maskPersonName, maskPhone, maskSecret } from "@/domain/privacy-mask";
 import type { DataRequest } from "@/domain/privacy";
+import type { StockAlert } from "@/domain/stock-alert";
 import type { AdminDeps } from "./admin-use-cases";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,12 @@ const maskAffiliate = (affiliate: Affiliate): Affiliate => ({
   whatsapp: maskPhone(affiliate.whatsapp),
   pixKey: maskSecret(affiliate.pixKey),
   statusNote: maskNote(affiliate.statusNote),
+});
+
+const maskStockAlert = (alert: StockAlert): StockAlert => ({
+  ...alert,
+  name: maskPersonName(alert.name) ?? alert.name,
+  whatsapp: maskPhone(alert.whatsapp) ?? alert.whatsapp,
 });
 
 const maskEmailItem = <T extends EmailAccountListItem | EmailAccount>(item: T): T => ({
@@ -148,6 +155,7 @@ export function previewAdminDeps(deps: AdminDeps): AdminDeps {
       getAccountRule: null,
       listAccountRules: null,
     }),
+    stockAlerts: readOnly(deps.stockAlerts, { listAll: each(maskStockAlert) }),
     emailAccounts: readOnly(deps.emailAccounts, {
       listAll: each(maskEmailItem),
       findById: maybe(maskEmailAccount),

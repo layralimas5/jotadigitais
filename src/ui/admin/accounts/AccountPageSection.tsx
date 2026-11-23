@@ -2,6 +2,7 @@ import { ExternalLink, RotateCcw } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { Account } from "@/domain/account";
+import { DESCRIPTION_KIND_LABEL, descriptionKindOf, type DescriptionTemplates } from "@/domain/account-description";
 import { SiteContentProvider, useSiteContent } from "@/ui/hooks/useSiteContent";
 import { StoreSettingsProvider } from "@/ui/hooks/useStoreSettings";
 import { automaticDescriptionOf } from "@/ui/lib/account-presenter";
@@ -24,11 +25,27 @@ const SiteTabLink = () => (
   </Link>
 );
 
+interface AutomaticText {
+  text: string;
+  /** Nome do tipo de conta quando o texto vem do modelo dele na aba Site; null quando é o montado pelo sistema. */
+  templateLabel: string | null;
+}
+
+function automaticTextOf(account: Account | null, templates: DescriptionTemplates): AutomaticText | null {
+  if (!account) return null;
+  const kind = descriptionKindOf(account);
+  return {
+    text: automaticDescriptionOf({ ...account, description: null }, templates),
+    templateLabel: templates[kind].trim() ? DESCRIPTION_KIND_LABEL[kind] : null,
+  };
+}
+
 /**
- * "Sobre esta conta": começa mostrando o texto automático, que acompanha os números. Ao mexer, o campo vira do Jota
- * e fica como ele deixar, inclusive vazio para escrever do zero; em branco, o site volta a usar o automático.
+ * "Sobre esta conta": começa mostrando o texto automático (o modelo do tipo de conta, ou o montado pelo sistema).
+ * Ao mexer, o campo vira do Jota e fica como ele deixar; em branco, o site volta a usar o automático.
  */
-function AboutField({ values, errors, set, automatic }: Omit<AccountPageSectionProps, "accountId"> & { automatic: string | null }) {
+function AboutField({ values, errors, set, automatic: auto }: Omit<AccountPageSectionProps, "accountId"> & { automatic: AutomaticText | null }) {
+  const automatic = auto?.text ?? null;
   const written = values.description.trim() !== "";
   const [editing, setEditing] = useState(written);
   const shown = editing || !automatic ? values.description : automatic;
@@ -44,7 +61,9 @@ function AboutField({ values, errors, set, automatic }: Omit<AccountPageSectionP
     ? "Texto escrito por você. Deixe uma linha em branco entre os parágrafos."
     : editing
       ? "Em branco, o site mostra o texto automático. Escreva o seu; linha em branco separa parágrafos."
-      : "Texto automático: acompanha os números da conta. Edite à vontade ou apague tudo para escrever do zero.";
+      : auto?.templateLabel
+        ? `Texto do modelo "${auto.templateLabel}", em Site > Página da conta. Edite à vontade só nesta conta ou mude o modelo para todas.`
+        : "Texto automático: acompanha os números da conta. Para fixar um texto por tipo de conta, use os modelos em Site > Página da conta.";
   return (
     <div>
       <TextAreaField
@@ -64,7 +83,7 @@ function AboutField({ values, errors, set, automatic }: Omit<AccountPageSectionP
           onClick={backToAutomatic}
           className="mt-2 inline-flex items-center gap-1.5 rounded-lg text-xs text-mist hover:text-white focus-visible:outline-2 focus-visible:outline-electric"
         >
-          <RotateCcw aria-hidden className="size-3.5" /> Voltar ao texto automático
+          <RotateCcw aria-hidden className="size-3.5" /> {auto?.templateLabel ? "Voltar ao modelo do tipo de conta" : "Voltar ao texto automático"}
         </button>
       )}
     </div>
@@ -92,12 +111,21 @@ function ReadOnlyBlock({ caption, children }: { caption: ReactNode; children: Re
 }
 
 /** Tudo o que a página da conta mostra além do topo: o que é desta conta se edita aqui; o que é fixo, na aba Site. */
-export function AccountPageSection({ values, errors, set, accountId }: AccountPageSectionProps) {
-  const preview = previewAccountOf(values, accountId);
-  const automatic = preview ? automaticDescriptionOf({ ...preview, description: null }) : null;
+export function AccountPageSection(props: AccountPageSectionProps) {
   return (
     <StoreSettingsProvider>
       <SiteContentProvider>
+        <AccountPageBody {...props} />
+      </SiteContentProvider>
+    </StoreSettingsProvider>
+  );
+}
+
+function AccountPageBody({ values, errors, set, accountId }: AccountPageSectionProps) {
+  const { accountPage } = useSiteContent();
+  const preview = previewAccountOf(values, accountId);
+  const automatic = automaticTextOf(preview, accountPage.descriptionTemplates);
+  return (
         <FormSection
           title="Página da conta"
           description="O que aparece na página desta conta no site. O texto e a ficha técnica você edita aqui; as partes iguais em toda conta ficam na aba Site."
@@ -121,7 +149,5 @@ export function AccountPageSection({ values, errors, set, accountId }: AccountPa
             <p className="text-sm text-mist">Preencha os dados da conta para ver o que está incluso.</p>
           )}
         </FormSection>
-      </SiteContentProvider>
-    </StoreSettingsProvider>
   );
 }

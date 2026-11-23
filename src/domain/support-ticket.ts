@@ -202,6 +202,13 @@ export interface SupportTicket extends SupportTicketData {
   dueDate: string | null;
   /** Quando a desenvolvedora marcou que o ajuste já está no ar. */
   releasedAt: string | null;
+  /** Cobranças da desenvolvedora para o Jota, da mais antiga para a mais nova. */
+  nudges: SupportNudge[];
+}
+
+/** A Lay cobrou o Jota num chamado que depende dele. */
+export interface SupportNudge {
+  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -528,6 +535,45 @@ export function wasSeenBy(ticket: Pick<SupportTicket, "views">, role: AdminRole,
 
 /** O que vira aviso no sininho do Jota quando a Lay escolhe avisar. */
 export type SupportNotifyEvent = "opened" | "replied";
+
+// ---------------------------------------------------------------------------
+// Cobrar o Jota e confirmar urgência
+// ---------------------------------------------------------------------------
+
+/** Intervalo mínimo entre duas cobranças no mesmo chamado (o banco confere de novo). */
+export const NUDGE_INTERVAL_MS = 60 * 60 * 1000;
+
+/** Quando o chamado passou para "Aguardando o Jota" pela última vez; nulo se não está aguardando. */
+export function waitingSinceOf(ticket: Pick<SupportTicket, "status" | "events" | "updatedAt">): string | null {
+  if (ticket.status !== "waiting") return null;
+  return ticket.events.filter((event) => event.to === "waiting").at(-1)?.createdAt ?? ticket.updatedAt;
+}
+
+/** Cobranças feitas desde que o chamado entrou em "Aguardando o Jota" desta vez. */
+export function activeNudgesOf(ticket: Pick<SupportTicket, "status" | "events" | "updatedAt" | "nudges">): SupportNudge[] {
+  const since = waitingSinceOf(ticket);
+  if (!since) return [];
+  return ticket.nudges.filter((nudge) => Date.parse(nudge.createdAt) >= Date.parse(since));
+}
+
+/** Só a Lay cobra, e só chamado do Jota que está esperando por ele. */
+export const canNudgeAdmin = (ticket: Pick<SupportTicket, "status" | "internal" | "mergedInto">, role: AdminRole): boolean =>
+  role === "developer" && ticket.status === "waiting" && !ticket.internal && !ticket.mergedInto;
+
+/** A partir de quando dá para cobrar de novo; nulo quando já pode. */
+export function nextNudgeAt(ticket: Pick<SupportTicket, "nudges">, now: number = Date.now()): Date | null {
+  const last = ticket.nudges.at(-1);
+  if (!last) return null;
+  const next = Date.parse(last.createdAt) + NUDGE_INTERVAL_MS;
+  return next > now ? new Date(next) : null;
+}
+
+/** Urgente que ainda está na fila (não finalizado nem juntado a outro). */
+export const isOpenUrgent = (ticket: Pick<SupportTicket, "priority" | "status" | "mergedInto">): boolean =>
+  ticket.priority === "urgent" && ticket.status !== "done" && !ticket.mergedInto;
+
+/** O Jota marcando urgente passa por uma confirmação: urgente demais deixa de ser urgente. */
+export const needsUrgentConfirmation = (role: AdminRole, priority: SupportPriority): boolean => role === "admin" && priority === "urgent";
 
 /** Só a Lay avisa o Jota, e só em chamado que ele vê. */
 export const canNotifyAdmin = (ticket: Pick<SupportTicket, "internal">, role: AdminRole): boolean => role === "developer" && !ticket.internal;
