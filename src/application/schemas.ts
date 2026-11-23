@@ -44,6 +44,7 @@ import {
 } from "@/domain/support-ticket";
 import { isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
 import { HEX_COLOR_PATTERN, MAX_TAG_KEY_LENGTH, TAG_KEY_PATTERN } from "@/domain/tag-color";
+import { STOCK_ALERT_CATEGORIES } from "@/domain/stock-alert";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
@@ -86,6 +87,18 @@ const requiredWhatsapp = z
   .string()
   .transform(onlyDigits)
   .refine((digits) => digits.length >= 10 && digits.length <= 13, { message: "Informe o WhatsApp com DDD." });
+
+/** Lista de espera de conta nova (site). */
+export const stockAlertSchema = z.object({
+  name: personName,
+  whatsapp: requiredWhatsapp,
+  categories: z
+    .array(z.enum(STOCK_ALERT_CATEGORIES))
+    .min(1, "Escolha pelo menos um tipo de conta.")
+    .transform((categories) => [...new Set(categories)]),
+});
+
+export type StockAlertInput = z.input<typeof stockAlertSchema>;
 
 /** CPF ou CNPJ com dígito verificador conferido; pontuação é ignorada. */
 const requiredDocument = z

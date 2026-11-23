@@ -65,6 +65,8 @@ import { SupabaseSupportTicketRepository } from "@/infrastructure/supabase/supab
 import { SupabaseAccessRepository } from "@/infrastructure/supabase/supabase-access";
 import { SupabaseTagColorRepository } from "@/infrastructure/supabase/supabase-tag-colors";
 import { DemoTagColorRepository } from "@/infrastructure/demo/demo-tag-colors";
+import { DemoStockAlertRepository, DemoStockAlertService } from "@/infrastructure/demo/demo-stock-alerts";
+import { SupabaseStockAlertRepository, SupabaseStockAlertService } from "@/infrastructure/supabase/supabase-stock-alerts";
 import { backendConfig, defaultStoreSettings } from "./config";
 
 export type BackendMode = "supabase" | "demo";
@@ -102,6 +104,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       payments: new SupabasePaymentGateway(client),
       privacy: new SupabasePrivacyService(client),
       coupons: new SupabaseCouponService(client),
+      stockAlerts: new SupabaseStockAlertService(client),
     },
     admin: {
       auth: new SupabaseAuthService(client, passwordChecker),
@@ -124,6 +127,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       deliveryMessages: new SupabaseDeliveryMessageRepository(client),
       whatsapp: new SupabaseWhatsAppRepository(client),
       coupons: new SupabaseCouponRepository(client),
+      stockAlerts: new SupabaseStockAlertRepository(client),
       countries,
       users: new SupabaseAdminUserRepository(client),
       profiles: new SupabaseProfileLookupService(client),
@@ -169,6 +173,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     deliveryMessages: new DemoDeliveryMessageRepository(db),
     whatsapp: new DemoWhatsAppRepository(db),
     coupons: new DemoCouponRepository(db),
+    stockAlerts: new DemoStockAlertRepository(db),
     users,
     profiles: new DevServerProfileLookupService(),
     notifications: new DemoNotificationRepository(db),
@@ -189,7 +194,7 @@ function demoContainer(): Container {
   const { store, admin } = demoAdminDeps(db);
   return {
     mode: "demo",
-    store: { ...store, payments: new DemoPaymentGateway(store.orders), privacy: new DemoPrivacyService(db), coupons: new DemoCouponService(db) },
+    store: { ...store, payments: new DemoPaymentGateway(store.orders), privacy: new DemoPrivacyService(db), coupons: new DemoCouponService(db), stockAlerts: new DemoStockAlertService(db) },
     admin,
   };
 }
