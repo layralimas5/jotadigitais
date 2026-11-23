@@ -1,7 +1,7 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SupportTicketRepository } from "@/application/ports";
-import { SupportApprovalError, SupportLabelNameTakenError, SupportMergeError, SupportTicketNotFoundError } from "@/domain/errors";
+import { SupportApprovalError, SupportLabelNameTakenError, SupportMergeError, SupportNudgeError, SupportTicketNotFoundError } from "@/domain/errors";
 import {
   SUPPORT_AREAS,
   SUPPORT_KINDS,
@@ -60,7 +60,8 @@ const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
 const CHECKLIST_COLUMNS = "id, body, done, position, done_at";
-const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role, avatar_url), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS}), due_date, released_at, checklist:support_checklist_items(${CHECKLIST_COLUMNS})`;
+const NUDGE_COLUMNS = "created_at";
+const TICKET_COLUMNS = `id, title, description, kind, area, priority, internal, status, label_id, merged_into, merged_at, created_at, updated_at, resolved_at, author:admin_users!support_tickets_created_by_fkey(name, role, avatar_url), replies:support_replies(${REPLY_COLUMNS}), attachments:support_attachments(${ATTACHMENT_COLUMNS}), events:support_status_events(${EVENT_COLUMNS}), views:support_ticket_views(${VIEW_COLUMNS}), due_date, released_at, checklist:support_checklist_items(${CHECKLIST_COLUMNS}), nudges:support_nudges(${NUDGE_COLUMNS})`;
 const LABEL_COLUMNS = "id, name, color";
 const CANNED_COLUMNS = "id, title, body";
 const cannedRowSchema = z.object({ id: z.string(), title: z.string(), body: z.string() });
@@ -132,6 +133,7 @@ const ticketRowSchema = z.object({
   due_date: z.string().nullable(),
   released_at: z.string().nullable(),
   checklist: z.array(checklistRowSchema),
+  nudges: z.array(z.object({ created_at: z.string() })),
 });
 
 type AttachmentRow = z.infer<typeof attachmentRowSchema>;
@@ -195,6 +197,7 @@ function toTicket(raw: unknown, urls: ReadonlyMap<string, string> = new Map()): 
     ),
     dueDate: row.due_date,
     releasedAt: row.released_at,
+    nudges: row.nudges.map((nudge) => ({ createdAt: nudge.created_at })).sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
   };
 }
 
@@ -277,6 +280,14 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
   async notifyAdmin(ticketId: string, event: SupportNotifyEvent): Promise<void> {
     const { error } = await this.client.rpc("notify_admin_support", { p_ticket_id: ticketId, p_event: event });
     if (error) fail(error);
+  }
+
+  async nudgeAdmin(ticketId: string): Promise<void> {
+    const { error } = await this.client.rpc("nudge_admin_support", { p_ticket_id: ticketId });
+    if (!error) return;
+    if (error.code === "P0002") throw new SupportNudgeError("Este chamado não está mais aguardando o Jota. Atualize a página.");
+    if (error.message.includes("nudge_too_soon")) throw new SupportNudgeError("Você já cobrou o Jota neste chamado há menos de 1 hora.");
+    fail(error);
   }
 
   async setInternal(ticketId: string, internal: boolean): Promise<void> {

@@ -38,6 +38,7 @@ import {
   SUPPORT_PRIORITIES,
   SUPPORT_PRIORITY_LABEL,
   type SupportPriority,
+  needsUrgentConfirmation,
   SUPPORT_OPENING_ID,
   quotedMessageOf,
   type SupportQuote,
@@ -78,6 +79,8 @@ import {
   SupportStatusBadge,
 } from "../support/SupportBadges";
 import { PRIORITY_TONE } from "../support/priority-tone";
+import { NudgeAdminSection, NudgedNotice } from "../support/NudgeAdmin";
+import { UrgentConfirmDialog } from "../support/UrgentConfirmDialog";
 import { useToast } from "../toast";
 
 const LIST_PATH = "/admin/suporte";
@@ -229,12 +232,21 @@ function PriorityControl({ ticket, role, onChanged }: { ticket: SupportTicket; r
     return priority;
   });
 
-  const onChange = async (priority: SupportPriority) => {
-    if (priority === ticket.priority || change.pending) return;
+  // O Jota passando para urgente confirma no card antes de salvar.
+  const [confirmingUrgent, setConfirmingUrgent] = useState(false);
+
+  const save = async (priority: SupportPriority) => {
     const changed = await change.run(priority);
+    setConfirmingUrgent(false);
     if (!changed) return;
     toast.show(`Prioridade: ${SUPPORT_PRIORITY_LABEL[changed].toLowerCase()}.`);
     onChanged();
+  };
+
+  const onChange = (priority: SupportPriority) => {
+    if (priority === ticket.priority || change.pending) return;
+    if (needsUrgentConfirmation(role, priority)) setConfirmingUrgent(true);
+    else void save(priority);
   };
 
   return (
@@ -245,9 +257,17 @@ function PriorityControl({ ticket, role, onChanged }: { ticket: SupportTicket; r
         columns={3}
         value={ticket.priority}
         options={PRIORITY_OPTIONS}
-        onChange={(priority) => void onChange(priority)}
+        onChange={onChange}
       />
       <p className="mt-2 text-xs text-mist">Aberto com uma prioridade e entendeu que é outra? Troque aqui; vale na hora para os dois.</p>
+      <UrgentConfirmDialog
+        open={confirmingUrgent}
+        currentTicketId={ticket.id}
+        pending={change.pending}
+        onConfirmUrgent={() => void save("urgent")}
+        onChooseNormal={() => (ticket.priority === "normal" ? setConfirmingUrgent(false) : void save("normal"))}
+        onClose={() => !change.pending && setConfirmingUrgent(false)}
+      />
       {change.error && (
         <div className="mt-3">
           <InlineError message={change.error.message} />
@@ -311,10 +331,13 @@ function WaitingNotice({ ticket, role, onApproved }: { ticket: SupportTicket; ro
       role="status"
       className="flex flex-col gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.08] px-4 py-3 text-sm text-amber-100 sm:flex-row sm:items-center sm:justify-between"
     >
-      <p className="flex items-start gap-3">
-        <Hourglass aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-300" />
-        A Layra está esperando você analisar. Se estiver tudo certo, aprove e finalize; se faltar algo, responda abaixo e o chamado volta para a fila dela.
-      </p>
+      <div className="grid gap-2">
+        <NudgedNotice ticket={ticket} />
+        <p className="flex items-start gap-3">
+          <Hourglass aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-300" />
+          A Layra está esperando você analisar. Se estiver tudo certo, aprove e finalize; se faltar algo, responda abaixo e o chamado volta para a fila dela.
+        </p>
+      </div>
       <ApproveTicketButton ticket={ticket} role={role} onApproved={onApproved} className="shrink-0" />
     </section>
   );
@@ -543,6 +566,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
 
       <DeliverySection ticket={ticket} role={role} onChanged={reload} />
       {canChangeSupportStatus(role) && <StatusControl ticket={ticket} role={role} onChanged={reload} />}
+      <NudgeAdminSection ticket={ticket} role={role} onNudged={reload} />
       {canChangeSupportPriority(ticket, role) && <PriorityControl ticket={ticket} role={role} onChanged={reload} />}
       {canChangeSupportVisibility(role) && <VisibilityControl ticket={ticket} role={role} onChanged={reload} />}
       {canManageSupportLabels(role) && (

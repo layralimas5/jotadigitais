@@ -57,6 +57,7 @@ import { StatusPicker } from "../support/StatusPicker";
 import { ApproveTicketButton } from "../support/ApproveTicketButton";
 import { DeliveryBadges } from "../support/DeliveryBadges";
 import { StaleBadge } from "../support/StaleBadge";
+import { NudgedBadge } from "../support/NudgeAdmin";
 import {
   ApprovedByAdminBadge,
   InternalBadge,
@@ -316,6 +317,7 @@ function TicketRow({ ticket, role, labels, expanded, onToggle, onChanged, select
             <SupportAreaBadge area={ticket.area} />
             {ticket.internal && <InternalBadge />}
             {needsActionFrom(ticket, role) && <NeedsYouBadge />}
+            <NudgedBadge ticket={ticket} />
             {wasApprovedByAdmin(ticket) && <ApprovedByAdminBadge />}
             <DeliveryBadges ticket={ticket} />
           </div>
