@@ -72,7 +72,7 @@ export function verifiedLabel(account: Pick<Account, "platform">): string {
   return account.platform === "tiktok" ? "Central de Criadores ativa" : "Conta conferida pela Jota Digitais";
 }
 
-/** A tag principal da conta; TikTok sem Shop e sem monetização não tem. */
+/** A tag principal da conta. No TikTok sem monetização é a situação do Shop (inclusive "Sem TikTok Shop"). */
 export function accountBadge(account: Account): AccountBadge | null {
   switch (account.platform) {
     case "tiktok":
@@ -93,10 +93,10 @@ export function accountBadge(account: Account): AccountBadge | null {
   }
 }
 
-const SHOP_BADGE: Record<ShopTier, AccountBadge | null> = {
+const SHOP_BADGE: Record<ShopTier, AccountBadge> = {
   full: { label: "TikTok Shop ativo", tone: "electric", colorKey: SHOP_TAG_KEY.full },
   pilot: { label: "Shop piloto", tone: "pink", colorKey: SHOP_TAG_KEY.pilot },
-  none: null,
+  none: { label: "Sem TikTok Shop", tone: "mist" },
 };
 
 /** Todas as tags da conta: as fixas (no TikTok, Monetizada e o Shop juntos) e as criadas pelo Jota. */
@@ -106,6 +106,23 @@ export function allBadges(account: Account): AccountBadge[] {
       ? [account.stats.monetized ? accountBadge(account) : null, SHOP_BADGE[shopTierOf(account)]]
       : [accountBadge(account)];
   return [...fixed.filter((badge): badge is AccountBadge => badge !== null), ...account.tags.map((label): AccountBadge => ({ label, tone: "mist", colorKey: customTagKey(label) }))];
+}
+
+/** Item do quadro "O que esta conta tem" (TikTok): a situação do Shop e, se tiver, a monetização. */
+export type TikTokStatusKey = ShopTier | "monetized";
+
+export interface TikTokStatusItem {
+  key: TikTokStatusKey;
+  label: string;
+  /** "Sem TikTok Shop" é o único que fala do que a conta não tem. */
+  has: boolean;
+}
+
+export function tiktokStatusOf(account: Account): TikTokStatusItem[] {
+  if (account.platform !== "tiktok") return [];
+  const tier = shopTierOf(account);
+  const shop: TikTokStatusItem = { key: tier, label: SHOP_BADGE[tier].label, has: tier !== "none" };
+  return account.stats.monetized ? [{ key: "monetized", label: "Monetizada", has: true }, shop] : [shop];
 }
 
 /** Como a galeria da página da conta se organiza: se entra a Central ilustrativa e o nome de cada print. */
@@ -279,7 +296,7 @@ function platformParagraph(account: Account): string {
       const tier = shopTierOf(account);
       const shop =
         tier === "none"
-          ? ""
+          ? "Esta conta não tem o TikTok Shop: não vende produtos como afiliada pelo TikTok."
           : tier === "pilot"
             ? "O Shop está em modo piloto. Funciona normalmente; alguns produtos liberam conforme a conta cresce."
             : "A conta já passou do modo piloto: todos os produtos do TikTok Shop estão disponíveis para afiliação.";
