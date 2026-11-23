@@ -1,4 +1,4 @@
-import { Check, Copy, MessageCircle, ShoppingBag, X } from "lucide-react";
+import { Check, Copy, Download, MessageCircle, ShoppingBag, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { siteConfig } from "@/app/config";
 import { findAccountBuyer, findDeliveryLogin, listLeads } from "@/application/admin-use-cases";
@@ -29,8 +29,8 @@ function whatsappLink(phone: string, text: string): string {
   return phone ? whatsappChatUrl(phone, text) : `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
-/** Para quem comprou vão as orientações do pedido; para os outros, a oferta da conta. */
-type MessageMode = "buyer" | "offer";
+/** Para quem comprou vão as orientações do pedido; para os outros, a oferta da conta; para o grupo, o anúncio. */
+export type MessageMode = "buyer" | "offer" | "community";
 
 const BUYER_STATUS_LABEL: Record<Exclude<OrderStatus, "canceled">, string> = {
   awaiting_payment: "aguardando pagamento",
@@ -38,15 +38,19 @@ const BUYER_STATUS_LABEL: Record<Exclude<OrderStatus, "canceled">, string> = {
   delivered: "entregue",
 };
 
-const MODE_OPTIONS: readonly (readonly [MessageMode, string])[] = [
-  ["buyer", "Orientações ao comprador"],
-  ["offer", "Oferecer a conta"],
-];
+const MODE_LABEL: Record<MessageMode, string> = {
+  buyer: "Orientações ao comprador",
+  offer: "Oferecer a conta",
+  community: "Postar na comunidade",
+};
 
 function useShareMessage(account: Account, name: string, mode: MessageMode, buyer: Order | null, access: DeliveryLogin) {
   const templates = useMessageTemplates();
   const generated = useMemo(() => {
     if (mode === "buyer" && buyer) return buyerMessage(templates, buyer, access);
+    if (mode === "community") {
+      return fillTemplate(templates.community_post, offerValuesOf(account, { recipientName: "", siteUrl: siteConfig.url, storeName: siteConfig.name }));
+    }
     return fillTemplate(
       templates.account_offer,
       offerValuesOf(account, { recipientName: name ? firstNameOf(name) : GREETING_FALLBACK, siteUrl: siteConfig.url, storeName: siteConfig.name }),
@@ -56,7 +60,7 @@ function useShareMessage(account: Account, name: string, mode: MessageMode, buye
   return { message: edited ?? generated, edit: setEdited, reset: () => setEdited(null), isEdited: edited !== null };
 }
 
-function BuyerSummary({ buyer, mode, onModeChange }: { buyer: Order; mode: MessageMode; onModeChange: (mode: MessageMode) => void }) {
+function BuyerSummary({ buyer }: { buyer: Order }) {
   const status = buyer.status === "canceled" ? null : BUYER_STATUS_LABEL[buyer.status];
   return (
     <div className="rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.06] p-4">
@@ -67,25 +71,42 @@ function BuyerSummary({ buyer, mode, onModeChange }: { buyer: Order; mode: Messa
         Pedido <span className="font-mono text-fog">{buyer.code}</span>
         {status && ` · ${status}`}
       </p>
-      <div role="radiogroup" aria-label="Que mensagem enviar" className="mt-3 inline-flex rounded-full border border-line bg-ink/60 p-1 text-xs">
-        {MODE_OPTIONS.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="radio"
-            aria-checked={mode === value}
-            onClick={() => onModeChange(value)}
-            className={cn(
-              "rounded-full px-3 py-1.5",
-              mode === value ? "bg-white/[0.1] font-semibold text-white" : "text-mist hover:text-white",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
     </div>
   );
+}
+
+function ModeSwitch({ modes, mode, onModeChange }: { modes: readonly MessageMode[]; mode: MessageMode; onModeChange: (mode: MessageMode) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Que mensagem enviar" className="flex flex-wrap gap-1 rounded-2xl border border-line bg-ink/60 p-1 text-xs sm:inline-flex sm:rounded-full">
+      {modes.map((value) => (
+        <button
+          key={value}
+          type="button"
+          role="radio"
+          aria-checked={mode === value}
+          onClick={() => onModeChange(value)}
+          className={cn("rounded-full px-3 py-1.5", mode === value ? "bg-white/[0.1] font-semibold text-white" : "text-mist hover:text-white")}
+        >
+          {MODE_LABEL[value]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Foto principal da conta para anexar no grupo (o WhatsApp não leva imagem pelo link). */
+const photoOf = (account: Account) => account.images[0] ?? account.avatarUrl ?? null;
+
+async function downloadPhoto(account: Account, url: string) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Foto indisponível (${response.status})`);
+  const blob = await response.blob();
+  const extension = blob.type.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = `${account.handle.replace(/^@/, "")}.${extension}`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
 function LeadPicker({ onPick }: { onPick: (lead: Lead) => void }) {
@@ -112,19 +133,31 @@ interface ShareFormProps {
   buyer: Order | null;
   /** E-mail da conta e login do perfil, que entram na mensagem de entrega. */
   access: DeliveryLogin;
+  /** Modo de abertura; sem ele, comprador (se houver) ou oferta. */
+  initialMode?: MessageMode;
   onClose: () => void;
 }
 
-function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
+const TITLE: Record<MessageMode, string> = {
+  buyer: "Enviar ao comprador",
+  offer: "Enviar pelo WhatsApp",
+  community: "Postar na comunidade",
+};
+
+function ShareForm({ account, buyer, access, initialMode, onClose }: ShareFormProps) {
   const titleId = useId();
   const [name, setName] = useState(buyer?.customer.name ?? "");
   const [phone, setPhone] = useState(buyer?.customer.whatsapp ? formatPhone(buyer.customer.whatsapp) : "");
-  const [mode, setMode] = useState<MessageMode>(buyer ? "buyer" : "offer");
+  const [mode, setMode] = useState<MessageMode>(initialMode ?? (buyer ? "buyer" : "offer"));
   const [copied, setCopied] = useState(false);
+  const [photoState, setPhotoState] = useState<"idle" | "loading" | "error">("idle");
   const offer = useShareMessage(account, name, mode, buyer, access);
   const buyerMode = mode === "buyer" && buyer !== null;
-  const digits = onlyDigits(phone);
+  const community = mode === "community";
+  const modes: MessageMode[] = buyer ? ["buyer", "offer", "community"] : ["offer", "community"];
+  const digits = community ? "" : onlyDigits(phone);
   const phoneError = isValidPhone(digits) ? undefined : "Número inválido. Use DDD + número, ex.: 11 91234-5678.";
+  const photo = photoOf(account);
 
   useEffect(() => {
     if (!copied) return;
@@ -141,12 +174,24 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
     }
   };
 
+  const savePhoto = async () => {
+    if (!photo) return;
+    setPhotoState("loading");
+    try {
+      await downloadPhoto(account, photo);
+      setPhotoState("idle");
+    } catch (error) {
+      console.error("Não foi possível baixar a foto", error);
+      setPhotoState("error");
+    }
+  };
+
   return (
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 id={titleId} className="font-display text-lg font-semibold">
-            {buyerMode ? "Enviar ao comprador" : "Enviar pelo WhatsApp"}
+            {TITLE[buyerMode ? "buyer" : community ? "community" : "offer"]}
           </h2>
           <p className="mt-1 text-sm text-mist">
             {account.displayName} <span className="text-fog">{account.handle}</span>
@@ -158,38 +203,46 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
       </div>
 
       <div className="mt-5 space-y-4">
-        {buyer && (
-          <BuyerSummary
-            buyer={buyer}
-            mode={mode}
-            onModeChange={(next) => {
-              setMode(next);
-              offer.reset();
-            }}
-          />
+        {buyer && <BuyerSummary buyer={buyer} />}
+        <ModeSwitch
+          modes={modes}
+          mode={mode}
+          onModeChange={(next) => {
+            setMode(next);
+            offer.reset();
+          }}
+        />
+        {community ? (
+          <p className="rounded-xl border border-electric/25 bg-electric/[0.06] px-4 py-3 text-xs leading-relaxed text-fog">
+            O WhatsApp não deixa sistema postar sozinho em grupo. Toque em <strong className="text-white">Abrir no WhatsApp</strong>, escolha o grupo da
+            comunidade e envie. Para ir com foto, baixe a foto antes e anexe junto.
+          </p>
+        ) : (
+          <>
+            {!buyerMode && (
+              <LeadPicker
+                onPick={(lead) => {
+                  setName(lead.name);
+                  setPhone(lead.whatsapp ?? "");
+                }}
+              />
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField label="Nome de quem recebe" name="recipientName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} />
+              <TextField
+                label="WhatsApp"
+                name="recipientPhone"
+                type="tel"
+                inputMode="tel"
+                placeholder="(11) 91234-5678"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                error={phoneError}
+                hint="Vazio: você escolhe a conversa no WhatsApp."
+              />
+            </div>
+          </>
         )}
-        {!buyerMode && (
-          <LeadPicker
-            onPick={(lead) => {
-              setName(lead.name);
-              setPhone(lead.whatsapp ?? "");
-            }}
-          />
-        )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Nome de quem recebe" name="recipientName" autoComplete="off" value={name} onChange={(event) => setName(event.target.value)} />
-          <TextField
-            label="WhatsApp"
-            name="recipientPhone"
-            type="tel"
-            inputMode="tel"
-            placeholder="(11) 91234-5678"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            error={phoneError}
-            hint="Vazio: você escolhe a conversa no WhatsApp."
-          />
-        </div>
         <TextAreaField
           label="Mensagem"
           name="message"
@@ -203,6 +256,11 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
             Esta conta ainda não tem login cadastrado. Preencha em “Acesso da conta”, na ficha dela, para irem na mensagem.
           </p>
         )}
+        {photoState === "error" && (
+          <p role="alert" className="text-xs font-medium text-[#ff7a7a]">
+            Não foi possível baixar a foto. Tente de novo ou salve pela página da conta.
+          </p>
+        )}
         {offer.isEdited && (
           <button type="button" onClick={offer.reset} className="text-xs text-electric-soft underline-offset-4 hover:underline">
             Voltar para o texto padrão
@@ -210,7 +268,12 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
         )}
       </div>
 
-      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+        {community && photo && (
+          <Button variant="secondary" onClick={() => void savePhoto()} disabled={photoState === "loading"}>
+            <Download aria-hidden className="size-4" /> {photoState === "loading" ? "Baixando…" : "Baixar foto"}
+          </Button>
+        )}
         <Button variant="secondary" onClick={() => void copy()}>
           {copied ? <Check aria-hidden className="size-4 text-emerald-300" /> : <Copy aria-hidden className="size-4" />}
           {copied ? "Copiado" : "Copiar texto"}
@@ -234,12 +297,13 @@ function ShareForm({ account, buyer, access, onClose }: ShareFormProps) {
 }
 
 function messageModelOf(mode: MessageMode, buyer: Order | null): string {
+  if (mode === "community") return "Postar na comunidade";
   if (mode === "offer" || !buyer) return "Oferecer conta";
   return buyer.status === "awaiting_payment" ? "Pedido recebido" : "Conta entregue";
 }
 
 /** Busca quem comprou a conta (e o login dela) antes de montar o formulário, para ele já abrir preenchido. */
-function ShareContent({ account, onClose }: { account: Account; onClose: () => void }) {
+function ShareContent({ account, initialMode, onClose }: { account: Account; initialMode?: MessageMode; onClose: () => void }) {
   const buyer = useAdminQuery((deps) => findAccountBuyer(deps, account.id), `account-buyer:${account.id}`);
   const access = useAdminQuery((deps) => findDeliveryLogin(deps, account.id), `account-access-share:${account.id}`);
   if (buyer.status === "loading" || access.status === "loading") {
@@ -256,13 +320,14 @@ function ShareContent({ account, onClose }: { account: Account; onClose: () => v
       account={account}
       buyer={buyer.status === "success" ? buyer.data : null}
       access={access.status === "success" ? access.data : EMPTY_DELIVERY_LOGIN}
+      initialMode={initialMode}
       onClose={onClose}
     />
   );
 }
 
 /** Janela para mandar os dados da conta para quem quer comprar ou orientar quem já comprou. `<dialog>` nativo: Esc fecha e o foco volta. */
-export function ShareAccountDialog({ account, onClose }: { account: Account | null; onClose: () => void }) {
+export function ShareAccountDialog({ account, initialMode, onClose }: { account: Account | null; initialMode?: MessageMode; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -279,7 +344,7 @@ export function ShareAccountDialog({ account, onClose }: { account: Account | nu
       aria-label="Enviar conta pelo WhatsApp"
       className="m-auto max-h-[calc(100dvh-2rem)] w-[min(36rem,calc(100vw-2rem))] overflow-y-auto rounded-3xl border border-line-strong bg-surface p-6 text-white backdrop:bg-black/70 backdrop:backdrop-blur-sm max-sm:mb-0 max-sm:max-h-[92dvh] max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))] max-sm:open:animate-[sheet-up_0.25s_var(--ease-out-expo)]"
     >
-      {account && <ShareContent key={account.id} account={account} onClose={onClose} />}
+      {account && <ShareContent key={account.id} account={account} initialMode={initialMode} onClose={onClose} />}
     </dialog>
   );
 }

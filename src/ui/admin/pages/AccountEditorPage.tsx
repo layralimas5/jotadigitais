@@ -42,6 +42,7 @@ import { AccountTagsField } from "../accounts/AccountTagsField";
 import { CountryField } from "../accounts/CountryField";
 import { ProfileImport } from "../accounts/ProfileImport";
 import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
+import { ANNOUNCE_STATE_KEY } from "../accounts/announce";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { SegmentedField, SelectField, TextAreaField, ToggleField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
@@ -392,7 +393,9 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
       }
     }
     toast.show(`Conta ${saved.handle} salva. Já aparece no site.`);
-    navigate("/admin/contas");
+    // Conta nova à venda: a lista já abre o anúncio pronto para a comunidade.
+    const announce = !account && saved.status === "available";
+    navigate("/admin/contas", announce ? { state: { [ANNOUNCE_STATE_KEY]: saved.id } } : undefined);
   };
 
   const onDelete = async () => {

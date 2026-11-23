@@ -575,6 +575,7 @@ export const messageTemplatesSchema = z.object({
   crm_follow_up: templateBody,
   customer_hello: templateBody,
   account_offer: templateBody,
+  community_post: templateBody,
 });
 
 // ---------------------------------------------------------------------------

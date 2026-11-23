@@ -15,7 +15,7 @@ export function offerDetailsOf(account: Account): string[] {
       return [
         `• ${number.format(account.followers)} seguidores`,
         `• ${number.format(account.stats.likes)} curtidas`,
-        ...(shopTierOf(account) === "none" ? [] : [`• TikTok Shop: ${shopTierOf(account) === "full" ? "completo" : "piloto"}`]),
+        `• TikTok Shop: ${shopTierOf(account) === "none" ? "não tem" : shopTierOf(account) === "full" ? "completo" : "piloto"}`,
         `• Monetização: ${yesNo(account.stats.monetized, "ativa", "não ativa")}`,
         ...placeAndNiche,
       ];
@@ -24,6 +24,7 @@ export function offerDetailsOf(account: Account): string[] {
         `• ${number.format(account.followers)} seguidores`,
         `• ${number.format(account.stats.posts)} publicações`,
         `• Conta ${yesNo(account.stats.professional, "profissional", "pessoal")}`,
+        `• Instagram Shop: ${yesNo(account.stats.shop === true, "ativo", "não tem")}`,
         `• Monetização: ${yesNo(account.stats.monetized, "ativa", "não ativa")}`,
         ...placeAndNiche,
       ];

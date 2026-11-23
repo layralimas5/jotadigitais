@@ -5,6 +5,7 @@ export const MESSAGE_TEMPLATE_KEYS = [
   "crm_follow_up",
   "customer_hello",
   "account_offer",
+  "community_post",
 ] as const;
 
 export type MessageTemplateKey = (typeof MESSAGE_TEMPLATE_KEYS)[number];
@@ -61,6 +62,11 @@ export const MESSAGE_TEMPLATE_INFO: Record<MessageTemplateKey, { title: string; 
     when: "Enviar os dados de uma conta para quem quer comprar",
     variables: ["nome", "conta", "rede", "detalhes", "valor", "link", "loja"],
   },
+  community_post: {
+    title: "Postar na comunidade",
+    when: "Anunciar conta nova no grupo da comunidade no WhatsApp",
+    variables: ["conta", "rede", "detalhes", "valor", "link", "loja"],
+  },
 };
 
 export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplates = {
@@ -91,6 +97,17 @@ export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplates = {
     "Ver fotos e comprar: {link}",
     "",
     "Qualquer dúvida, me chama aqui. {loja}",
+  ].join("\n"),
+  community_post: [
+    "*Conta nova na vitrine!*",
+    "",
+    "*{rede}* {conta}",
+    "{detalhes}",
+    "",
+    "Valor: *{valor}*",
+    "Ver fotos e comprar: {link}",
+    "",
+    "Unidade única: comprou, sai da vitrine. {loja}",
   ].join("\n"),
 };
 
