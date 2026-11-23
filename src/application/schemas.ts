@@ -927,8 +927,8 @@ export const siteContentSchema = z.object({
     aboutTitle: copy(60),
     descriptionTemplates: descriptionTemplatesSchema,
     nicheNote: z.string().trim().max(240, "Use no máximo 240 caracteres."),
-    tiktokStatus: z.object({ title: copy(60), full: copy(240), pilot: copy(240), none: copy(240), monetized: copy(240) }),
-    instagramStatus: z.object({ shop: copy(240), noShop: copy(240), monetized: copy(240) }),
+    tiktokStatus: z.object({ title: copy(60), full: copy(240), pilot: copy(240), none: copy(240), monetized: copy(240), notMonetized: copy(240) }),
+    instagramStatus: z.object({ shop: copy(240), noShop: copy(240), monetized: copy(240), notMonetized: copy(240) }),
     youtubeStatus: z.object({ monetized: copy(240), notMonetized: copy(240) }),
     specsTitle: copy(60),
     fixedSpecs: z.object({

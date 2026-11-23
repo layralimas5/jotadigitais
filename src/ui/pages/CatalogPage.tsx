@@ -16,9 +16,21 @@ import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-lin
 import { cn } from "@/ui/lib/cn";
 import { StockAlertButton } from "@/ui/components/stock-alert/StockAlertButton";
 import type { StockAlertCategory } from "@/domain/stock-alert";
+import { ACCOUNT_KIND_LABEL, isAccountKind, type AccountKind } from "@/domain/account-kind";
+import { X } from "lucide-react";
 
 /** No TikTok a pessoa escolhe entre Shop, monetizada e sem Shop; nas outras redes o tipo já vem marcado. */
 const ALERT_PRESET: Record<Platform, StockAlertCategory[]> = { tiktok: [], instagram: ["instagram"], youtube: ["youtube"], facebook: [] };
+
+/** Veio do quadro da página da conta e não achou nada: o aviso já abre com o tipo procurado. */
+const KIND_ALERT_PRESET: Record<AccountKind, StockAlertCategory[]> = {
+  "tiktok-shop": ["shop_full", "shop_pilot"],
+  "shop-ativo": ["shop_full"],
+  "tiktok-monetizada": ["tiktok_monetized"],
+  "instagram-shop": ["instagram"],
+  "instagram-monetizada": ["instagram"],
+  "youtube-monetizado": ["youtube"],
+};
 
 const FOLLOWER_RANGES = {
   todas: { label: "Todas", min: undefined, max: undefined },
@@ -56,6 +68,8 @@ function useCatalogParams() {
   const range: RangeKey = isRange(rangeParam) ? rangeParam : "todas";
   const sort: AccountSort = isSort(sortParam) ? sortParam : "featured";
   const otherNetworksFirst = params.get(OTHER_NETWORKS_PARAM) === OTHER_NETWORKS_VALUE;
+  const kindParam = params.get("tipo");
+  const kind = isAccountKind(kindParam) ? kindParam : undefined;
 
   const update = (key: string, value: string | undefined) => {
     setParams(
@@ -63,13 +77,14 @@ function useCatalogParams() {
         const next = new URLSearchParams(current);
         if (value) next.set(key, value);
         else next.delete(key);
+        if (key === "rede") next.delete("tipo");
         return next;
       },
       { replace: true },
     );
   };
 
-  return { platform, country, range, sort, otherNetworksFirst, update, reset: () => setParams({}, { replace: true }) };
+  return { platform, country, range, sort, kind, otherNetworksFirst, update, reset: () => setParams({}, { replace: true }) };
 }
 
 /** Países da lista; o do link continua na caixa enquanto a lista carrega (ou se não estiver nela). */
@@ -116,7 +131,7 @@ export default function CatalogPage() {
     "Contas disponíveis",
     "Contas de TikTok, Instagram, YouTube e Facebook prontas para usar. Filtre por rede social, país e número de seguidores.",
   );
-  const { platform, country, range, sort, otherNetworksFirst, update, reset } = useCatalogParams();
+  const { platform, country, range, sort, kind, otherNetworksFirst, update, reset } = useCatalogParams();
 
   const filter = useMemo<AccountFilter>(
     () => ({
@@ -125,8 +140,9 @@ export default function CatalogPage() {
       minFollowers: FOLLOWER_RANGES[range].min,
       maxFollowers: FOLLOWER_RANGES[range].max,
       sort,
+      kind,
     }),
-    [platform, country, range, sort],
+    [platform, country, range, sort, kind],
   );
   const fetched = useAccounts(filter);
   const countries = useStockCountries();
@@ -140,7 +156,8 @@ export default function CatalogPage() {
         : fetched,
     [fetched, otherNetworksFirst],
   );
-  const hasFilters = Boolean(platform || country || range !== "todas");
+  const hasFilters = Boolean(platform || country || kind || range !== "todas");
+  const alertPreset = kind ? KIND_ALERT_PRESET[kind] : platform ? ALERT_PRESET[platform] : [];
   const availableCount =
     accounts.status === "success" ? accounts.data.filter((account) => account.status === "available").length : null;
 
@@ -156,7 +173,7 @@ export default function CatalogPage() {
           <p className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
             TikTok, Instagram, YouTube e Facebook. Cada conta é única e conferida antes de entrar na vitrine.
           </p>
-          <StockAlertButton initial={platform ? ALERT_PRESET[platform] : []} className="mt-5" />
+          <StockAlertButton initial={alertPreset} className="mt-5" />
         </header>
 
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
@@ -228,7 +245,24 @@ export default function CatalogPage() {
           </div>
         </div>
 
-        <p className="mt-8 text-sm text-mist" aria-live="polite">
+        {kind && (
+          <p className="mt-6 flex flex-wrap items-center gap-2 text-sm text-fog">
+            Mostrando só
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-electric/50 bg-electric/10 py-1 pr-1 pl-3 font-semibold text-white">
+              {ACCOUNT_KIND_LABEL[kind]}
+              <button
+                type="button"
+                onClick={() => update("tipo", undefined)}
+                aria-label={`Tirar o filtro ${ACCOUNT_KIND_LABEL[kind]}`}
+                className="grid size-6 place-items-center rounded-full text-mist hover:bg-white/10 hover:text-white"
+              >
+                <X aria-hidden className="size-3.5" />
+              </button>
+            </span>
+          </p>
+        )}
+
+        <p className={cn(kind ? "mt-3" : "mt-8", "text-sm text-mist")} aria-live="polite">
           {availableCount === null
             ? "Carregando contas…"
             : `${availableCount} ${availableCount === 1 ? "conta disponível" : "contas disponíveis"}`}
@@ -249,7 +283,7 @@ export default function CatalogPage() {
               description="Tente outra rede social, outro país ou outra faixa de seguidores. Entram contas novas toda semana."
               action={
                 <div className="flex flex-wrap justify-center gap-3">
-                  <StockAlertButton variant="primary" initial={platform ? ALERT_PRESET[platform] : []} />
+                  <StockAlertButton variant="primary" initial={alertPreset} />
                   {hasFilters && (
                     <Button variant="secondary" onClick={reset}>
                       Limpar filtros
