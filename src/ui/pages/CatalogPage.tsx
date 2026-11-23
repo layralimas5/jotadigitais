@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import type { AccountFilter, AccountSort } from "@/application/ports";
 import type { Account } from "@/domain/account";
 import { COUNTRY_CODE_PATTERN, fallbackCountryName, type Country } from "@/domain/country";
-import { OTHER_NETWORKS_FIRST, PLATFORMS, PLATFORM_LABEL, isPlatform } from "@/domain/platform";
+import { OTHER_NETWORKS_FIRST, PLATFORMS, PLATFORM_LABEL, isPlatform, type Platform } from "@/domain/platform";
 import { Button } from "@/ui/components/Button";
 import { ChipMarquee } from "@/ui/components/ChipMarquee";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
@@ -14,6 +14,11 @@ import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccounts, useStockCountries } from "@/ui/hooks/useStore";
 import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
+import { StockAlertButton } from "@/ui/components/stock-alert/StockAlertButton";
+import type { StockAlertCategory } from "@/domain/stock-alert";
+
+/** No TikTok a pessoa escolhe entre Shop, monetizada e sem Shop; nas outras redes o tipo já vem marcado. */
+const ALERT_PRESET: Record<Platform, StockAlertCategory[]> = { tiktok: [], instagram: ["instagram"], youtube: ["youtube"], facebook: [] };
 
 const FOLLOWER_RANGES = {
   todas: { label: "Todas", min: undefined, max: undefined },
@@ -151,6 +156,7 @@ export default function CatalogPage() {
           <p className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
             TikTok, Instagram, YouTube e Facebook. Cada conta é única e conferida antes de entrar na vitrine.
           </p>
+          <StockAlertButton initial={platform ? ALERT_PRESET[platform] : []} className="mt-5" />
         </header>
 
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
@@ -242,11 +248,14 @@ export default function CatalogPage() {
               title="Nenhuma conta com esses filtros"
               description="Tente outra rede social, outro país ou outra faixa de seguidores. Entram contas novas toda semana."
               action={
-                hasFilters ? (
-                  <Button variant="secondary" onClick={reset}>
-                    Limpar filtros
-                  </Button>
-                ) : undefined
+                <div className="flex flex-wrap justify-center gap-3">
+                  <StockAlertButton variant="primary" initial={platform ? ALERT_PRESET[platform] : []} />
+                  {hasFilters && (
+                    <Button variant="secondary" onClick={reset}>
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
               }
             />
           )}

@@ -19,13 +19,14 @@ import type {
   PaymentGateway,
   PrivacyService,
   SiteContentRepository,
+  StockAlertService,
   TagColorRepository,
   LegalDocumentRepository,
   StoreSettingsRepository,
   TestimonialRepository,
 } from "./ports";
 import { currentLegalConsents } from "./legal-documents";
-import { ValidationError, couponCodeField, parseOrThrow, referredByFor, siteContentSchema, type CheckoutData } from "./schemas";
+import { ValidationError, couponCodeField, parseOrThrow, referredByFor, siteContentSchema, stockAlertSchema, type CheckoutData } from "./schemas";
 
 export interface UseCaseDeps {
   accounts: AccountRepository;
@@ -38,6 +39,12 @@ export interface UseCaseDeps {
   legal: LegalDocumentRepository;
   privacy: PrivacyService;
   coupons: CouponService;
+  stockAlerts: StockAlertService;
+}
+
+/** "Me avise quando chegar": valida no navegador e o banco confere de novo. */
+export function subscribeStockAlert(deps: Pick<UseCaseDeps, "stockAlerts">, raw: unknown): Promise<void> {
+  return deps.stockAlerts.subscribe(parseOrThrow(stockAlertSchema, raw));
 }
 
 /** Cor de fundo de cada tag, como o Jota salvou na ficha da conta. */

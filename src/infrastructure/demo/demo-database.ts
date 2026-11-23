@@ -3,6 +3,7 @@ import type { WhatsAppFlow } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
 import type { AdminUser } from "@/domain/admin-user";
 import type { CustomerRecord, HiddenCustomer } from "@/domain/customer";
+import type { StockAlert } from "@/domain/stock-alert";
 import type { StoredCoupon } from "./demo-coupons";
 import type { EmailAccount } from "@/domain/email-account";
 import type { ProfileLogin } from "@/domain/delivery-login";
@@ -71,6 +72,8 @@ export interface DemoState {
   /** Fluxos de Automação > Fluxos. Sem nada salvo, vale o modelo pronto. */
   whatsappFlows?: WhatsAppFlow[];
   coupons?: StoredCoupon[];
+  /** Lista de espera de conta nova (site > "Me avise quando chegar"). */
+  stockAlerts?: StockAlert[];
   /** Sem a lista guardada, valem os países de fábrica. */
   countries?: Country[];
   adminUsers?: AdminUser[];

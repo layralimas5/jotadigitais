@@ -10,6 +10,7 @@ import type { LegalConsent } from "@/domain/legal/legal-document";
 import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
+import type { StockAlert, StockAlertData } from "@/domain/stock-alert";
 import type { MessageTemplates } from "@/domain/message-template";
 import type {
   AiDraft,
@@ -121,6 +122,18 @@ export interface NewOrder {
 /** Prévia do cupom no checkout: o banco confere e devolve o desconto sobre a soma das contas. */
 export interface CouponService {
   preview(code: string, accountIds: string[]): Promise<CouponPreview>;
+}
+
+/** Inscrição do site na lista de espera de conta nova. */
+export interface StockAlertService {
+  subscribe(data: StockAlertData): Promise<void>;
+}
+
+export interface AdminStockAlertRepository {
+  listAll(): Promise<StockAlert[]>;
+  /** Marca como avisado (true) ou devolve para "aguardando" (false). */
+  setNotified(id: string, notified: boolean): Promise<void>;
+  remove(id: string): Promise<void>;
 }
 
 export interface AdminCouponRepository {

@@ -1,10 +1,11 @@
-import { CalendarClock, CircleCheck, Gift, Handshake, LifeBuoy, PackageCheck, TriangleAlert, Wallet, type LucideIcon } from "lucide-react";
+import { BellRing, CalendarClock, CircleCheck, Gift, Handshake, LifeBuoy, PackageCheck, TriangleAlert, Wallet, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Dashboard } from "@/domain/dashboard";
 import type { PeriodScope } from "@/domain/dashboard-period";
 import { formatBRL } from "@/domain/money";
 import { REFERRAL_PAYOUT_POINTS } from "@/domain/referral";
 import { STOCK_CATEGORY_LABEL } from "@/domain/stock";
+import { STOCK_ALERTS_PATH } from "../navigation";
 import { ToneIcon, type Tone } from "./StatCard";
 
 interface Pending {
@@ -19,7 +20,7 @@ interface Pending {
 const choose = (count: number, one: string, many: string) => (count === 1 ? one : many);
 
 function pendingOf(dashboard: Dashboard, scope: PeriodScope, supportPending: number): Pending[] {
-  const { awaitingPayment, awaitingDelivery, followUpsDue, commissionInPeriod, partnersToPay, lowStock } = dashboard;
+  const { awaitingPayment, awaitingDelivery, followUpsDue, commissionInPeriod, partnersToPay, lowStock, stockAlertsReady } = dashboard;
   const items: (Pending & { show: boolean })[] = [
     {
       show: supportPending > 0,
@@ -52,6 +53,14 @@ function pendingOf(dashboard: Dashboard, scope: PeriodScope, supportPending: num
       tone: "emerald",
       value: String(partnersToPay),
       label: choose(partnersToPay, `parceiro completou ${REFERRAL_PAYOUT_POINTS} pontos e espera o pagamento`, `parceiros completaram ${REFERRAL_PAYOUT_POINTS} pontos e esperam o pagamento`),
+    },
+    {
+      show: stockAlertsReady > 0,
+      to: STOCK_ALERTS_PATH,
+      icon: BellRing,
+      tone: "emerald",
+      value: String(stockAlertsReady),
+      label: choose(stockAlertsReady, "pessoa da lista de espera já pode ser avisada: chegou o tipo de conta que ela pediu", "pessoas da lista de espera já podem ser avisadas: chegou o tipo de conta que elas pediram"),
     },
     {
       show: lowStock.length > 0,

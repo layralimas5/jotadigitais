@@ -29,6 +29,7 @@ const DashboardPage = lazy(() => import("@/ui/admin/pages/DashboardPage"));
 const FinalizedPage = lazy(() => import("@/ui/admin/pages/FinalizedPage"));
 const PartnersPage = lazy(() => import("@/ui/admin/pages/PartnersPage"));
 const CouponsPage = lazy(() => import("@/ui/admin/pages/CouponsPage"));
+const StockAlertsPage = lazy(() => import("@/ui/admin/pages/StockAlertsPage"));
 const CouponEditorPage = lazy(() => import("@/ui/admin/pages/CouponEditorPage"));
 const PartnerEditorPage = lazy(() => import("@/ui/admin/pages/PartnerEditorPage"));
 const EmailAccountsPage = lazy(() => import("@/ui/admin/pages/EmailAccountsPage"));
@@ -113,6 +114,7 @@ export const router = createBrowserRouter([
           { path: "cupons", element: <CouponsPage /> },
           { path: "cupons/novo", element: <CouponEditorPage /> },
           { path: "cupons/:id", element: <CouponEditorPage /> },
+          { path: "lista-de-espera", element: <StockAlertsPage /> },
           { path: "parceiros", element: <PartnersPage /> },
           { path: "parceiros/novo", element: <PartnerEditorPage /> },
           { path: "parceiros/:id", element: <PartnerEditorPage /> },

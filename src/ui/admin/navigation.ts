@@ -1,4 +1,5 @@
 import {
+  BellRing,
   CircleCheckBig,
   Globe,
   HardDrive,
@@ -59,6 +60,9 @@ export const FINALIZED_PATH = "/admin/finalizados";
 export const ACCESS_PATH = "/admin/acessos";
 export const NEW_ACCESS_PATH = `${ACCESS_PATH}/novo`;
 
+/** Quem pediu no site para ser avisado quando chegar conta nova. */
+export const STOCK_ALERTS_PATH = "/admin/lista-de-espera";
+
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: null,
@@ -81,6 +85,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: "Pessoas",
     items: [
       { to: "/admin/clientes", label: "Clientes", icon: Users, inBottomNav: false, description: "Quem já comprou", roles: STORE, area: "customers" },
+      { to: STOCK_ALERTS_PATH, label: "Lista de espera", icon: BellRing, inBottomNav: false, description: "Quem pediu aviso de conta nova", roles: STORE, area: "customers" },
       { to: "/admin/parceiros", label: "Parceiros", icon: Handshake, inBottomNav: false, description: "Fornecedores e comissões", roles: STORE, area: "partners" },
       { to: "/admin/crm", label: "CRM", icon: SquareKanban, inBottomNav: false, description: "Leads até fechar", roles: STORE, area: "crm" },
       { to: WHATSAPP_PATH, label: "WhatsApp", icon: MessageCircle, inBottomNav: true, description: "Conversas, fluxos da IA e entrega automática", roles: STORE, area: "automation" },

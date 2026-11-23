@@ -1,5 +1,6 @@
 import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
+import type { StockAlert } from "@/domain/stock-alert";
 import { sameEmail, type AdminUser } from "@/domain/admin-user";
 import { groupCustomers, withoutHidden, type CustomerRecord, type CustomerSummary } from "@/domain/customer";
 import type { Coupon } from "@/domain/coupon";
@@ -48,6 +49,7 @@ import type {
   AdminAccountRepository,
   AdminCustomerRepository,
   AdminCouponRepository,
+  AdminStockAlertRepository,
   AdminCountryRepository,
   AdminDeliveryMessageRepository,
   AdminEmailAccountRepository,
@@ -135,6 +137,7 @@ export interface AdminDeps {
   deliveryMessages: AdminDeliveryMessageRepository;
   whatsapp: AdminWhatsAppRepository;
   coupons: AdminCouponRepository;
+  stockAlerts: AdminStockAlertRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;
   profiles: ProfileLookupService;
@@ -493,7 +496,7 @@ export function deleteExpense(deps: AdminDeps, id: string): Promise<void> {
 
 /** Tudo o que o dashboard precisa, carregado uma vez: o filtro de período recalcula sem buscar de novo. */
 export async function loadDashboardSource(deps: AdminDeps): Promise<DashboardSource> {
-  const [orders, expenses, revenues, accounts, leads, partners, customers] = await Promise.all([
+  const [orders, expenses, revenues, accounts, leads, partners, customers, stockAlerts] = await Promise.all([
     deps.orders.listAll(),
     deps.expenses.listAll(),
     deps.revenues.listAll(),
@@ -501,8 +504,9 @@ export async function loadDashboardSource(deps: AdminDeps): Promise<DashboardSou
     deps.leads.listAll(),
     deps.partners.listAll(),
     deps.customers.listAll(),
+    deps.stockAlerts.listAll(),
   ]);
-  return { orders, expenses, revenues, accounts, leads, partners, customers };
+  return { orders, expenses, revenues, accounts, leads, partners, customers, stockAlerts };
 }
 
 export interface FinalizedSalesData {
@@ -587,6 +591,25 @@ export interface CouponSummary {
   coupon: Coupon;
   /** Desconto dado nos pedidos não cancelados com o cupom. */
   discountGiven: number;
+}
+
+export interface StockAlertsBoard {
+  alerts: StockAlert[];
+  accounts: Account[];
+}
+
+/** Lista de espera com o estoque, para mostrar quem já pode ser avisado. */
+export async function loadStockAlertsBoard(deps: AdminDeps): Promise<StockAlertsBoard> {
+  const [alerts, accounts] = await Promise.all([deps.stockAlerts.listAll(), deps.accounts.listAll()]);
+  return { alerts, accounts };
+}
+
+export function setStockAlertNotified(deps: AdminDeps, id: string, notified: boolean): Promise<void> {
+  return deps.stockAlerts.setNotified(id, notified);
+}
+
+export function removeStockAlert(deps: AdminDeps, id: string): Promise<void> {
+  return deps.stockAlerts.remove(id);
 }
 
 /** Cupons com o quanto cada um já tirou dos pedidos (cancelados não contam). */
