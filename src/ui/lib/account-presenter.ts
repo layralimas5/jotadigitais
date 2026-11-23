@@ -99,30 +99,61 @@ const SHOP_BADGE: Record<ShopTier, AccountBadge> = {
   none: { label: "Sem TikTok Shop", tone: "mist" },
 };
 
+const INSTAGRAM_SHOP_BADGE: AccountBadge = { label: "Instagram Shop", tone: "electric" };
+
 /** Todas as tags da conta: as fixas (no TikTok, Monetizada e o Shop juntos) e as criadas pelo Jota. */
 export function allBadges(account: Account): AccountBadge[] {
   const fixed =
     account.platform === "tiktok"
       ? [account.stats.monetized ? accountBadge(account) : null, SHOP_BADGE[shopTierOf(account)]]
-      : [accountBadge(account)];
+      : account.platform === "instagram" && account.stats.shop
+        ? [accountBadge(account), INSTAGRAM_SHOP_BADGE]
+        : [accountBadge(account)];
   return [...fixed.filter((badge): badge is AccountBadge => badge !== null), ...account.tags.map((label): AccountBadge => ({ label, tone: "mist", colorKey: customTagKey(label) }))];
 }
 
-/** Item do quadro "O que esta conta tem" (TikTok): a situação do Shop e, se tiver, a monetização. */
-export type TikTokStatusKey = ShopTier | "monetized";
-
-export interface TikTokStatusItem {
-  key: TikTokStatusKey;
+/**
+ * Item do quadro "O que esta conta tem": o que a conta tem (ou não) em cada rede. `text` aponta o texto editável
+ * na aba Site (accountPage.<section>.<field>).
+ */
+export interface StatusItem {
+  id: string;
   label: string;
-  /** "Sem TikTok Shop" é o único que fala do que a conta não tem. */
   has: boolean;
+  text: StatusText;
 }
 
-export function tiktokStatusOf(account: Account): TikTokStatusItem[] {
-  if (account.platform !== "tiktok") return [];
-  const tier = shopTierOf(account);
-  const shop: TikTokStatusItem = { key: tier, label: SHOP_BADGE[tier].label, has: tier !== "none" };
-  return account.stats.monetized ? [{ key: "monetized", label: "Monetizada", has: true }, shop] : [shop];
+export type StatusText =
+  | { section: "tiktokStatus"; field: "full" | "pilot" | "none" | "monetized" }
+  | { section: "instagramStatus"; field: "shop" | "noShop" | "monetized" }
+  | { section: "youtubeStatus"; field: "monetized" | "notMonetized" };
+
+export function statusItemsOf(account: Account): StatusItem[] {
+  switch (account.platform) {
+    case "tiktok": {
+      const tier = shopTierOf(account);
+      const shop: StatusItem = { id: tier, label: SHOP_BADGE[tier].label, has: tier !== "none", text: { section: "tiktokStatus", field: tier } };
+      return account.stats.monetized
+        ? [{ id: "monetized", label: "Monetizada", has: true, text: { section: "tiktokStatus", field: "monetized" } }, shop]
+        : [shop];
+    }
+    case "instagram": {
+      const shop: StatusItem = account.stats.shop
+        ? { id: "shop", label: "Instagram Shop ativo", has: true, text: { section: "instagramStatus", field: "shop" } }
+        : { id: "no-shop", label: "Sem Instagram Shop", has: false, text: { section: "instagramStatus", field: "noShop" } };
+      return account.stats.monetized
+        ? [{ id: "monetized", label: "Monetizada", has: true, text: { section: "instagramStatus", field: "monetized" } }, shop]
+        : [shop];
+    }
+    case "youtube":
+      return [
+        account.stats.monetized
+          ? { id: "monetized", label: "Monetizado", has: true, text: { section: "youtubeStatus", field: "monetized" } }
+          : { id: "not-monetized", label: "Não monetizado", has: false, text: { section: "youtubeStatus", field: "notMonetized" } },
+      ];
+    case "facebook":
+      return [];
+  }
 }
 
 /** Como a galeria da página da conta se organiza: se entra a Central ilustrativa e o nome de cada print. */
@@ -241,6 +272,7 @@ function platformSpecs(account: Account): Spec[] {
         { label: "Publicações", value: number.format(account.stats.posts) },
         { label: "Seguindo", value: number.format(account.stats.following) },
         { label: "Tipo de conta", value: account.stats.professional ? "Profissional" : "Pessoal" },
+        { label: "Instagram Shop", value: account.stats.shop ? "Ativo" : "Não ativado" },
         { label: "Monetização", value: account.stats.monetized ? "Ativa" : "Não ativa" },
       ];
     case "youtube": {
@@ -366,6 +398,7 @@ function automaticIncluded(account: Account): string[] {
     case "instagram":
       return [
         ...(account.stats.professional ? ["Conta profissional com estatísticas"] : []),
+        ...(account.stats.shop ? ["Loja do Instagram (Instagram Shop) ativa"] : []),
         ...(account.stats.monetized ? ["Monetização ativa"] : []),
       ];
     case "youtube":

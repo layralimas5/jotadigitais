@@ -32,6 +32,8 @@ export interface InstagramStats {
   professional: boolean;
   /** Recebe por bônus, assinaturas, presentes ou parcerias pagas. */
   monetized: boolean;
+  /** Loja do Instagram (Instagram Shopping) ativa, marcada na ficha. Contas de antes da marcação vêm sem: sem Shop. */
+  shop?: boolean;
 }
 
 export interface YouTubeStats {

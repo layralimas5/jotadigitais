@@ -204,8 +204,10 @@ export interface SiteContent {
      */
     descriptionTemplates: DescriptionTemplates;
     nicheNote: string;
-    /** Quadro "O que esta conta tem" nas contas de TikTok: explica o Shop e a monetização da conta. */
+    /** Quadro "O que esta conta tem": explica o Shop e a monetização da conta. O título vale para todas as redes. */
     tiktokStatus: { title: string; full: string; pilot: string; none: string; monetized: string };
+    instagramStatus: { shop: string; noShop: string; monetized: string };
+    youtubeStatus: { monetized: string; notMonetized: string };
     specsTitle: string;
     /** Linhas iguais em toda conta de cada rede, entre os números e a data do anúncio. */
     fixedSpecs: Record<Platform, { label: string; value: string }[]>;
@@ -499,6 +501,15 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       pilot: "O TikTok Shop já está ativo e funciona para vender como afiliada. Por ser piloto, alguns produtos só liberam quando a conta cresce.",
       none: "Esta conta não tem o TikTok Shop: não dá para vender produtos como afiliada por ela. Você leva o perfil e os seguidores.",
       monetized: "A conta já recebe dinheiro do TikTok pelas visualizações dos vídeos (Programa de Recompensas para Criadores).",
+    },
+    instagramStatus: {
+      shop: "A conta já tem a loja do Instagram ativa: dá para marcar produtos nos posts e vender pelo perfil.",
+      noShop: "Esta conta não tem a loja do Instagram ativa. Você leva o perfil e os seguidores.",
+      monetized: "A conta já recebe dinheiro do Instagram (bônus, assinaturas ou presentes).",
+    },
+    youtubeStatus: {
+      monetized: "O canal está no Programa de Parcerias do YouTube e já recebe pelos anúncios dos vídeos.",
+      notMonetized: "O canal ainda não está no Programa de Parcerias do YouTube: não recebe pelos anúncios. A ficha técnica mostra quanto falta.",
     },
     specsTitle: "Ficha técnica",
     fixedSpecs: {

@@ -490,7 +490,7 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
           <FormSection title="Tags" description="As marcadas aparecem no card da vitrine e na página da conta.">
             <AccountTagsField
               platform={values.platform}
-              value={{ shop: values.shop, monetized: values.monetized, tags: values.tags }}
+              value={{ shop: values.shop, instagramShop: values.instagramShop, monetized: values.monetized, tags: values.tags }}
               error={errors.tags ?? Object.entries(errors).find(([key]) => key.startsWith("tags."))?.[1]}
               onChange={(next) => form.replace({ ...values, ...next })}
             />

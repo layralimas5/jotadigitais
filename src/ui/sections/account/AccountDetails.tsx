@@ -2,7 +2,8 @@ import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
-import { descriptionOf, includedOf, specsOf, tiktokStatusOf } from "@/ui/lib/account-presenter";
+import { descriptionOf, includedOf, specsOf, statusItemsOf, type StatusText } from "@/ui/lib/account-presenter";
+import type { SiteContent } from "@/domain/site-content";
 import { editable } from "@/ui/lib/site-preview";
 import { STEP_ICONS, useSteps } from "@/ui/sections/home/HowItWorks";
 
@@ -35,20 +36,31 @@ export function AccountDescription({ account }: { account: Account }) {
   );
 }
 
-/** Deixa claro, logo abaixo dos números, se a conta de TikTok tem Shop (ativo ou piloto), não tem, ou é monetizada. */
-export function AccountTikTokStatus({ account }: { account: Account }) {
+/** Texto do item, como o Jota escreveu na aba Site. */
+function statusTextOf(accountPage: SiteContent["accountPage"], { section, field }: StatusText): string {
+  switch (section) {
+    case "tiktokStatus":
+      return accountPage.tiktokStatus[field];
+    case "instagramStatus":
+      return accountPage.instagramStatus[field];
+    case "youtubeStatus":
+      return accountPage.youtubeStatus[field];
+  }
+}
+
+/** Deixa claro, logo abaixo dos números, o que a conta tem: Shop (TikTok e Instagram) e monetização. */
+export function AccountStatusBox({ account }: { account: Account }) {
   const { accountPage } = useSiteContent();
-  const items = tiktokStatusOf(account);
+  const items = statusItemsOf(account);
   if (items.length === 0) return null;
-  const copy = accountPage.tiktokStatus;
   return (
-    <section aria-labelledby="status-tiktok-title" className="mt-6 rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
-      <h2 id="status-tiktok-title" {...editable("accountPage.tiktokStatus.title")} className="text-sm font-semibold text-white">
-        {copy.title}
+    <section aria-labelledby="status-conta-title" className="mt-6 rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
+      <h2 id="status-conta-title" {...editable("accountPage.tiktokStatus.title")} className="text-sm font-semibold text-white">
+        {accountPage.tiktokStatus.title}
       </h2>
       <ul className="mt-3 space-y-3">
         {items.map((item) => (
-          <li key={item.key} className="flex gap-3">
+          <li key={item.id} className="flex gap-3">
             <span
               aria-hidden
               className={
@@ -61,7 +73,7 @@ export function AccountTikTokStatus({ account }: { account: Account }) {
             </span>
             <p className="text-sm leading-relaxed text-mist">
               <strong className="font-semibold text-white">{item.label}.</strong>{" "}
-              <span {...editable(`accountPage.tiktokStatus.${item.key}`)}>{copy[item.key]}</span>
+              <span {...editable(`accountPage.${item.text.section}.${item.text.field}`)}>{statusTextOf(accountPage, item.text)}</span>
             </p>
           </li>
         ))}
