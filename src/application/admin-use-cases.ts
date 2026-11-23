@@ -1,3 +1,4 @@
+import type { AffiliateAdminRepository } from "./affiliate-ports";
 import type { WhatsAppFlow, WhatsAppFlowDraft } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
 import type { StockAlert } from "@/domain/stock-alert";
@@ -138,6 +139,7 @@ export interface AdminDeps {
   deliveryMessages: AdminDeliveryMessageRepository;
   whatsapp: AdminWhatsAppRepository;
   coupons: AdminCouponRepository;
+  affiliates: AffiliateAdminRepository;
   stockAlerts: AdminStockAlertRepository;
   countries: AdminCountryRepository;
   users: AdminUserRepository;

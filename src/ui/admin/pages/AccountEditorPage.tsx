@@ -37,6 +37,7 @@ import {
   type AccessFormValues,
 } from "../accounts/AccountAccessSection";
 import { AccountExpensesSection } from "../accounts/AccountExpensesSection";
+import { AccountAffiliateSection } from "../affiliates/AccountAffiliateSection";
 import { AccountPageSection } from "../accounts/AccountPageSection";
 import { AccountTagsField } from "../accounts/AccountTagsField";
 import { CountryField } from "../accounts/CountryField";
@@ -523,6 +524,8 @@ function AccountEditor({ account, initialAccess }: AccountEditorProps) {
           ) : (
             <AccountExpensesSection mode="draft" amounts={draftExpenses} onChange={setDraftExpenses} />
           )}
+
+          {account && <AccountAffiliateSection accountId={account.id} price={account.price} />}
 
           {showAccess && (
             <AccountAccessSection

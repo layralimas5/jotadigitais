@@ -1,3 +1,4 @@
+import type { DemoAffiliateState } from "./demo-affiliates";
 import type { Country } from "@/domain/country";
 import type { WhatsAppFlow } from "@/domain/whatsapp-flow";
 import type { Account } from "@/domain/account";
@@ -87,6 +88,8 @@ export interface DemoState {
   supportCannedReplies?: SupportCannedReply[];
   /** Horários das tentativas em Meus dados, por e-mail (limite de 10 por hora). */
   privacyAttempts?: Record<string, string[]>;
+  /** Programa de afiliados do modo demonstração (ver demo-affiliates). */
+  affiliateProgram?: DemoAffiliateState;
 }
 
 function seedState(): DemoState {

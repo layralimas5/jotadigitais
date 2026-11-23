@@ -15,6 +15,7 @@ import { RoleBadge } from "../components/RoleBadge";
 import { useAdminQuery } from "../hooks";
 import { formatPhone } from "../lib/whatsapp";
 import { AccessFacts, accessPath, displayName } from "../access/AccessParts";
+import { AffiliateAccessList } from "../access/AffiliateAccessList";
 import { SendAccessDialog, type AccessToSend } from "../access/SendAccessDialog";
 import { NEW_ACCESS_PATH } from "../navigation";
 import { usePreviewToggle } from "../preview/PreviewControls";
@@ -182,6 +183,7 @@ export default function AccessPage() {
         <h2 id="access-staff-title" className="font-display text-lg font-semibold text-white">Equipe da loja</h2>
         {users.status === "success" && users.data.length > 0 && <AccessList users={users.data} permissionsById={permissionsById} />}
       </section>
+      <AffiliateAccessList />
     </div>
   );
 }

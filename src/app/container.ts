@@ -1,3 +1,6 @@
+import type { AffiliateDeps } from "@/application/affiliate-ports";
+import { DemoAffiliateAdminRepository, DemoAffiliatePortalService, DemoAffiliateTrackingService } from "@/infrastructure/demo/demo-affiliates";
+import { SupabaseAffiliateAdminRepository, SupabaseAffiliatePortalService, SupabaseAffiliateTrackingService } from "@/infrastructure/supabase/supabase-affiliates";
 import { DemoCouponRepository, DemoCouponService } from "@/infrastructure/demo/demo-coupons";
 import { SupabaseCouponRepository, SupabaseCouponService } from "@/infrastructure/supabase/supabase-coupons";
 import { SupabaseCountryRepository } from "@/infrastructure/supabase/supabase-countries";
@@ -75,10 +78,17 @@ interface Container {
   mode: BackendMode;
   store: UseCaseDeps;
   admin: AdminDeps;
+  /** Painel do afiliado (login próprio) e o link de afiliado no site. A aba Parceiros usa `admin.affiliates`. */
+  affiliates: Omit<AffiliateDeps, "admin">;
 }
 
 function supabaseContainer(url: string, anonKey: string): Container {
-  const client = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
+  // O link de troca de senha do afiliado abre em /afiliado: só o cliente do afiliado lê a sessão que vem nele.
+  const onAffiliateArea = typeof window !== "undefined" && window.location.pathname.startsWith("/afiliado");
+  const client = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: !onAffiliateArea } });
+  const affiliateClient = createClient(url, anonKey, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: onAffiliateArea, storageKey: "jd-affiliate" },
+  });
   const passwordChecker = () =>
     createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: "jd-password-check" },
@@ -127,6 +137,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       deliveryMessages: new SupabaseDeliveryMessageRepository(client),
       whatsapp: new SupabaseWhatsAppRepository(client),
       coupons: new SupabaseCouponRepository(client),
+      affiliates: new SupabaseAffiliateAdminRepository(client),
       stockAlerts: new SupabaseStockAlertRepository(client),
       countries,
       users: new SupabaseAdminUserRepository(client),
@@ -140,6 +151,10 @@ function supabaseContainer(url: string, anonKey: string): Container {
       access: new SupabaseAccessRepository(client),
       // Banco novo: acrescente aqui o leitor dele e a aba Armazenamento passa a mostrar os dois.
       storage: [new SupabaseStorageUsageReader(client, backendConfig.supabasePlan)],
+    },
+    affiliates: {
+      portal: new SupabaseAffiliatePortalService(affiliateClient),
+      tracking: new SupabaseAffiliateTrackingService(client),
     },
   };
 }
@@ -173,6 +188,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     deliveryMessages: new DemoDeliveryMessageRepository(db),
     whatsapp: new DemoWhatsAppRepository(db),
     coupons: new DemoCouponRepository(db),
+    affiliates: new DemoAffiliateAdminRepository(db),
     stockAlerts: new DemoStockAlertRepository(db),
     users,
     profiles: new DevServerProfileLookupService(),
@@ -196,6 +212,7 @@ function demoContainer(): Container {
     mode: "demo",
     store: { ...store, payments: new DemoPaymentGateway(store.orders), privacy: new DemoPrivacyService(db), coupons: new DemoCouponService(db), stockAlerts: new DemoStockAlertService(db) },
     admin,
+    affiliates: { portal: new DemoAffiliatePortalService(db), tracking: new DemoAffiliateTrackingService(db) },
   };
 }
 
