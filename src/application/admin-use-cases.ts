@@ -37,7 +37,7 @@ import { z } from "zod";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
 import { TooManyDeliveryMessagesError } from "@/domain/errors";
-import { buyerOrderOf, canTransition, type Order, type OrderStatus } from "@/domain/order";
+import { buyerOrderOf, canTransition, isReservationExpired, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
 import type { ProfileLookup } from "@/domain/profile-lookup";
@@ -85,6 +85,7 @@ import type {
   PreparedImage,
   ProfileUpdateResult,
   UploadedImage,
+  PaymentGateway,
 } from "./ports";
 import {
   accountAccessSchema,
@@ -591,6 +592,21 @@ export interface CouponSummary {
   coupon: Coupon;
   /** Desconto dado nos pedidos não cancelados com o cupom. */
   discountGiven: number;
+}
+
+/**
+ * Pix do C6 que ninguém conferiu: o cliente pagou pelo QR e fechou a página antes da conferência, e o aviso do C6
+ * não chegou. Pergunta ao C6 por cada parte Pix ainda pendente com cobrança criada e devolve os pedidos que ficaram pagos.
+ */
+export async function reconcilePendingPix(deps: AdminDeps, payments: Pick<PaymentGateway, "checkPixPayment">, now: Date = new Date()): Promise<string[]> {
+  const orders = await deps.orders.listAll();
+  const pending = orders
+    .filter((order) => order.status === "awaiting_payment" && !isReservationExpired(order, now))
+    .flatMap((order) =>
+      order.payments.filter((part) => part.method === "pix" && part.status === "pending" && part.pixCode).map((part) => ({ code: order.code, paymentId: part.id })),
+    );
+  const results = await Promise.all(pending.map(async ({ code, paymentId }) => ((await payments.checkPixPayment(code, paymentId)) ? code : null)));
+  return [...new Set(results.filter((code): code is string => code !== null))];
 }
 
 export interface StockAlertsBoard {

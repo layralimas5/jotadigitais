@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight, Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { PixReconciler } from "./PixReconciler";
 import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
 import { Logo, LogoMark } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
@@ -349,6 +350,7 @@ export function AdminProtected() {
     <>
       <Sidebar access={access} canPreview={state.session.role === "developer"} collapsed={sidebar.collapsed} onToggle={sidebar.toggle} />
       <div className="transition-[padding] duration-300 ease-out motion-reduce:transition-none md:pl-[var(--sidebar-w,15rem)]">
+        <PixReconciler enabled={canOpen(access, "/admin/pedidos")} />
         <PreviewBanner />
         <TopBar access={access} />
         <main
