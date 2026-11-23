@@ -7,6 +7,7 @@ import type { AdminRole } from "@/domain/admin-user";
 import {
   canChangeSupportVisibility,
   canNotifyAdmin,
+  needsUrgentConfirmation,
   SUPPORT_AREA_LABEL,
   SUPPORT_AREAS,
   SUPPORT_KIND_LABEL,
@@ -27,6 +28,7 @@ import { AttachmentPicker, pasteFilesInto, textOrVoice, uploadsOf, usePickedFile
 import { NotifyAdminCheckbox } from "../support/NotifyAdminCheckbox";
 import { KIND_ICON } from "../support/SupportBadges";
 import { PRIORITY_TONE } from "../support/priority-tone";
+import { UrgentConfirmDialog } from "../support/UrgentConfirmDialog";
 import { useToast } from "../toast";
 
 const LIST_PATH = "/admin/suporte";
@@ -75,6 +77,8 @@ export default function SupportTicketEditorPage() {
   const [submitted, setSubmitted] = useState(false);
   const picked = usePickedFiles();
   const [notifyAdmin, setNotifyAdmin] = useState(true);
+  // Chamado do Jota marcado urgente espera a confirmação no card antes de sair.
+  const [awaitingUrgent, setAwaitingUrgent] = useState<SupportTicketData | null>(null);
   const open = useMutation((deps, data: SupportTicketData, uploads: SupportUpload[], notify: boolean) =>
     openSupportTicket(deps, role, data, uploads, { notifyAdmin: notify }),
   );
@@ -84,6 +88,18 @@ export default function SupportTicketEditorPage() {
     const next = { ...values, ...patch };
     setValues(next);
     if (submitted) setErrors(validate(next).errors);
+  };
+
+  const send = async (data: SupportTicketData) => {
+    const opened = await open.run(data, uploadsOf(picked.files), canNotify && notifyAdmin);
+    setAwaitingUrgent(null);
+    if (!opened) return;
+    const { saved, failedUploads, notified } = opened;
+    if (!notified) toast.show("Chamado aberto, mas o aviso no sininho do Jota falhou.", "error");
+    if (failedUploads.length) toast.show(`Chamado aberto, mas não subiu: ${failedUploads.join(", ")}. Envie de novo na conversa.`, "error");
+    else toast.show("Chamado aberto.");
+    // Volta para a listagem com o chamado novo já aberto no andamento, em vez de cair na conversa.
+    navigate(LIST_PATH, { replace: true, state: { openedTicketId: saved.id } });
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -98,14 +114,16 @@ export default function SupportTicketEditorPage() {
       if (first) formElement.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
       return;
     }
-    const opened = await open.run(toSend, uploadsOf(picked.files), canNotify && notifyAdmin);
-    if (!opened) return;
-    const { saved, failedUploads, notified } = opened;
-    if (!notified) toast.show("Chamado aberto, mas o aviso no sininho do Jota falhou.", "error");
-    if (failedUploads.length) toast.show(`Chamado aberto, mas não subiu: ${failedUploads.join(", ")}. Envie de novo na conversa.`, "error");
-    else toast.show("Chamado aberto.");
-    // Volta para a listagem com o chamado novo já aberto no andamento, em vez de cair na conversa.
-    navigate(LIST_PATH, { replace: true, state: { openedTicketId: saved.id } });
+    if (needsUrgentConfirmation(role, toSend.priority)) {
+      setAwaitingUrgent(toSend);
+      return;
+    }
+    await send(toSend);
+  };
+
+  const sendAsNormal = (data: SupportTicketData) => {
+    update({ priority: "normal" });
+    void send({ ...data, priority: "normal" });
   };
 
   return (
@@ -183,6 +201,15 @@ export default function SupportTicketEditorPage() {
           errors={[open.error?.message]}
         />
       </form>
+
+      <UrgentConfirmDialog
+        open={awaitingUrgent !== null}
+        currentTicketId={null}
+        pending={open.pending}
+        onConfirmUrgent={() => awaitingUrgent && void send(awaitingUrgent)}
+        onChooseNormal={() => awaitingUrgent && sendAsNormal(awaitingUrgent)}
+        onClose={() => !open.pending && setAwaitingUrgent(null)}
+      />
     </>
   );
 }

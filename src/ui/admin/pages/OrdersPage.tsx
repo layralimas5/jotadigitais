@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, CreditCard, Mail, MessageCircle, QrCode, ShoppingBag } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { changeOrderStatus, confirmPixPayment, loadOrdersBoard } from "@/application/admin-use-cases";
 import { dashboardRangeOf, type DashboardPeriod } from "@/domain/dashboard-period";
@@ -26,6 +26,7 @@ import { SearchInput } from "../components/SearchInput";
 import { WarrantyBadge } from "../components/WarrantyBadge";
 import { useViewAccess } from "../admin-view";
 import { useAdminQuery, useMessageTemplates, useMutation } from "../hooks";
+import { PIX_CONFIRMED_EVENT } from "../PixReconciler";
 import { formatDate } from "../lib/dates";
 import { orderMessage } from "../lib/messages";
 import { canOpen, FINALIZED_PATH } from "../navigation";
@@ -304,6 +305,12 @@ function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy
 
 export default function OrdersPage() {
   const board = useAdminQuery(loadOrdersBoard, "admin-orders");
+  const { reload } = board;
+  // Pix confirmado pela conferência do painel: a lista mostra o pedido pago sem precisar recarregar.
+  useEffect(() => {
+    window.addEventListener(PIX_CONFIRMED_EVENT, reload);
+    return () => window.removeEventListener(PIX_CONFIRMED_EVENT, reload);
+  }, [reload]);
   const templates = useMessageTemplates();
   const toast = useToast();
   const access = useViewAccess();

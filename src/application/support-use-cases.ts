@@ -7,6 +7,7 @@ import {
   SupportDeleteForbiddenError,
   SupportMergeError,
   SupportMergeForbiddenError,
+  SupportNudgeError,
   SupportLabelForbiddenError,
   SupportStatusForbiddenError,
   SupportVisibilityForbiddenError,
@@ -23,6 +24,8 @@ import {
   canMergeSupportTickets,
   nestMergedTickets,
   canNotifyAdmin,
+  canNudgeAdmin,
+  nextNudgeAt,
   canReopenSupportTicket,
   checklistItemsFromText,
   hasUnseenFrom,
@@ -129,6 +132,17 @@ export async function openSupportTicket(
 export function markSupportTicketSeen(deps: AdminDeps, role: SupportRole, ticket: SupportTicket): Promise<void> | null {
   if (!hasUnseenFrom(ticket, role) && seenAtBy(ticket, role) !== null) return null;
   return deps.support.markSeen(ticket.id, role === "developer" && !ticket.internal);
+}
+
+/** A Lay cobra o Jota num chamado que depende dele para conferir, aprovar e finalizar. Uma vez por hora. */
+export function nudgeAdminOnSupportTicket(
+  deps: AdminDeps,
+  role: AdminRole,
+  ticket: Pick<SupportTicket, "id" | "status" | "internal" | "mergedInto" | "nudges">,
+): Promise<void> {
+  if (!canNudgeAdmin(ticket, role)) throw new SupportNudgeError();
+  if (nextNudgeAt(ticket)) throw new SupportNudgeError("Você já cobrou o Jota neste chamado há menos de 1 hora.");
+  return deps.support.nudgeAdmin(ticket.id);
 }
 
 export function setSupportTicketVisibility(deps: AdminDeps, role: AdminRole, ticketId: string, internal: boolean): Promise<void> {
