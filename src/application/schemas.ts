@@ -1,5 +1,6 @@
 import { FLOW_LIMITS, FLOW_NAME_MAX, flowProblems, type FlowEdge, type FlowNode } from "@/domain/whatsapp-flow";
 import { z } from "zod";
+import { DESCRIPTION_KINDS, DESCRIPTION_TEMPLATE_MAX, type DescriptionKind } from "@/domain/account-description";
 import { normalizePermissions, STAFF_PERMISSIONS } from "@/domain/admin-user";
 import {
   ACCOUNT_STATUSES,
@@ -794,6 +795,11 @@ const siteImage = z.object({
   alt: copy(240),
 });
 
+const descriptionTemplatesSchema = z.object(
+  Object.fromEntries(
+    DESCRIPTION_KINDS.map((kind) => [kind, z.string().trim().max(DESCRIPTION_TEMPLATE_MAX, `Use no máximo ${DESCRIPTION_TEMPLATE_MAX} caracteres.`)]),
+  ) as Record<DescriptionKind, z.ZodString>,
+);
 const fixedSpecList = z.array(z.object({ label: copy(40), value: copy(60) })).max(8, "Use no máximo 8 linhas.");
 const titleBlock = { eyebrow: copy(40), title: copy(90), description: copy(240) };
 
@@ -904,6 +910,7 @@ export const siteContentSchema = z.object({
     perkGuarantee: platformCard,
     perkSupport: platformCard,
     aboutTitle: copy(60),
+    descriptionTemplates: descriptionTemplatesSchema,
     nicheNote: z.string().trim().max(240, "Use no máximo 240 caracteres."),
     specsTitle: copy(60),
     fixedSpecs: z.object({

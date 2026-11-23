@@ -22,7 +22,7 @@ export function AccountDescription({ account }: { account: Account }) {
   return (
     <DetailBlock id="sobre-title" title={accountPage.aboutTitle} titlePath="accountPage.aboutTitle">
       <div className="space-y-4 text-base leading-relaxed whitespace-pre-line text-fog">
-        {descriptionOf(account).map((paragraph) => (
+        {descriptionOf(account, accountPage.descriptionTemplates).map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>
         ))}
         {account.niche && accountPage.nicheNote && (
