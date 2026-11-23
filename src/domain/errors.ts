@@ -233,6 +233,13 @@ export class SupportApprovalError extends Error {
   }
 }
 
+export class SupportNudgeError extends Error {
+  constructor(message = "Só dá para cobrar o Jota em chamado que está aguardando ele.") {
+    super(message);
+    this.name = "SupportNudgeError";
+  }
+}
+
 export class PreviewReadOnlyError extends Error {
   constructor() {
     super("Modo visualização: aqui você vê o painel como o Jota, mas nada é salvo. Volte para o seu painel para mexer.");

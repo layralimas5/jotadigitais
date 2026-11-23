@@ -476,6 +476,8 @@ export interface SupportTicketRepository {
   markSeen(ticketId: string, notify: boolean): Promise<void>;
   /** A Lay avisa o Jota no sininho que abriu ou respondeu o chamado (o banco monta o texto). */
   notifyAdmin(ticketId: string, event: SupportNotifyEvent): Promise<void>;
+  /** A Lay cobra o Jota num chamado aguardando ele: registra a cobrança e avisa no sininho e no celular. */
+  nudgeAdmin(ticketId: string): Promise<void>;
   /** Interno: só a desenvolvedora vê. Só ela muda (o banco confere). */
   setInternal(ticketId: string, internal: boolean): Promise<void>;
   /** O Jota aprova e finaliza um chamado que está aguardando ele (o banco confere papel e situação). */

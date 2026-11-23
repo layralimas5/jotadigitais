@@ -4,6 +4,7 @@ import {
   SupportDeleteForbiddenError,
   SupportMergeError,
   SupportMergeForbiddenError,
+  SupportNudgeError,
   SupportLabelForbiddenError,
   SupportLabelNameTakenError,
   SupportStatusForbiddenError,
@@ -12,6 +13,9 @@ import {
   SupportVisibilityForbiddenError,
 } from "@/domain/errors";
 import {
+  activeNudgesOf,
+  canNudgeAdmin,
+  nextNudgeAt,
   canApproveSupportTicket,
   canChangeSupportStatus,
   canChangeSupportPriority,
@@ -77,6 +81,7 @@ const withNewFields = (ticket: SupportTicket): SupportTicket => ({
   checklist: ticket.checklist ?? [],
   dueDate: ticket.dueDate ?? null,
   releasedAt: ticket.releasedAt ?? null,
+  nudges: ticket.nudges ?? [],
 });
 
 /**
@@ -125,6 +130,7 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       checklist: [],
       dueDate: null,
       releasedAt: null,
+      nudges: [],
     };
     this.db.write((state) => {
       state.supportTickets = [ticket, ...(state.supportTickets ?? [])];
@@ -215,6 +221,22 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
       const last = ticket.replies.filter((reply) => reply.author?.role === "developer").at(-1);
       this.notifyJota(ticket, `Layra respondeu: ${ticket.title}`, last?.body ?? null);
     }
+  }
+
+  async nudgeAdmin(ticketId: string): Promise<void> {
+    await simulateLatency();
+    const author = await this.currentAuthor();
+    const stored = this.db.read().supportTickets?.find((item) => item.id === ticketId);
+    if (!stored) throw new SupportTicketNotFoundError();
+    const ticket = withNewFields(stored);
+    if (!canNudgeAdmin(ticket, author.role)) throw new SupportNudgeError();
+    if (nextNudgeAt(ticket)) throw new SupportNudgeError("Você já cobrou o Jota neste chamado há menos de 1 hora.");
+    const now = new Date().toISOString();
+    const nudged = { ...ticket, nudges: [...ticket.nudges, { createdAt: now }] };
+    this.updateTicket(ticketId, (current) => ({ ...withNewFields(current), nudges: nudged.nudges }));
+    const count = activeNudgesOf(nudged).length;
+    const extra = count > 1 ? ` Esta é a ${count}ª cobrança.` : "";
+    this.notifyJota(ticket, `Layra está cobrando: ${ticket.title}`, `Este chamado depende de você para conferir, aprovar e finalizar.${extra}`);
   }
 
   private notifyJota(ticket: SupportTicket, title: string, body: string | null): void {
