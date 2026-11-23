@@ -1,4 +1,11 @@
 import type { ComponentType } from "react";
+import {
+  DESCRIPTION_KINDS,
+  DESCRIPTION_KIND_LABEL,
+  DESCRIPTION_TEMPLATE_MAX,
+  DESCRIPTION_VARIABLES,
+  type DescriptionTemplates,
+} from "@/domain/account-description";
 import { CHECKOUT_SOURCE_ORDER, LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
@@ -327,6 +334,40 @@ function PlatformCardField({
 
 const GroupTitle = ({ children }: { children: string }) => <p className="border-t border-line pt-4 text-xs font-semibold text-mist">{children}</p>;
 
+function DescriptionTemplatesField({
+  templates,
+  errors,
+  onChange,
+}: {
+  templates: DescriptionTemplates;
+  errors: FieldErrors;
+  onChange: (templates: DescriptionTemplates) => void;
+}) {
+  return (
+    <fieldset className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+      <legend className="sr-only">Texto de “Sobre esta conta” por tipo de conta</legend>
+      <p aria-hidden className="text-xs font-semibold text-mist">Texto de “Sobre esta conta” por tipo de conta</p>
+      <p className="text-xs leading-relaxed text-mist">
+        Conta nova já aparece com o texto do tipo dela. Conta em que você escreveu um texto próprio na aba Contas continua com o dela. Em branco, o site
+        monta o texto sozinho com os números. Use {DESCRIPTION_VARIABLES.map((key) => `{${key}}`).join(", ")} para os dados de cada conta e deixe uma
+        linha em branco entre os parágrafos.
+      </p>
+      {DESCRIPTION_KINDS.map((kind) => (
+        <CopyField
+          key={kind}
+          label={DESCRIPTION_KIND_LABEL[kind]}
+          path={`accountPage.descriptionTemplates.${kind}`}
+          value={templates[kind]}
+          max={DESCRIPTION_TEMPLATE_MAX}
+          multiline
+          errors={errors}
+          onChange={(text) => onChange({ ...templates, [kind]: text })}
+        />
+      ))}
+    </fieldset>
+  );
+}
+
 const AccountPageForm: Form<"accountPage"> = (props) => {
   const copy = copyFieldsFor("accountPage", props);
   const { value, onChange, errors, content } = props;
@@ -367,6 +408,11 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
 
       <GroupTitle>Sobre e ficha técnica</GroupTitle>
       {copy("aboutTitle", "Título de “Sobre esta conta”", 60)}
+      <DescriptionTemplatesField
+        templates={value.descriptionTemplates}
+        errors={errors}
+        onChange={(descriptionTemplates) => onChange({ ...value, descriptionTemplates })}
+      />
       {copy("nicheNote", "Aviso abaixo da descrição (contas com nicho)", 240, { multiline: true, hint: "Opcional." })}
       {copy("specsTitle", "Título da ficha técnica", 60)}
       <p className="text-xs text-mist">

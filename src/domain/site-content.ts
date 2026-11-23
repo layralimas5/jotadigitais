@@ -6,6 +6,7 @@
  * Na página do pedido também valem {nome} (primeiro nome do cliente) e {conta} (o @ comprado).
  */
 
+import { EMPTY_DESCRIPTION_TEMPLATES, type DescriptionTemplates } from "./account-description";
 import type { LeadSource } from "./lead";
 import type { PaymentPlan } from "./payment";
 import type { Platform } from "./platform";
@@ -197,6 +198,11 @@ export interface SiteContent {
     perkGuarantee: PlatformCard;
     perkSupport: PlatformCard;
     aboutTitle: string;
+    /**
+     * Texto de "Sobre esta conta" por tipo de conta, para conta sem texto próprio. Vazio: o site monta o texto
+     * automático com os números. Aceita {rede}, {nicho}, {seguidores}, {curtidas} e {pais}.
+     */
+    descriptionTemplates: DescriptionTemplates;
     nicheNote: string;
     specsTitle: string;
     /** Linhas iguais em toda conta de cada rede, entre os números e a data do anúncio. */
@@ -483,6 +489,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       other: "Ajudamos a trocar nome, @, foto e a deixar a conta com a sua cara.",
     },
     aboutTitle: "Sobre esta conta",
+    descriptionTemplates: EMPTY_DESCRIPTION_TEMPLATES,
     nicheNote: "O nicho é só o conteúdo de hoje. Você pode mudar o tipo de publicação e o público que quer atingir.",
     specsTitle: "Ficha técnica",
     fixedSpecs: {

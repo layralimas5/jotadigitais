@@ -12,6 +12,12 @@ import {
   type AccountStatus,
   type ShopTier,
 } from "@/domain/account";
+import {
+  descriptionKindOf,
+  fillDescriptionTemplate,
+  type DescriptionTemplates,
+  type DescriptionValues,
+} from "@/domain/account-description";
 import { DEFAULT_COUNTRY } from "@/domain/country";
 import { MONETIZED_TAG_KEY, SHOP_TAG_KEY, customTagKey } from "@/domain/tag-color";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
@@ -295,16 +301,38 @@ function platformParagraph(account: Account): string {
   }
 }
 
-/** Texto que o site monta com os dados da conta quando o Jota não escreveu um próprio. */
-export function automaticDescriptionOf(account: Account): string {
+/** Texto montado no código com os dados da conta: vale quando o modelo do tipo de conta está em branco na aba Site. */
+export function builtInDescriptionOf(account: Account): string {
   const intro = `Conta de ${PLATFORM_LABEL[account.platform]}${account.niche ? ` de ${account.niche.toLowerCase()}` : ""} com ${number.format(account.followers)} ${audienceLabel(account).toLowerCase()}. Depois da compra você troca nome, @ e foto e começa a publicar.`;
   const details = platformParagraph(account);
   return details ? `${intro}\n\n${details}` : intro;
 }
 
+function likesOf(account: Account): number | null {
+  if (account.platform === "tiktok" || account.platform === "facebook") return account.stats.likes;
+  return null;
+}
+
+function descriptionValuesOf(account: Account): DescriptionValues {
+  const likes = likesOf(account);
+  return {
+    rede: PLATFORM_LABEL[account.platform],
+    nicho: account.niche?.toLowerCase() ?? "",
+    seguidores: number.format(account.followers),
+    curtidas: likes === null ? "" : number.format(likes),
+    pais: account.countryName,
+  };
+}
+
+/** Texto de quando o Jota não escreveu um próprio: o modelo do tipo de conta (aba Site) ou, sem modelo, o montado no código. */
+export function automaticDescriptionOf(account: Account, templates: DescriptionTemplates): string {
+  const template = templates[descriptionKindOf(account)].trim();
+  return template ? fillDescriptionTemplate(template, descriptionValuesOf(account)) : builtInDescriptionOf(account);
+}
+
 /** "Sobre esta conta" em parágrafos: o texto escrito no painel ou o automático. Linha em branco separa parágrafos. */
-export function descriptionOf(account: Account): string[] {
-  return (account.description ?? automaticDescriptionOf(account))
+export function descriptionOf(account: Account, templates: DescriptionTemplates): string[] {
+  return (account.description ?? automaticDescriptionOf(account, templates))
     .split(/\n\s*\n/)
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
