@@ -41,6 +41,8 @@ export interface AccountFormValues {
   monetized: boolean;
   /** TikTok Shop piloto ou ativo, marcado pelo Jota. */
   shop: ShopTier;
+  /** Loja do Instagram ativa, marcada pelo Jota. */
+  instagramShop: boolean;
   facebookKind: FacebookKind;
   /** Vazio quando a conta é da própria loja. */
   partnerId: string;
@@ -85,6 +87,7 @@ export function emptyAccountForm(): AccountFormValues {
     watchHours: "",
     monetized: false,
     shop: "pilot",
+    instagramShop: false,
     facebookKind: "page",
     partnerId: "",
     profileUrl: "",
@@ -153,6 +156,7 @@ export function fromAccount(account: Account): AccountFormValues {
         following: integerFormat.format(account.stats.following),
         professional: account.stats.professional,
         monetized: account.stats.monetized === true,
+        instagramShop: account.stats.shop === true,
       };
     case "youtube":
       return {
@@ -187,6 +191,7 @@ function statsOf(values: AccountFormValues) {
         following: parseInteger(values.following),
         professional: values.professional,
         monetized: values.monetized,
+        shop: values.instagramShop,
       };
     case "youtube":
       return {
