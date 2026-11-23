@@ -1,7 +1,7 @@
 import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
 import { BadgeDollarSign, ChevronDown, ExternalLink, MessageCircle, Plus, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { normalizeSearch } from "@/application/catalog";
 import { deleteAccounts, listAllAccounts, saveAccount } from "@/application/admin-use-cases";
 import { ACCOUNT_STATUSES, MONETIZED_PLATFORMS, formatCount, isMonetized, type Account, type AccountStatus } from "@/domain/account";
@@ -15,7 +15,8 @@ import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { ACCOUNT_STATUS_LABEL, audienceLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
-import { ShareAccountDialog } from "../accounts/ShareAccountDialog";
+import { ShareAccountDialog, type MessageMode } from "../accounts/ShareAccountDialog";
+import { announcedAccountIdOf } from "../accounts/announce";
 import { StockByCategory } from "../accounts/StockByCategory";
 import { DeleteDialog, MobileSelectAll, RowTrashButton, SelectAllCheckbox, SelectCheckbox, SelectionBar } from "../components/BulkSelection";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
@@ -258,6 +259,20 @@ export default function AccountsListPage() {
   const [country, setCountry] = useState<string>("all");
   const [category, setCategory] = useState<StockCategory | null>(null);
   const [sharing, setSharing] = useState<Account | null>(null);
+  const [shareMode, setShareMode] = useState<MessageMode | undefined>(undefined);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const announcedId = announcedAccountIdOf(location.state);
+
+  // Voltando do cadastro de uma conta nova: abre o anúncio para a comunidade uma vez e limpa o pedido.
+  useEffect(() => {
+    if (!announcedId || accounts.status !== "success") return;
+    const created = accounts.data.find((item) => item.id === announcedId);
+    navigate(location.pathname + location.search, { replace: true, state: null });
+    if (!created) return;
+    setShareMode("community");
+    setSharing(created);
+  }, [announcedId, accounts, navigate, location.pathname, location.search]);
 
   /** Só os países que têm conta cadastrada, Brasil primeiro. */
   const countryOptions = useMemo<Country[]>(() => {
@@ -404,7 +419,14 @@ export default function AccountsListPage() {
           <AccountsCards {...listProps} />
         </>
       )}
-      <ShareAccountDialog account={sharing} onClose={() => setSharing(null)} />
+      <ShareAccountDialog
+        account={sharing}
+        initialMode={shareMode}
+        onClose={() => {
+          setSharing(null);
+          setShareMode(undefined);
+        }}
+      />
       <SelectionBar selection={selection} noun={ACCOUNT_NOUN} onDelete={askDeleteSelected} />
       <DeleteDialog
         open={trash.open}
