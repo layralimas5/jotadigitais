@@ -18,6 +18,7 @@ import {
   type DescriptionTemplates,
   type DescriptionValues,
 } from "@/domain/account-description";
+import type { AccountKind } from "@/domain/account-kind";
 import { DEFAULT_COUNTRY } from "@/domain/country";
 import { MONETIZED_TAG_KEY, SHOP_TAG_KEY, customTagKey } from "@/domain/tag-color";
 import { AUDIENCE_LABEL, PLATFORM_LABEL } from "@/domain/platform";
@@ -121,35 +122,74 @@ export interface StatusItem {
   label: string;
   has: boolean;
   text: StatusText;
+  /** Para quem queria outra coisa: o recorte da vitrine com as contas que têm. */
+  alternative?: { kind: AccountKind; label: string };
 }
 
 export type StatusText =
-  | { section: "tiktokStatus"; field: "full" | "pilot" | "none" | "monetized" }
-  | { section: "instagramStatus"; field: "shop" | "noShop" | "monetized" }
+  | { section: "tiktokStatus"; field: "full" | "pilot" | "none" | "monetized" | "notMonetized" }
+  | { section: "instagramStatus"; field: "shop" | "noShop" | "monetized" | "notMonetized" }
   | { section: "youtubeStatus"; field: "monetized" | "notMonetized" };
+
+const TIKTOK_SHOP_ALTERNATIVE: Partial<Record<ShopTier, StatusItem["alternative"]>> = {
+  none: { kind: "tiktok-shop", label: "Ver contas com TikTok Shop" },
+  pilot: { kind: "shop-ativo", label: "Ver contas com Shop ativo" },
+};
 
 export function statusItemsOf(account: Account): StatusItem[] {
   switch (account.platform) {
     case "tiktok": {
       const tier = shopTierOf(account);
-      const shop: StatusItem = { id: tier, label: SHOP_BADGE[tier].label, has: tier !== "none", text: { section: "tiktokStatus", field: tier } };
-      return account.stats.monetized
-        ? [{ id: "monetized", label: "Monetizada", has: true, text: { section: "tiktokStatus", field: "monetized" } }, shop]
-        : [shop];
+      const shop: StatusItem = {
+        id: tier,
+        label: SHOP_BADGE[tier].label,
+        has: tier !== "none",
+        text: { section: "tiktokStatus", field: tier },
+        alternative: TIKTOK_SHOP_ALTERNATIVE[tier],
+      };
+      const monetization: StatusItem = account.stats.monetized
+        ? { id: "monetized", label: "Monetizada", has: true, text: { section: "tiktokStatus", field: "monetized" } }
+        : {
+            id: "not-monetized",
+            label: "Não monetizada",
+            has: false,
+            text: { section: "tiktokStatus", field: "notMonetized" },
+            alternative: { kind: "tiktok-monetizada", label: "Ver contas monetizadas" },
+          };
+      return [shop, monetization];
     }
     case "instagram": {
       const shop: StatusItem = account.stats.shop
         ? { id: "shop", label: "Instagram Shop ativo", has: true, text: { section: "instagramStatus", field: "shop" } }
-        : { id: "no-shop", label: "Sem Instagram Shop", has: false, text: { section: "instagramStatus", field: "noShop" } };
-      return account.stats.monetized
-        ? [{ id: "monetized", label: "Monetizada", has: true, text: { section: "instagramStatus", field: "monetized" } }, shop]
-        : [shop];
+        : {
+            id: "no-shop",
+            label: "Sem Instagram Shop",
+            has: false,
+            text: { section: "instagramStatus", field: "noShop" },
+            alternative: { kind: "instagram-shop", label: "Ver contas com Instagram Shop" },
+          };
+      const monetization: StatusItem = account.stats.monetized
+        ? { id: "monetized", label: "Monetizada", has: true, text: { section: "instagramStatus", field: "monetized" } }
+        : {
+            id: "not-monetized",
+            label: "Não monetizada",
+            has: false,
+            text: { section: "instagramStatus", field: "notMonetized" },
+            alternative: { kind: "instagram-monetizada", label: "Ver contas monetizadas" },
+          };
+      return [shop, monetization];
     }
     case "youtube":
       return [
         account.stats.monetized
           ? { id: "monetized", label: "Monetizado", has: true, text: { section: "youtubeStatus", field: "monetized" } }
-          : { id: "not-monetized", label: "Não monetizado", has: false, text: { section: "youtubeStatus", field: "notMonetized" } },
+          : {
+              id: "not-monetized",
+              label: "Não monetizado",
+              has: false,
+              text: { section: "youtubeStatus", field: "notMonetized" },
+              alternative: { kind: "youtube-monetizado", label: "Ver canais monetizados" },
+            },
       ];
     case "facebook":
       return [];

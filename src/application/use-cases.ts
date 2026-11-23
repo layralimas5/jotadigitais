@@ -1,5 +1,6 @@
 import type { Account } from "@/domain/account";
 import { isListedInStore, isPurchasable } from "@/domain/account";
+import { matchesAccountKind } from "@/domain/account-kind";
 import { AccountNotFoundError, AccountUnavailableError, OrderNotFoundError } from "@/domain/errors";
 import type { CouponPreview } from "@/domain/coupon";
 import type { Country } from "@/domain/country";
@@ -69,7 +70,8 @@ export function getStoreSettings(deps: UseCaseDeps): Promise<StoreSettings> {
 /** Vitrine pública: catálogo, destaques da home e contas parecidas. */
 export async function listAccounts(deps: UseCaseDeps, filter: AccountFilter): Promise<Account[]> {
   const accounts = await deps.accounts.list(filter);
-  return accounts.filter(isListedInStore);
+  const { kind } = filter;
+  return accounts.filter((account) => isListedInStore(account) && (!kind || matchesAccountKind(account, kind)));
 }
 
 /**

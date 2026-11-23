@@ -380,6 +380,7 @@ const STATUS_GROUPS = [
       ["pilot", "Shop piloto"],
       ["none", "Sem TikTok Shop"],
       ["monetized", "Monetizada"],
+      ["notMonetized", "Não monetizada"],
     ],
   },
   {
@@ -389,6 +390,7 @@ const STATUS_GROUPS = [
       ["shop", "Instagram Shop ativo"],
       ["noShop", "Sem Instagram Shop"],
       ["monetized", "Monetizada"],
+      ["notMonetized", "Não monetizada"],
     ],
   },
   {

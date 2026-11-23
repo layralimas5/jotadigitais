@@ -10,6 +10,7 @@ import type { LegalConsent } from "@/domain/legal/legal-document";
 import type { LegalPublishInput } from "@/domain/legal/legal-editing";
 import type { Expense, ExpenseData, Revenue, RevenueData } from "@/domain/finance";
 import type { Lead, LeadData, LeadStage } from "@/domain/lead";
+import type { AccountKind } from "@/domain/account-kind";
 import type { StockAlert, StockAlertData } from "@/domain/stock-alert";
 import type { MessageTemplates } from "@/domain/message-template";
 import type {
@@ -84,6 +85,8 @@ export interface AccountFilter {
   maxFollowers?: number;
   sort?: AccountSort;
   onlyAvailable?: boolean;
+  /** Recorte pelo que a conta tem (Shop, monetização). */
+  kind?: AccountKind;
 }
 
 /** Países que as contas podem ter. A vitrine lê; o painel também cria. */
