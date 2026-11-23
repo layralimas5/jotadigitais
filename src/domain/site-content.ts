@@ -204,6 +204,8 @@ export interface SiteContent {
      */
     descriptionTemplates: DescriptionTemplates;
     nicheNote: string;
+    /** Quadro "O que esta conta tem" nas contas de TikTok: explica o Shop e a monetização da conta. */
+    tiktokStatus: { title: string; full: string; pilot: string; none: string; monetized: string };
     specsTitle: string;
     /** Linhas iguais em toda conta de cada rede, entre os números e a data do anúncio. */
     fixedSpecs: Record<Platform, { label: string; value: string }[]>;
@@ -491,6 +493,13 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     aboutTitle: "Sobre esta conta",
     descriptionTemplates: EMPTY_DESCRIPTION_TEMPLATES,
     nicheNote: "O nicho é só o conteúdo de hoje. Você pode mudar o tipo de publicação e o público que quer atingir.",
+    tiktokStatus: {
+      title: "O que esta conta tem",
+      full: "A conta já vende como afiliada no TikTok Shop, com todos os produtos liberados.",
+      pilot: "O TikTok Shop já está ativo e funciona para vender como afiliada. Por ser piloto, alguns produtos só liberam quando a conta cresce.",
+      none: "Esta conta não tem o TikTok Shop: não dá para vender produtos como afiliada por ela. Você leva o perfil e os seguidores.",
+      monetized: "A conta já recebe dinheiro do TikTok pelas visualizações dos vídeos (Programa de Recompensas para Criadores).",
+    },
     specsTitle: "Ficha técnica",
     fixedSpecs: {
       tiktok: [

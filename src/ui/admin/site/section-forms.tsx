@@ -414,6 +414,33 @@ const AccountPageForm: Form<"accountPage"> = (props) => {
         onChange={(descriptionTemplates) => onChange({ ...value, descriptionTemplates })}
       />
       {copy("nicheNote", "Aviso abaixo da descrição (contas com nicho)", 240, { multiline: true, hint: "Opcional." })}
+      <fieldset className="space-y-3 rounded-2xl border border-line-strong bg-ink/60 p-3.5">
+        <legend className="sr-only">Quadro “O que esta conta tem” (TikTok)</legend>
+        <p aria-hidden className="text-xs font-semibold text-mist">Quadro “O que esta conta tem” (TikTok)</p>
+        <p className="text-xs leading-relaxed text-mist">
+          Aparece abaixo dos números em toda conta de TikTok e mostra só o que vale para ela: a situação do Shop e, se for monetizada, a monetização.
+        </p>
+        {(
+          [
+            ["title", "Título do quadro", 60],
+            ["full", "Shop ativo", 240],
+            ["pilot", "Shop piloto", 240],
+            ["none", "Sem TikTok Shop", 240],
+            ["monetized", "Monetizada", 240],
+          ] as const
+        ).map(([key, label, max]) => (
+          <CopyField
+            key={key}
+            label={label}
+            path={`accountPage.tiktokStatus.${key}`}
+            value={value.tiktokStatus[key]}
+            max={max}
+            multiline={key !== "title"}
+            errors={errors}
+            onChange={(text) => onChange({ ...value, tiktokStatus: { ...value.tiktokStatus, [key]: text } })}
+          />
+        ))}
+      </fieldset>
       {copy("specsTitle", "Título da ficha técnica", 60)}
       <p className="text-xs text-mist">
         A ficha técnica de cada conta se edita na própria conta, na aba Contas. Abaixo, as linhas fixas que entram na ficha automática (contas em que a ficha não foi editada), depois dos números.

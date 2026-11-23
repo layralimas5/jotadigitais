@@ -1,8 +1,8 @@
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
-import { descriptionOf, includedOf, specsOf } from "@/ui/lib/account-presenter";
+import { descriptionOf, includedOf, specsOf, tiktokStatusOf } from "@/ui/lib/account-presenter";
 import { editable } from "@/ui/lib/site-preview";
 import { STEP_ICONS, useSteps } from "@/ui/sections/home/HowItWorks";
 
@@ -32,6 +32,41 @@ export function AccountDescription({ account }: { account: Account }) {
         )}
       </div>
     </DetailBlock>
+  );
+}
+
+/** Deixa claro, logo abaixo dos números, se a conta de TikTok tem Shop (ativo ou piloto), não tem, ou é monetizada. */
+export function AccountTikTokStatus({ account }: { account: Account }) {
+  const { accountPage } = useSiteContent();
+  const items = tiktokStatusOf(account);
+  if (items.length === 0) return null;
+  const copy = accountPage.tiktokStatus;
+  return (
+    <section aria-labelledby="status-tiktok-title" className="mt-6 rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
+      <h2 id="status-tiktok-title" {...editable("accountPage.tiktokStatus.title")} className="text-sm font-semibold text-white">
+        {copy.title}
+      </h2>
+      <ul className="mt-3 space-y-3">
+        {items.map((item) => (
+          <li key={item.key} className="flex gap-3">
+            <span
+              aria-hidden
+              className={
+                item.has
+                  ? "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-400/15 text-emerald-300"
+                  : "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/10 text-fog"
+              }
+            >
+              {item.has ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+            </span>
+            <p className="text-sm leading-relaxed text-mist">
+              <strong className="font-semibold text-white">{item.label}.</strong>{" "}
+              <span {...editable(`accountPage.tiktokStatus.${item.key}`)}>{copy[item.key]}</span>
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
