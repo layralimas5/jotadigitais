@@ -34,11 +34,39 @@ export interface SiteImage {
   alt: string;
 }
 
+/** O que a pergunta explica: o selo da conta com esse assunto ganha o link "Entenda" que abre a resposta. */
+export const FAQ_TOPICS = [
+  "tiktok-shop-full",
+  "tiktok-shop-pilot",
+  "tiktok-monetized",
+  "instagram-shop",
+  "instagram-monetized",
+  "youtube-monetized",
+] as const;
+
+export type FaqTopic = (typeof FAQ_TOPICS)[number];
+
+export const FAQ_TOPIC_LABEL: Record<FaqTopic, string> = {
+  "tiktok-shop-full": "TikTok Shop ativo",
+  "tiktok-shop-pilot": "TikTok Shop piloto",
+  "tiktok-monetized": "TikTok monetizado",
+  "instagram-shop": "Instagram Shop",
+  "instagram-monetized": "Instagram monetizado",
+  "youtube-monetized": "YouTube monetizado",
+};
+
+export const isFaqTopic = (value: unknown): value is FaqTopic => (FAQ_TOPICS as readonly unknown[]).includes(value);
+
+/** Âncora da pergunta na página da conta (`#duvida-tiktok-monetized`). */
+export const faqAnchorOf = (topic: FaqTopic) => `duvida-${topic}`;
+
 export interface FaqEntry {
   question: string;
   answer: string;
   /** Só aparece nas páginas de conta do TikTok (ex.: Shop piloto). */
   tiktokOnly: boolean;
+  /** Selo da conta que esta pergunta explica; nulo quando não explica nenhum. */
+  topic: FaqTopic | null;
 }
 
 /** Provas abaixo dos botões do topo: mais que isso quebra em linhas demais no celular. */
@@ -339,33 +367,39 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
         answer:
           "Pode. Depois da compra a conta é sua: você altera nome de usuário, foto e bio como quiser e se cadastra no TikTok Shop com os seus dados.",
         tiktokOnly: false,
+        topic: null,
       },
       {
         question: "O que é o Shop piloto?",
         answer:
           "Contas com menos de {seguidores_shop} seguidores estão no modo piloto (fase beta) do TikTok Shop. Tudo funciona normalmente, só alguns produtos ainda não ficam disponíveis para afiliação até a conta crescer.",
         tiktokOnly: true,
+        topic: "tiktok-shop-pilot",
       },
       {
         question: "O nicho da conta importa?",
         answer:
           "Não. Você pode mudar o tipo de conteúdo e falar com qualquer público. Os seguidores também não precisam ser de um gênero específico.",
         tiktokOnly: false,
+        topic: null,
       },
       {
         question: "Vou perder seguidores quando trocar os dados?",
         answer: "Não. Os seguidores são reais e brasileiros e continuam na conta depois da troca de nome e foto.",
         tiktokOnly: false,
+        topic: null,
       },
       {
         question: "Como recebo a conta?",
         answer: "Assim que o pagamento é confirmado, enviamos login, senha e o passo a passo para o WhatsApp informado na compra.",
         tiktokOnly: false,
+        topic: null,
       },
       {
         question: "Quais as formas de pagamento?",
         answer: "Pix à vista ou cartão de crédito em até 12x (com juros da operadora).",
         tiktokOnly: false,
+        topic: null,
       },
     ],
   },
