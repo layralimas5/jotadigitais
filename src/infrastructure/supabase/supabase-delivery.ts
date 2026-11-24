@@ -2,24 +2,28 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { AdminDeliveryMessageRepository, AdminProfileLoginRepository } from "@/application/ports";
 import type { ProfileLogin } from "@/domain/delivery-login";
+import { DESCRIPTION_KINDS } from "@/domain/account-description";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import { DeliveryMessageNotFoundError } from "@/domain/errors";
 import { fail } from "./supabase-repositories";
 
-const DELIVERY_MESSAGE_COLUMNS = "id, name, body, created_at, updated_at";
+const DELIVERY_MESSAGE_COLUMNS = "id, name, body, account_kind, created_at, updated_at";
 
 const deliveryMessageRowSchema = z.object({
   id: z.string(),
   name: z.string(),
   body: z.string(),
+  account_kind: z.enum(DESCRIPTION_KINDS).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
 
 function toDeliveryMessage(raw: unknown): DeliveryMessage {
   const row = deliveryMessageRowSchema.parse(raw);
-  return { id: row.id, name: row.name, body: row.body, createdAt: row.created_at, updatedAt: row.updated_at };
+  return { id: row.id, name: row.name, body: row.body, accountKind: row.account_kind, createdAt: row.created_at, updatedAt: row.updated_at };
 }
+
+const toRow = (input: DeliveryMessageData) => ({ name: input.name, body: input.body, account_kind: input.accountKind });
 
 export class SupabaseDeliveryMessageRepository implements AdminDeliveryMessageRepository {
   constructor(private readonly client: SupabaseClient) {}
@@ -31,13 +35,13 @@ export class SupabaseDeliveryMessageRepository implements AdminDeliveryMessageRe
   }
 
   async create(input: DeliveryMessageData): Promise<DeliveryMessage> {
-    const { data, error } = await this.client.from("delivery_messages").insert(input).select(DELIVERY_MESSAGE_COLUMNS).single();
+    const { data, error } = await this.client.from("delivery_messages").insert(toRow(input)).select(DELIVERY_MESSAGE_COLUMNS).single();
     if (error) fail(error);
     return toDeliveryMessage(data);
   }
 
   async update(id: string, input: DeliveryMessageData): Promise<DeliveryMessage> {
-    const { data, error } = await this.client.from("delivery_messages").update(input).eq("id", id).select(DELIVERY_MESSAGE_COLUMNS).maybeSingle();
+    const { data, error } = await this.client.from("delivery_messages").update(toRow(input)).eq("id", id).select(DELIVERY_MESSAGE_COLUMNS).maybeSingle();
     if (error) fail(error);
     if (!data) throw new DeliveryMessageNotFoundError();
     return toDeliveryMessage(data);

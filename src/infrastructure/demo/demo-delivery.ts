@@ -4,6 +4,10 @@ import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-mes
 import { DeliveryMessageNotFoundError } from "@/domain/errors";
 import { newId, simulateLatency, type DemoDatabase } from "./demo-database";
 
+/** Como o gatilho do banco: um tipo de conta abre com uma mensagem só, a última que o ganhou. */
+const releaseKind = (all: DeliveryMessage[], owner: DeliveryMessage) =>
+  owner.accountKind ? all.map((item) => (item.id !== owner.id && item.accountKind === owner.accountKind ? { ...item, accountKind: null } : item)) : all;
+
 export class DemoDeliveryMessageRepository implements AdminDeliveryMessageRepository {
   constructor(private readonly db: DemoDatabase) {}
 
@@ -16,7 +20,7 @@ export class DemoDeliveryMessageRepository implements AdminDeliveryMessageReposi
     const now = new Date().toISOString();
     const created: DeliveryMessage = { ...data, id: newId("msg"), createdAt: now, updatedAt: now };
     return this.db.write((state) => {
-      state.deliveryMessages = [...(state.deliveryMessages ?? []), created];
+      state.deliveryMessages = [...releaseKind(state.deliveryMessages ?? [], created), created];
       return created;
     });
   }
@@ -28,7 +32,7 @@ export class DemoDeliveryMessageRepository implements AdminDeliveryMessageReposi
       const current = all.find((item) => item.id === id);
       if (!current) throw new DeliveryMessageNotFoundError();
       const updated: DeliveryMessage = { ...current, ...data, updatedAt: new Date().toISOString() };
-      state.deliveryMessages = all.map((item) => (item.id === id ? updated : item));
+      state.deliveryMessages = releaseKind(all, updated).map((item) => (item.id === id ? updated : item));
       return updated;
     });
   }

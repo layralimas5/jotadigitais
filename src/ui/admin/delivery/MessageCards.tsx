@@ -1,4 +1,5 @@
 import { Pencil, Star } from "lucide-react";
+import { DESCRIPTION_KIND_LABEL } from "@/domain/account-description";
 import { cn } from "@/ui/lib/cn";
 import type { MessageChoice, MessageOption } from "./use-delivery-messages";
 
@@ -49,6 +50,11 @@ export function MessageCards({ options, selected, editing, disabled, onSelect, o
               {option.choice === "default" && <Star aria-hidden className="size-3.5 shrink-0 fill-current text-amber-300" />}
               <span className="truncate">{option.name}</span>
             </span>
+            {option.accountKind && (
+              <span className="w-fit rounded-full bg-electric/15 px-2 py-0.5 text-[0.68rem] font-semibold text-electric-soft">
+                {DESCRIPTION_KIND_LABEL[option.accountKind]}
+              </span>
+            )}
             <span className="line-clamp-2 text-xs leading-snug text-mist">{snippetOf(option.body)}</span>
           </button>
         );

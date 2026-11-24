@@ -1,10 +1,12 @@
 import { Trash2 } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
+import { DESCRIPTION_KIND_LABEL, DESCRIPTION_KINDS, isDescriptionKind, type DescriptionKind } from "@/domain/account-description";
 import { MAX_DELIVERY_MESSAGE_NAME } from "@/domain/delivery-message";
 import { MAX_TEMPLATE_LENGTH, MESSAGE_TEMPLATE_INFO, VARIABLE_LABEL } from "@/domain/message-template";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { cn } from "@/ui/lib/cn";
+import { SelectField } from "../components/FormControls";
 import { useInsertAtCursor } from "../lib/use-insert-at-cursor";
 import type { MessageOption } from "./use-delivery-messages";
 
@@ -15,6 +17,9 @@ interface MessageEditorProps {
   base: MessageOption;
   draft: string;
   onDraftChange: (draft: string) => void;
+  /** Tipo de conta em que a mensagem vai abrir sozinha ao salvar. */
+  kind: DescriptionKind | null;
+  onKindChange: (kind: DescriptionKind | null) => void;
   canChangeDefault: boolean;
   pending: boolean;
   onSaveNew: (name: string) => void;
@@ -30,7 +35,7 @@ interface MessageEditorProps {
  * troca a que abre em todo pedido; usar só desta vez manda o texto editado sem guardar nada.
  */
 export function MessageEditor(props: MessageEditorProps) {
-  const { base, draft, onDraftChange, canChangeDefault, pending } = props;
+  const { base, draft, onDraftChange, kind, onKindChange, canChangeDefault, pending } = props;
   const id = useId();
   const { ref, insert } = useInsertAtCursor(draft, onDraftChange);
   const [naming, setNaming] = useState(false);
@@ -82,6 +87,17 @@ export function MessageEditor(props: MessageEditorProps) {
       <p className="text-xs text-mist">
         Use *asteriscos* para negrito. Linha com login que não está na ficha sai da mensagem sozinha.
       </p>
+      <SelectField
+        label="Abrir sozinha nas contas do tipo"
+        hint={
+          isDefault
+            ? "Vale ao salvar como nova. Tipo sem mensagem própria abre com a padrão."
+            : "Cada tipo abre com uma mensagem só: escolher aqui tira o tipo de outra mensagem."
+        }
+        value={kind ?? ""}
+        options={[{ value: "", label: "Nenhum (escolho na hora)" }, ...DESCRIPTION_KINDS.map((value) => ({ value, label: DESCRIPTION_KIND_LABEL[value] }))]}
+        onChange={(event) => onKindChange(isDescriptionKind(event.target.value) ? event.target.value : null)}
+      />
 
       {naming ? (
         <form onSubmit={submitName} className="flex flex-col gap-2 sm:flex-row sm:items-end">

@@ -566,6 +566,7 @@ export const deliveryMessageSchema = z.object({
     .min(1, "Dê um nome para achar a mensagem depois.")
     .max(MAX_DELIVERY_MESSAGE_NAME, `Use no máximo ${MAX_DELIVERY_MESSAGE_NAME} caracteres.`),
   body: templateBody,
+  accountKind: z.enum(DESCRIPTION_KINDS).nullable().default(null),
 });
 
 export const messageTemplatesSchema = z.object({

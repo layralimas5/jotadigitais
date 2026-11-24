@@ -7,6 +7,7 @@ import {
   saveDeliveryMessage,
 } from "@/application/admin-use-cases";
 import { canUseStoreArea } from "@/domain/admin-user";
+import type { DescriptionKind } from "@/domain/account-description";
 import type { DeliveryMessage, DeliveryMessageData } from "@/domain/delivery-message";
 import { useViewAccess } from "../admin-view";
 import { useAdminQuery, useMutation } from "../hooks";
@@ -18,6 +19,8 @@ export interface MessageOption {
   choice: MessageChoice;
   name: string;
   body: string;
+  /** Tipo de conta em que a mensagem abre sozinha; a padrão não tem. */
+  accountKind: DescriptionKind | null;
 }
 
 /**
@@ -42,8 +45,8 @@ export function useDeliveryMessages() {
     if (templates.status !== "success") return [];
     const list: DeliveryMessage[] = saved.status === "success" ? saved.data : [];
     return [
-      { choice: "default", name: "Padrão", body: templates.data.order_delivered },
-      ...list.map((item) => ({ choice: item.id, name: item.name, body: item.body })),
+      { choice: "default", name: "Padrão", body: templates.data.order_delivered, accountKind: null },
+      ...list.map((item) => ({ choice: item.id, name: item.name, body: item.body, accountKind: item.accountKind })),
     ];
   }, [templates, saved]);
 
