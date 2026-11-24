@@ -1,4 +1,5 @@
 import { Eye, Heart, ImageIcon, ThumbsUp, type LucideIcon } from "lucide-react";
+import type { FaqTopic } from "@/domain/site-content";
 import {
   FULL_SHOP_MIN_FOLLOWERS,
   YOUTUBE_PARTNER_MIN_SUBSCRIBERS,
@@ -468,4 +469,20 @@ function fixedIncludedOf(account: Account, items: readonly string[]): string[] {
 /** "O que está incluso": os itens automáticos da conta e depois os da rede, editados na aba Site, ajustados à conta. */
 export function includedOf(account: Account, fixedByPlatform: Record<Account["platform"], string[]>): string[] {
   return [...automaticIncluded(account), ...fixedIncludedOf(account, fixedByPlatform[account.platform])];
+}
+
+/** Pergunta das Dúvidas que explica cada item do quadro "O que esta conta tem" (o link "Entenda"). */
+export function statusTopicOf(platform: Account["platform"], item: Pick<StatusItem, "id">): FaqTopic | null {
+  const monetization = item.id === "monetized" || item.id === "not-monetized";
+  switch (platform) {
+    case "tiktok":
+      if (monetization) return "tiktok-monetized";
+      return item.id === "pilot" ? "tiktok-shop-pilot" : "tiktok-shop-full";
+    case "instagram":
+      return monetization ? "instagram-monetized" : "instagram-shop";
+    case "youtube":
+      return "youtube-monetized";
+    case "facebook":
+      return null;
+  }
 }

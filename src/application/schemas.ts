@@ -42,7 +42,7 @@ import {
   SUPPORT_PRIORITIES,
   SUPPORT_STATUSES,
 } from "@/domain/support-ticket";
-import { isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
+import { FAQ_TOPICS, isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PAGE_BUTTONS, MAX_PARTNER_STEPS, MAX_PROOF_POINTS, PAGE_BUTTON_ACTIONS, PROOF_ICONS } from "@/domain/site-content";
 import { HEX_COLOR_PATTERN, MAX_TAG_KEY_LENGTH, TAG_KEY_PATTERN } from "@/domain/tag-color";
 import { STOCK_ALERT_CATEGORIES } from "@/domain/stock-alert";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
@@ -874,7 +874,15 @@ export const siteContentSchema = z.object({
   faq: z.object({
     ...titleBlock,
     items: z
-      .array(z.object({ question: copy(120), answer: copy(600), tiktokOnly: z.boolean() }))
+      .array(
+        z.object({
+          question: copy(120),
+          answer: copy(600),
+          tiktokOnly: z.boolean(),
+          // Perguntas salvas antes do campo existir chegam sem ele.
+          topic: z.enum(FAQ_TOPICS).nullable().default(null),
+        }),
+      )
       .min(1, "Mantenha pelo menos uma pergunta.")
       .max(20, "Use no máximo 20 perguntas."),
   }),

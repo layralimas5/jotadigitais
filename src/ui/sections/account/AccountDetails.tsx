@@ -1,10 +1,13 @@
-import { ArrowRight, Check, X } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
+import { ArrowRight, Check, CircleHelp, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { catalogPathOf } from "@/domain/account-kind";
 import type { ReactNode } from "react";
 import type { Account } from "@/domain/account";
 import { useFillTokens, useSiteContent } from "@/ui/hooks/useSiteContent";
-import { descriptionOf, includedOf, specsOf, statusItemsOf, type StatusText } from "@/ui/lib/account-presenter";
+import { FAQ_TOPIC_LABEL, faqAnchorOf } from "@/domain/site-content";
+import { descriptionOf, includedOf, specsOf, statusItemsOf, statusTopicOf, type StatusItem, type StatusText } from "@/ui/lib/account-presenter";
+import { openFaqAnchor, useAccountFaqItems } from "@/ui/sections/home/Faq";
 import type { SiteContent } from "@/domain/site-content";
 import { editable } from "@/ui/lib/site-preview";
 import { STEP_ICONS, useSteps } from "@/ui/sections/home/HowItWorks";
@@ -53,7 +56,15 @@ function statusTextOf(accountPage: SiteContent["accountPage"], { section, field 
 /** Deixa claro, logo abaixo dos números, o que a conta tem: Shop (TikTok e Instagram) e monetização. */
 export function AccountStatusBox({ account }: { account: Account }) {
   const { accountPage } = useSiteContent();
+  const reduceMotion = useReducedMotion();
   const items = statusItemsOf(account);
+  const anchors = new Set(useAccountFaqItems(account.platform).flatMap((item) => (item.anchorId ? [item.anchorId] : [])));
+  /** A pergunta das Dúvidas que explica o item, quando a página tem uma. */
+  const explainerOf = (item: StatusItem) => {
+    const topic = statusTopicOf(account.platform, item);
+    if (!topic || !anchors.has(faqAnchorOf(topic))) return null;
+    return { anchorId: faqAnchorOf(topic), label: FAQ_TOPIC_LABEL[topic] };
+  };
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="status-conta-title" className="mt-6 rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
@@ -61,35 +72,51 @@ export function AccountStatusBox({ account }: { account: Account }) {
         {accountPage.tiktokStatus.title}
       </h2>
       <ul className="mt-3 space-y-3">
-        {items.map((item) => (
-          <li key={item.id} className="flex gap-3">
-            <span
-              aria-hidden
-              className={
-                item.has
-                  ? "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-400/15 text-emerald-300"
-                  : "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/10 text-fog"
-              }
-            >
-              {item.has ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm leading-relaxed text-mist">
-                <strong className="font-semibold text-white">{item.label}.</strong>{" "}
-                <span {...editable(`accountPage.${item.text.section}.${item.text.field}`)}>{statusTextOf(accountPage, item.text)}</span>
-              </p>
-              {item.alternative && (
-                <Link
-                  to={catalogPathOf(item.alternative.kind)}
-                  className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-electric-soft underline-offset-4 hover:underline"
-                >
-                  {item.alternative.label}
-                  <ArrowRight aria-hidden className="size-3.5" />
-                </Link>
-              )}
-            </div>
-          </li>
-        ))}
+        {items.map((item) => {
+          const explainer = explainerOf(item);
+          return (
+            <li key={item.id} className="flex gap-3">
+              <span
+                aria-hidden
+                className={
+                  item.has
+                    ? "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-400/15 text-emerald-300"
+                    : "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/10 text-fog"
+                }
+              >
+                {item.has ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm leading-relaxed text-mist">
+                  <strong className="font-semibold text-white">{item.label}.</strong>{" "}
+                  <span {...editable(`accountPage.${item.text.section}.${item.text.field}`)}>{statusTextOf(accountPage, item.text)}</span>
+                </p>
+                {explainer && (
+                  <a
+                    href={`#${explainer.anchorId}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      openFaqAnchor(explainer.anchorId, !reduceMotion);
+                    }}
+                    className="mt-1.5 mr-4 inline-flex items-center gap-1 text-sm font-semibold text-electric-soft underline-offset-4 hover:underline"
+                  >
+                    <CircleHelp aria-hidden className="size-3.5" />
+                    Entenda o que é {explainer.label}
+                  </a>
+                )}
+                {item.alternative && (
+                  <Link
+                    to={catalogPathOf(item.alternative.kind)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-electric-soft underline-offset-4 hover:underline"
+                  >
+                    {item.alternative.label}
+                    <ArrowRight aria-hidden className="size-3.5" />
+                  </Link>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

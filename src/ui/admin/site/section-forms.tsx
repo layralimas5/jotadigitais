@@ -9,9 +9,9 @@ import {
 import { CHECKOUT_SOURCE_ORDER, LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
-import { MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PARTNER_STEPS, type PlatformCard, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
+import { FAQ_TOPIC_LABEL, FAQ_TOPICS, isFaqTopic, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PARTNER_STEPS, type PlatformCard, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
 import { ABOUT_PATH, PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
-import { ToggleField } from "../components/FormControls";
+import { SelectField, ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { PageButtonsField } from "./PageButtonsField";
 import { ProofPointsField } from "./ProofPointsField";
@@ -195,7 +195,7 @@ const FaqForm: Form<"faq"> = (props) => {
         max={20}
         addLabel="Adicionar pergunta"
         itemLabel={(index) => `Pergunta ${index + 1}`}
-        empty={() => ({ question: "", answer: "", tiktokOnly: false })}
+        empty={() => ({ question: "", answer: "", tiktokOnly: false, topic: null })}
         onChange={(items) => onChange({ ...value, items })}
         render={(item, update, itemPath) => (
           <>
@@ -206,6 +206,13 @@ const FaqForm: Form<"faq"> = (props) => {
               description="Na página de uma conta de outra rede, esta pergunta não aparece."
               checked={item.tiktokOnly}
               onChange={(tiktokOnly) => update({ tiktokOnly })}
+            />
+            <SelectField
+              label="Explica qual selo da conta"
+              hint="Na página da conta, o selo escolhido ganha o link “Entenda” que abre esta resposta."
+              value={item.topic ?? ""}
+              options={[{ value: "", label: "Nenhum" }, ...FAQ_TOPICS.map((topic) => ({ value: topic, label: FAQ_TOPIC_LABEL[topic] }))]}
+              onChange={(event) => update({ topic: isFaqTopic(event.target.value) ? event.target.value : null })}
             />
           </>
         )}
