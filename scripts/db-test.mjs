@@ -1395,6 +1395,48 @@ async function c6PixChecks() {
     await rejects(() => db.query(`update public.order_payments set pix_txid = 'curto' where id = $1`, [card.payments[1].id]), /check constraint/),
     "txid fora do padrão do Bacen é recusado",
   );
+
+  await c6PixReconcileChecks(buyer);
+}
+
+/** Conferência do servidor: o pg_cron só chama a c6-pix enquanto houver Pix do C6 esperando. */
+async function c6PixReconcileChecks(buyer) {
+  const requestsCount = async () => (await db.query(`select count(*)::int as n from net.requests`)).rows[0].n;
+  const reconcile = () => db.query(`select public.c6_pix_reconcile()`);
+
+  const before = await requestsCount();
+  await reconcile();
+  check((await requestsCount()) === before, "sem Pix do C6 pendente a conferência não chama a função");
+
+  const waiting = (await placeWithPlan(await newAccount("pix-c6-conferir"), buyer(3), "pix", null)).rows[0].data;
+  const part = waiting.payments[0];
+  await db.query(`update public.order_payments set provider = 'c6', pix_txid = $2, pix_copy_paste = 'copia-e-cola' where id = $1`, [
+    part.id,
+    part.id.replaceAll("-", ""),
+  ]);
+  await reconcile();
+  check((await requestsCount()) === before, "sem os segredos no Vault a conferência só espera");
+
+  await db.query(`select vault.create_secret('https://exemplo.supabase.co/functions/v1/c6-pix', 'c6_reconcile_url')`);
+  await db.query(`select vault.create_secret('segredo-da-conferencia', 'c6_reconcile_secret')`);
+  await reconcile();
+  const call = await db.query(`select url, body, headers from net.requests order by id desc limit 1`);
+  check(
+    (await requestsCount()) === before + 1 &&
+      call.rows[0].url.endsWith("/c6-pix") &&
+      call.rows[0].body.action === "reconcile" &&
+      call.rows[0].headers["x-c6-reconcile-secret"] === "segredo-da-conferencia",
+    "Pix do C6 pendente faz a conferência chamar a c6-pix com o segredo",
+  );
+
+  await db.query(`update public.order_payments set created_at = now() - interval '4 hours' where id = $1`, [part.id]);
+  await reconcile();
+  check((await requestsCount()) === before + 1, "cobrança com mais de 3 h não é mais conferida");
+
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.c6_pix_reconcile()`)), /permission denied/),
+    "só o pg_cron chama a conferência",
+  );
 }
 
 async function emailVaultChecks() {
