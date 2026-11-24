@@ -32,8 +32,8 @@ export interface WhatsAppSettings {
   followUps: WhatsAppFollowUps;
 }
 
-/** Mesmos limites da migration 20261219120000_whatsapp_followups. */
-export const REMINDER_MINUTE_OPTIONS = [10, 15, 30, 60] as const;
+/** Limites da migration 20261219120000_whatsapp_followups; com a reserva de 10 minutos, o lembrete sai na metade. */
+export const REMINDER_MINUTE_OPTIONS = [5] as const;
 export const AFTER_SALE_DAY_OPTIONS = [1, 2, 3, 5, 7, 15] as const;
 
 /** Uma mensagem automática: na fila, registrada em modo teste, enviada ou com falha. Senhas vêm mascaradas. */
@@ -100,7 +100,7 @@ export interface WhatsAppReport {
 /** Parte de um total em porcentagem inteira; zero quando não há total. */
 export const shareOf = (part: number, total: number): number => (total > 0 ? Math.round((part / total) * 100) : 0);
 
-export const DEFAULT_FOLLOW_UPS: WhatsAppFollowUps = { paymentReminder: false, reminderMinutes: 15, afterSale: false, afterSaleDays: 3 };
+export const DEFAULT_FOLLOW_UPS: WhatsAppFollowUps = { paymentReminder: false, reminderMinutes: 5, afterSale: false, afterSaleDays: 3 };
 
 export const DEFAULT_WHATSAPP_SETTINGS: WhatsAppSettings = { autoDelivery: true, mode: "test", followUps: DEFAULT_FOLLOW_UPS };
 

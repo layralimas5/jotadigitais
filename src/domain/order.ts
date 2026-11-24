@@ -97,8 +97,8 @@ export function chargedAmounts(order: Pick<Order, "total" | "discount" | "cartIt
 
 export const MAX_CARD_INSTALLMENTS = 12;
 
-/** Tempo que a conta fica segura para quem fez o pedido, até o pagamento ser confirmado. */
-export const RESERVATION_HOLD_MINUTES = 120;
+/** Tempo que a conta fica segura para quem fez o pedido. Passou disso sem pagar, o pedido cai sozinho (pg_cron) e a conta volta. */
+export const RESERVATION_HOLD_MINUTES = 10;
 
 /** Mesmas regras do gatilho `sync_order_status` no banco. */
 export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {

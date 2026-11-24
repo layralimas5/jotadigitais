@@ -951,7 +951,7 @@ async function securityChecks() {
   const holdDocument = "11222333000181";
   const held = (await placeAs(holdAccount, { email: "prazo@exemplo.com", whatsapp: "11933332222", document: holdDocument }, {}, 1440)).rows[0].data;
   const holdMinutes = await db.query(`select extract(epoch from expires_at - created_at) / 60 as minutes from public.orders where code = $1`, [held.code]);
-  check(Math.round(Number(holdMinutes.rows[0].minutes)) === 120, "checkout ignora o prazo de reserva pedido pelo navegador (fica em 2h)");
+  check(Math.round(Number(holdMinutes.rows[0].minutes)) === 10, "checkout ignora o prazo de reserva pedido pelo navegador (fica em 10 min)");
 
   const sameDocument = cpfFrom("123456780");
   const documentAccounts = [await newAccount("doc-1"), await newAccount("doc-2"), await newAccount("doc-3")];
@@ -1397,6 +1397,50 @@ async function c6PixChecks() {
   );
 
   await c6PixReconcileChecks(buyer);
+  await reservationChecks();
+}
+
+/** Chamado "Tempo de compra": reserva de 10 minutos e pedido vencido cancelado sozinho. */
+async function reservationChecks() {
+  await db.exec(`delete from public.rate_limit_hits`);
+  const buyer = (n) => ({ email: null, whatsapp: `1195558000${n}`, document: cpfFrom(`7${n}${n}999333`.slice(0, 9)) });
+  const accountId = await newAccount("reserva-10");
+  const placed = (await placeWithPlan(accountId, buyer(1), "pix", null)).rows[0].data;
+  const hold = await db.query(`select extract(epoch from expires_at - created_at)::int as s from public.orders where code = $1`, [placed.code]);
+  check(hold.rows[0].s === 600, "checkout reserva a conta por 10 minutos");
+
+  const cancel = async () => (await db.query(`select public.cancel_expired_orders() as n`)).rows[0].n;
+  check((await cancel()) === 0, "reserva dentro do prazo não é cancelada");
+
+  await db.query(`update public.orders set expires_at = now() - interval '1 minute' where code = $1`, [placed.code]);
+  check((await cancel()) === 0, "folga de 2 minutos para o Pix pago no último segundo");
+
+  await db.query(`update public.orders set expires_at = now() - interval '3 minutes' where code = $1`, [placed.code]);
+  check((await cancel()) === 1, "reserva vencida sem pagamento é cancelada");
+  const after = await db.query(
+    `select o.status, a.status as account_status, p.status as part_status
+     from public.orders o join public.accounts a on a.id = o.account_id join public.order_payments p on p.order_id = o.id
+     where o.code = $1`,
+    [placed.code],
+  );
+  check(
+    after.rows[0].status === "canceled" && after.rows[0].account_status === "available" && after.rows[0].part_status === "canceled",
+    "conta volta para a vitrine e a cobrança em aberto é cancelada",
+  );
+
+  const split = (await placeWithPlan(await newAccount("reserva-dividida"), buyer(2), "card_pix", 15000)).rows[0].data;
+  await db.query(`update public.order_payments set status = 'paid' where id = $1`, [split.payments[0].id]);
+  await db.query(`update public.orders set expires_at = now() - interval '10 minutes' where code = $1`, [split.code]);
+  await cancel();
+  const kept = await db.query(`select status from public.orders where code = $1`, [split.code]);
+  check(kept.rows[0].status === "awaiting_payment", "pedido com parte já paga não é cancelado sozinho");
+
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.cancel_expired_orders()`)), /permission denied/),
+    "só o pg_cron cancela os vencidos",
+  );
+  // Com 10 minutos de reserva, pedido aberto aqui cairia no lembrete de pagamento dos testes do WhatsApp.
+  await db.query(`update public.orders set status = 'canceled' where status = 'awaiting_payment' and created_at > now() - interval '1 hour'`);
 }
 
 /** Conferência do servidor: o pg_cron só chama a c6-pix enquanto houver Pix do C6 esperando. */
