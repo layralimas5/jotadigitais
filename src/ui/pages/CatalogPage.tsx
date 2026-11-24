@@ -15,6 +15,7 @@ import { useAccounts, useStockCountries } from "@/ui/hooks/useStore";
 import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
 import { StockAlertButton } from "@/ui/components/stock-alert/StockAlertButton";
+import { StockOverview } from "@/ui/components/stock-alert/StockOverview";
 import type { StockAlertCategory } from "@/domain/stock-alert";
 import { ACCOUNT_KIND_LABEL, isAccountKind, type AccountKind } from "@/domain/account-kind";
 import { X } from "lucide-react";
@@ -31,6 +32,8 @@ const KIND_ALERT_PRESET: Record<AccountKind, StockAlertCategory[]> = {
   "instagram-monetizada": ["instagram"],
   "youtube-monetizado": ["youtube"],
 };
+
+const ALL_ACCOUNTS: AccountFilter = {};
 
 const FOLLOWER_RANGES = {
   todas: { label: "Todas", min: undefined, max: undefined },
@@ -145,6 +148,8 @@ export default function CatalogPage() {
     [platform, country, range, sort, kind],
   );
   const fetched = useAccounts(filter);
+  // Estoque por tipo sem os filtros: mostra o que está esgotado mesmo com outra rede escolhida.
+  const allAccounts = useAccounts(ALL_ACCOUNTS);
   const countries = useStockCountries();
   // Com um país só no estoque o filtro não separa nada; volta sozinho quando entrar conta de outro país.
   const showCountryFilter = (countries.status === "success" && countries.data.length > 1) || country !== undefined;
@@ -173,7 +178,11 @@ export default function CatalogPage() {
           <p className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
             TikTok, Instagram, YouTube e Facebook. Cada conta é única e conferida antes de entrar na vitrine.
           </p>
-          <StockAlertButton initial={alertPreset} className="mt-5" />
+          {allAccounts.status === "success" ? (
+            <StockOverview accounts={allAccounts.data} alertPreset={alertPreset} />
+          ) : (
+            <StockAlertButton initial={alertPreset} className="mt-5" />
+          )}
         </header>
 
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
