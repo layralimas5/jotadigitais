@@ -117,15 +117,17 @@ interface StockAlertButtonProps {
   initial?: readonly StockAlertCategory[];
   variant?: "primary" | "secondary";
   className?: string;
+  /** Texto do botão; o padrão é "Me avise quando chegar conta". */
+  label?: string;
 }
 
 /** "Me avise quando chegar": o cliente entra na lista de espera do tipo de conta que quer. */
-export function StockAlertButton({ initial = [], variant = "secondary", className }: StockAlertButtonProps) {
+export function StockAlertButton({ initial = [], variant = "secondary", className, label = "Me avise quando chegar conta" }: StockAlertButtonProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button variant={variant} className={className} onClick={() => setOpen(true)}>
-        <BellRing aria-hidden className="size-4" /> Me avise quando chegar conta
+        <BellRing aria-hidden className="size-4" /> {label}
       </Button>
       <Modal
         open={open}
