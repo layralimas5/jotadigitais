@@ -13,6 +13,7 @@ import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO, fadeUp, staggerContainer } from "@/ui/lib/motion";
 import { proofIconComponent } from "@/ui/lib/proof-icons";
 import { editable } from "@/ui/lib/site-preview";
+import { SoldCounter } from "./SoldCounter";
 
 const previewOf = (name: string, handle: string): ProfilePreview => ({
   id: "hero-preview",
@@ -116,6 +117,10 @@ export function Hero() {
           >
             {hero.subtitle}
           </motion.p>
+
+          <motion.div variants={fadeUp}>
+            <SoldCounter />
+          </motion.div>
 
           <motion.div
             variants={fadeUp}

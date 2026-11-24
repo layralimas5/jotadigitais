@@ -6,6 +6,7 @@ import { LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterChips } from "../components/FilterChips";
 import { useAdminQuery } from "../hooks";
 import { ContactSettings } from "../site/ContactSettings";
+import { SoldCounterSettings } from "../site/SoldCounterSettings";
 import { LegalEditor } from "../site/legal/LegalEditor";
 import { SITE_SECTIONS } from "../site/section-forms";
 import { SiteEditor } from "../site/SiteEditor";
@@ -87,7 +88,10 @@ export default function SitePage() {
         <TextsTab about={tab === "sobre"} />
       </div>
       <div hidden={tab !== "contato"}>
-        <ContactSettings />
+        <div className="space-y-6">
+          <ContactSettings />
+          <SoldCounterSettings />
+        </div>
       </div>
       <LegalTabs tab={tab} />
     </>

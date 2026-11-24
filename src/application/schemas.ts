@@ -771,6 +771,15 @@ export const storeSettingsSchema = z.object({
 
 export type StoreSettingsInput = z.input<typeof storeSettingsSchema>;
 
+/** Mesmo limite da função set_sold_accounts_total no banco. */
+export const MAX_SOLD_TOTAL = 10_000_000;
+
+export const soldTotalSchema = z
+  .number({ message: "Informe quantas contas já foram vendidas." })
+  .int("Use um número inteiro.")
+  .min(0, "O total não pode ser negativo.")
+  .max(MAX_SOLD_TOTAL, "Número alto demais.");
+
 // ---------------------------------------------------------------------------
 // Textos do site (aba Site do painel)
 // ---------------------------------------------------------------------------

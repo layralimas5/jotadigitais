@@ -113,6 +113,7 @@ import {
   siteContentSchema,
   tagColorSchema,
   legalPublishSchema,
+  soldTotalSchema,
   storeSettingsSchema,
   testimonialDataSchema,
   ValidationError,
@@ -801,6 +802,14 @@ export function getStoreSettings(deps: AdminDeps): Promise<StoreSettings> {
 
 export function saveStoreSettings(deps: AdminDeps, raw: unknown): Promise<StoreSettings> {
   return deps.settings.save(parseOrThrow(storeSettingsSchema, raw));
+}
+
+export function getSoldTotal(deps: AdminDeps): Promise<number> {
+  return deps.settings.soldTotal();
+}
+
+export function setSoldTotal(deps: AdminDeps, raw: unknown): Promise<number> {
+  return deps.settings.setSoldTotal(parseOrThrow(soldTotalSchema, raw));
 }
 
 export { getSiteContent, getTagColors } from "./use-cases";

@@ -73,6 +73,8 @@ export interface DemoState {
   /** Fluxos de Automação > Fluxos. Sem nada salvo, vale o modelo pronto. */
   whatsappFlows?: WhatsAppFlow[];
   coupons?: StoredCoupon[];
+  /** Contador "contas vendidas" da home: total informado no painel e quando foi informado. */
+  soldBase?: { total: number; at: string };
   /** Lista de espera de conta nova (site > "Me avise quando chegar"). */
   stockAlerts?: StockAlert[];
   /** Sem a lista guardada, valem os países de fábrica. */

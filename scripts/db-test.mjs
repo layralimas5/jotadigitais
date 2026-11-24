@@ -380,6 +380,30 @@ async function main() {
     "não dá para criar uma segunda linha",
   );
 
+  const soldTotal = async () => (await as("anon", null, () => db.query(`select public.sold_accounts_total() as n`))).rows[0].n;
+  check((await soldTotal()) >= 3043, "contador de vendidas parte do total do Jota");
+  const reset = await as("authenticated", ADMIN_ID, () => db.query(`select public.set_sold_accounts_total(5000) as n`));
+  check(reset.rows[0].n === 5000 && (await soldTotal()) === 5000, "Jota corrige o total pelo painel");
+  check(
+    await rejects(() => as("anon", null, () => db.query(`select public.set_sold_accounts_total(1)`)), /permission denied/),
+    "visitante não mexe no contador",
+  );
+  check(
+    await rejects(() => as("authenticated", STRANGER_ID, () => db.query(`select public.set_sold_accounts_total(1)`)), /forbidden/),
+    "quem não é da equipe não mexe no contador",
+  );
+  check(
+    await rejects(() => as("authenticated", ADMIN_ID, () => db.query(`select public.set_sold_accounts_total(-1)`)), /invalid_total/),
+    "total negativo é recusado",
+  );
+  const soldAccount = await newAccount("contador-vendida");
+  const soldOrder = (await placeAs(soldAccount, { email: "contador@exemplo.com", whatsapp: "11933334444", document: "11444777000161" }, {}, 10)).rows[0].data;
+  check((await soldTotal()) === 5000, "pedido esperando pagamento não conta como vendido");
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [soldOrder.code]);
+  check((await soldTotal()) === 5001, "conta paga soma no contador");
+  await db.query(`update public.orders set status = 'delivered' where code = $1`, [soldOrder.code]);
+  check((await soldTotal()) === 5001, "entregar a mesma conta não conta de novo");
+
   console.log("\ncrm");
   const lead = await as("authenticated", ADMIN_ID, () =>
     db.query(

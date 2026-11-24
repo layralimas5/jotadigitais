@@ -192,6 +192,8 @@ export interface PaymentGateway {
 
 export interface StoreSettingsRepository {
   get(): Promise<StoreSettings>;
+  /** Contas vendidas para a home: o total que o Jota informou mais cada venda paga depois disso. */
+  soldTotal(): Promise<number>;
 }
 
 /** Textos do site como foram salvos (ou nulo, se nunca foram editados). Quem lê junta com o padrão e valida. */
@@ -288,6 +290,8 @@ export interface AdminLegalDocumentRepository extends LegalDocumentRepository {
 
 export interface AdminStoreSettingsRepository extends StoreSettingsRepository {
   save(settings: StoreSettings): Promise<StoreSettings>;
+  /** Corrige o contador da home: o total passa a ser este número, e as próximas vendas somam em cima. */
+  setSoldTotal(total: number): Promise<number>;
 }
 
 export interface AdminAccountRepository {
