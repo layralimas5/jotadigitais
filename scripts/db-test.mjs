@@ -2629,6 +2629,24 @@ async function deliveryMessageChecks() {
     "visitante não acessa as mensagens salvas",
   );
 
+  const monetized = await asAdmin(() =>
+    db.query(`insert into public.delivery_messages (name, body, account_kind) values ('Monetizada', 'Oi, {nome}!', 'tiktokMonetized') returning id`),
+  );
+  await asAdmin(() =>
+    db.query(`update public.delivery_messages set account_kind = 'tiktokMonetized' where id = $1`, [message.rows[0].id]),
+  );
+  const kinds = await asAdmin(() => db.query(`select id, account_kind from public.delivery_messages where id = any($1)`, [[message.rows[0].id, monetized.rows[0].id]]));
+  const kindOf = (id) => kinds.rows.find((row) => row.id === id)?.account_kind;
+  check(
+    kindOf(message.rows[0].id) === "tiktokMonetized" && kindOf(monetized.rows[0].id) === null,
+    "cada tipo de conta abre com uma mensagem só: a última ganha o tipo",
+  );
+  check(
+    await rejects(() => asAdmin(() => db.query(`update public.delivery_messages set account_kind = 'tiktok-shop' where id = $1`, [monetized.rows[0].id])), /check constraint/),
+    "tipo de conta desconhecido é recusado",
+  );
+  await asAdmin(() => db.query(`delete from public.delivery_messages where id = $1`, [monetized.rows[0].id]));
+
   const account = (await db.query(`select id from public.accounts limit 1`)).rows[0];
   const saved = await asAdmin(() =>
     db.query(

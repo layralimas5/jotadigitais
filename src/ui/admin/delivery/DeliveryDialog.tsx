@@ -1,7 +1,8 @@
 import { Check, Copy, MessageCircle, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { findDeliveryLogin } from "@/application/admin-use-cases";
+import { findAccount, findDeliveryLogin } from "@/application/admin-use-cases";
+import { descriptionKindOf, type DescriptionKind } from "@/domain/account-description";
 import { EMPTY_DELIVERY_LOGIN, type DeliveryLogin } from "@/domain/delivery-login";
 import type { Order } from "@/domain/order";
 import { Button, buttonClasses } from "@/ui/components/Button";
@@ -64,16 +65,22 @@ function useCopied() {
 interface DeliveryFormProps {
   order: Order;
   login: DeliveryLogin;
+  /** Tipo da conta vendida: abre com a mensagem desse tipo, se o Jota salvou uma. */
+  accountKind: DescriptionKind | null;
   messages: ReturnType<typeof useDeliveryMessages>;
   titleId: string;
   onClose: () => void;
 }
 
-function DeliveryForm({ order, login, messages, titleId, onClose }: DeliveryFormProps) {
+function DeliveryForm({ order, login, accountKind, messages, titleId, onClose }: DeliveryFormProps) {
   const { options } = messages;
-  const [selected, setSelected] = useState<MessageChoice>("default");
+  const [selected, setSelected] = useState<MessageChoice>(
+    () => options.find((item) => accountKind !== null && item.accountKind === accountKind)?.choice ?? "default",
+  );
   /** Texto em edição; nulo fora do editor. */
   const [draft, setDraft] = useState<string | null>(null);
+  /** Tipo de conta escolhido no editor, salvo junto com o texto. */
+  const [draftKind, setDraftKind] = useState<DescriptionKind | null>(null);
   /** Texto editado para este envio, sem salvar. */
   const [oneOff, setOneOff] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -98,18 +105,21 @@ function DeliveryForm({ order, login, messages, titleId, onClose }: DeliveryForm
     const next = options.find((item) => item.choice === choice);
     setSelected(choice);
     setOneOff(null);
-    if (draft !== null && next) setDraft(next.body);
+    if (draft !== null && next) {
+      setDraft(next.body);
+      setDraftKind(next.accountKind);
+    }
   };
 
   const saveNew = async (name: string) => {
     if (draft === null) return;
-    const created = await messages.create({ name, body: draft });
+    const created = await messages.create({ name, body: draft, accountKind: draftKind });
     if (created) finish(created.id, `Mensagem “${created.name}” salva nas mensagens prontas.`);
   };
 
   const saveChanges = async () => {
     if (draft === null || option.choice === "default") return;
-    const updated = await messages.update(option.choice, { name: option.name, body: draft });
+    const updated = await messages.update(option.choice, { name: option.name, body: draft, accountKind: draftKind });
     if (updated) finish(updated.id, `Mensagem “${updated.name}” atualizada.`);
   };
 
@@ -150,6 +160,8 @@ function DeliveryForm({ order, login, messages, titleId, onClose }: DeliveryForm
             base={option}
             draft={draft}
             onDraftChange={setDraft}
+            kind={draftKind}
+            onKindChange={setDraftKind}
             canChangeDefault={messages.canChangeDefault}
             pending={messages.pending}
             onSaveNew={(name) => void saveNew(name)}
@@ -186,6 +198,7 @@ function DeliveryForm({ order, login, messages, titleId, onClose }: DeliveryForm
           onEdit={() => {
             setNotice("");
             setDraft(editing ? null : (oneOff ?? option.body));
+            setDraftKind(option.accountKind);
           }}
         />
         {messages.savedError && <p className="text-xs text-amber-200">Não deu para carregar as mensagens salvas. A padrão continua valendo.</p>}
@@ -225,7 +238,8 @@ function DeliveryContent({ order, titleId, onClose }: { order: Order; titleId: s
     (deps) => (accountId ? findDeliveryLogin(deps, accountId) : Promise.resolve(EMPTY_DELIVERY_LOGIN)),
     `delivery-login:${order.code}`,
   );
-  if (messages.status === "loading" || login.status === "loading") {
+  const account = useAdminQuery((deps) => (accountId ? findAccount(deps, accountId) : Promise.resolve(null)), `delivery-account:${order.code}`);
+  if (messages.status === "loading" || login.status === "loading" || account.status === "loading") {
     return (
       <p role="status" className="py-12 text-center text-sm text-mist">
         Buscando o login da conta e as mensagens…
@@ -234,7 +248,9 @@ function DeliveryContent({ order, titleId, onClose }: { order: Order; titleId: s
   }
   if (messages.loadError) return <ErrorState message={messages.loadError.message} onRetry={messages.retry} />;
   if (login.status === "error") return <ErrorState message="Não deu para buscar o login da conta." onRetry={login.reload} />;
-  return <DeliveryForm order={order} login={login.data} messages={messages} titleId={titleId} onClose={onClose} />;
+  // Sem a ficha da conta (apagada ou erro ao buscar), abre com a padrão.
+  const accountKind = account.status === "success" && account.data ? descriptionKindOf(account.data) : null;
+  return <DeliveryForm order={order} login={login.data} accountKind={accountKind} messages={messages} titleId={titleId} onClose={onClose} />;
 }
 
 /**

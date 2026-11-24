@@ -19,6 +19,8 @@ export const DESCRIPTION_KINDS = [
 
 export type DescriptionKind = (typeof DESCRIPTION_KINDS)[number];
 
+export const isDescriptionKind = (value: unknown): value is DescriptionKind => (DESCRIPTION_KINDS as readonly unknown[]).includes(value);
+
 export type DescriptionTemplates = Record<DescriptionKind, string>;
 
 export const DESCRIPTION_KIND_LABEL: Record<DescriptionKind, string> = {
