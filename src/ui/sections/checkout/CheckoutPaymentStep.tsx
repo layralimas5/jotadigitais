@@ -1,6 +1,7 @@
-import { CreditCard, QrCode, Split } from "lucide-react";
+import { CreditCard, QrCode, Split, Timer } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatBRL, parseMoneyToCents, type Cents } from "@/domain/money";
+import { RESERVATION_HOLD_MINUTES } from "@/domain/order";
 import { ChoiceCard, TextField } from "@/ui/components/form/Fields";
 import type { CheckoutField, CheckoutValues, SplitKind } from "@/ui/hooks/useCheckoutForm";
 import { cn } from "@/ui/lib/cn";
@@ -124,6 +125,10 @@ export function CheckoutPaymentStep(props: CheckoutPaymentStepProps) {
           </p>
         )}
         {values.paymentChoice === "split" && <SplitFields {...props} />}
+        <p className="mt-4 flex items-center gap-2 text-xs text-mist">
+          <Timer aria-hidden className="size-4 shrink-0 text-electric" />
+          Ao finalizar, a conta fica reservada por {RESERVATION_HOLD_MINUTES} minutos para você pagar. Depois disso ela volta para a vitrine.
+        </p>
       </fieldset>
 
       <div>

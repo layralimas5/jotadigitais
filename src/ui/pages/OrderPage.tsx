@@ -20,6 +20,7 @@ import { EASE_OUT_EXPO } from "@/ui/lib/motion";
 import { editable, IS_SITE_PREVIEW, PREVIEW_ORDER_CODE } from "@/ui/lib/site-preview";
 import { OrderCartItems } from "@/ui/sections/order/OrderCartItems";
 import { OrderPayments } from "@/ui/sections/order/OrderPayments";
+import { ReservationTimer } from "@/ui/sections/order/ReservationTimer";
 
 /** Pedido fictício da prévia da aba Site: mostra a página já paga, sem tocar no banco. */
 const PREVIEW_ORDER: Order = {
@@ -132,6 +133,7 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
   const { orderPage } = useSiteContent();
   useDocumentMeta(`Pedido ${order.code}`);
   const awaiting = order.status === "awaiting_payment";
+  const canceled = order.status === "canceled";
   // Pago: a mensagem com o código faz o acesso sair sozinho no WhatsApp (entrega automática).
   const canRequestAccess = (order.status === "paid" || order.status === "delivered") && !isCartMember(order) && whatsappUrl;
   const charged = chargedAmounts(order);
@@ -146,14 +148,29 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
       >
         <VerifiedBadge className="size-20 drop-shadow-[0_0_40px_rgb(39_153_255/0.6)]" />
       </motion.div>
-      <h1
-        id="pedido-title"
-        {...editable(awaiting ? "orderPage.titleAwaiting" : "orderPage.titlePaid")}
-        className="mt-8 font-display text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl"
-      >
-        {fillOrderTokens(awaiting ? orderPage.titleAwaiting : orderPage.titlePaid, order)}
-      </h1>
-      <ReservedLine text={orderPage.reserved} order={order} />
+      {canceled ? (
+        <>
+          <h1 id="pedido-title" className="mt-8 font-display text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl">
+            Pedido cancelado
+          </h1>
+          <p className="mx-auto mt-4 max-w-md text-mist">
+            A reserva de <span className="font-semibold text-white">{accountsLabel(order)}</span> terminou sem pagamento confirmado. Se você
+            já pagou, fale com o suporte com o código do pedido.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1
+            id="pedido-title"
+            {...editable(awaiting ? "orderPage.titleAwaiting" : "orderPage.titlePaid")}
+            className="mt-8 font-display text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl"
+          >
+            {fillOrderTokens(awaiting ? orderPage.titleAwaiting : orderPage.titlePaid, order)}
+          </h1>
+          <ReservedLine text={orderPage.reserved} order={order} />
+        </>
+      )}
+      {awaiting && !isCartMember(order) && <ReservationTimer expiresAt={order.expiresAt} onExpire={onPaid} />}
 
       <dl className="mx-auto mt-8 grid max-w-md grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60 text-sm">
         <div className="p-4">
@@ -190,9 +207,11 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
         </>
       )}
 
-      <div className="mx-auto max-w-3xl">
-        <NextSteps order={order} />
-      </div>
+      {!canceled && (
+        <div className="mx-auto max-w-3xl">
+          <NextSteps order={order} />
+        </div>
+      )}
 
       <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
         {canRequestAccess && (
