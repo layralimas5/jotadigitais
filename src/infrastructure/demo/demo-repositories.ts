@@ -565,6 +565,23 @@ export class DemoStoreSettingsRepository implements AdminStoreSettingsRepository
       return settings;
     });
   }
+
+  async soldTotal(): Promise<number> {
+    const state = this.db.read();
+    const base = state.soldBase ?? { total: 0, at: new Date(0).toISOString() };
+    const soldSince = state.orders.filter(
+      (order) => (order.status === "paid" || order.status === "delivered") && order.createdAt >= base.at,
+    ).length;
+    return base.total + soldSince;
+  }
+
+  async setSoldTotal(total: number): Promise<number> {
+    await simulateLatency();
+    this.db.write((state) => {
+      state.soldBase = { total, at: new Date().toISOString() };
+    });
+    return total;
+  }
 }
 
 const byFollowUpThenRecent = (a: Lead, b: Lead) =>

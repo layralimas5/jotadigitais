@@ -67,6 +67,10 @@ export function getStoreSettings(deps: UseCaseDeps): Promise<StoreSettings> {
   return deps.settings.get();
 }
 
+export function getSoldTotal(deps: UseCaseDeps): Promise<number> {
+  return deps.settings.soldTotal();
+}
+
 /** Vitrine pública: catálogo, destaques da home e contas parecidas. */
 export async function listAccounts(deps: UseCaseDeps, filter: AccountFilter): Promise<Account[]> {
   const accounts = await deps.accounts.list(filter);

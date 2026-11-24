@@ -477,6 +477,18 @@ export class SupabaseStoreSettingsRepository implements AdminStoreSettingsReposi
     if (error) fail(error);
     return toStoreSettings(data);
   }
+
+  async soldTotal(): Promise<number> {
+    const { data, error } = await this.client.rpc("sold_accounts_total");
+    if (error) fail(error);
+    return z.number().int().nonnegative().parse(data);
+  }
+
+  async setSoldTotal(total: number): Promise<number> {
+    const { data, error } = await this.client.rpc("set_sold_accounts_total", { p_total: total });
+    if (error) fail(error);
+    return z.number().int().nonnegative().parse(data);
+  }
 }
 
 const LEAD_COLUMNS =
