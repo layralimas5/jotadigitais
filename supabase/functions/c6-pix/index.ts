@@ -4,12 +4,14 @@
 //   { action: "charge", code, paymentId }   -> cria (ou reaproveita) a cobrança imediata e devolve o copia e cola
 //   { action: "check", code, paymentId }    -> consulta a cobrança no C6 e, se foi paga, marca a parte como paga
 //   ?action=webhook (corpo do C6)           -> aviso de Pix recebido: consulta a cobrança e marca paga
+//   { action: "reconcile" } + x-c6-reconcile-secret -> pg_cron a cada minuto: confere todos os Pix pendentes
 //
 // Nada é marcado como pago só porque alguém avisou: toda confirmação consulta GET /v2/pix/cob/{txid} no C6.
 //
 // O C6 exige mTLS (certificado do portal de desenvolvedor) no token e em todas as chamadas.
 // Segredos: C6_CLIENT_ID, C6_CLIENT_SECRET, C6_CERT e C6_KEY (PEM, ou o PEM em base64),
-//           C6_PIX_KEY (chave Pix cadastrada na conta C6 do Jota), C6_ENV=sandbox para testar.
+//           C6_PIX_KEY (chave Pix cadastrada na conta C6 do Jota), C6_ENV=sandbox para testar,
+//           C6_RECONCILE_SECRET (o mesmo valor de c6_reconcile_secret no Vault, usado pelo pg_cron).
 // Deploy: npx supabase functions deploy c6-pix --no-verify-jwt   (o webhook do C6 não manda token do Supabase)
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.3";
 
@@ -236,12 +238,53 @@ function txidsFrom(body: Record<string, unknown>): string[] {
 
 /** 500 faz o C6 tentar de novo: só quando a conferência falhou do nosso lado ou do dele. */
 async function webhook(service: SupabaseClient, body: Record<string, unknown>): Promise<Response> {
-  for (const txid of txidsFrom(body)) {
+  const txids = txidsFrom(body);
+  if (txids.length === 0) console.warn(`Aviso do C6 sem txid reconhecido. Campos: ${Object.keys(body).join(", ")}`);
+  for (const txid of txids) {
     const { data, error } = await service.from("order_payments").select("id, status").eq("pix_txid", txid).maybeSingle<{ id: string; status: string }>();
     if (error) throw error;
     if (data?.status === "pending") await settle(service, data.id, txid);
   }
   return json({ ok: true });
+}
+
+/** A cobrança do C6 vence em até 2 h (o prazo da reserva); 3 h cobre o pagamento feito no último minuto. */
+const RECONCILE_WINDOW_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Rede de segurança no servidor, chamada pelo pg_cron a cada minuto: confere no C6 todos os Pix pendentes.
+ * Cobre o cliente que pagou no app do banco e não voltou para a página quando o aviso do C6 não chega.
+ */
+async function reconcile(service: SupabaseClient): Promise<Response> {
+  const { data, error } = await service
+    .from("order_payments")
+    .select("id, pix_txid, orders!inner(code, status)")
+    .eq("method", "pix")
+    .eq("provider", "c6")
+    .eq("status", "pending")
+    .not("pix_txid", "is", null)
+    .eq("orders.status", "awaiting_payment")
+    .gte("created_at", new Date(Date.now() - RECONCILE_WINDOW_MS).toISOString())
+    .returns<{ id: string; pix_txid: string; orders: { code: string } }[]>();
+  if (error) throw error;
+
+  const confirmed: string[] = [];
+  for (const part of data ?? []) {
+    try {
+      if (await settle(service, part.id, part.pix_txid)) confirmed.push(part.orders.code);
+    } catch (reason) {
+      console.error(`Conferência do Pix ${part.orders.code} falhou`, reason);
+    }
+  }
+  if (confirmed.length > 0) console.log(`Pix confirmado pela conferência do servidor: ${confirmed.join(", ")}`);
+  return json({ checked: data?.length ?? 0, confirmed });
+}
+
+function sameSecret(given: string | null, expected: string): boolean {
+  if (!given || given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
 }
 
 Deno.serve(async (request) => {
@@ -262,6 +305,10 @@ Deno.serve(async (request) => {
     if (action === "charge") return await createCharge(service, body);
     if (action === "check") return await checkCharge(service, body);
     if (action === "webhook") return await webhook(service, body);
+    if (action === "reconcile") {
+      if (!sameSecret(request.headers.get("x-c6-reconcile-secret"), env("C6_RECONCILE_SECRET"))) return json({ error: "forbidden" }, 403);
+      return await reconcile(service);
+    }
     return failWith("invalid");
   } catch (error) {
     console.error(error);
