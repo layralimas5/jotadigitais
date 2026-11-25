@@ -21,6 +21,7 @@ import { CommissionList } from "@/ui/components/affiliate/CommissionList";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
+import { AssignOrderSection, OwnCommissionSection, PayoutSection, ReferralLinksSection } from "../affiliates/AffiliateDetailSections";
 import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { affiliatePreviewPath } from "../affiliates/AffiliatePreviewRoot";
 import { partnersTabPath } from "../affiliates/PartnersTabs";
@@ -302,11 +303,15 @@ function AffiliateDetailView({ detail, reload, backPath }: { detail: AffiliateDe
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <div className="space-y-6">
           <ProfileFacts detail={detail} />
+          <PayoutSection detail={detail} onPaid={reload} />
+          <ReferralLinksSection detail={detail} />
           <PartnerSection detail={detail} onSaved={reload} />
         </div>
         <div className="space-y-6">
           <StatusSection key={`${affiliate.status}:${affiliate.statusNote ?? ""}`} detail={detail} onSaved={reload} />
+          <OwnCommissionSection key={JSON.stringify(affiliate.commission)} detail={detail} onSaved={reload} />
           <CouponSection detail={detail} onSaved={reload} />
+          <AssignOrderSection detail={detail} onAssigned={reload} />
         </div>
       </div>
 

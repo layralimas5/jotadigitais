@@ -4,6 +4,8 @@ import { cn } from "@/ui/lib/cn";
 export const PARTNERS_TABS = [
   { id: "parceiros", label: "Parceiros" },
   { id: "afiliados", label: "Afiliados" },
+  { id: "pagamentos", label: "Pagamentos" },
+  { id: "brindes", label: "Brindes" },
   { id: "programa", label: "Programa" },
   { id: "mural", label: "Mural" },
 ] as const;
@@ -31,7 +33,18 @@ export function usePartnersTab(): [PartnersTab, (tab: PartnersTab) => void] {
 
 export const partnersTabPath = (tab: PartnersTab) => (tab === DEFAULT_TAB ? "/admin/parceiros" : `/admin/parceiros?${TAB_PARAM}=${tab}`);
 
-export function PartnersTabBar({ tab, onChange, pendingCount }: { tab: PartnersTab; onChange: (tab: PartnersTab) => void; pendingCount: number }) {
+/** Contador em cada aba: afiliados esperando aprovação e afiliados com lote pronto para pagar. */
+const BADGE_HINT: Partial<Record<PartnersTab, string>> = { afiliados: "esperando aprovação", pagamentos: "prontos para pagar" };
+
+export function PartnersTabBar({
+  tab,
+  onChange,
+  badges,
+}: {
+  tab: PartnersTab;
+  onChange: (tab: PartnersTab) => void;
+  badges: Partial<Record<PartnersTab, number>>;
+}) {
   return (
     <div role="tablist" aria-label="Parceiros e afiliados" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
       {PARTNERS_TABS.map((item) => (
@@ -47,10 +60,10 @@ export function PartnersTabBar({ tab, onChange, pendingCount }: { tab: PartnersT
           )}
         >
           {item.label}
-          {item.id === "afiliados" && pendingCount > 0 && (
-            <span className="ml-1.5 rounded-full bg-amber-400/20 px-1.5 text-xs font-semibold text-amber-200 tabular-nums">
-              {pendingCount}
-              <span className="sr-only"> esperando aprovação</span>
+          {(badges[item.id] ?? 0) > 0 && (
+            <span className="ml-1.5 rounded-full bg-electric/20 px-1.5 text-xs font-semibold text-electric-soft tabular-nums">
+              {badges[item.id]}
+              <span className="sr-only"> {BADGE_HINT[item.id]}</span>
             </span>
           )}
         </button>
