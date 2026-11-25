@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import type { Account } from "@/domain/account";
 import { stockCategoryOf } from "@/domain/stock";
 import { STOCK_ALERT_CATEGORIES, STOCK_ALERT_CATEGORY_LABEL, type StockAlertCategory } from "@/domain/stock-alert";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { cn } from "@/ui/lib/cn";
+import { editable } from "@/ui/lib/site-preview";
 import { StockAlertButton } from "./StockAlertButton";
 
 function availableByCategory(accounts: readonly Account[]): Record<StockAlertCategory, number> {
@@ -23,11 +25,12 @@ export function StockOverview({ accounts, alertPreset }: { accounts: readonly Ac
   const counts = useMemo(() => availableByCategory(accounts), [accounts]);
   const soldOut = STOCK_ALERT_CATEGORIES.filter((category) => counts[category] === 0);
   const [onlySoldOut] = soldOut.length === 1 ? soldOut : [];
+  const { stockTitle, soldOutButton, soldOutOneButton } = useSiteContent().catalogPage;
 
   return (
     <section aria-labelledby="estoque-title" className="mt-6">
-      <h2 id="estoque-title" className="text-xs font-semibold tracking-wide text-mist uppercase">
-        Estoque agora
+      <h2 id="estoque-title" {...editable("catalogPage.stockTitle")} className="text-xs font-semibold tracking-wide text-mist uppercase">
+        {stockTitle}
       </h2>
       <ul className="-mx-4 mt-3 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {STOCK_ALERT_CATEGORIES.map((category) => {
@@ -50,7 +53,8 @@ export function StockOverview({ accounts, alertPreset }: { accounts: readonly Ac
       {soldOut.length > 0 ? (
         <StockAlertButton
           initial={soldOut}
-          label={onlySoldOut ? `Me avise quando chegar ${STOCK_ALERT_CATEGORY_LABEL[onlySoldOut]}` : "Me avise quando chegar o que está esgotado"}
+          label={onlySoldOut ? soldOutOneButton.replaceAll("{tipo}", STOCK_ALERT_CATEGORY_LABEL[onlySoldOut]) : soldOutButton}
+          editPath={onlySoldOut ? "catalogPage.soldOutOneButton" : "catalogPage.soldOutButton"}
           className="mt-3"
         />
       ) : (

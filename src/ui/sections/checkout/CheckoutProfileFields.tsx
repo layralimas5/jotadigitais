@@ -1,7 +1,9 @@
 import { Globe2 } from "lucide-react";
+import type { Account } from "@/domain/account";
 import { maskDocumentInput } from "@/domain/brazil";
 import { LEAD_SOURCE_LABEL, orderCheckoutSources, type LeadSource } from "@/domain/lead";
 import { REFERRED_BY_MAX_LENGTH } from "@/domain/referral";
+import { fillCountry, joinCountryNames, residenceNoticesFor } from "@/domain/residence-notice";
 import { SelectInput, TextField } from "@/ui/components/form/Fields";
 import { formatWhatsappInput, sourceOf, type CheckoutField, type CheckoutValues } from "@/ui/hooks/useCheckoutForm";
 import { cn } from "@/ui/lib/cn";
@@ -20,6 +22,8 @@ const optionsOf = (sources: readonly LeadSource[]) => [
 ];
 
 interface CheckoutProfileFieldsProps {
+  /** Contas do pedido: o país de cada uma decide o aviso de proxy e emulador. */
+  accounts: readonly Account[];
   values: CheckoutValues;
   errors: Partial<Record<CheckoutField, string>>;
   setField: <K extends CheckoutField>(field: K, value: CheckoutValues[K]) => void;
@@ -31,9 +35,36 @@ const RESIDENCE_OPTIONS = [
   { abroad: true, label: "Fora do Brasil" },
 ] as const;
 
-/** Onde a pessoa mora muda o formato do WhatsApp e, fora do Brasil, mostra o aviso de proxy e emulador. */
-function ResidenceChoice({ abroad, onChange }: { abroad: boolean; onChange: (abroad: boolean) => void }) {
-  const { abroadTitle, abroadNotice } = useSiteContent().checkoutPage;
+function ResidenceNotice({ title, text, titlePath, textPath }: { title: string; text: string; titlePath: string; textPath: string }) {
+  return (
+    <div role="note" className="mt-3 flex gap-3 rounded-2xl border border-electric/35 bg-electric/[0.07] p-4 text-left">
+      <Globe2 aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
+      <div>
+        <p {...editable(titlePath)} className="text-sm font-semibold text-white">
+          {title}
+        </p>
+        <p {...editable(textPath)} className="mt-1 text-sm leading-relaxed text-fog">
+          {text}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+interface ResidenceChoiceProps {
+  abroad: boolean;
+  accounts: readonly Account[];
+  onChange: (abroad: boolean) => void;
+}
+
+/**
+ * Onde a pessoa mora muda o formato do WhatsApp. O aviso de proxy e emulador cruza isso com o país da conta:
+ * quem mora fora levando conta do Brasil e qualquer um levando conta de outro país (inclusive quem mora no Brasil).
+ */
+function ResidenceChoice({ abroad, accounts, onChange }: ResidenceChoiceProps) {
+  const { abroadTitle, abroadNotice, foreignTitle, foreignNotice } = useSiteContent().checkoutPage;
+  const notices = residenceNoticesFor(abroad, accounts);
+  const foreignCountry = joinCountryNames(notices.foreignCountries);
   return (
     <div>
       <p id="checkout-residencia" className="text-sm font-medium text-fog">
@@ -60,25 +91,23 @@ function ResidenceChoice({ abroad, onChange }: { abroad: boolean; onChange: (abr
           </label>
         ))}
       </div>
-      {abroad && (
-        <div role="note" className="mt-3 flex gap-3 rounded-2xl border border-electric/35 bg-electric/[0.07] p-4 text-left">
-          <Globe2 aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
-          <div>
-            <p {...editable("checkoutPage.abroadTitle")} className="text-sm font-semibold text-white">
-              {abroadTitle}
-            </p>
-            <p {...editable("checkoutPage.abroadNotice")} className="mt-1 text-sm leading-relaxed text-fog">
-              {abroadNotice}
-            </p>
-          </div>
-        </div>
+      {notices.abroad && (
+        <ResidenceNotice title={abroadTitle} text={abroadNotice} titlePath="checkoutPage.abroadTitle" textPath="checkoutPage.abroadNotice" />
+      )}
+      {foreignCountry && (
+        <ResidenceNotice
+          title={fillCountry(foreignTitle, foreignCountry)}
+          text={fillCountry(foreignNotice, foreignCountry)}
+          titlePath="checkoutPage.foreignTitle"
+          textPath="checkoutPage.foreignNotice"
+        />
       )}
     </div>
   );
 }
 
 /** O mínimo para entregar e dar garantia: nome, WhatsApp, CPF/CNPJ e como conheceu a loja. */
-export function CheckoutProfileFields({ values, errors, setField, setAbroad }: CheckoutProfileFieldsProps) {
+export function CheckoutProfileFields({ accounts, values, errors, setField, setAbroad }: CheckoutProfileFieldsProps) {
   const { sourceQuestion } = useSiteContent().checkoutPage;
   const { sources, defaultSource } = useCheckoutSources();
   const source = sourceOf(values, defaultSource);
@@ -94,7 +123,7 @@ export function CheckoutProfileFields({ values, errors, setField, setAbroad }: C
         onChange={(event) => setField("name", event.target.value)}
         error={errors.name}
       />
-      <ResidenceChoice abroad={values.abroad} onChange={setAbroad} />
+      <ResidenceChoice abroad={values.abroad} accounts={accounts} onChange={setAbroad} />
       <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
         <TextField
           label={values.abroad ? "WhatsApp com o código do país" : "WhatsApp com DDD"}

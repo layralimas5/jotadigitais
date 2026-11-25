@@ -11,9 +11,11 @@ import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/Accoun
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useAccounts, useStockCountries } from "@/ui/hooks/useStore";
 import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-links";
 import { cn } from "@/ui/lib/cn";
+import { editable } from "@/ui/lib/site-preview";
 import { StockAlertButton } from "@/ui/components/stock-alert/StockAlertButton";
 import { StockOverview } from "@/ui/components/stock-alert/StockOverview";
 import type { StockAlertCategory } from "@/domain/stock-alert";
@@ -135,6 +137,7 @@ export default function CatalogPage() {
     "Contas de TikTok, Instagram, YouTube e Facebook prontas para usar. Filtre por rede social, país e número de seguidores.",
   );
   const { platform, country, range, sort, kind, otherNetworksFirst, update, reset } = useCatalogParams();
+  const copy = useSiteContent().catalogPage;
 
   const filter = useMemo<AccountFilter>(
     () => ({
@@ -171,12 +174,14 @@ export default function CatalogPage() {
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-gradient-to-b from-violet/20 to-transparent" />
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <header className="max-w-2xl">
-          <p className="font-display text-xs font-semibold tracking-[0.2em] text-electric uppercase">Vitrine</p>
-          <h1 className="mt-3 font-display text-hero font-semibold tracking-tight text-white sm:mt-4 md:text-6xl">
-            Contas disponíveis
+          <p {...editable("catalogPage.eyebrow")} className="font-display text-xs font-semibold tracking-[0.2em] text-electric uppercase">
+            {copy.eyebrow}
+          </p>
+          <h1 {...editable("catalogPage.title")} className="mt-3 font-display text-hero font-semibold tracking-tight text-white sm:mt-4 md:text-6xl">
+            {copy.title}
           </h1>
-          <p className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
-            TikTok, Instagram, YouTube e Facebook. Cada conta é única e conferida antes de entrar na vitrine.
+          <p {...editable("catalogPage.description")} className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
+            {copy.description}
           </p>
           {allAccounts.status === "success" ? (
             <StockOverview accounts={allAccounts.data} alertPreset={alertPreset} />

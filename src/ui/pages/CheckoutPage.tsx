@@ -47,7 +47,7 @@ function CheckoutForm({ accounts, coupon, preview, onPlaced }: CheckoutFormProps
 
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10" aria-busy={submitting}>
-      <CheckoutProfileFields values={values} errors={errors} setField={setField} setAbroad={setAbroad} />
+      <CheckoutProfileFields accounts={accounts} values={values} errors={errors} setField={setField} setAbroad={setAbroad} />
       <CheckoutPaymentStep total={coupon.total} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
 
       {placeOrder.state.status === "error" && (

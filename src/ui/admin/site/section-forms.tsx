@@ -10,7 +10,7 @@ import { CHECKOUT_SOURCE_ORDER, LEAD_SOURCE_LABEL, orderCheckoutSources, type Le
 import { PAYMENT_PLANS, PAYMENT_PLAN_LABEL } from "@/domain/payment";
 import { PLATFORMS, PLATFORM_LABEL } from "@/domain/platform";
 import { FAQ_TOPIC_LABEL, FAQ_TOPICS, isFaqTopic, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MAX_PARTNER_STEPS, type PlatformCard, type SiteContent, type SiteSectionKey, type TextCard } from "@/domain/site-content";
-import { ABOUT_PATH, PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
+import { ABOUT_PATH, CATALOG_PATH, PARTNER_PATH, PREVIEW_ACCOUNT_PATH, PREVIEW_CHECKOUT_PATH, PREVIEW_ORDER_PATH } from "@/ui/lib/site-preview";
 import { SelectField, ToggleField } from "../components/FormControls";
 import { CopyField, CopyListField, ImageCopyField, Repeater, type FieldErrors } from "./fields";
 import { PageButtonsField } from "./PageButtonsField";
@@ -243,6 +243,21 @@ const FooterForm: Form<"footer"> = (props) => {
   );
 };
 
+const CatalogPageForm: Form<"catalogPage"> = (props) => {
+  const copy = copyFieldsFor("catalogPage", props);
+  return (
+    <>
+      {copy("eyebrow", "Chamada pequena", 40)}
+      {copy("title", "Título", 90)}
+      {copy("description", "Texto de apoio", 240, { multiline: true })}
+      {copy("stockTitle", "Título do estoque por tipo", 40)}
+      {copy("alertButton", "Botão “Me avise” (nada esgotado)", 60, { hint: "Também é o botão da lista vazia, quando o filtro não acha conta." })}
+      {copy("soldOutButton", "Botão “Me avise” (vários tipos esgotados)", 60)}
+      {copy("soldOutOneButton", "Botão “Me avise” (um tipo esgotado)", 60, { hint: "Use {tipo} para o nome do tipo esgotado, ex.: Shop ativo." })}
+    </>
+  );
+};
+
 const CheckoutPageForm: Form<"checkoutPage"> = (props) => {
   const copy = copyFieldsFor("checkoutPage", props);
   const { value, onChange, errors } = props;
@@ -273,7 +288,12 @@ const CheckoutPageForm: Form<"checkoutPage"> = (props) => {
       {copy("abroadTitle", "Aviso para quem mora fora do Brasil: título", 80)}
       {copy("abroadNotice", "Aviso para quem mora fora do Brasil: texto", 400, {
         multiline: true,
-        hint: "Aparece quando o cliente marca que mora fora do Brasil.",
+        hint: "Aparece quando o cliente marca que mora fora do Brasil e está levando conta do Brasil.",
+      })}
+      {copy("foreignTitle", "Aviso de conta de outro país: título", 80, { hint: "Use {pais} para o país da conta." })}
+      {copy("foreignNotice", "Aviso de conta de outro país: texto", 400, {
+        multiline: true,
+        hint: "Aparece em toda compra de conta criada fora do Brasil, inclusive para quem mora no Brasil. Use {pais} para o país da conta.",
       })}
     </>
   );
@@ -709,7 +729,7 @@ export interface SiteSectionDefinition<K extends SiteSectionKey = SiteSectionKey
   title: string;
   description: string;
   /** Página e elemento que a prévia mostra quando a seção abre. */
-  path: "/" | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PREVIEW_CHECKOUT_PATH | typeof PARTNER_PATH | typeof ABOUT_PATH;
+  path: "/" | typeof CATALOG_PATH | typeof PREVIEW_ORDER_PATH | typeof PREVIEW_ACCOUNT_PATH | typeof PREVIEW_CHECKOUT_PATH | typeof PARTNER_PATH | typeof ABOUT_PATH;
   anchor: string;
   Form: Form<K>;
 }
@@ -728,6 +748,14 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({ key: "finalCta", title: "Chamada final", description: "O bloco antes do rodapé", path: "/", anchor: "cta-title", Form: FinalCtaForm }),
   define({ key: "footer", title: "Rodapé", description: "Frases e aviso legal", path: "/", anchor: "rodape", Form: FooterForm }),
   define({
+    key: "catalogPage",
+    title: "Vitrine",
+    description: "Topo da página de contas, estoque por tipo e botões do “Me avise”",
+    path: CATALOG_PATH,
+    anchor: "estoque-title",
+    Form: CatalogPageForm,
+  }),
+  define({
     key: "accountPage",
     title: "Página da conta",
     description: "Caixa de compra, o que está incluso e como você recebe",
@@ -738,7 +766,7 @@ export const SITE_SECTIONS: readonly SiteSectionDefinition[] = [
   define({
     key: "checkoutPage",
     title: "Checkout",
-    description: "Como o cliente conta de onde veio",
+    description: "De onde o cliente veio e avisos de país (proxy e emulador)",
     path: PREVIEW_CHECKOUT_PATH,
     anchor: "checkout-origem",
     Form: CheckoutPageForm,

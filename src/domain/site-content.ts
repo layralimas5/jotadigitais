@@ -168,6 +168,16 @@ export interface SiteContent {
     paymentStepText: Record<PaymentPlan, string>;
     steps: [TextCard, TextCard];
   };
+  /** Vitrine (/contas): topo, "Estoque agora" e os botões do "Me avise quando chegar". */
+  catalogPage: TitleBlock & {
+    stockTitle: string;
+    /** Botão quando nenhum tipo está esgotado. */
+    alertButton: string;
+    /** Botão com mais de um tipo esgotado. */
+    soldOutButton: string;
+    /** Botão com um tipo esgotado só: {tipo} vira o nome dele. */
+    soldOutOneButton: string;
+  };
   /** Ficha do cliente no checkout: a pergunta de origem e as opções que aparecem nela. */
   checkoutPage: {
     sourceQuestion: string;
@@ -176,6 +186,9 @@ export interface SiteContent {
     /** Aviso para quem marca que mora fora do Brasil (proxy, emulador...). */
     abroadTitle: string;
     abroadNotice: string;
+    /** Aviso da conta criada fora do Brasil, para qualquer cliente (inclusive quem mora no Brasil): {pais} vira o país da conta. */
+    foreignTitle: string;
+    foreignNotice: string;
   };
   /** Página /seja-parceiro: explica a parceria e leva ao WhatsApp do Jota com a mensagem pronta. */
   partnerPage: TitleBlock & {
@@ -435,12 +448,24 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       { title: "Deixe a conta com a sua cara", text: "Troque nome, @ e foto e afilie seus primeiros produtos na vitrine." },
     ],
   },
+  catalogPage: {
+    eyebrow: "Vitrine",
+    title: "Contas disponíveis",
+    description: "TikTok, Instagram, YouTube e Facebook. Cada conta é única e conferida antes de entrar na vitrine.",
+    stockTitle: "Estoque agora",
+    alertButton: "Me avise quando chegar conta",
+    soldOutButton: "Me avise quando chegar o que está esgotado",
+    soldOutOneButton: "Me avise quando chegar {tipo}",
+  },
   checkoutPage: {
     sourceQuestion: "Como você conheceu a Jota Digitais?",
     sources: ["referral"],
     abroadTitle: "Mora fora do Brasil? Leia antes de comprar",
     abroadNotice:
       "As contas são do Brasil. Para usar de outro país sem bloqueio, você precisa ter antes um proxy com IP do Brasil e um emulador (celular virtual). Sem isso, a rede pode limitar ou bloquear a conta. Ficou com dúvida? Fale com a gente no WhatsApp antes de pagar.",
+    foreignTitle: "Conta de fora do Brasil ({pais}). Leia antes de comprar",
+    foreignNotice:
+      "País da conta: {pais}. Se você não mora nesse país, mesmo morando no Brasil, precisa ter antes um proxy com IP desse país e um emulador (celular virtual) para usar sem bloqueio. Sem isso, a rede pode limitar ou bloquear a conta. Ficou com dúvida? Fale com a gente no WhatsApp antes de pagar.",
   },
   partnerPage: {
     eyebrow: "Seja parceiro",
