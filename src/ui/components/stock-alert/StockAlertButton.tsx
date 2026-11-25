@@ -4,8 +4,10 @@ import { STOCK_ALERT_CATEGORIES, STOCK_ALERT_CATEGORY_LABEL, categoriesLabel, ty
 import { Modal } from "@/ui/admin/components/Modal";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
+import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useStockAlert } from "@/ui/hooks/useStockAlert";
 import { cn } from "@/ui/lib/cn";
+import { editable } from "@/ui/lib/site-preview";
 
 const CATEGORY_HINT: Record<StockAlertCategory, string> = {
   shop_full: "TikTok com todos os produtos do Shop liberados",
@@ -117,17 +119,20 @@ interface StockAlertButtonProps {
   initial?: readonly StockAlertCategory[];
   variant?: "primary" | "secondary";
   className?: string;
-  /** Texto do botão; o padrão é "Me avise quando chegar conta". */
+  /** Texto do botão; o padrão é o "Me avise" da vitrine, editável na aba Site. */
   label?: string;
+  /** Campo da aba Site que controla o texto (clique na prévia). */
+  editPath?: string;
 }
 
 /** "Me avise quando chegar": o cliente entra na lista de espera do tipo de conta que quer. */
-export function StockAlertButton({ initial = [], variant = "secondary", className, label = "Me avise quando chegar conta" }: StockAlertButtonProps) {
+export function StockAlertButton({ initial = [], variant = "secondary", className, label, editPath = "catalogPage.alertButton" }: StockAlertButtonProps) {
   const [open, setOpen] = useState(false);
+  const { alertButton } = useSiteContent().catalogPage;
   return (
     <>
-      <Button variant={variant} className={className} onClick={() => setOpen(true)}>
-        <BellRing aria-hidden className="size-4" /> {label}
+      <Button variant={variant} className={className} onClick={() => setOpen(true)} {...editable(editPath)}>
+        <BellRing aria-hidden className="size-4" /> {label ?? alertButton}
       </Button>
       <Modal
         open={open}

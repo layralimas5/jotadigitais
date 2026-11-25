@@ -62,6 +62,8 @@ export const PREVIEW_ACCOUNT_PATH = `/contas/${PREVIEW_ACCOUNT_SLUG}`;
 /** Checkout da mesma conta de exemplo: na prévia, o botão de finalizar não registra pedido. */
 export const PREVIEW_CHECKOUT_PATH = `/checkout/${PREVIEW_ACCOUNT_SLUG}`;
 
+export const CATALOG_PATH = "/contas";
+
 export const PARTNER_PATH = "/seja-parceiro";
 
 export const ABOUT_PATH = "/quem-sou-eu";

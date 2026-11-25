@@ -912,10 +912,19 @@ export const siteContentSchema = z.object({
     paymentStepText: z.object({ pix: copy(220), card: copy(220), two_cards: copy(220), card_pix: copy(220) }),
     steps: z.tuple([textCard, textCard]),
   }),
+  catalogPage: z.object({
+    ...titleBlock,
+    stockTitle: copy(40),
+    alertButton: copy(60),
+    soldOutButton: copy(60),
+    soldOutOneButton: copy(60),
+  }),
   checkoutPage: z.object({
     sourceQuestion: copy(80),
     abroadTitle: copy(80),
     abroadNotice: copy(400),
+    foreignTitle: copy(80),
+    foreignNotice: copy(400),
     sources: z
       .array(z.enum(LEAD_SOURCES))
       .min(1, "Deixe pelo menos uma opção ligada.")
