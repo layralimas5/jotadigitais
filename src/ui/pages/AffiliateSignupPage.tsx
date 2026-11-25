@@ -7,10 +7,11 @@ import { fieldErrorsOf, PASSWORD_RULE_HINT } from "@/application/schemas";
 import { commissionRuleLabel, type AffiliateProgram } from "@/domain/affiliate";
 import { maskDocumentInput } from "@/domain/brazil";
 import { formatBRL } from "@/domain/money";
-import { Button, ButtonLink } from "@/ui/components/Button";
+import { Button, ButtonLink, buttonClasses } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { PasswordField } from "@/ui/components/form/PasswordField";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
+import { AffiliateFaq, AffiliatePerks, EarningsShowcase } from "@/ui/sections/affiliate/AffiliateLanding";
 import { useAsync } from "@/ui/hooks/useAsync";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 
@@ -236,6 +237,14 @@ export default function AffiliateSignupPage() {
           <p className="mt-4 text-lg leading-relaxed text-pretty text-fog md:mt-6">
             Você divulga, o cliente compra pelo seu link ou cupom e a comissão cai no seu painel. Sem estoque, sem atendimento.
           </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <a href="#cadastro" className={buttonClasses({ size: "lg" })}>
+              Quero ser afiliado
+            </a>
+            <ButtonLink to="/afiliado/entrar" variant="secondary" size="lg">
+              <LogIn aria-hidden className="size-4" /> Já sou afiliado
+            </ButtonLink>
+          </div>
         </Reveal>
 
         {program.status === "loading" && <div className="mt-10 h-48 animate-pulse rounded-3xl bg-surface" aria-label="Carregando" />}
@@ -249,8 +258,17 @@ export default function AffiliateSignupPage() {
         )}
         {program.status === "success" && (
           <>
-            {program.data.enabled && <Steps program={program.data} />}
-            <div className="mx-auto mt-10 max-w-xl sm:mt-14">{program.data.enabled ? <SignupForm program={program.data} /> : <ProgramClosed />}</div>
+            {program.data.enabled && (
+              <>
+                <Steps program={program.data} />
+                <EarningsShowcase program={program.data} />
+                <AffiliatePerks program={program.data} />
+              </>
+            )}
+            <div id="cadastro" className="mx-auto mt-10 max-w-xl scroll-mt-28 sm:mt-14">
+              {program.data.enabled ? <SignupForm program={program.data} /> : <ProgramClosed />}
+            </div>
+            {program.data.enabled && <AffiliateFaq program={program.data} />}
           </>
         )}
       </div>

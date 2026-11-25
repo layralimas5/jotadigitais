@@ -2,6 +2,8 @@ import { ArrowRight, Megaphone, Pin, TicketPercent, Trophy } from "lucide-react"
 import { Link } from "react-router-dom";
 import { loadAffiliateHome, type AffiliateHome } from "@/application/affiliate-use-cases";
 import { affiliateLink, commissionRuleLabel } from "@/domain/affiliate";
+import { earningExamples, earningSentence } from "@/domain/affiliate-rewards";
+import { container } from "@/app/container";
 import { formatBRL } from "@/domain/money";
 import { CommissionList } from "@/ui/components/affiliate/CommissionList";
 import { ErrorState } from "@/ui/components/StateViews";
@@ -9,6 +11,7 @@ import { useAsync } from "@/ui/hooks/useAsync";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { cn } from "@/ui/lib/cn";
 import { AffiliateSpinner } from "../AffiliateLayout";
+import { AffiliateBanner, EarningsCard, GiftReminder, PayoutProgressCard, StoreNumbers, WhatsAppReferral, ruleFor } from "../components/AffiliateRewards";
 import { CopyButton, LinkBox, PanelSection, StatTile } from "../components/AffiliateUi";
 import { useAffiliateMe, useAffiliatePath, useAffiliatePortal } from "../session";
 
@@ -30,6 +33,8 @@ function QuickShare({ home }: { home: AffiliateHome }) {
   const { me, program } = home;
   const pathTo = useAffiliatePath();
   const link = affiliateLink(window.location.origin, me.code);
+  const rule = ruleFor(home);
+  const [example] = earningExamples(rule, [150_000]);
   return (
     <PanelSection
       title="Seu link da loja"
@@ -40,7 +45,8 @@ function QuickShare({ home }: { home: AffiliateHome }) {
       }
     >
       <p className="mb-3 text-sm text-fog">
-        {commissionRuleLabel(program.commission, formatBRL)}. Quem clicar e comprar em até {program.linkDays} dias conta para você.
+        {commissionRuleLabel(rule, formatBRL)}. Quem clicar e comprar em até {program.linkDays} dias conta para você.
+        {example && <span className="mt-1 block font-medium text-white">Exemplo: {earningSentence(rule, example)}.</span>}
       </p>
       <LinkBox link={link} />
       {me.coupon && (
@@ -114,7 +120,7 @@ export default function AffiliateHomePage() {
   const me = useAffiliateMe();
   const affiliatePortal = useAffiliatePortal();
   const pathTo = useAffiliatePath();
-  const home = useAsync(() => loadAffiliateHome(affiliatePortal, me), `affiliate-home:${me.id}:${me.status}`);
+  const home = useAsync(() => loadAffiliateHome(affiliatePortal, container.store.accounts, me), `affiliate-home:${me.id}:${me.status}`);
 
   if (home.status === "loading") return <AffiliateSpinner />;
   if (home.status === "error") return <ErrorState message={home.error.message} onRetry={home.retry} />;
@@ -127,14 +133,22 @@ export default function AffiliateHomePage() {
         <h1 className="font-display text-2xl font-semibold text-white sm:text-3xl">Olá, {me.name.split(" ")[0]}</h1>
         {data.program.welcomeText && approved && <p className="mt-2 max-w-2xl text-sm whitespace-pre-line text-fog">{data.program.welcomeText}</p>}
       </div>
+      <GiftReminder count={data.giftsToClaim} />
+      {approved && <AffiliateBanner home={data} />}
       <Stats home={data} />
+      {approved && <StoreNumbers home={data} />}
       {approved && (
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
           <div className="space-y-6">
             <QuickShare home={data} />
+            <WhatsAppReferral code={me.code} leads={data.whatsappLeads} />
             <Mural home={data} />
           </div>
-          <Ranking home={data} />
+          <div className="space-y-6">
+            <PayoutProgressCard progress={data.payout} />
+            <EarningsCard home={data} />
+            <Ranking home={data} />
+          </div>
         </div>
       )}
       {data.commissions.length > 0 && (

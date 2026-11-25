@@ -5,6 +5,9 @@ import type { AffiliateMe } from "@/domain/affiliate";
 
 export const AFFILIATE_BASE_PATH = "/afiliado";
 
+/** Telas do painel do afiliado ("" = início). */
+export type AffiliatePage = "" | "divulgar" | "brindes" | "extrato" | "perfil";
+
 export type AffiliateSessionState =
   | { status: "loading" }
   | { status: "signed-out" }
@@ -83,7 +86,7 @@ export function useAffiliateSession(): AffiliateSessionValue {
 export const useAffiliatePortal = (): AffiliatePortalService => useAffiliateSession().portal;
 
 /** Endereço de uma tela do afiliado ("" = início), dentro do painel ou da visualização. */
-export function useAffiliatePath(): (page: "" | "divulgar" | "extrato" | "perfil") => string {
+export function useAffiliatePath(): (page: AffiliatePage) => string {
   const { basePath } = useAffiliateSession();
   return (page) => (page ? `${basePath}/${page}` : basePath);
 }

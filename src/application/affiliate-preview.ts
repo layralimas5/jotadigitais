@@ -1,6 +1,6 @@
 import {
   DEFAULT_ACCOUNT_AFFILIATE_RULE,
-  commissionCents,
+  affiliateAmountFor,
   publicAffiliateName,
   sortAnnouncements,
   type AccountCommissions,
@@ -11,6 +11,7 @@ import {
   type AffiliateProgram,
   type RankingEntry,
 } from "@/domain/affiliate";
+import type { AffiliateGift, AffiliateGiftClaim, AffiliatePayout, AffiliateStoreStats, AffiliateWhatsAppLead } from "@/domain/affiliate-rewards";
 import { PreviewReadOnlyError } from "@/domain/errors";
 import { maskEmail, maskPhone, maskSecret } from "@/domain/privacy-mask";
 import type { AffiliateAdminRepository, AffiliateAuthState, AffiliatePortalService, AffiliateSignupResult } from "./affiliate-ports";
@@ -109,7 +110,7 @@ export class PreviewAffiliatePortalService implements AffiliatePortalService {
     for (const account of accounts) {
       const rule = rules.get(account.id) ?? DEFAULT_ACCOUNT_AFFILIATE_RULE;
       if (account.status === "sold" || !rule.enabled) continue;
-      entries.push([account.id, commissionCents(rule.commission ?? program.commission, account.price)]);
+      entries.push([account.id, affiliateAmountFor(program.commission, affiliate.commission, rule.commission, account.price)]);
     }
     return new Map(entries);
   }
@@ -137,5 +138,37 @@ export class PreviewAffiliatePortalService implements AffiliatePortalService {
   async listAnnouncements(): Promise<AffiliateAnnouncement[]> {
     const affiliate = await this.admin.findAffiliate(this.affiliateId);
     return affiliate?.status === "approved" ? sortAnnouncements(await this.admin.listAnnouncements()) : [];
+  }
+
+  async listPayouts(): Promise<AffiliatePayout[]> {
+    return (await this.admin.listPayouts()).filter((payout) => payout.affiliateId === this.affiliateId);
+  }
+
+  /** Igual à política do banco: brindes ligados, para todos ou só para ele, e só para aprovado. */
+  async listGifts(): Promise<AffiliateGift[]> {
+    const [affiliate, gifts] = await Promise.all([this.admin.findAffiliate(this.affiliateId), this.admin.listGifts()]);
+    if (affiliate?.status !== "approved") return [];
+    return gifts.filter((gift) => gift.active && (gift.affiliateId === null || gift.affiliateId === this.affiliateId));
+  }
+
+  async listGiftClaims(): Promise<AffiliateGiftClaim[]> {
+    return (await this.admin.listGiftClaims()).filter((claim) => claim.affiliateId === this.affiliateId);
+  }
+
+  claimGift(): Promise<void> {
+    return this.readOnly();
+  }
+
+  /** Abrir o sininho na visualização não marca nada como visto para o afiliado. */
+  async markNoticesSeen(): Promise<void> {
+    return undefined;
+  }
+
+  async listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]> {
+    return (await this.admin.listWhatsAppLeads()).filter((lead) => lead.affiliateId === this.affiliateId);
+  }
+
+  storeStats(days: number): Promise<AffiliateStoreStats> {
+    return this.admin.storeStats(days);
   }
 }

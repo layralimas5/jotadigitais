@@ -15,7 +15,9 @@ import { Kpi } from "../components/Kpi";
 import { PersonAvatar } from "../components/PersonAvatar";
 import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery } from "../hooks";
+import { AffiliateGiftsTab } from "../affiliates/AffiliateGiftsTab";
 import { AffiliateMuralTab } from "../affiliates/AffiliateMuralTab";
+import { AffiliatePayoutsTab } from "../affiliates/AffiliatePayoutsTab";
 import { AffiliateProgramTab } from "../affiliates/AffiliateProgramTab";
 import { AffiliatesTab } from "../affiliates/AffiliatesTab";
 import { PartnersTabBar, usePartnersTab, type PartnersTab } from "../affiliates/PartnersTabs";
@@ -249,6 +251,8 @@ function PartnersListTab() {
 const TAB_DESCRIPTION: Record<PartnersTab, string> = {
   parceiros: "Quem fornece contas ou indica clientes. A comissão é calculada sobre as vendas finalizadas das contas de cada um.",
   afiliados: "Quem divulga as contas com link ou cupom próprio. A comissão nasce na venda paga e libera quando a garantia acaba.",
+  pagamentos: "Quanto falta para cada afiliado fechar o lote de pagamento. Faça o Pix e marque \"Paguei\": ele vê no painel na hora.",
+  brindes: "Brindes para os afiliados. Eles tocam em Receber no painel e o pedido aparece aqui para você entregar.",
   programa: "Regras do programa de afiliados: comissão padrão, prazo do link, travas de saque e os termos que o afiliado aceita.",
   mural: "Recados que aparecem no painel de todo afiliado aprovado.",
 };
@@ -256,8 +260,12 @@ const TAB_DESCRIPTION: Record<PartnersTab, string> = {
 export default function PartnersPage() {
   const [tab, setTab] = usePartnersTab();
   const board = useAdminQuery(loadAffiliatesBoard, "admin-affiliates");
-  const pendingCount = board.status === "success" ? board.data.summaries.filter((summary) => summary.affiliate.status === "pending").length : 0;
-  const affiliateTab = tab === "afiliados" || tab === "programa";
+  const summaries = board.status === "success" ? board.data.summaries : [];
+  const badges = {
+    afiliados: summaries.filter((summary) => summary.affiliate.status === "pending").length,
+    pagamentos: summaries.filter((summary) => summary.payout.readyBatches > 0).length,
+  };
+  const affiliateTab = tab === "afiliados" || tab === "programa" || tab === "pagamentos";
 
   return (
     <div className="space-y-6">
@@ -272,7 +280,7 @@ export default function PartnersPage() {
           ) : undefined
         }
       />
-      <PartnersTabBar tab={tab} onChange={setTab} pendingCount={pendingCount} />
+      <PartnersTabBar tab={tab} onChange={setTab} badges={badges} />
       {tab === "parceiros" && <PartnersListTab />}
       {tab === "mural" && <AffiliateMuralTab />}
       {affiliateTab && board.status === "loading" && <LoadingBlock />}
@@ -280,6 +288,8 @@ export default function PartnersPage() {
       {tab === "afiliados" && board.status === "success" && (
         <AffiliatesTab board={board.data} onReload={board.reload} onOpenProgram={() => setTab("programa")} />
       )}
+      {tab === "pagamentos" && board.status === "success" && <AffiliatePayoutsTab board={board.data} onReload={board.reload} />}
+      {tab === "brindes" && <AffiliateGiftsTab />}
       {tab === "programa" && board.status === "success" && <AffiliateProgramTab program={board.data.program} onSaved={board.reload} />}
     </div>
   );

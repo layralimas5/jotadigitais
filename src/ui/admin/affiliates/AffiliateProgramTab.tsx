@@ -32,9 +32,12 @@ interface ProgramFormValues {
   manualApprovalAbove: string;
   terms: string;
   welcomeText: string;
+  payoutBatchSize: string;
+  bannerTitle: string;
+  bannerText: string;
 }
 
-const SAMPLE_PRICE = 37_000;
+const SAMPLE_PRICE = 150_000;
 
 const fromProgram = (program: AffiliateProgram): ProgramFormValues => ({
   enabled: program.enabled,
@@ -47,6 +50,9 @@ const fromProgram = (program: AffiliateProgram): ProgramFormValues => ({
   manualApprovalAbove: formatCentsInput(program.manualApprovalAbove),
   terms: program.terms,
   welcomeText: program.welcomeText ?? "",
+  payoutBatchSize: String(program.payoutBatchSize),
+  bannerTitle: program.bannerTitle ?? "",
+  bannerText: program.bannerText ?? "",
 });
 
 const commissionValueOf = (values: ProgramFormValues) =>
@@ -62,6 +68,9 @@ const toRaw = (values: ProgramFormValues) => ({
   manualApprovalAbove: parseMoneyToCents(values.manualApprovalAbove),
   terms: values.terms,
   welcomeText: values.welcomeText,
+  payoutBatchSize: Number(values.payoutBatchSize.trim()),
+  bannerTitle: values.bannerTitle,
+  bannerText: values.bannerText,
 });
 
 function validate(values: ProgramFormValues): Record<string, string> {
@@ -163,6 +172,22 @@ export function AffiliateProgramTab({ program, onSaved }: { program: AffiliatePr
       </FormSection>
 
       <FormSection
+        title="Pagamento das comissões"
+        description="Você paga em lotes: quando um afiliado junta esse número de indicações vendidas, o lote aparece pronto na aba Pagamentos."
+      >
+        <TextField
+          label="Pagar a cada quantas indicações"
+          name="payoutBatchSize"
+          inputMode="numeric"
+          autoComplete="off"
+          value={values.payoutBatchSize}
+          onChange={(event) => update({ payoutBatchSize: event.target.value.replace(/\D/g, "") })}
+          error={errors.payoutBatchSize}
+          hint="O afiliado vê no painel quantas já foram pagas e quantas faltam para o próximo pagamento."
+        />
+      </FormSection>
+
+      <FormSection
         title="Saques"
         description="Travas de segurança dos pagamentos de comissão. Os saques entram na próxima etapa; já pode deixar os valores definidos."
       >
@@ -197,7 +222,27 @@ export function AffiliateProgramTab({ program, onSaved }: { program: AffiliatePr
         </div>
       </FormSection>
 
-      <FormSection title="Textos" description="O recado aparece no topo do painel do afiliado. Os termos aparecem no cadastro e precisam ser aceitos.">
+      <FormSection title="Textos" description="A faixa e o recado aparecem no topo do painel do afiliado. Os termos aparecem no cadastro e precisam ser aceitos.">
+        <TextField
+          label="Chamada da faixa do painel (opcional)"
+          name="bannerTitle"
+          maxLength={120}
+          autoComplete="off"
+          placeholder="Indique e ganhe em cada conta vendida"
+          value={values.bannerTitle}
+          onChange={(event) => update({ bannerTitle: event.target.value })}
+          error={errors.bannerTitle}
+        />
+        <TextAreaField
+          label="Texto da faixa (opcional)"
+          name="bannerText"
+          rows={2}
+          maxLength={500}
+          placeholder="Ex.: Esta semana as contas com TikTok Shop estão saindo rápido. Divulgue agora!"
+          value={values.bannerText}
+          onChange={(event) => update({ bannerText: event.target.value })}
+          error={errors.bannerText}
+        />
         <TextAreaField
           label="Recado de boas-vindas (opcional)"
           name="welcomeText"
