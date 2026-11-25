@@ -2,7 +2,7 @@ import { Check, Copy, MessageCircle, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { findAccount, findDeliveryLogin } from "@/application/admin-use-cases";
-import { descriptionKindOf, type DescriptionKind } from "@/domain/account-description";
+import { DESCRIPTION_KIND_LABEL, descriptionKindOf, type DescriptionKind } from "@/domain/account-description";
 import { EMPTY_DELIVERY_LOGIN, type DeliveryLogin } from "@/domain/delivery-login";
 import type { Order } from "@/domain/order";
 import { Button, buttonClasses } from "@/ui/components/Button";
@@ -60,6 +60,27 @@ function useCopied() {
     }
   };
   return { copied, copy };
+}
+
+/**
+ * Qual é o tipo da conta vendida e se a mensagem que abriu é desse tipo. Sem mensagem ligada ao tipo abre a Padrão,
+ * e o Jota precisa ver isso antes de mandar texto de TikTok para quem comprou Instagram.
+ */
+function AccountKindNotice({ accountKind, options }: { accountKind: DescriptionKind; options: readonly MessageOption[] }) {
+  const match = options.find((item) => item.accountKind === accountKind);
+  return (
+    <p
+      className={cn(
+        "mt-4 rounded-xl border px-3.5 py-2.5 text-sm leading-relaxed",
+        match ? "border-line bg-white/[0.03] text-mist" : "border-electric/40 bg-electric/[0.08] text-fog",
+      )}
+    >
+      Conta vendida: <strong className="font-semibold text-white">{DESCRIPTION_KIND_LABEL[accountKind]}</strong>.{" "}
+      {match
+        ? `Abriu com a mensagem “${match.name}”, ligada a esse tipo.`
+        : "Nenhuma mensagem pronta está ligada a esse tipo, então abriu a Padrão. Confira o texto ou edite a mensagem certa e escolha esse tipo nela."}
+    </p>
+  );
 }
 
 interface DeliveryFormProps {
@@ -152,6 +173,8 @@ function DeliveryForm({ order, login, accountKind, messages, titleId, onClose }:
           <X aria-hidden className="size-4" />
         </button>
       </div>
+
+      {accountKind !== null && <AccountKindNotice accountKind={accountKind} options={options} />}
 
       <div data-editing={editing ? "" : undefined} className={cn("mt-5 grid gap-4", editing && "lg:grid-cols-2 lg:items-start")}>
         {editing && (
