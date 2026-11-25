@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { to: "/#garantia", label: "Garantia" },
   { to: "/#duvidas", label: "Dúvidas" },
   { to: "/quem-sou-eu", label: "Quem sou eu" },
-  { to: "/seja-parceiro", label: "Seja parceiro" },
+  { to: "/seja-afiliado", label: "Seja afiliado" },
 ] as const;
 
 function useScrolled(threshold = 12) {
