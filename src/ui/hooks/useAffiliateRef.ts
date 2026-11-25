@@ -60,6 +60,21 @@ export function useAffiliateRef(): void {
   }, [location.pathname, location.search, location.hash, navigate]);
 }
 
+/**
+ * Conta o clique do código e guarda no navegador (link de WhatsApp do afiliado). Devolve se contou.
+ * Falha no rastreio vira aviso no console: quem clicou segue para o WhatsApp do mesmo jeito.
+ */
+export async function trackAffiliateCode(code: string): Promise<boolean> {
+  try {
+    const click = await trackAffiliateVisit(container.affiliates.tracking, code, null);
+    if (click) storeClick(click);
+    return click !== null;
+  } catch (error) {
+    console.warn("Não deu para contar o clique do afiliado", error);
+    return false;
+  }
+}
+
 /** Depois do pedido criado: liga ao afiliado do último link aberto, se ainda estiver no prazo. */
 export async function attachStoredAffiliateClick(orderCode: string): Promise<void> {
   const click = readStoredClick();

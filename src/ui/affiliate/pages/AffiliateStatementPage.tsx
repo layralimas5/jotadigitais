@@ -9,6 +9,7 @@ import {
   type AffiliateCommission,
   type CommissionState,
 } from "@/domain/affiliate";
+import type { AffiliatePayout } from "@/domain/affiliate-rewards";
 import { formatBRL } from "@/domain/money";
 import { CommissionList } from "@/ui/components/affiliate/CommissionList";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -17,7 +18,7 @@ import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { cn } from "@/ui/lib/cn";
 import { csvMoney, downloadCsv } from "@/ui/lib/csv";
 import { AffiliateSpinner } from "../AffiliateLayout";
-import { StatTile } from "../components/AffiliateUi";
+import { PanelSection, StatTile } from "../components/AffiliateUi";
 import { useAffiliateMe, useAffiliatePortal } from "../session";
 
 const PERIODS = [
@@ -59,23 +60,52 @@ const inRange = (commission: AffiliateCommission, range: Range) => {
 
 type StateFilter = CommissionState | "all";
 
+const paidDay = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+
+/** Lotes que a loja já pagou, do mais novo para o mais antigo. */
+function PayoutHistory({ payouts }: { payouts: readonly AffiliatePayout[] }) {
+  if (payouts.length === 0) return null;
+  return (
+    <PanelSection title="Pagamentos recebidos">
+      <ul className="divide-y divide-line">
+        {payouts.map((payout) => (
+          <li key={payout.id} className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0">
+            <span className="min-w-0">
+              <span className="block font-semibold text-white">{paidDay.format(new Date(payout.paidAt))}</span>
+              <span className="block truncate text-xs text-mist">
+                {payout.commissionsCount} {payout.commissionsCount === 1 ? "indicação" : "indicações"}
+                {payout.note ? ` · ${payout.note}` : ""}
+              </span>
+            </span>
+            <span className="shrink-0 font-display font-bold text-white tabular-nums">{formatBRL(payout.amount)}</span>
+          </li>
+        ))}
+      </ul>
+    </PanelSection>
+  );
+}
+
 export default function AffiliateStatementPage() {
   useDocumentMeta("Extrato do afiliado");
   const me = useAffiliateMe();
   const affiliatePortal = useAffiliatePortal();
-  const commissions = useAsync(() => affiliatePortal.listCommissions(), `affiliate-statement:${me.id}`);
+  const statement = useAsync(
+    () => Promise.all([affiliatePortal.listCommissions(), affiliatePortal.listPayouts()]),
+    `affiliate-statement:${me.id}`,
+  );
   const [period, setPeriod] = useState<PeriodId>("30d");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [state, setState] = useState<StateFilter>("all");
 
-  const all = commissions.status === "success" ? commissions.data : null;
+  const all = statement.status === "success" ? statement.data[0] : null;
   const inPeriod = useMemo(() => (all ? all.filter((item) => inRange(item, rangeOf(period, customFrom, customTo))) : []), [all, period, customFrom, customTo]);
   const visible = state === "all" ? inPeriod : inPeriod.filter((item) => commissionStateOf(item) === state);
   const totals = summarizeCommissions(inPeriod);
 
-  if (commissions.status === "loading") return <AffiliateSpinner />;
-  if (commissions.status === "error") return <ErrorState message={commissions.error.message} onRetry={commissions.retry} />;
+  if (statement.status === "loading") return <AffiliateSpinner />;
+  if (statement.status === "error") return <ErrorState message={statement.error.message} onRetry={statement.retry} />;
+  const payouts = statement.data[1];
 
   const exportCsv = () =>
     downloadCsv(`extrato-afiliado-${me.code}.csv`, [
@@ -142,7 +172,7 @@ export default function AffiliateStatementPage() {
         <StatTile label="Vendas no período" value={String(totals.sales)} />
         <StatTile label="Pendente" value={formatBRL(totals.pending)} />
         <StatTile label="Liberado" value={formatBRL(totals.released)} highlight />
-        <StatTile label="Cancelado" value={formatBRL(totals.canceled)} />
+        <StatTile label="Pago" value={formatBRL(totals.paid)} />
       </dl>
 
       <div role="group" aria-label="Situação" className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
@@ -167,6 +197,8 @@ export default function AffiliateStatementPage() {
       ) : (
         <CommissionList commissions={visible} />
       )}
+
+      <PayoutHistory payouts={payouts} />
     </div>
   );
 }

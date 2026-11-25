@@ -1,16 +1,17 @@
-import { ArrowLeft, Eye, House, LogOut, Megaphone, ReceiptText, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Eye, Gift, House, LogOut, Megaphone, ReceiptText, UserRound, type LucideIcon } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { AFFILIATE_STATUS_MESSAGE } from "@/domain/affiliate";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { Logo } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
-import { AffiliateSessionProvider, useAffiliatePath, useAffiliateSession } from "./session";
+import { NoticesBell } from "./components/NoticesBell";
+import { AffiliateSessionProvider, useAffiliatePath, useAffiliateSession, type AffiliatePage } from "./session";
 
 export const AFFILIATE_LOGIN_PATH = "/afiliado/entrar";
 
 interface NavItem {
-  page: "" | "divulgar" | "extrato" | "perfil";
+  page: AffiliatePage;
   label: string;
   icon: LucideIcon;
 }
@@ -18,6 +19,7 @@ interface NavItem {
 const NAV: readonly NavItem[] = [
   { page: "", label: "Início", icon: House },
   { page: "divulgar", label: "Divulgar", icon: Megaphone },
+  { page: "brindes", label: "Brindes", icon: Gift },
   { page: "extrato", label: "Extrato", icon: ReceiptText },
   { page: "perfil", label: "Perfil", icon: UserRound },
 ];
@@ -161,6 +163,7 @@ export function AffiliateProtected() {
             </nav>
             <div className="flex items-center gap-3">
               <span className="hidden text-sm text-fog sm:inline">Olá, {firstName}</span>
+              <NoticesBell />
               {!preview && (
                 <button
                   type="button"
@@ -184,7 +187,7 @@ export function AffiliateProtected() {
       </main>
 
       <nav aria-label="Painel do afiliado" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {NAV.map((item) => (
             <li key={item.page}>
               <NavLink

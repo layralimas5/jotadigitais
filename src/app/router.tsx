@@ -14,6 +14,7 @@ const MyDataPage = lazy(() => import("@/ui/pages/MyDataPage"));
 const PartnerPage = lazy(() => import("@/ui/pages/PartnerPage"));
 const AboutPage = lazy(() => import("@/ui/pages/AboutPage"));
 const AffiliateSignupPage = lazy(() => import("@/ui/pages/AffiliateSignupPage"));
+const AffiliateWhatsAppPage = lazy(() => import("@/ui/pages/AffiliateWhatsAppPage"));
 
 // Painel do afiliado: login próprio, separado do painel da loja.
 const AffiliateRoot = lazy(() => import("@/ui/affiliate/AffiliateLayout").then((module) => ({ default: module.AffiliateRoot })));
@@ -21,6 +22,7 @@ const AffiliateProtected = lazy(() => import("@/ui/affiliate/AffiliateLayout").t
 const AffiliateLoginPage = lazy(() => import("@/ui/affiliate/pages/AffiliateLoginPage"));
 const AffiliateNewPasswordPage = lazy(() => import("@/ui/affiliate/pages/AffiliateNewPasswordPage"));
 const AffiliateHomePage = lazy(() => import("@/ui/affiliate/pages/AffiliateHomePage"));
+const AffiliateGiftsPage = lazy(() => import("@/ui/affiliate/pages/AffiliateGiftsPage"));
 const AffiliateSharePage = lazy(() => import("@/ui/affiliate/pages/AffiliateSharePage"));
 const AffiliateStatementPage = lazy(() => import("@/ui/affiliate/pages/AffiliateStatementPage"));
 const AffiliateProfilePage = lazy(() => import("@/ui/affiliate/pages/AffiliateProfilePage"));
@@ -88,6 +90,7 @@ export const router = createBrowserRouter([
       { path: "meus-dados", element: <MyDataPage /> },
       { path: "seja-parceiro", element: <PartnerPage /> },
       { path: "seja-afiliado", element: <AffiliateSignupPage /> },
+      { path: "indicacao/:code", element: <AffiliateWhatsAppPage /> },
       { path: "quem-sou-eu", element: <AboutPage /> },
       // Endereço antigo dos "Termos de compra e garantia", que agora fazem parte dos Termos de Uso.
       { path: "termos", element: <Navigate to="/termos-de-uso" replace /> },
@@ -106,6 +109,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AffiliateHomePage /> },
           { path: "divulgar", element: <AffiliateSharePage /> },
+          { path: "brindes", element: <AffiliateGiftsPage /> },
           { path: "extrato", element: <AffiliateStatementPage /> },
           { path: "perfil", element: <AffiliateProfilePage /> },
         ],
@@ -125,6 +129,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AffiliateHomePage /> },
           { path: "divulgar", element: <AffiliateSharePage /> },
+          { path: "brindes", element: <AffiliateGiftsPage /> },
           { path: "extrato", element: <AffiliateStatementPage /> },
           { path: "perfil", element: <AffiliateProfilePage /> },
         ],
