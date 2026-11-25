@@ -20,11 +20,30 @@ import {
   type CommissionTotals,
   type RankingEntry,
 } from "@/domain/affiliate";
+import {
+  MAX_PAYOUT_BATCH,
+  MIN_PAYOUT_BATCH,
+  STORE_STATS_DAYS,
+  affiliateNoticesOf,
+  giftStateOf,
+  payoutProgressOf,
+  type AffiliateGift,
+  type AffiliateGiftClaim,
+  type AffiliateNotice,
+  type AffiliatePayout,
+  type AffiliateStoreStats,
+  type AffiliateWhatsAppLead,
+  type GiftState,
+  type PayoutProgress,
+} from "@/domain/affiliate-rewards";
+import type { Account } from "@/domain/account";
 import { isValidCpf } from "@/domain/brazil";
 import { COUPON_CODE_PATTERN, MAX_COUPON_PERCENT, normalizeCouponCode } from "@/domain/coupon";
 import type { Cents } from "@/domain/money";
 import type { Partner } from "@/domain/partner";
+import { STOCK_CATEGORIES, stockCategoryOf, type StockCategory } from "@/domain/stock";
 import type { AffiliateAdminRepository, AffiliatePortalService, AffiliateSignupResult, AffiliateTrackingService, TrackedClick } from "./affiliate-ports";
+import type { AccountRepository } from "./ports";
 import { newPassword, optionalText, optionalWhatsapp, parseOrThrow, personName } from "./schemas";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +81,35 @@ export const affiliateProgramSchema = z.object({
   manualApprovalAbove: cents("o valor", 0, 100_000_000),
   terms: z.string().trim().max(20_000, "Use no máximo 20.000 caracteres."),
   welcomeText: optionalText(2000),
+  payoutBatchSize: z
+    .number({ message: "Informe de quantas em quantas indicações você paga." })
+    .int("Use um número inteiro.")
+    .min(MIN_PAYOUT_BATCH, "Use pelo menos 1.")
+    .max(MAX_PAYOUT_BATCH, `Use no máximo ${MAX_PAYOUT_BATCH}.`),
+  bannerTitle: optionalText(120),
+  bannerText: optionalText(500),
+});
+
+export const affiliateCommissionSchema = commissionRuleSchema.nullable();
+
+export const affiliateGiftSchema = z.object({
+  title: z.string().trim().min(2, "Dê um nome ao brinde.").max(120, "Use no máximo 120 caracteres."),
+  description: optionalText(1000),
+  affiliateId: z.string().min(1).nullable(),
+  expiresAt: z
+    .string()
+    .nullable()
+    .refine((value) => value === null || !Number.isNaN(Date.parse(value)), "Data inválida."),
+  active: z.boolean(),
+});
+
+export const assignOrderSchema = z.object({
+  orderCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9-]{4,30}$/, "Informe o código do pedido (ex.: JD-ABC123)."),
+  affiliateId: z.string().min(1, "Escolha o afiliado."),
 });
 
 export const affiliateStatusSchema = z.object({
@@ -147,9 +195,13 @@ export interface AffiliateSummary {
   affiliate: Affiliate;
   partner: Partner | null;
   clicks: number;
+  /** Contatos que chegaram no WhatsApp oficial pelo link de indicação dele. */
+  whatsappLeads: number;
   totals: CommissionTotals;
   /** Vendas por clique, em %. */
   conversion: number | null;
+  /** Lote de pagamento: quantas pagas, quantas esperando e quanto falta para o próximo. */
+  payout: PayoutProgress;
 }
 
 export interface AffiliatesBoard {
@@ -159,23 +211,27 @@ export interface AffiliatesBoard {
   totals: CommissionTotals;
 }
 
-function summarize(
-  affiliates: readonly Affiliate[],
-  commissions: readonly AffiliateCommission[],
-  clicks: readonly AffiliateClick[],
-  partners: readonly Partner[],
-  now: Date,
-): AffiliateSummary[] {
+interface SummarySources {
+  program: AffiliateProgram;
+  commissions: readonly AffiliateCommission[];
+  clicks: readonly AffiliateClick[];
+  leads: readonly AffiliateWhatsAppLead[];
+  partners: readonly Partner[];
+}
+
+function summarize(affiliates: readonly Affiliate[], sources: SummarySources, now: Date): AffiliateSummary[] {
   return affiliates.map((affiliate) => {
-    const own = commissions.filter((commission) => commission.affiliateId === affiliate.id);
+    const own = sources.commissions.filter((commission) => commission.affiliateId === affiliate.id);
     const totals = summarizeCommissions(own, now);
-    const clickCount = clicks.filter((click) => click.affiliateId === affiliate.id).length;
+    const clickCount = sources.clicks.filter((click) => click.affiliateId === affiliate.id).length;
     return {
       affiliate,
-      partner: partners.find((partner) => partner.id === affiliate.partnerId) ?? null,
+      partner: sources.partners.find((partner) => partner.id === affiliate.partnerId) ?? null,
       clicks: clickCount,
+      whatsappLeads: sources.leads.filter((lead) => lead.affiliateId === affiliate.id).length,
       totals,
       conversion: conversionRate(totals.sales, clickCount),
+      payout: payoutProgressOf(own, sources.program.payoutBatchSize, now),
     };
   });
 }
@@ -185,45 +241,123 @@ interface AdminAffiliateDeps {
   partners: { listAll(): Promise<Partner[]> };
 }
 
-export async function loadAffiliatesBoard(deps: AdminAffiliateDeps, now: Date = new Date()): Promise<AffiliatesBoard> {
-  const [program, affiliates, commissions, clicks, partners] = await Promise.all([
+async function loadSummarySources(deps: AdminAffiliateDeps): Promise<SummarySources> {
+  const [program, commissions, clicks, leads, partners] = await Promise.all([
     deps.affiliates.getProgram(),
-    deps.affiliates.listAffiliates(),
     deps.affiliates.listCommissions(),
     deps.affiliates.listClicks(),
+    deps.affiliates.listWhatsAppLeads(),
     deps.partners.listAll(),
   ]);
+  return { program, commissions, clicks, leads, partners };
+}
+
+export async function loadAffiliatesBoard(deps: AdminAffiliateDeps, now: Date = new Date()): Promise<AffiliatesBoard> {
+  const [sources, affiliates] = await Promise.all([loadSummarySources(deps), deps.affiliates.listAffiliates()]);
   return {
-    program,
-    summaries: summarize(affiliates, commissions, clicks, partners, now),
-    commissions,
-    totals: summarizeCommissions(commissions, now),
+    program: sources.program,
+    summaries: summarize(affiliates, sources, now),
+    commissions: [...sources.commissions],
+    totals: summarizeCommissions(sources.commissions, now),
   };
 }
 
 export interface AffiliateDetail extends AffiliateSummary {
+  program: AffiliateProgram;
   commissions: AffiliateCommission[];
   coupons: AffiliateCoupon[];
   partners: Partner[];
+  payouts: AffiliatePayout[];
 }
 
 export async function loadAffiliateDetail(deps: AdminAffiliateDeps, id: string, now: Date = new Date()): Promise<AffiliateDetail | null> {
-  const [affiliate, commissions, clicks, partners, coupons] = await Promise.all([
+  const [affiliate, sources, coupons, payouts] = await Promise.all([
     deps.affiliates.findAffiliate(id),
-    deps.affiliates.listCommissions(),
-    deps.affiliates.listClicks(),
-    deps.partners.listAll(),
+    loadSummarySources(deps),
     deps.affiliates.listCoupons(id),
+    deps.affiliates.listPayouts(),
   ]);
   if (!affiliate) return null;
-  const [summary] = summarize([affiliate], commissions, clicks, partners, now);
+  const [summary] = summarize([affiliate], sources, now);
   if (!summary) return null;
   return {
     ...summary,
-    commissions: commissions.filter((commission) => commission.affiliateId === id),
+    program: sources.program,
+    commissions: sources.commissions.filter((commission) => commission.affiliateId === id),
     coupons,
-    partners,
+    partners: [...sources.partners],
+    payouts: payouts.filter((payout) => payout.affiliateId === id),
   };
+}
+
+export function saveAffiliateCommission(deps: Pick<AdminAffiliateDeps, "affiliates">, id: string, raw: unknown): Promise<void> {
+  return deps.affiliates.saveAffiliateCommission(id, parseOrThrow(affiliateCommissionSchema, raw));
+}
+
+/** "Paguei" do próximo lote: as indicações mais antigas que esperam pagamento. */
+export function payAffiliateBatch(
+  deps: Pick<AdminAffiliateDeps, "affiliates">,
+  affiliateId: string,
+  commissionIds: readonly string[],
+  note: string | null,
+): Promise<string> {
+  if (commissionIds.length === 0) return Promise.reject(new Error("Não há indicação esperando pagamento."));
+  const cleanNote = note?.trim().slice(0, 500) || null;
+  return deps.affiliates.payCommissions(affiliateId, commissionIds, cleanNote);
+}
+
+export function undoAffiliatePayout(deps: Pick<AdminAffiliateDeps, "affiliates">, payoutId: string): Promise<void> {
+  return deps.affiliates.undoPayout(payoutId);
+}
+
+export function assignOrderToAffiliate(deps: Pick<AdminAffiliateDeps, "affiliates">, raw: unknown): Promise<number> {
+  const { orderCode, affiliateId } = parseOrThrow(assignOrderSchema, raw);
+  return deps.affiliates.assignOrder(orderCode, affiliateId);
+}
+
+// ---------------------------------------------------------------------------
+// Brindes (o Jota)
+// ---------------------------------------------------------------------------
+
+export interface GiftBoardItem {
+  gift: AffiliateGift;
+  /** Para quem é: nome do afiliado, ou nulo quando é para todos. */
+  affiliateName: string | null;
+  claims: (AffiliateGiftClaim & { affiliateName: string })[];
+}
+
+export async function loadGiftBoard(deps: Pick<AdminAffiliateDeps, "affiliates">): Promise<{ items: GiftBoardItem[]; affiliates: Affiliate[] }> {
+  const [gifts, claims, affiliates] = await Promise.all([
+    deps.affiliates.listGifts(),
+    deps.affiliates.listGiftClaims(),
+    deps.affiliates.listAffiliates(),
+  ]);
+  const nameOf = (affiliateId: string) => affiliates.find((affiliate) => affiliate.id === affiliateId)?.name ?? "Afiliado removido";
+  return {
+    affiliates,
+    items: gifts.map((gift) => ({
+      gift,
+      affiliateName: gift.affiliateId ? nameOf(gift.affiliateId) : null,
+      claims: claims.filter((claim) => claim.giftId === gift.id).map((claim) => ({ ...claim, affiliateName: nameOf(claim.affiliateId) })),
+    })),
+  };
+}
+
+export function saveAffiliateGift(deps: Pick<AdminAffiliateDeps, "affiliates">, id: string | null, raw: unknown): Promise<AffiliateGift> {
+  return deps.affiliates.saveGift(id, parseOrThrow(affiliateGiftSchema, raw));
+}
+
+export function removeAffiliateGift(deps: Pick<AdminAffiliateDeps, "affiliates">, id: string): Promise<void> {
+  return deps.affiliates.removeGift(id);
+}
+
+export function setAffiliateGiftDelivered(
+  deps: Pick<AdminAffiliateDeps, "affiliates">,
+  giftId: string,
+  affiliateId: string,
+  delivered: boolean,
+): Promise<void> {
+  return deps.affiliates.setGiftDelivered(giftId, affiliateId, delivered);
 }
 
 export function saveAffiliateProgram(deps: Pick<AdminAffiliateDeps, "affiliates">, raw: unknown): Promise<AffiliateProgram> {
@@ -309,19 +443,68 @@ export interface AffiliateHome {
   conversion: number | null;
   ranking: RankingEntry[];
   announcements: AffiliateAnnouncement[];
+  payout: PayoutProgress;
+  payouts: AffiliatePayout[];
+  whatsappLeads: number;
+  /** Brindes esperando ele tocar em "Receber". */
+  giftsToClaim: number;
+  store: StoreSnapshot;
+  /** Comissão dele em cada conta disponível (vazio se não aprovado). */
+  accountCommissions: AccountCommissions;
+}
+
+/** Números da loja para a faixa do painel: contas disponíveis, afiliados e os tipos que mais venderam. */
+export interface StoreSnapshot {
+  availableAccounts: Account[];
+  approvedAffiliates: number;
+  topSold: { category: StockCategory; sold: number }[];
+}
+
+const TOP_SOLD_LIMIT = 3;
+
+export function storeSnapshotOf(accounts: readonly Account[], stats: AffiliateStoreStats): StoreSnapshot {
+  const sold = new Set(stats.soldAccountIds);
+  const counts = new Map<StockCategory, number>();
+  for (const account of accounts) {
+    if (!sold.has(account.id)) continue;
+    const category = stockCategoryOf(account);
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
+  return {
+    availableAccounts: accounts.filter((account) => account.status === "available"),
+    approvedAffiliates: stats.approvedAffiliates,
+    topSold: [...counts.entries()]
+      .map(([category, count]) => ({ category, sold: count }))
+      .sort((a, b) => b.sold - a.sold || STOCK_CATEGORIES.indexOf(a.category) - STOCK_CATEGORIES.indexOf(b.category))
+      .slice(0, TOP_SOLD_LIMIT),
+  };
 }
 
 /** Tudo da tela inicial. Afiliado não aprovado vê só a própria ficha (o banco não devolve o resto). */
-export async function loadAffiliateHome(portal: AffiliatePortalService, me: AffiliateMe, now: Date = new Date()): Promise<AffiliateHome> {
+export async function loadAffiliateHome(
+  portal: AffiliatePortalService,
+  accounts: AccountRepository,
+  me: AffiliateMe,
+  now: Date = new Date(),
+): Promise<AffiliateHome> {
   const approved = me.status === "approved";
-  const [program, commissions, clicks, ranking, announcements] = await Promise.all([
-    portal.getProgram(),
-    portal.listCommissions(),
-    portal.listClicks(),
-    approved ? portal.ranking(30) : Promise.resolve([]),
-    approved ? portal.listAnnouncements() : Promise.resolve([]),
-  ]);
+  const [program, commissions, clicks, ranking, announcements, payouts, leads, gifts, claims, stats, allAccounts, accountCommissions] =
+    await Promise.all([
+      portal.getProgram(),
+      portal.listCommissions(),
+      portal.listClicks(),
+      approved ? portal.ranking(30) : Promise.resolve([]),
+      approved ? portal.listAnnouncements() : Promise.resolve([]),
+      portal.listPayouts(),
+      portal.listWhatsAppLeads(),
+      approved ? portal.listGifts() : Promise.resolve([]),
+      portal.listGiftClaims(),
+      approved ? portal.storeStats(STORE_STATS_DAYS) : Promise.resolve({ approvedAffiliates: 0, soldAccountIds: [] }),
+      approved ? accounts.list({}) : Promise.resolve([]),
+      approved ? portal.accountCommissions() : Promise.resolve(new Map<string, Cents>()),
+    ]);
   const totals = summarizeCommissions(commissions, now);
+  const claimed = new Set(claims.map((claim) => claim.giftId));
   return {
     me,
     program,
@@ -331,7 +514,50 @@ export async function loadAffiliateHome(portal: AffiliatePortalService, me: Affi
     conversion: conversionRate(totals.sales, clicks.length),
     ranking,
     announcements: sortAnnouncements(announcements),
+    payout: payoutProgressOf(commissions, program.payoutBatchSize, now),
+    payouts,
+    whatsappLeads: leads.length,
+    giftsToClaim: gifts.filter((gift) => !claimed.has(gift.id) && (gift.expiresAt === null || new Date(gift.expiresAt) > now)).length,
+    store: storeSnapshotOf(allAccounts, stats),
+    accountCommissions,
   };
+}
+
+/** Sininho do painel: a linha do tempo e quantos avisos ele ainda não viu. */
+export async function loadAffiliateNotices(
+  portal: AffiliatePortalService,
+  accounts: AccountRepository,
+  me: AffiliateMe,
+  now: Date = new Date(),
+): Promise<AffiliateNotice[]> {
+  const approved = me.status === "approved";
+  const [commissions, payouts, gifts, claims, announcements, available] = await Promise.all([
+    portal.listCommissions(),
+    portal.listPayouts(),
+    approved ? portal.listGifts() : Promise.resolve([]),
+    portal.listGiftClaims(),
+    approved ? portal.listAnnouncements() : Promise.resolve([]),
+    approved ? accounts.list({ onlyAvailable: true }) : Promise.resolve([]),
+  ]);
+  return affiliateNoticesOf({ commissions, payouts, gifts, claims, announcements, newListings: available.map((account) => account.listedAt) }, me.notificationsSeenAt, now);
+}
+
+export interface AffiliateGiftView {
+  gift: AffiliateGift;
+  state: GiftState;
+}
+
+/** Aba Brindes do afiliado: os que pode receber primeiro, depois os pedidos e entregues. */
+export async function loadAffiliateGifts(portal: AffiliatePortalService, now: Date = new Date()): Promise<AffiliateGiftView[]> {
+  const [gifts, claims] = await Promise.all([portal.listGifts(), portal.listGiftClaims()]);
+  const order: Record<GiftState, number> = { available: 0, claimed: 1, delivered: 2, expired: 3 };
+  return gifts
+    .map((gift) => ({ gift, state: giftStateOf(gift, claims.find((claim) => claim.giftId === gift.id), now) }))
+    .sort((a, b) => order[a.state] - order[b.state] || b.gift.createdAt.localeCompare(a.gift.createdAt));
+}
+
+export function claimAffiliateGift(portal: AffiliatePortalService, giftId: string): Promise<void> {
+  return portal.claimGift(giftId);
 }
 
 export interface ShareableAccount<A> {

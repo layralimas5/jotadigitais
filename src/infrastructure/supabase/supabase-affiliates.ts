@@ -29,8 +29,21 @@ import {
   type AffiliateProgramData,
   type AffiliateSignup,
   type AffiliateStatusChange,
+  type CommissionRule,
   type RankingEntry,
 } from "@/domain/affiliate";
+import {
+  ASSIGN_ORDER_MESSAGE,
+  GIFT_ERRORS,
+  GIFT_ERROR_MESSAGE,
+  assignOrderErrorOf,
+  type AffiliateGift,
+  type AffiliateGiftClaim,
+  type AffiliateGiftData,
+  type AffiliatePayout,
+  type AffiliateStoreStats,
+  type AffiliateWhatsAppLead,
+} from "@/domain/affiliate-rewards";
 import { CouponCodeTakenError, InvalidCredentialsError } from "@/domain/errors";
 import { fail } from "./supabase-repositories";
 
@@ -52,11 +65,14 @@ const programRowSchema = z.object({
   manual_approval_above_cents: z.number(),
   terms: z.string(),
   welcome_text: z.string().nullable(),
+  payout_batch_size: z.number(),
+  banner_title: z.string().nullable(),
+  banner_text: z.string().nullable(),
   updated_at: z.string(),
 });
 
 const PROGRAM_COLUMNS =
-  "enabled, auto_approve, commission_kind, commission_value, link_days, min_withdrawal_cents, daily_auto_limit_cents, manual_approval_above_cents, terms, welcome_text, updated_at";
+  "enabled, auto_approve, commission_kind, commission_value, link_days, min_withdrawal_cents, daily_auto_limit_cents, manual_approval_above_cents, terms, welcome_text, payout_batch_size, banner_title, banner_text, updated_at";
 
 function toProgram(raw: unknown): AffiliateProgram {
   const row = programRowSchema.parse(raw);
@@ -70,6 +86,9 @@ function toProgram(raw: unknown): AffiliateProgram {
     manualApprovalAbove: row.manual_approval_above_cents,
     terms: row.terms,
     welcomeText: row.welcome_text,
+    payoutBatchSize: row.payout_batch_size,
+    bannerTitle: row.banner_title,
+    bannerText: row.banner_text,
     updatedAt: row.updated_at,
   };
 }
@@ -85,6 +104,9 @@ const toProgramRow = (data: AffiliateProgramData) => ({
   manual_approval_above_cents: data.manualApprovalAbove,
   terms: data.terms,
   welcome_text: data.welcomeText,
+  payout_batch_size: data.payoutBatchSize,
+  banner_title: data.bannerTitle,
+  banner_text: data.bannerText,
 });
 
 async function readProgram(client: SupabaseClient): Promise<AffiliateProgram> {
@@ -94,7 +116,7 @@ async function readProgram(client: SupabaseClient): Promise<AffiliateProgram> {
 }
 
 const AFFILIATE_COLUMNS =
-  "id, code, name, email, whatsapp, pix_key, status, status_note, partner_id, terms_accepted_at, approved_at, created_at";
+  "id, code, name, email, whatsapp, pix_key, status, status_note, partner_id, commission_kind, commission_value, notifications_seen_at, terms_accepted_at, approved_at, created_at";
 
 const affiliateRowSchema = z.object({
   id: z.string(),
@@ -106,6 +128,9 @@ const affiliateRowSchema = z.object({
   status: z.enum(AFFILIATE_STATUSES),
   status_note: z.string().nullable(),
   partner_id: z.string().nullable(),
+  commission_kind: z.enum(COMMISSION_KINDS).nullable(),
+  commission_value: z.number().nullable(),
+  notifications_seen_at: z.string().nullable(),
   terms_accepted_at: z.string(),
   approved_at: z.string().nullable(),
   created_at: z.string(),
@@ -123,6 +148,8 @@ function toAffiliate(raw: unknown): Affiliate {
     status: row.status,
     statusNote: row.status_note,
     partnerId: row.partner_id,
+    commission: row.commission_kind && row.commission_value !== null ? { kind: row.commission_kind, value: row.commission_value } : null,
+    notificationsSeenAt: row.notifications_seen_at,
     termsAcceptedAt: row.terms_accepted_at,
     approvedAt: row.approved_at,
     createdAt: row.created_at,
@@ -130,7 +157,7 @@ function toAffiliate(raw: unknown): Affiliate {
 }
 
 const COMMISSION_COLUMNS =
-  "id, affiliate_id, order_code, via, account_handle, account_platform, base_cents, amount_cents, status, release_at, canceled_reason, created_at";
+  "id, affiliate_id, order_code, via, account_handle, account_platform, base_cents, amount_cents, status, release_at, canceled_reason, payout_id, created_at";
 
 const commissionRowSchema = z.object({
   id: z.string(),
@@ -144,6 +171,7 @@ const commissionRowSchema = z.object({
   status: z.enum(["pending", "canceled", "paid"]),
   release_at: z.string().nullable(),
   canceled_reason: z.enum(COMMISSION_CANCEL_REASONS).nullable(),
+  payout_id: z.string().nullable(),
   created_at: z.string(),
 });
 
@@ -161,6 +189,7 @@ function toCommission(raw: unknown): AffiliateCommission {
     status: row.status,
     releaseAt: row.release_at,
     canceledReason: row.canceled_reason,
+    payoutId: row.payout_id,
     createdAt: row.created_at,
   };
 }
@@ -198,6 +227,101 @@ async function readAnnouncements(client: SupabaseClient): Promise<AffiliateAnnou
 }
 
 const couponRowSchema = z.object({ code: z.string(), kind: z.enum(COMMISSION_KINDS), value: z.number() });
+
+const payoutRowSchema = z.object({
+  id: z.string(),
+  affiliate_id: z.string(),
+  commissions_count: z.number(),
+  amount_cents: z.number(),
+  pix_key: z.string().nullable(),
+  note: z.string().nullable(),
+  paid_at: z.string(),
+});
+
+async function readPayouts(client: SupabaseClient): Promise<AffiliatePayout[]> {
+  const { data, error } = await client
+    .from("affiliate_payouts")
+    .select("id, affiliate_id, commissions_count, amount_cents, pix_key, note, paid_at")
+    .order("paid_at", { ascending: false });
+  if (error) fail(error);
+  return data.map((raw) => {
+    const row = payoutRowSchema.parse(raw);
+    return {
+      id: row.id,
+      affiliateId: row.affiliate_id,
+      commissionsCount: row.commissions_count,
+      amount: row.amount_cents,
+      pixKey: row.pix_key,
+      note: row.note,
+      paidAt: row.paid_at,
+    };
+  });
+}
+
+const GIFT_COLUMNS = "id, title, description, affiliate_id, expires_at, active, created_at";
+
+const giftRowSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  affiliate_id: z.string().nullable(),
+  expires_at: z.string().nullable(),
+  active: z.boolean(),
+  created_at: z.string(),
+});
+
+function toGift(raw: unknown): AffiliateGift {
+  const row = giftRowSchema.parse(raw);
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    affiliateId: row.affiliate_id,
+    expiresAt: row.expires_at,
+    active: row.active,
+    createdAt: row.created_at,
+  };
+}
+
+async function readGifts(client: SupabaseClient): Promise<AffiliateGift[]> {
+  const { data, error } = await client.from("affiliate_gifts").select(GIFT_COLUMNS).order("created_at", { ascending: false });
+  if (error) fail(error);
+  return data.map(toGift);
+}
+
+const claimRowSchema = z.object({ gift_id: z.string(), affiliate_id: z.string(), claimed_at: z.string(), delivered_at: z.string().nullable() });
+
+async function readGiftClaims(client: SupabaseClient): Promise<AffiliateGiftClaim[]> {
+  const { data, error } = await client
+    .from("affiliate_gift_claims")
+    .select("gift_id, affiliate_id, claimed_at, delivered_at")
+    .order("claimed_at", { ascending: false });
+  if (error) fail(error);
+  return data.map((raw) => {
+    const row = claimRowSchema.parse(raw);
+    return { giftId: row.gift_id, affiliateId: row.affiliate_id, claimedAt: row.claimed_at, deliveredAt: row.delivered_at };
+  });
+}
+
+const leadRowSchema = z.object({ affiliate_id: z.string(), created_at: z.string() });
+
+async function readWhatsAppLeads(client: SupabaseClient): Promise<AffiliateWhatsAppLead[]> {
+  const { data, error } = await client.from("affiliate_whatsapp_leads").select("affiliate_id, created_at").order("created_at", { ascending: false });
+  if (error) fail(error);
+  return data.map((raw) => {
+    const row = leadRowSchema.parse(raw);
+    return { affiliateId: row.affiliate_id, createdAt: row.created_at };
+  });
+}
+
+const storeStatsSchema = z.object({ affiliates: z.number(), sold_account_ids: z.array(z.string()) }).nullable();
+
+async function readStoreStats(client: SupabaseClient, days: number): Promise<AffiliateStoreStats> {
+  const { data, error } = await client.rpc("affiliate_store_stats", { p_days: days });
+  if (error) fail(error);
+  const row = storeStatsSchema.parse(data);
+  return { approvedAffiliates: row?.affiliates ?? 0, soldAccountIds: row?.sold_account_ids ?? [] };
+}
 
 // ---------------------------------------------------------------------------
 // Aba Parceiros
@@ -353,6 +477,90 @@ export class SupabaseAffiliateAdminRepository implements AffiliateAdminRepositor
       .eq("id", accountId);
     if (error) fail(error);
   }
+
+  async saveAffiliateCommission(id: string, rule: CommissionRule | null): Promise<void> {
+    const { error } = await this.client
+      .from("affiliates")
+      .update({ commission_kind: rule?.kind ?? null, commission_value: rule?.value ?? null })
+      .eq("id", id);
+    if (error) fail(error);
+  }
+
+  listPayouts(): Promise<AffiliatePayout[]> {
+    return readPayouts(this.client);
+  }
+
+  async payCommissions(affiliateId: string, commissionIds: readonly string[], note: string | null): Promise<string> {
+    const { data, error } = await this.client.rpc("pay_affiliate_commissions", {
+      p_affiliate_id: affiliateId,
+      p_commission_ids: commissionIds,
+      p_note: note,
+    });
+    if (error?.message.includes("commissions_not_payable")) {
+      throw new Error("Alguma dessas indicações já foi paga ou cancelada. Atualize a página e tente de novo.");
+    }
+    if (error) fail(error);
+    return z.string().parse(data);
+  }
+
+  async undoPayout(payoutId: string): Promise<void> {
+    const { error } = await this.client.rpc("undo_affiliate_payout", { p_payout_id: payoutId });
+    if (error) fail(error);
+  }
+
+  listGifts(): Promise<AffiliateGift[]> {
+    return readGifts(this.client);
+  }
+
+  async saveGift(id: string | null, input: AffiliateGiftData): Promise<AffiliateGift> {
+    const row = {
+      title: input.title,
+      description: input.description,
+      affiliate_id: input.affiliateId,
+      expires_at: input.expiresAt,
+      active: input.active,
+    };
+    const query = id ? this.client.from("affiliate_gifts").update(row).eq("id", id) : this.client.from("affiliate_gifts").insert(row);
+    const { data, error } = await query.select(GIFT_COLUMNS).single();
+    if (error) fail(error);
+    return toGift(data);
+  }
+
+  async removeGift(id: string): Promise<void> {
+    const { error } = await this.client.from("affiliate_gifts").delete().eq("id", id);
+    if (error) fail(error);
+  }
+
+  listGiftClaims(): Promise<AffiliateGiftClaim[]> {
+    return readGiftClaims(this.client);
+  }
+
+  async setGiftDelivered(giftId: string, affiliateId: string, delivered: boolean): Promise<void> {
+    const { error } = await this.client.rpc("set_affiliate_gift_delivered", {
+      p_gift_id: giftId,
+      p_affiliate_id: affiliateId,
+      p_delivered: delivered,
+    });
+    if (error) fail(error);
+  }
+
+  async assignOrder(orderCode: string, affiliateId: string): Promise<number> {
+    const { data, error } = await this.client.rpc("assign_order_affiliate", { p_order_code: orderCode, p_affiliate_id: affiliateId });
+    if (error) {
+      const known = assignOrderErrorOf(error.message);
+      if (known) throw new Error(ASSIGN_ORDER_MESSAGE[known]);
+      fail(error);
+    }
+    return z.number().parse(data);
+  }
+
+  listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]> {
+    return readWhatsAppLeads(this.client);
+  }
+
+  storeStats(days: number): Promise<AffiliateStoreStats> {
+    return readStoreStats(this.client, days);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -494,6 +702,39 @@ export class SupabaseAffiliatePortalService implements AffiliatePortalService {
 
   listAnnouncements(): Promise<AffiliateAnnouncement[]> {
     return readAnnouncements(this.client);
+  }
+
+  listPayouts(): Promise<AffiliatePayout[]> {
+    return readPayouts(this.client);
+  }
+
+  listGifts(): Promise<AffiliateGift[]> {
+    return readGifts(this.client);
+  }
+
+  listGiftClaims(): Promise<AffiliateGiftClaim[]> {
+    return readGiftClaims(this.client);
+  }
+
+  async claimGift(giftId: string): Promise<void> {
+    const { error } = await this.client.rpc("claim_affiliate_gift", { p_gift_id: giftId });
+    if (!error) return;
+    const known = GIFT_ERRORS.find((code) => error.message.includes(code));
+    if (known) throw new Error(GIFT_ERROR_MESSAGE[known]);
+    fail(error);
+  }
+
+  async markNoticesSeen(): Promise<void> {
+    const { error } = await this.client.rpc("mark_affiliate_notifications_seen");
+    if (error) fail(error);
+  }
+
+  listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]> {
+    return readWhatsAppLeads(this.client);
+  }
+
+  storeStats(days: number): Promise<AffiliateStoreStats> {
+    return readStoreStats(this.client, days);
   }
 }
 

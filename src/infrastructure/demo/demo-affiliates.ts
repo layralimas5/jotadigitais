@@ -12,7 +12,7 @@ import {
   AFFILIATE_SIGNUP_MESSAGE,
   DEFAULT_ACCOUNT_AFFILIATE_RULE,
   DEFAULT_AFFILIATE_PROGRAM,
-  commissionCents,
+  affiliateAmountFor,
   type AccountAffiliateRule,
   type AccountCommissions,
   type Affiliate,
@@ -26,9 +26,21 @@ import {
   type AffiliateProgramData,
   type AffiliateSignup,
   type AffiliateStatusChange,
+  type CommissionRule,
+  type CommissionVia,
   type RankingEntry,
   publicAffiliateName,
 } from "@/domain/affiliate";
+import {
+  ASSIGN_ORDER_MESSAGE,
+  GIFT_ERROR_MESSAGE,
+  type AffiliateGift,
+  type AffiliateGiftClaim,
+  type AffiliateGiftData,
+  type AffiliatePayout,
+  type AffiliateStoreStats,
+  type AffiliateWhatsAppLead,
+} from "@/domain/affiliate-rewards";
 import { CouponCodeTakenError, InvalidCredentialsError } from "@/domain/errors";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 
@@ -42,7 +54,7 @@ interface DemoAffiliate extends Affiliate {
 interface DemoOrderLink {
   orderCode: string;
   affiliateId: string;
-  via: "link" | "coupon";
+  via: CommissionVia;
   canceledManually?: boolean;
 }
 
@@ -58,6 +70,12 @@ export interface DemoAffiliateState {
   /** Código do cupom -> afiliado dono. */
   couponOwners: Record<string, string>;
   sessionEmail: string | null;
+  payouts: AffiliatePayout[];
+  /** Comissão paga -> lote. Vale também para as que nascem dos pedidos. */
+  paidCommissions: Record<string, string>;
+  gifts: AffiliateGift[];
+  giftClaims: AffiliateGiftClaim[];
+  whatsappLeads: AffiliateWhatsAppLead[];
 }
 
 export const DEMO_AFFILIATE_LOGIN = { email: "ana@exemplo.com", password: "afiliado123" } as const;
@@ -78,6 +96,8 @@ function seed(): DemoAffiliateState {
     status: "approved",
     statusNote: null,
     partnerId: null,
+    commission: null,
+    notificationsSeenAt: daysAgo(3),
     termsAcceptedAt: daysAgo(40),
     approvedAt: daysAgo(39),
     createdAt: daysAgo(40),
@@ -109,6 +129,7 @@ function seed(): DemoAffiliateState {
     status,
     releaseAt: releaseInDays === null ? null : new Date(Date.now() + releaseInDays * 86_400_000).toISOString(),
     canceledReason: status === "canceled" ? "order_canceled" : null,
+    payoutId: null,
     createdAt: daysAgo(days),
   });
   return {
@@ -117,9 +138,14 @@ function seed(): DemoAffiliateState {
     clicks: Array.from({ length: 24 }, (_, index) => ({ id: `clk_${index}`, affiliateId: ana.id, accountId: null, createdAt: daysAgo(index) })),
     orderLinks: [],
     seededCommissions: [
+      ...Array.from({ length: 10 }, (_, index) => ({
+        ...commission(`p${String(index).padStart(2, "0")}`, 60 - index * 2, 4500, "paid", -20),
+        payoutId: "pay_demo_1",
+      })),
       commission("c01", 20, 3700, "pending", -5),
       commission("c02", 6, 4500, "pending", 9),
       commission("c03", 2, 2900, "pending", null),
+      commission("c05", 1, 4500, "pending", null),
       commission("c04", 12, 3100, "canceled", null),
     ],
     announcements: [
@@ -128,12 +154,46 @@ function seed(): DemoAffiliateState {
     accountRules: {},
     couponOwners: {},
     sessionEmail: null,
+    payouts: [
+      { id: "pay_demo_1", affiliateId: ana.id, commissionsCount: 10, amount: 45000, pixKey: ana.pixKey, note: "Pix do lote 1", paidAt: daysAgo(10) },
+    ],
+    paidCommissions: {},
+    gifts: [
+      {
+        id: "gift_demo_1",
+        title: "Aula bônus de TikTok Shop",
+        description: "Videoaula de como cadastrar produtos no TikTok Shop, para você indicar com mais segurança.",
+        affiliateId: null,
+        expiresAt: new Date(Date.now() + 15 * 86_400_000).toISOString(),
+        active: true,
+        createdAt: daysAgo(1),
+      },
+    ],
+    giftClaims: [],
+    whatsappLeads: [{ affiliateId: ana.id, createdAt: daysAgo(2) }],
   };
 }
 
-const stateOf = (state: DemoState): DemoAffiliateState => (state.affiliateProgram ??= seed());
+/** Estado salvo no navegador antes da entrega 2 ganha os campos novos sem perder o resto. */
+function stateOf(state: DemoState): DemoAffiliateState {
+  const affiliates = (state.affiliateProgram ??= seed());
+  affiliates.program = { ...DEFAULT_AFFILIATE_PROGRAM, ...affiliates.program };
+  affiliates.payouts ??= [];
+  affiliates.paidCommissions ??= {};
+  affiliates.gifts ??= [];
+  affiliates.giftClaims ??= [];
+  affiliates.whatsappLeads ??= [];
+  return affiliates;
+}
 
-const publicAffiliate = ({ password: _password, document: _document, ...affiliate }: DemoAffiliate): Affiliate => affiliate;
+const publicAffiliate = ({ password: _password, document: _document, ...affiliate }: DemoAffiliate): Affiliate => ({
+  ...affiliate,
+  commission: affiliate.commission ?? null,
+  notificationsSeenAt: affiliate.notificationsSeenAt ?? null,
+});
+
+const affiliateRuleOf = (affiliates: DemoAffiliateState, affiliateId: string) =>
+  affiliates.affiliates.find((item) => item.id === affiliateId)?.commission ?? null;
 
 const ruleOf = (affiliates: DemoAffiliateState, accountId: string) => affiliates.accountRules[accountId] ?? DEFAULT_ACCOUNT_AFFILIATE_RULE;
 
@@ -146,11 +206,13 @@ function derivedCommissions(state: DemoState): AffiliateCommission[] {
     if (!order || order.status === "awaiting_payment") return [];
     const rule = order.accountId ? ruleOf(affiliates, order.accountId) : DEFAULT_ACCOUNT_AFFILIATE_RULE;
     if (!rule.enabled) return [];
-    const amount = commissionCents(rule.commission ?? affiliates.program.commission, order.total);
+    const amount = affiliateAmountFor(affiliates.program.commission, affiliateRuleOf(affiliates, link.affiliateId), rule.commission, order.total);
     const canceled = order.status === "canceled" || link.canceledManually === true;
+    const id = `com_${order.code}`;
+    const payoutId = affiliates.paidCommissions[id] ?? null;
     return [
       {
-        id: `com_${order.code}`,
+        id,
         affiliateId: link.affiliateId,
         orderCode: order.code,
         via: link.via,
@@ -158,9 +220,10 @@ function derivedCommissions(state: DemoState): AffiliateCommission[] {
         accountPlatform: order.accountPlatform,
         base: order.total,
         amount,
-        status: canceled ? "canceled" : "pending",
+        status: canceled ? "canceled" : payoutId ? "paid" : "pending",
         releaseAt: order.deliveredAt ? new Date(Date.parse(order.deliveredAt) + guaranteeDays * 86_400_000).toISOString() : null,
         canceledReason: canceled ? (link.canceledManually ? "manual" : "order_canceled") : null,
+        payoutId,
         createdAt: order.createdAt,
       },
     ];
@@ -168,14 +231,27 @@ function derivedCommissions(state: DemoState): AffiliateCommission[] {
   return [...fromOrders, ...affiliates.seededCommissions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-function accountCommissionsFor(state: DemoState): AccountCommissions {
+function accountCommissionsFor(state: DemoState, affiliateId: string): AccountCommissions {
   const affiliates = stateOf(state);
   if (!affiliates.program.enabled) return new Map();
+  const own = affiliateRuleOf(affiliates, affiliateId);
   return new Map(
     state.accounts
       .filter((account) => account.status !== "sold" && ruleOf(affiliates, account.id).enabled)
-      .map((account) => [account.id, commissionCents(ruleOf(affiliates, account.id).commission ?? affiliates.program.commission, account.price)]),
+      .map((account) => [account.id, affiliateAmountFor(affiliates.program.commission, own, ruleOf(affiliates, account.id).commission, account.price)]),
   );
+}
+
+/** Igual a `affiliate_store_stats`: afiliados aprovados e contas vendidas no período. */
+function storeStatsOf(state: DemoState, days: number): AffiliateStoreStats {
+  const since = Date.now() - days * 86_400_000;
+  const sold = state.orders.filter(
+    (order) => order.accountId && (order.status === "paid" || order.status === "delivered") && Date.parse(order.createdAt) >= since,
+  );
+  return {
+    approvedAffiliates: stateOf(state).affiliates.filter((item) => item.status === "approved").length,
+    soldAccountIds: [...new Set(sold.flatMap((order) => (order.accountId ? [order.accountId] : [])))],
+  };
 }
 
 function rankingOf(state: DemoState, meId: string | null): RankingEntry[] {
@@ -337,6 +413,133 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
       stateOf(state).accountRules[accountId] = rule;
     });
   }
+
+  async saveAffiliateCommission(id: string, rule: CommissionRule | null): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const affiliate = stateOf(state).affiliates.find((item) => item.id === id);
+      if (affiliate) affiliate.commission = rule;
+    });
+  }
+
+  async listPayouts(): Promise<AffiliatePayout[]> {
+    return [...stateOf(this.db.read()).payouts].sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+  }
+
+  async payCommissions(affiliateId: string, commissionIds: readonly string[], note: string | null): Promise<string> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const affiliates = stateOf(state);
+      const picked = derivedCommissions(state).filter(
+        (commission) => commissionIds.includes(commission.id) && commission.affiliateId === affiliateId && commission.status === "pending",
+      );
+      if (picked.length === 0 || picked.length !== commissionIds.length) {
+        throw new Error("Alguma dessas indicações já foi paga ou cancelada. Atualize a página e tente de novo.");
+      }
+      const payout: AffiliatePayout = {
+        id: newId("pay"),
+        affiliateId,
+        commissionsCount: picked.length,
+        amount: picked.reduce((total, commission) => total + commission.amount, 0),
+        pixKey: affiliates.affiliates.find((item) => item.id === affiliateId)?.pixKey ?? null,
+        note,
+        paidAt: new Date().toISOString(),
+      };
+      affiliates.payouts.push(payout);
+      for (const commission of picked) {
+        const seeded = affiliates.seededCommissions.find((item) => item.id === commission.id);
+        if (seeded) {
+          seeded.status = "paid";
+          seeded.payoutId = payout.id;
+        } else {
+          affiliates.paidCommissions[commission.id] = payout.id;
+        }
+      }
+      return payout.id;
+    });
+  }
+
+  async undoPayout(payoutId: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const affiliates = stateOf(state);
+      affiliates.payouts = affiliates.payouts.filter((payout) => payout.id !== payoutId);
+      for (const seeded of affiliates.seededCommissions) {
+        if (seeded.payoutId !== payoutId) continue;
+        seeded.status = "pending";
+        seeded.payoutId = null;
+      }
+      for (const [commissionId, paidIn] of Object.entries(affiliates.paidCommissions)) {
+        if (paidIn === payoutId) delete affiliates.paidCommissions[commissionId];
+      }
+    });
+  }
+
+  async listGifts(): Promise<AffiliateGift[]> {
+    return [...stateOf(this.db.read()).gifts].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async saveGift(id: string | null, data: AffiliateGiftData): Promise<AffiliateGift> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const affiliates = stateOf(state);
+      const existing = id ? affiliates.gifts.find((gift) => gift.id === id) : undefined;
+      if (existing) {
+        Object.assign(existing, data);
+        return { ...existing };
+      }
+      const created: AffiliateGift = { ...data, id: newId("gift"), createdAt: new Date().toISOString() };
+      affiliates.gifts.push(created);
+      return created;
+    });
+  }
+
+  async removeGift(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const affiliates = stateOf(state);
+      affiliates.gifts = affiliates.gifts.filter((gift) => gift.id !== id);
+      affiliates.giftClaims = affiliates.giftClaims.filter((claim) => claim.giftId !== id);
+    });
+  }
+
+  async listGiftClaims(): Promise<AffiliateGiftClaim[]> {
+    return stateOf(this.db.read()).giftClaims;
+  }
+
+  async setGiftDelivered(giftId: string, affiliateId: string, delivered: boolean): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const claim = stateOf(state).giftClaims.find((item) => item.giftId === giftId && item.affiliateId === affiliateId);
+      if (claim) claim.deliveredAt = delivered ? new Date().toISOString() : null;
+    });
+  }
+
+  async assignOrder(orderCode: string, affiliateId: string): Promise<number> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const affiliates = stateOf(state);
+      if (!affiliates.affiliates.some((item) => item.id === affiliateId && item.status === "approved")) {
+        throw new Error(ASSIGN_ORDER_MESSAGE.affiliate_not_approved);
+      }
+      const orders = state.orders.filter((order) => order.code === orderCode || order.cartCode === orderCode);
+      if (orders.length === 0) throw new Error(ASSIGN_ORDER_MESSAGE.order_not_found);
+      if (orders.some((order) => order.status === "canceled")) throw new Error(ASSIGN_ORDER_MESSAGE.order_canceled);
+      if (orders.some((order) => affiliates.orderLinks.some((link) => link.orderCode === order.code))) {
+        throw new Error(ASSIGN_ORDER_MESSAGE.order_has_affiliate);
+      }
+      for (const order of orders) affiliates.orderLinks.push({ orderCode: order.code, affiliateId, via: "manual" });
+      return orders.filter((order) => order.status === "paid" || order.status === "delivered").length;
+    });
+  }
+
+  async listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]> {
+    return stateOf(this.db.read()).whatsappLeads;
+  }
+
+  async storeStats(days: number): Promise<AffiliateStoreStats> {
+    return storeStatsOf(this.db.read(), days);
+  }
 }
 
 /** Login de demonstração: ana@exemplo.com / afiliado123 (ou quem se cadastrar pelo "Seja afiliado"). */
@@ -384,6 +587,8 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
         status: program.autoApprove ? "approved" : "pending",
         statusNote: null,
         partnerId: null,
+        commission: null,
+        notificationsSeenAt: null,
         termsAcceptedAt: now,
         approvedAt: program.autoApprove ? now : null,
         createdAt: now,
@@ -477,7 +682,8 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
 
   async accountCommissions(): Promise<AccountCommissions> {
     const state = this.db.read();
-    return this.approvedMe(state) ? accountCommissionsFor(state) : new Map();
+    const me = this.approvedMe(state);
+    return me ? accountCommissionsFor(state, me.id) : new Map();
   }
 
   async ranking(): Promise<RankingEntry[]> {
@@ -489,6 +695,55 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
   async listAnnouncements(): Promise<AffiliateAnnouncement[]> {
     const state = this.db.read();
     return this.approvedMe(state) ? stateOf(state).announcements : [];
+  }
+
+  async listPayouts(): Promise<AffiliatePayout[]> {
+    const state = this.db.read();
+    const me = this.me(state);
+    return me ? stateOf(state).payouts.filter((payout) => payout.affiliateId === me.id) : [];
+  }
+
+  async listGifts(): Promise<AffiliateGift[]> {
+    const state = this.db.read();
+    const me = this.approvedMe(state);
+    return me ? stateOf(state).gifts.filter((gift) => gift.active && (gift.affiliateId === null || gift.affiliateId === me.id)) : [];
+  }
+
+  async listGiftClaims(): Promise<AffiliateGiftClaim[]> {
+    const state = this.db.read();
+    const me = this.me(state);
+    return me ? stateOf(state).giftClaims.filter((claim) => claim.affiliateId === me.id) : [];
+  }
+
+  async claimGift(giftId: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const me = this.approvedMe(state);
+      const affiliates = stateOf(state);
+      const gift = affiliates.gifts.find((item) => item.id === giftId && item.active && (item.affiliateId === null || item.affiliateId === me?.id));
+      if (!me || !gift) throw new Error(GIFT_ERROR_MESSAGE.gift_not_found);
+      if (gift.expiresAt && Date.parse(gift.expiresAt) <= Date.now()) throw new Error(GIFT_ERROR_MESSAGE.gift_expired);
+      if (affiliates.giftClaims.some((claim) => claim.giftId === giftId && claim.affiliateId === me.id)) return;
+      affiliates.giftClaims.push({ giftId, affiliateId: me.id, claimedAt: new Date().toISOString(), deliveredAt: null });
+    });
+  }
+
+  async markNoticesSeen(): Promise<void> {
+    this.db.write((state) => {
+      const me = this.me(state);
+      if (me) me.notificationsSeenAt = new Date().toISOString();
+    });
+  }
+
+  async listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]> {
+    const state = this.db.read();
+    const me = this.me(state);
+    return me ? stateOf(state).whatsappLeads.filter((lead) => lead.affiliateId === me.id) : [];
+  }
+
+  async storeStats(days: number): Promise<AffiliateStoreStats> {
+    const state = this.db.read();
+    return this.approvedMe(state) ? storeStatsOf(state, days) : { approvedAffiliates: 0, soldAccountIds: [] };
   }
 }
 

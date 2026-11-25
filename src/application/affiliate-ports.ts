@@ -13,8 +13,17 @@ import type {
   AffiliateSignup,
   AffiliateStatus,
   AffiliateStatusChange,
+  CommissionRule,
   RankingEntry,
 } from "@/domain/affiliate";
+import type {
+  AffiliateGift,
+  AffiliateGiftClaim,
+  AffiliateGiftData,
+  AffiliatePayout,
+  AffiliateStoreStats,
+  AffiliateWhatsAppLead,
+} from "@/domain/affiliate-rewards";
 
 /** Programa de afiliados como o Jota administra na aba Parceiros. */
 export interface AffiliateAdminRepository {
@@ -39,6 +48,21 @@ export interface AffiliateAdminRepository {
   /** Regra de todas as contas de uma vez, pelo id (conta sem linha aqui = regra padrão). */
   listAccountRules(): Promise<ReadonlyMap<string, AccountAffiliateRule>>;
   saveAccountRule(accountId: string, rule: AccountAffiliateRule): Promise<void>;
+  /** Comissão própria do afiliado (nula volta para a padrão do programa). */
+  saveAffiliateCommission(id: string, rule: CommissionRule | null): Promise<void>;
+  listPayouts(): Promise<AffiliatePayout[]>;
+  /** "Paguei": as comissões escolhidas viram um lote pago. Devolve o id do lote. */
+  payCommissions(affiliateId: string, commissionIds: readonly string[], note: string | null): Promise<string>;
+  undoPayout(payoutId: string): Promise<void>;
+  listGifts(): Promise<AffiliateGift[]>;
+  saveGift(id: string | null, data: AffiliateGiftData): Promise<AffiliateGift>;
+  removeGift(id: string): Promise<void>;
+  listGiftClaims(): Promise<AffiliateGiftClaim[]>;
+  setGiftDelivered(giftId: string, affiliateId: string, delivered: boolean): Promise<void>;
+  /** Venda atribuída à mão. Devolve quantas comissões nasceram agora (pedido já pago). */
+  assignOrder(orderCode: string, affiliateId: string): Promise<number>;
+  listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]>;
+  storeStats(days: number): Promise<AffiliateStoreStats>;
 }
 
 export type AffiliateAuthState = { status: "signed-out" } | { status: "signed-in"; email: string };
@@ -75,6 +99,13 @@ export interface AffiliatePortalService {
   accountCommissions(): Promise<AccountCommissions>;
   ranking(days: number): Promise<RankingEntry[]>;
   listAnnouncements(): Promise<AffiliateAnnouncement[]>;
+  listPayouts(): Promise<AffiliatePayout[]>;
+  listGifts(): Promise<AffiliateGift[]>;
+  listGiftClaims(): Promise<AffiliateGiftClaim[]>;
+  claimGift(giftId: string): Promise<void>;
+  markNoticesSeen(): Promise<void>;
+  listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]>;
+  storeStats(days: number): Promise<AffiliateStoreStats>;
 }
 
 export interface TrackedClick {

@@ -63,6 +63,11 @@ export interface AffiliateProgramData {
   manualApprovalAbove: Cents;
   terms: string;
   welcomeText: string | null;
+  /** O Jota paga a cada tantas indicações (padrão 10). */
+  payoutBatchSize: number;
+  /** Faixa de chamada no topo do painel do afiliado. */
+  bannerTitle: string | null;
+  bannerText: string | null;
 }
 
 export interface AffiliateProgram extends AffiliateProgramData {
@@ -79,6 +84,9 @@ export const DEFAULT_AFFILIATE_PROGRAM: AffiliateProgram = {
   manualApprovalAbove: 20000,
   terms: "",
   welcomeText: null,
+  payoutBatchSize: 10,
+  bannerTitle: null,
+  bannerText: null,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -93,6 +101,10 @@ export interface Affiliate {
   status: AffiliateStatus;
   statusNote: string | null;
   partnerId: string | null;
+  /** Comissão própria do afiliado. Nula = vale a padrão do programa. */
+  commission: CommissionRule | null;
+  /** Até quando ele já viu os avisos do painel. */
+  notificationsSeenAt: string | null;
   termsAcceptedAt: string;
   approvedAt: string | null;
   createdAt: string;
@@ -114,10 +126,15 @@ export interface AffiliateCoupon {
   value: number;
 }
 
-export const COMMISSION_VIAS = ["link", "coupon"] as const;
+export const COMMISSION_VIAS = ["link", "coupon", "whatsapp", "manual"] as const;
 export type CommissionVia = (typeof COMMISSION_VIAS)[number];
 
-export const COMMISSION_VIA_LABEL: Record<CommissionVia, string> = { link: "Link", coupon: "Cupom" };
+export const COMMISSION_VIA_LABEL: Record<CommissionVia, string> = {
+  link: "Link",
+  coupon: "Cupom",
+  whatsapp: "WhatsApp",
+  manual: "Indicação",
+};
 
 export const COMMISSION_CANCEL_REASONS = ["order_canceled", "self_purchase", "manual"] as const;
 export type CommissionCancelReason = (typeof COMMISSION_CANCEL_REASONS)[number];
@@ -141,6 +158,8 @@ export interface AffiliateCommission {
   /** Fim da garantia. Nulo enquanto o pedido não foi entregue. */
   releaseAt: string | null;
   canceledReason: CommissionCancelReason | null;
+  /** Lote em que foi paga. */
+  payoutId: string | null;
   createdAt: string;
 }
 
@@ -218,6 +237,22 @@ export interface RankingEntry {
 
 /** Comissão de cada conta liberada para o afiliado, no preço atual. */
 export type AccountCommissions = ReadonlyMap<string, Cents>;
+
+/**
+ * Comissão de uma venda, igual a `affiliate_amount_for` no banco: a comissão própria do afiliado entra no lugar da
+ * padrão do programa; conta com comissão própria vale a da conta, a não ser que a do afiliado dê mais.
+ */
+export function affiliateAmountFor(
+  program: CommissionRule,
+  affiliate: CommissionRule | null,
+  account: CommissionRule | null,
+  base: Cents,
+): Cents {
+  const own = affiliate ? commissionCents(affiliate, base) : null;
+  const ofAccount = account ? commissionCents(account, base) : null;
+  if (own !== null && ofAccount !== null) return Math.max(own, ofAccount);
+  return ofAccount ?? own ?? commissionCents(program, base);
+}
 
 /** Regra própria de uma conta. Nula = vale a comissão padrão do programa. */
 export interface AccountAffiliateRule {
