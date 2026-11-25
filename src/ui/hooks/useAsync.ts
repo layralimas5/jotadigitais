@@ -32,7 +32,8 @@ export function useAsync<T>(
       (reason: unknown) => {
         if (cancelled) return;
         console.error(reason);
-        setState({ status: "error", error: toError(reason) });
+        // Recarga em segundo plano que falha (rede caiu ao voltar do app do banco) não tira da tela o que já estava certo.
+        setState((previous) => (keepPrevious && previous.status === "success" ? previous : { status: "error", error: toError(reason) }));
       },
     );
     return () => {

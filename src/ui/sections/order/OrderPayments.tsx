@@ -162,11 +162,16 @@ function PaymentPart({ order, payment, onPaid }: PartProps) {
 }
 
 /** Cobranças do pedido: cada parte com o jeito de pagar e a situação. */
-export function OrderPayments({ order, onPaid }: { order: Order; onPaid: () => void }) {
+/** `compact`: logo abaixo do relógio, mais perto do topo (pedido esperando pagamento). */
+export function OrderPayments({ order, onPaid, compact = false }: { order: Order; onPaid: () => void; compact?: boolean }) {
   if (order.payments.length === 0) return null;
   const pending = order.payments.filter((payment) => payment.status === "pending").length;
   return (
-    <section aria-labelledby="pagamento-title" className="mx-auto mt-10 max-w-xl text-left">
+    <section
+      id="pagamento"
+      aria-labelledby="pagamento-title"
+      className={cn("mx-auto max-w-xl scroll-mt-24 text-left", compact ? "mt-6" : "mt-10")}
+    >
       <h2 id="pagamento-title" className="font-display text-lg font-semibold text-white">
         {order.status === "awaiting_payment" && pending > 0 ? "Pague para liberar a conta" : "Pagamento"}
       </h2>
