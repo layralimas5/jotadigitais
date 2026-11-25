@@ -35,8 +35,8 @@ export function SoldCounter() {
   return (
     <div className="mt-5 flex h-8 justify-center sm:mt-6 lg:justify-start">
       {total !== null && (
-        <p className="inline-flex h-8 items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/[0.07] px-3.5 text-sm text-fog">
-          <TrendingUp aria-hidden className="size-4 text-emerald-300" />
+        <p className="inline-flex h-8 items-center gap-2 rounded-full border border-electric/30 bg-electric/[0.08] px-3.5 text-sm text-fog">
+          <TrendingUp aria-hidden className="size-4 text-electric" />
           <span>
             <span aria-hidden className="font-display font-semibold text-white tabular-nums">
               +{formatCount(shown)}
