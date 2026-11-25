@@ -12,6 +12,7 @@ import { useCoupon, type CouponController } from "@/ui/hooks/useCoupon";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { useAccount, useAccounts, useCartAccounts, usePlaceOrder } from "@/ui/hooks/useStore";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
+import { savePendingOrder } from "@/ui/lib/pending-order";
 import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
 import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
@@ -37,15 +38,16 @@ function CheckoutForm({ accounts, coupon, preview, onPlaced }: CheckoutFormProps
     const accountIds = accounts.map((account) => account.id);
     const placed = await placeOrder.submit(accountIds, { ...data, couponCode: coupon.code });
     if (!placed) return;
+    savePendingOrder({ code: placed.order.code, expiresAt: placed.order.expiresAt });
     navigate(`/pedido/${placed.order.code}`, { replace: true });
     onPlaced?.(accountIds);
   };
-  const { values, errors, setField, handleSubmit } = useCheckoutForm(coupon.total, onValid, defaultSource);
+  const { values, errors, setField, setAbroad, handleSubmit } = useCheckoutForm(coupon.total, onValid, defaultSource);
   const pixEnabled = acceptsPix(useStoreSettings());
 
   return (
     <form noValidate onSubmit={handleSubmit} className="space-y-8 sm:space-y-10" aria-busy={submitting}>
-      <CheckoutProfileFields values={values} errors={errors} setField={setField} />
+      <CheckoutProfileFields values={values} errors={errors} setField={setField} setAbroad={setAbroad} />
       <CheckoutPaymentStep total={coupon.total} pixEnabled={pixEnabled} values={values} errors={errors} setField={setField} />
 
       {placeOrder.state.status === "error" && (

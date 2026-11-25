@@ -23,9 +23,13 @@ export const paymentPromptParams = (values: PaymentPromptValues): string[] =>
 /** O toque no botão volta para o webhook com este código: diz de qual pedido (ou carrinho) entregar o acesso. */
 export const accessButtonPayload = (orderCode: string) => `acesso:${orderCode}`;
 
-/** Número do checkout (com ou sem DDI) no formato da API: só dígitos, com o 55 do Brasil. */
+/**
+ * Número do checkout no formato da API: só dígitos, com o DDI. Sem DDI é do Brasil (ganha o 55);
+ * número de fora chega com "+" e o código do país ("+351925812020") e vai como está.
+ */
 export function toWhatsAppId(phone: string): string {
   const digits = phone.replace(/\D/g, "");
+  if (phone.trim().startsWith("+")) return digits;
   return digits.startsWith("55") && digits.length >= 12 ? digits : `55${digits}`;
 }
 

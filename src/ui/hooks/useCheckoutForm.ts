@@ -4,6 +4,7 @@ import { checkoutSchema, fieldErrorsOf, type CheckoutData, type CheckoutInput } 
 import type { LeadSource } from "@/domain/lead";
 import { formatCentsInput, parseMoneyToCents, type Cents } from "@/domain/money";
 import { checkSplit, type PaymentPlan } from "@/domain/payment";
+import { formatInternationalInput, normalizeWhatsapp } from "@/domain/whatsapp-number";
 
 /** Primeiro nível da escolha: Pix, um cartão ou dividir em duas partes. */
 export type PaymentChoice = "pix" | "card" | "split";
@@ -19,6 +20,10 @@ export type CheckoutValues = Omit<CheckoutInput, "acceptedTerms" | "source" | "r
   splitKind: SplitKind;
   /** Valor do primeiro cartão, como a pessoa digitou ("185,00"). */
   firstPart: string;
+  /** Mora fora do Brasil: o WhatsApp vai com "+" e o código do país, e aparece o aviso de proxy e emulador. */
+  abroad: boolean;
+  /** O número digitado de novo, para não entregar a conta no WhatsApp errado. Só a tela confere. */
+  whatsappConfirm: string;
 };
 export type CheckoutField = keyof CheckoutValues;
 type FieldErrors = Partial<Record<CheckoutField, string>>;
@@ -26,6 +31,8 @@ type FieldErrors = Partial<Record<CheckoutField, string>>;
 const INITIAL_VALUES: CheckoutValues = {
   name: "",
   whatsapp: "",
+  whatsappConfirm: "",
+  abroad: false,
   document: "",
   source: "",
   referredBy: "",
@@ -36,13 +43,17 @@ const INITIAL_VALUES: CheckoutValues = {
 };
 
 /** Ordem dos campos na tela: o foco vai para o primeiro com erro. */
-const FIELD_ORDER: CheckoutField[] = ["name", "whatsapp", "document", "source", "referredBy", "paymentChoice", "firstPart", "acceptedTerms"];
+const FIELD_ORDER: CheckoutField[] = ["name", "whatsapp", "whatsappConfirm", "document", "source", "referredBy", "paymentChoice", "firstPart", "acceptedTerms"];
 
 export const planOf = (values: Pick<CheckoutValues, "paymentChoice" | "splitKind">): PaymentPlan | null =>
   values.paymentChoice === "split" ? values.splitKind : values.paymentChoice || null;
 
 /** Metade do total, arredondada para reais inteiros: ponto de partida da divisão. */
 export const halfOf = (total: Cents) => formatCentsInput(Math.round(total / 200) * 100);
+
+/** Máscara do campo: (11) 91234-5678 para o Brasil; +351925812020 para quem mora fora. */
+export const formatWhatsappInput = (raw: string, abroad: boolean): string =>
+  abroad ? formatInternationalInput(raw) : formatWhatsapp(raw);
 
 export function formatWhatsapp(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 11);
@@ -77,11 +88,16 @@ function validate(values: CheckoutValues, total: Cents, defaultSource: LeadSourc
   // O schema fala em paymentMethod; na tela, o campo é a escolha (Pix, cartão ou dividir).
   const schemaErrors = result.success ? {} : (fieldErrorsOf(result.error) as Record<string, string | undefined>);
   if (schemaErrors.paymentMethod) errors.paymentChoice = schemaErrors.paymentMethod;
+  if (!errors.whatsapp && normalizeWhatsapp(values.whatsappConfirm) !== normalizeWhatsapp(values.whatsapp)) {
+    errors.whatsappConfirm = values.whatsappConfirm
+      ? "Os dois números não estão iguais. Confira o WhatsApp antes de seguir."
+      : "Digite o WhatsApp de novo para confirmar.";
+  }
   if (split) {
     const check = checkSplit(total, Number.isNaN(firstPartCents) ? null : firstPartCents);
     if (!check.ok) errors.firstPart = check.message;
   }
-  return result.success && !errors.firstPart ? { data: result.data, errors } : { data: null, errors };
+  return result.success && !errors.firstPart && !errors.whatsappConfirm ? { data: result.data, errors } : { data: null, errors };
 }
 
 /** Checkout numa tela só com validação zod; depois da primeira tentativa, cada campo é revalidado enquanto a pessoa corrige. */
@@ -92,6 +108,13 @@ export function useCheckoutForm(total: Cents, onValid: (data: CheckoutData) => v
 
   const setField = <K extends CheckoutField>(field: K, value: CheckoutValues[K]) => {
     const next = { ...values, [field]: value };
+    setValues(next);
+    if (submitted) setErrors(validate(next, total, defaultSource).errors);
+  };
+
+  /** Trocar entre Brasil e fora muda o formato do número: os dois campos de WhatsApp recomeçam. */
+  const setAbroad = (abroad: boolean) => {
+    const next = { ...values, abroad, whatsapp: "", whatsappConfirm: "" };
     setValues(next);
     if (submitted) setErrors(validate(next, total, defaultSource).errors);
   };
@@ -109,5 +132,5 @@ export function useCheckoutForm(total: Cents, onValid: (data: CheckoutData) => v
     if (first) event.currentTarget.querySelector<HTMLElement>(`[name="${first}"]`)?.focus();
   };
 
-  return { values, errors, setField, handleSubmit };
+  return { values, errors, setField, setAbroad, handleSubmit };
 }

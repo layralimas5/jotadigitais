@@ -270,6 +270,11 @@ const CheckoutPageForm: Form<"checkoutPage"> = (props) => {
         </p>
       )}
       <p className="text-xs text-mist">Com uma opção só, ela já vem marcada para o cliente. Na prévia, o botão de finalizar não registra pedido.</p>
+      {copy("abroadTitle", "Aviso para quem mora fora do Brasil: título", 80)}
+      {copy("abroadNotice", "Aviso para quem mora fora do Brasil: texto", 400, {
+        multiline: true,
+        hint: "Aparece quando o cliente marca que mora fora do Brasil.",
+      })}
     </>
   );
 };

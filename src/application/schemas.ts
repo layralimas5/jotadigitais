@@ -18,6 +18,7 @@ import { EXPENSE_CATEGORIES, EXPENSE_PAYMENT_METHODS, REVENUE_CATEGORIES, toLoca
 import { LEAD_SOURCES, LEAD_STAGES } from "@/domain/lead";
 import { MAX_TEMPLATE_LENGTH } from "@/domain/message-template";
 import { AI_LIMITS } from "@/domain/whatsapp";
+import { INTERNATIONAL_WHATSAPP_PATTERN, isInternationalWhatsapp, normalizeWhatsapp } from "@/domain/whatsapp-number";
 import { MAX_DELIVERY_MESSAGE_NAME } from "@/domain/delivery-message";
 import {
   COUPON_CODE_PATTERN,
@@ -88,6 +89,20 @@ const requiredWhatsapp = z
   .transform(onlyDigits)
   .refine((digits) => digits.length >= 10 && digits.length <= 13, { message: "Informe o WhatsApp com DDD." });
 
+/** WhatsApp do checkout: do Brasil com DDD ou, de quem mora fora, com "+" e o código do país. */
+const checkoutWhatsapp = z
+  .string()
+  .transform(normalizeWhatsapp)
+  .superRefine((phone, ctx) => {
+    if (isInternationalWhatsapp(phone)) {
+      if (!INTERNATIONAL_WHATSAPP_PATTERN.test(phone)) {
+        ctx.addIssue({ code: "custom", message: "Informe o número completo com o código do país. Ex.: +351 912 345 678." });
+      }
+    } else if (phone.length < 10 || phone.length > 13) {
+      ctx.addIssue({ code: "custom", message: "Informe o WhatsApp com DDD." });
+    }
+  });
+
 /** Lista de espera de conta nova (site). */
 export const stockAlertSchema = z.object({
   name: personName,
@@ -155,7 +170,7 @@ export const couponCodeField = z
 export const checkoutSchema = z
   .object({
     name: z.string().trim().min(3, "Informe seu nome completo.").max(120, "Nome muito longo."),
-    whatsapp: requiredWhatsapp,
+    whatsapp: checkoutWhatsapp,
     document: requiredDocument,
     source: z.enum(LEAD_SOURCES, { message: "Conte como você conheceu a Jota Digitais." }),
     referredBy: referredByField,
@@ -899,6 +914,8 @@ export const siteContentSchema = z.object({
   }),
   checkoutPage: z.object({
     sourceQuestion: copy(80),
+    abroadTitle: copy(80),
+    abroadNotice: copy(400),
     sources: z
       .array(z.enum(LEAD_SOURCES))
       .min(1, "Deixe pelo menos uma opção ligada.")

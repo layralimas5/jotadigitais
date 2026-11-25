@@ -14,10 +14,13 @@ import { SelectField, TextAreaField } from "../components/FormControls";
 import { cn } from "@/ui/lib/cn";
 import { useAdminQuery, useMessageTemplates } from "../hooks";
 import { buyerMessage } from "../lib/messages";
+import { INTERNATIONAL_WHATSAPP_PATTERN, isInternationalWhatsapp, normalizeWhatsapp } from "@/domain/whatsapp-number";
 import { firstNameOf, formatPhone, whatsappChatUrl } from "../lib/whatsapp";
 
-const onlyDigits = (value: string) => value.replace(/\D/g, "");
-const isValidPhone = (digits: string) => digits === "" || (digits.length >= 10 && digits.length <= 13);
+/** Vazio (escolher no WhatsApp), número do Brasil com DDD ou número de fora com "+" e o código do país. */
+const isValidPhone = (phone: string) =>
+  phone === "" ||
+  (isInternationalWhatsapp(phone) ? INTERNATIONAL_WHATSAPP_PATTERN.test(phone) : phone.length >= 10 && phone.length <= 13);
 
 /** Sem nome, a saudação do modelo continua natural ("Oi, tudo bem!"). */
 const GREETING_FALLBACK = "tudo bem";
@@ -155,8 +158,8 @@ function ShareForm({ account, buyer, access, initialMode, onClose }: ShareFormPr
   const buyerMode = mode === "buyer" && buyer !== null;
   const community = mode === "community";
   const modes: MessageMode[] = buyer ? ["buyer", "offer", "community"] : ["offer", "community"];
-  const digits = community ? "" : onlyDigits(phone);
-  const phoneError = isValidPhone(digits) ? undefined : "Número inválido. Use DDD + número, ex.: 11 91234-5678.";
+  const digits = community ? "" : normalizeWhatsapp(phone);
+  const phoneError = isValidPhone(digits) ? undefined : "Número inválido. Use DDD + número (ex.: 11 91234-5678) ou + e o código do país.";
   const photo = photoOf(account);
 
   useEffect(() => {
