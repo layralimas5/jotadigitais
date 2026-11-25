@@ -1,6 +1,5 @@
 import { Globe } from "lucide-react";
 import type { CSSProperties } from "react";
-import { readableTextOn } from "@/domain/tag-color";
 import { useTagColors } from "@/ui/hooks/useTagColors";
 import type { AccountStatus } from "@/domain/account";
 import { PLATFORM_LABEL, type Platform } from "@/domain/platform";
@@ -16,9 +15,20 @@ const toneClass: Record<BadgeTone, string> = {
   mist: "border-white/15 bg-white/[0.05] text-fog",
 };
 
-/** Fundo na cor que o Jota escolheu e texto preto ou branco, o que contrastar mais. */
+/** Fundo da tag: o preto do site com um pouco da cor escolhida. Toda tag fica no tom escuro do site, qualquer que seja a cor. */
+const TAG_BASE = "#0a0a0f";
+
+/**
+ * A cor que o Jota escolheu em versão escura: fundo quase preto puxado para a cor, borda na cor e texto claro dela.
+ * Chamado "site muito colorido": a cor continua reconhecível sem o bloco chapado.
+ */
 export function tagColorStyle(color: string | undefined): CSSProperties | undefined {
-  return color ? { backgroundColor: color, borderColor: color, color: readableTextOn(color) } : undefined;
+  if (!color) return undefined;
+  return {
+    backgroundColor: `color-mix(in srgb, ${color} 30%, ${TAG_BASE})`,
+    borderColor: `color-mix(in srgb, ${color} 60%, ${TAG_BASE})`,
+    color: `color-mix(in srgb, ${color} 30%, #ffffff)`,
+  };
 }
 
 export function AccountBadgePill({ badge, className }: { badge: AccountBadge; className?: string }) {

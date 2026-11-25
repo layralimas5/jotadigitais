@@ -37,11 +37,11 @@ export function StockOverview({ accounts, alertPreset }: { accounts: readonly Ac
               key={category}
               className={cn(
                 "flex shrink-0 snap-start items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-sm",
-                available > 0 ? "border-line-strong bg-surface/70 text-fog" : "border-amber-300/30 bg-amber-300/[0.06] text-amber-100",
+                available > 0 ? "border-electric/35 bg-electric/[0.08] text-fog" : "border-line bg-white/[0.03] text-mist",
               )}
             >
-              <span aria-hidden className={cn("size-2 rounded-full", available > 0 ? "bg-emerald-400" : "bg-amber-300")} />
-              <span className="font-medium text-white">{STOCK_ALERT_CATEGORY_LABEL[category]}</span>
+              <span aria-hidden className={cn("size-2 rounded-full", available > 0 ? "bg-electric" : "bg-white/25")} />
+              <span className={cn("font-medium", available > 0 ? "text-white" : "text-fog")}>{STOCK_ALERT_CATEGORY_LABEL[category]}</span>
               <span className="tabular-nums">{available > 0 ? `${available} ${available === 1 ? "disponível" : "disponíveis"}` : "Esgotado"}</span>
             </li>
           );

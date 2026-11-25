@@ -1,10 +1,10 @@
 import { PreviousPrice } from "@/ui/components/account/PreviousPrice";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Ban } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatCount, isNewListing, isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
 import { MAX_CARD_INSTALLMENTS } from "@/domain/order";
-import { allBadges, audienceLabel, cardMetric, verifiedLabel } from "@/ui/lib/account-presenter";
+import { allBadges, audienceLabel, cardMetric, isNoShopBadge, lacksTiktokShop, verifiedLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import { CartToggleIcon } from "../cart/AddToCartButton";
 import { PlatformGlyph } from "../PlatformGlyph";
@@ -13,12 +13,12 @@ import type { Platform } from "@/domain/platform";
 import { AccountAvatar } from "./AccountAvatar";
 import { AccountBadgePill, CountryTag, PlatformTag, StatusBadge } from "./AccountBadges";
 
-/** Cor do topo do card por rede: quem compra reconhece a plataforma antes de ler o nome. */
+/** Cor do topo do card por rede, em tom escuro: quem compra reconhece a plataforma sem o site ficar colorido demais. */
 const PLATFORM_COVER: Record<Platform, string> = {
-  tiktok: "from-electric via-blue-500 to-sky-400",
-  instagram: "from-pink via-fuchsia-500 to-rose-400",
-  youtube: "from-red-500 via-red-400 to-rose-300",
-  facebook: "from-indigo-500 via-blue-600 to-violet-500",
+  tiktok: "from-blue-700 via-blue-900 to-sky-950",
+  instagram: "from-fuchsia-800 via-purple-950 to-rose-950",
+  youtube: "from-red-800 via-red-950 to-rose-950",
+  facebook: "from-indigo-800 via-blue-950 to-violet-950",
 };
 
 function CardCover({ account }: { account: Account }) {
@@ -27,7 +27,7 @@ function CardCover({ account }: { account: Account }) {
     <div aria-hidden className="relative h-[4.5rem] overflow-hidden sm:h-24">
       <div
         className={cn(
-          "absolute inset-0 bg-gradient-to-br opacity-50 transition-opacity duration-500 ease-out group-hover:opacity-65",
+          "absolute inset-0 bg-gradient-to-br opacity-60 transition-opacity duration-500 ease-out group-hover:opacity-80",
           PLATFORM_COVER[account.platform],
         )}
       />
@@ -58,9 +58,21 @@ function CardCover({ account }: { account: Account }) {
   );
 }
 
+/** Aviso em destaque no card do TikTok sem Shop: quem rola a vitrine vê antes de abrir a conta. */
+function NoShopNotice() {
+  return (
+    <p className="mt-4 flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-xs font-semibold text-white">
+      <Ban aria-hidden className="size-4 shrink-0 text-fog" />
+      Esta conta não tem TikTok Shop
+    </p>
+  );
+}
+
 export function AccountCard({ account }: { account: Account }) {
   const available = isPurchasable(account);
-  const [badge, ...otherBadges] = allBadges(account);
+  const noShop = lacksTiktokShop(account);
+  const badges = noShop ? allBadges(account).filter((item) => !isNoShopBadge(item)) : allBadges(account);
+  const [badge, ...otherBadges] = badges;
   const metric = cardMetric(account);
   return (
     <article
@@ -101,6 +113,8 @@ export function AccountCard({ account }: { account: Account }) {
             </div>
           </div>
 
+          {noShop && <NoShopNotice />}
+
           {/* No mobile o selo sobe para esta linha e o card perde uma faixa inteira de altura. */}
           <div className="mt-4 flex items-end justify-between gap-4 sm:mt-6">
             <dl>
@@ -129,7 +143,7 @@ export function AccountCard({ account }: { account: Account }) {
             </ul>
           )}
           <ul aria-label="Tags da conta" className="mt-4 flex flex-wrap gap-1.5 max-sm:hidden">
-            {allBadges(account).map((item) => (
+            {badges.map((item) => (
               <li key={item.label}>
                 <AccountBadgePill badge={item} />
               </li>

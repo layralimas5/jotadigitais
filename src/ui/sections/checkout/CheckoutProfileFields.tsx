@@ -61,10 +61,10 @@ function ResidenceChoice({ abroad, onChange }: { abroad: boolean; onChange: (abr
         ))}
       </div>
       {abroad && (
-        <div role="note" className="mt-3 flex gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/[0.07] p-4 text-left">
-          <Globe2 aria-hidden className="mt-0.5 size-5 shrink-0 text-amber-200" />
+        <div role="note" className="mt-3 flex gap-3 rounded-2xl border border-electric/35 bg-electric/[0.07] p-4 text-left">
+          <Globe2 aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
           <div>
-            <p {...editable("checkoutPage.abroadTitle")} className="text-sm font-semibold text-amber-100">
+            <p {...editable("checkoutPage.abroadTitle")} className="text-sm font-semibold text-white">
               {abroadTitle}
             </p>
             <p {...editable("checkoutPage.abroadNotice")} className="mt-1 text-sm leading-relaxed text-fog">

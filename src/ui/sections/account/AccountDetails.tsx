@@ -1,5 +1,5 @@
 import { useReducedMotion } from "framer-motion";
-import { ArrowRight, Check, CircleHelp, X } from "lucide-react";
+import { ArrowRight, Check, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { catalogPathOf } from "@/domain/account-kind";
 import type { ReactNode } from "react";
@@ -9,6 +9,7 @@ import { FAQ_TOPIC_LABEL, faqAnchorOf } from "@/domain/site-content";
 import { descriptionOf, includedOf, specsOf, statusItemsOf, statusTopicOf, type StatusItem, type StatusText } from "@/ui/lib/account-presenter";
 import { openFaqAnchor, useAccountFaqItems } from "@/ui/sections/home/Faq";
 import type { SiteContent } from "@/domain/site-content";
+import { cn } from "@/ui/lib/cn";
 import { editable } from "@/ui/lib/site-preview";
 import { STEP_ICONS, useSteps } from "@/ui/sections/home/HowItWorks";
 
@@ -66,58 +67,70 @@ export function AccountStatusBox({ account }: { account: Account }) {
     return { anchorId: faqAnchorOf(topic), label: FAQ_TOPIC_LABEL[topic] };
   };
   if (items.length === 0) return null;
+  const alternatives = items.flatMap((item) => (item.alternative ? [item.alternative] : []));
   return (
-    <section aria-labelledby="status-conta-title" className="mt-6 rounded-2xl border border-line bg-surface/60 p-4 sm:p-5">
+    <section aria-labelledby="status-conta-title" className="mt-6">
       <h2 id="status-conta-title" {...editable("accountPage.tiktokStatus.title")} className="text-sm font-semibold text-white">
         {accountPage.tiktokStatus.title}
       </h2>
-      <ul className="mt-3 space-y-3">
-        {items.map((item) => {
-          const explainer = explainerOf(item);
-          return (
-            <li key={item.id} className="flex gap-3">
-              <span
-                aria-hidden
-                className={
-                  item.has
-                    ? "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-emerald-400/15 text-emerald-300"
-                    : "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-white/10 text-fog"
-                }
-              >
-                {item.has ? <Check className="size-3.5" /> : <X className="size-3.5" />}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm leading-relaxed text-mist">
-                  <strong className="font-semibold text-white">{item.label}.</strong>{" "}
-                  <span {...editable(`accountPage.${item.text.section}.${item.text.field}`)}>{statusTextOf(accountPage, item.text)}</span>
+      <div className="mt-3 rounded-2xl border border-line bg-surface/60">
+        <ul className="divide-y divide-line px-4 sm:px-5">
+          {items.map((item) => {
+            const explainer = explainerOf(item);
+            return (
+              <li key={item.id} className="py-4">
+                <p className="flex items-center gap-2.5 font-semibold text-white">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "grid size-5 shrink-0 place-items-center rounded-full",
+                      item.has ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-fog",
+                    )}
+                  >
+                    {item.has ? <Check className="size-3.5" /> : <X className="size-3.5" />}
+                  </span>
+                  {item.label}
                 </p>
-                {explainer && (
-                  <a
-                    href={`#${explainer.anchorId}`}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      openFaqAnchor(explainer.anchorId, !reduceMotion);
-                    }}
-                    className="mt-1.5 mr-4 inline-flex items-center gap-1 text-sm font-semibold text-electric-soft underline-offset-4 hover:underline"
-                  >
-                    <CircleHelp aria-hidden className="size-3.5" />
-                    Entenda o que é {explainer.label}
-                  </a>
-                )}
-                {item.alternative && (
-                  <Link
-                    to={catalogPathOf(item.alternative.kind)}
-                    className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-electric-soft underline-offset-4 hover:underline"
-                  >
-                    {item.alternative.label}
-                    <ArrowRight aria-hidden className="size-3.5" />
-                  </Link>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                {/* O "Entenda" vai dentro do próprio texto, em azul: um toque e a pessoa cai na resposta das Dúvidas. */}
+                <p className="mt-1.5 text-sm leading-relaxed text-mist">
+                  <span {...editable(`accountPage.${item.text.section}.${item.text.field}`)}>{statusTextOf(accountPage, item.text)}</span>
+                  {explainer && (
+                    <>
+                      {" "}
+                      <a
+                        href={`#${explainer.anchorId}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          openFaqAnchor(explainer.anchorId, !reduceMotion);
+                        }}
+                        className="font-semibold whitespace-nowrap text-electric-soft underline decoration-electric-soft/40 underline-offset-4 transition-colors hover:decoration-electric-soft"
+                      >
+                        Entenda o que é {explainer.label}
+                      </a>
+                    </>
+                  )}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+        {/* Quem queria outro tipo acha o recorte da vitrine aqui embaixo, sem um link no meio de cada item. */}
+        {alternatives.length > 0 && (
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line px-4 py-3 text-sm sm:px-5">
+            <span className="text-mist">Procurando outra?</span>
+            {alternatives.map((alternative) => (
+              <Link
+                key={alternative.kind}
+                to={catalogPathOf(alternative.kind)}
+                className="inline-flex items-center gap-1 font-semibold text-electric-soft underline-offset-4 hover:underline"
+              >
+                {alternative.label}
+                <ArrowRight aria-hidden className="size-3.5" />
+              </Link>
+            ))}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

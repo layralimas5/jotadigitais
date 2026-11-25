@@ -103,6 +103,14 @@ const SHOP_BADGE: Record<ShopTier, AccountBadge> = {
 
 const INSTAGRAM_SHOP_BADGE: AccountBadge = { label: "Instagram Shop", tone: "electric" };
 
+/** TikTok sem Shop nenhum: o card mostra isso em destaque, porque é o que mais gera dúvida na compra. */
+export const lacksTiktokShop = (account: Account): boolean => account.platform === "tiktok" && shopTierOf(account) === "none";
+
+const NO_SHOP_TAG_KEY = customTagKey(SHOP_BADGE.none.label);
+
+/** A tag "Sem TikTok Shop", fixa ou criada pelo Jota com o mesmo nome. Some do card quando o aviso em destaque aparece. */
+export const isNoShopBadge = (badge: AccountBadge): boolean => customTagKey(badge.label) === NO_SHOP_TAG_KEY;
+
 /** Todas as tags da conta: as fixas (no TikTok, Monetizada e o Shop juntos) e as criadas pelo Jota. */
 export function allBadges(account: Account): AccountBadge[] {
   const fixed =
