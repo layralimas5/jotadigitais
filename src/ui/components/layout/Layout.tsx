@@ -2,6 +2,7 @@ import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { CookieBanner } from "@/ui/components/cookies/CookieBanner";
 import { CookieConsentProvider } from "@/ui/components/cookies/CookieConsentProvider";
+import { PendingOrderBar } from "@/ui/components/order/PendingOrderBar";
 import { WhatsAppWidget } from "@/ui/components/whatsapp/WhatsAppWidget";
 import { useAffiliateRef } from "@/ui/hooks/useAffiliateRef";
 import { CartProvider } from "@/ui/hooks/useCart";
@@ -84,6 +85,7 @@ export function Layout() {
         </Suspense>
       </main>
       <Footer />
+      <PendingOrderBar />
       <WhatsAppWidget />
       <CookieBanner />
       </FirstVisitGate>

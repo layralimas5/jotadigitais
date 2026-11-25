@@ -16,7 +16,9 @@ import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useCardReturn } from "@/ui/hooks/useCardCheckout";
 import { useOrder } from "@/ui/hooks/useStore";
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
+import { cn } from "@/ui/lib/cn";
 import { EASE_OUT_EXPO } from "@/ui/lib/motion";
+import { clearPendingOrder, savePendingOrder } from "@/ui/lib/pending-order";
 import { editable, IS_SITE_PREVIEW, PREVIEW_ORDER_CODE } from "@/ui/lib/site-preview";
 import { OrderCartItems } from "@/ui/sections/order/OrderCartItems";
 import { OrderPayments } from "@/ui/sections/order/OrderPayments";
@@ -137,6 +139,23 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
   // Pago: a mensagem com o código faz o acesso sair sozinho no WhatsApp (entrega automática).
   const canRequestAccess = (order.status === "paid" || order.status === "delivered") && !isCartMember(order) && whatsappUrl;
   const charged = chargedAmounts(order);
+  // Esperando pagamento, o pagamento sobe para logo abaixo do relógio: no celular ele aparece sem rolar a página.
+  const payFirst = awaiting && !isCartMember(order);
+  const payments = isCartMember(order) && order.cartCode ? (
+    <p className="mx-auto mt-8 max-w-md rounded-2xl border border-line bg-surface/70 p-4 text-sm text-fog">
+      Esta conta foi comprada junto com outras. O pagamento e o andamento ficam no pedido{" "}
+      <Link to={`/pedido/${order.cartCode}`} className="font-mono font-semibold text-electric-soft underline-offset-4 hover:underline">
+        {order.cartCode}
+      </Link>
+      .
+    </p>
+  ) : (
+    <>
+      {!payFirst && <OrderCartItems items={order.cartItems} />}
+      <OrderPayments order={order} onPaid={onPaid} compact={payFirst} />
+      {payFirst && <OrderCartItems items={order.cartItems} />}
+    </>
+  );
 
   return (
     <div className="text-center">
@@ -146,7 +165,9 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
         transition={{ duration: 0.8, ease: EASE_OUT_EXPO }}
         className="mx-auto w-fit"
       >
-        <VerifiedBadge className="size-20 drop-shadow-[0_0_40px_rgb(39_153_255/0.6)]" />
+        <VerifiedBadge
+          className={cn(payFirst ? "size-12 md:size-16" : "size-20", "drop-shadow-[0_0_40px_rgb(39_153_255/0.6)]")}
+        />
       </motion.div>
       {canceled ? (
         <>
@@ -163,14 +184,18 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
           <h1
             id="pedido-title"
             {...editable(awaiting ? "orderPage.titleAwaiting" : "orderPage.titlePaid")}
-            className="mt-8 font-display text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl"
+            className={cn(
+              payFirst ? "mt-4 text-2xl md:mt-6 md:text-4xl" : "mt-8 text-3xl md:text-5xl",
+              "font-display font-semibold tracking-tight text-balance text-white",
+            )}
           >
             {fillOrderTokens(awaiting ? orderPage.titleAwaiting : orderPage.titlePaid, order)}
           </h1>
           <ReservedLine text={orderPage.reserved} order={order} />
         </>
       )}
-      {awaiting && !isCartMember(order) && <ReservationTimer expiresAt={order.expiresAt} onExpire={onPaid} />}
+      {payFirst && <ReservationTimer expiresAt={order.expiresAt} onExpire={onPaid} />}
+      {payFirst && payments}
 
       <dl className="mx-auto mt-8 grid max-w-md grid-cols-3 divide-x divide-line rounded-2xl border border-line bg-surface/60 text-sm">
         <div className="p-4">
@@ -192,20 +217,7 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
         </div>
       </dl>
 
-      {isCartMember(order) && order.cartCode ? (
-        <p className="mx-auto mt-8 max-w-md rounded-2xl border border-line bg-surface/70 p-4 text-sm text-fog">
-          Esta conta foi comprada junto com outras. O pagamento e o andamento ficam no pedido{" "}
-          <Link to={`/pedido/${order.cartCode}`} className="font-mono font-semibold text-electric-soft underline-offset-4 hover:underline">
-            {order.cartCode}
-          </Link>
-          .
-        </p>
-      ) : (
-        <>
-          <OrderCartItems items={order.cartItems} />
-          <OrderPayments order={order} onPaid={onPaid} />
-        </>
-      )}
+      {!payFirst && payments}
 
       {!canceled && (
         <div className="mx-auto max-w-3xl">
@@ -271,14 +283,30 @@ function LiveOrderPage({ code }: { code: string }) {
   const { retry } = order;
   const { checking } = useCardReturn(retry);
   const awaitingPayment = order.status === "success" && order.data.status === "awaiting_payment";
+  const loaded = order.status === "success" ? order.data : null;
 
   useEffect(() => {
     if (!awaitingPayment) return;
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") retry();
     }, REFRESH_MS);
-    return () => window.clearInterval(timer);
+    // Voltou do app do banco: confere na hora, sem esperar a próxima volta do relógio.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") retry();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [awaitingPayment, retry]);
+
+  // Guarda o pedido no navegador enquanto espera pagamento: a faixa do site leva de volta para cá.
+  useEffect(() => {
+    if (!loaded || isCartMember(loaded)) return;
+    if (loaded.status === "awaiting_payment") savePendingOrder({ code: loaded.code, expiresAt: loaded.expiresAt });
+    else clearPendingOrder(loaded.code);
+  }, [loaded]);
 
   return (
     <OrderShell>

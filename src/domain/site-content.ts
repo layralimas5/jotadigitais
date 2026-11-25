@@ -173,6 +173,9 @@ export interface SiteContent {
     sourceQuestion: string;
     /** Com uma opção só, ela já vem marcada. */
     sources: LeadSource[];
+    /** Aviso para quem marca que mora fora do Brasil (proxy, emulador...). */
+    abroadTitle: string;
+    abroadNotice: string;
   };
   /** Página /seja-parceiro: explica a parceria e leva ao WhatsApp do Jota com a mensagem pronta. */
   partnerPage: TitleBlock & {
@@ -435,6 +438,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   checkoutPage: {
     sourceQuestion: "Como você conheceu a Jota Digitais?",
     sources: ["referral"],
+    abroadTitle: "Mora fora do Brasil? Leia antes de comprar",
+    abroadNotice:
+      "As contas são do Brasil. Para usar de outro país sem bloqueio, você precisa ter antes um proxy com IP do Brasil e um emulador (celular virtual). Sem isso, a rede pode limitar ou bloquear a conta. Ficou com dúvida? Fale com a gente no WhatsApp antes de pagar.",
   },
   partnerPage: {
     eyebrow: "Seja parceiro",
