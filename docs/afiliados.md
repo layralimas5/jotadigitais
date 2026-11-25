@@ -51,10 +51,40 @@ e-mail cai em `/afiliado/nova-senha`.
 Conferir pela REST depois de colar: `affiliate_program` lê com a chave anon; `affiliates` e
 `affiliate_commissions` recusam anon.
 
+## Entrega 2 (25/11, chamados "painel de afiliados" e "exemplos de ganhos")
+
+Migration `supabase/migrations/20270101120000_affiliates_v2.sql`.
+
+- **Pagamento em lotes:** o Jota paga a cada N indicações (Programa > "Pagar a cada quantas indicações", padrão 10).
+  Aba **Pagamentos** mostra cada afiliado com a barra até o próximo lote, "Pagar lote" ou "Pagar todas", a chave Pix
+  para copiar e o aviso de quantas ainda estão na garantia. "Paguei" grava o lote (`affiliate_payouts`) e marca as
+  comissões como pagas; dá para desfazer. O afiliado vê "já pagas / faltam X para o próximo pagamento" e o histórico
+  no Extrato.
+- **Comissão própria por afiliado** (ficha do afiliado): substitui a padrão do programa. Conta com comissão própria
+  paga a dela, a não ser que a do afiliado dê mais (`affiliate_amount_for`, igual a `affiliateAmountFor`).
+- **Brindes** (aba Brindes): para todos ou para um afiliado, com prazo. O afiliado toca em "Receber" (aba Brindes do
+  painel), o Jota recebe no sininho e marca como entregue.
+- **Painel do afiliado:** faixa de chamada editável (Programa > Textos), contas disponíveis, afiliados no programa,
+  tipos mais vendidos nos 30 dias, exemplos de ganho com as contas que mais rendem e conta rápida por mês, central de
+  avisos (vendas, comissão liberada, pagamento, brinde, recado, contas novas) com contador de não lidos.
+- **Indicação pelo WhatsApp:** link `/indicacao/<código>` conta o clique, guarda a indicação no navegador e abre o
+  WhatsApp da loja com "(código: x)". Com o número oficial ligado, a mensagem marca o contato com o afiliado
+  (`whatsapp_mark_affiliate_referral`) e a compra desse número no prazo do link conta para ele (via `whatsapp`).
+  Ordem de quem leva: cupom, link, WhatsApp.
+- **Atribuir venda à mão** (ficha do afiliado): pedido sem link nem cupom passa a contar para o afiliado; se já pago,
+  a comissão nasce na hora (via `manual`). A ficha também mostra o link da loja dele para mandar ao cliente indicado.
+- **Página "Seja afiliado":** botões no topo, quanto ganha (exemplos e conta por mês), o que recebe e dúvidas.
+
+### Ligar em produção
+
+1. SQL Editor: colar `20270101120000_affiliates_v2.sql` (testada em transação desfeita em 25/11).
+2. Push da main (Netlify publica). Nenhuma função nova.
+3. O Jota confere em Programa o "Pagar a cada quantas indicações" e, se quiser, a faixa do painel.
+
 ## Próximas entregas
 
-- **Saques e pagamento:** pedido de saque, travas, Pix automático pela API do banco (depende do banco liberar o Pix
-  de saída), pagamento manual com comprovante, lançamento no Financeiro, informe anual.
+- **Pix automático do lote** pela API do C6 (depende do gerente liberar o Pix de saída), comprovante anexado ao
+  lote, lançamento no Financeiro, informe anual.
 - **Reembolso depois da entrega:** marcar pedido entregue como reembolsado/estornado e cancelar a comissão.
 - **Campanhas de comissão especial por período.**
 - **Avisos no celular** do afiliado (venda e comissão liberada) e app instalável do painel do afiliado.
