@@ -251,9 +251,9 @@ function PartnersListTab() {
 const TAB_DESCRIPTION: Record<PartnersTab, string> = {
   parceiros: "Quem fornece contas ou indica clientes. A comissão é calculada sobre as vendas finalizadas das contas de cada um.",
   afiliados: "Quem divulga as contas com link ou cupom próprio. A comissão nasce na venda paga e libera quando a garantia acaba.",
-  pagamentos: "Quanto falta para cada afiliado fechar o lote de pagamento. Faça o Pix e marque \"Paguei\": ele vê no painel na hora.",
+  pagamentos: "Comissão liberada (garantia acabou) já pode ser paga, sem esperar juntar vendas. Faça o Pix e marque \"Paguei\": o afiliado vê no painel na hora.",
   brindes: "Brindes para os afiliados. Eles tocam em Receber no painel e o pedido aparece aqui para você entregar.",
-  programa: "Regras do programa de afiliados: comissão padrão, prazo do link, travas de saque e os termos que o afiliado aceita.",
+  programa: "Regras do programa de afiliados: comissão padrão, regras por tipo de conta, prazo do link, textos e os termos que o afiliado aceita.",
   mural: "Recados que aparecem no painel de todo afiliado aprovado.",
 };
 
@@ -263,7 +263,7 @@ export default function PartnersPage() {
   const summaries = board.status === "success" ? board.data.summaries : [];
   const badges = {
     afiliados: summaries.filter((summary) => summary.affiliate.status === "pending").length,
-    pagamentos: summaries.filter((summary) => summary.payout.readyBatches > 0).length,
+    pagamentos: summaries.filter((summary) => summary.payout.readyAmount > 0).length,
   };
   const affiliateTab = tab === "afiliados" || tab === "programa" || tab === "pagamentos";
 

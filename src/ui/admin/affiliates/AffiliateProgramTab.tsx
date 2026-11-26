@@ -1,24 +1,32 @@
 import { ExternalLink, FileText } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { affiliateProgramSchema, saveAffiliateProgram } from "@/application/affiliate-use-cases";
+import { affiliateProgramSchema, listGlobalCommissionRules, saveAffiliateProgram } from "@/application/affiliate-use-cases";
 import { fieldErrorsOf } from "@/application/schemas";
 import {
+  AFFILIATE_TEXT_DEFAULTS,
+  AFFILIATE_TEXT_LIMITS,
   COMMISSION_KINDS,
   COMMISSION_KIND_LABEL,
+  EMPTY_AFFILIATE_TEXTS,
   MAX_COMMISSION_PERCENT,
+  affiliateText,
   commissionCents,
   type AffiliateProgram,
+  type AffiliateTextKey,
   type CommissionKind,
 } from "@/domain/affiliate";
+import { incentiveEarning } from "@/domain/affiliate-rewards";
+import { ErrorState } from "@/ui/components/StateViews";
+import { CommissionRulesEditor } from "./CommissionRulesEditor";
 import { AFFILIATE_TERMS_TEMPLATE } from "@/domain/affiliate-terms-template";
 import { formatBRL, formatCentsInput, parseMoneyToCents } from "@/domain/money";
 import { Button } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
-import { FormSection } from "../components/AdminUi";
+import { FormSection, LoadingBlock } from "../components/AdminUi";
 import { SegmentedField, TextAreaField, ToggleField } from "../components/FormControls";
 import { FormFooter } from "../components/FormFooter";
-import { useMutation } from "../hooks";
+import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
 
 interface ProgramFormValues {
@@ -32,10 +40,20 @@ interface ProgramFormValues {
   manualApprovalAbove: string;
   terms: string;
   welcomeText: string;
-  payoutBatchSize: string;
+  incentiveSales: string;
   bannerTitle: string;
   bannerText: string;
+  texts: Record<AffiliateTextKey, string>;
 }
+
+/** Os textos novos da entrega 3: onde aparecem e quais marcadores aceitam. */
+const TEXT_FIELDS: { key: AffiliateTextKey; label: string; hint: string; rows: number }[] = [
+  { key: "incentive", label: "Incentivo da página Seja afiliado", hint: "Marcadores: {vendas} e {valor}.", rows: 2 },
+  { key: "earnRule", label: "Como o afiliado ganha (página Seja afiliado)", hint: "Marcador: {dias} (dias de garantia da aba Site).", rows: 3 },
+  { key: "payoutInfo", label: "Explicação do pagamento (painel do afiliado)", hint: "Marcador: {dias}.", rows: 3 },
+  { key: "balanceNotice", label: "Aviso de comprar conta com o saldo (painel e página Seja afiliado)", hint: "Sem marcadores.", rows: 2 },
+  { key: "inviteMessage", label: "Mensagem do convite no WhatsApp", hint: "Marcadores: {nome} (primeiro nome) e {link} (link do convite).", rows: 3 },
+];
 
 const SAMPLE_PRICE = 150_000;
 
@@ -50,9 +68,16 @@ const fromProgram = (program: AffiliateProgram): ProgramFormValues => ({
   manualApprovalAbove: formatCentsInput(program.manualApprovalAbove),
   terms: program.terms,
   welcomeText: program.welcomeText ?? "",
-  payoutBatchSize: String(program.payoutBatchSize),
+  incentiveSales: String(program.incentiveSales),
   bannerTitle: program.bannerTitle ?? "",
   bannerText: program.bannerText ?? "",
+  texts: {
+    incentive: program.texts.incentive ?? "",
+    earnRule: program.texts.earnRule ?? "",
+    payoutInfo: program.texts.payoutInfo ?? "",
+    balanceNotice: program.texts.balanceNotice ?? "",
+    inviteMessage: program.texts.inviteMessage ?? "",
+  },
 });
 
 const commissionValueOf = (values: ProgramFormValues) =>
@@ -68,9 +93,10 @@ const toRaw = (values: ProgramFormValues) => ({
   manualApprovalAbove: parseMoneyToCents(values.manualApprovalAbove),
   terms: values.terms,
   welcomeText: values.welcomeText,
-  payoutBatchSize: Number(values.payoutBatchSize.trim()),
+  incentiveSales: Number(values.incentiveSales.trim()),
   bannerTitle: values.bannerTitle,
   bannerText: values.bannerText,
+  texts: values.texts,
 });
 
 function validate(values: ProgramFormValues): Record<string, string> {
@@ -91,7 +117,48 @@ function CommissionExample({ values }: { values: ProgramFormValues }) {
   );
 }
 
+/** "A cada 10 vendas você recebe R$ 450,00 no total", com a comissão e o texto do formulário. */
+function IncentivePreview({ values }: { values: ProgramFormValues }) {
+  const value = commissionValueOf(values);
+  const sales = Number(values.incentiveSales);
+  if (!Number.isFinite(value) || value <= 0 || !Number.isInteger(sales) || sales <= 0) return null;
+  const sentence = affiliateText({ ...EMPTY_AFFILIATE_TEXTS, incentive: values.texts.incentive || null }, "incentive", {
+    vendas: sales,
+    valor: formatBRL(incentiveEarning({ kind: values.commissionKind, value }, sales)),
+  });
+  return (
+    <p className="rounded-xl border border-line bg-ink/60 px-4 py-3 text-sm text-fog">
+      Na página: <strong className="text-white">{sentence}</strong>
+    </p>
+  );
+}
+
+/** Regras de comissão para todos os afiliados (ex.: Shop piloto R$ 20). Gravadas na hora, fora do formulário. */
+function GlobalRulesSection() {
+  const rules = useAdminQuery(listGlobalCommissionRules, "admin-affiliate-global-rules");
+  if (rules.status === "loading") return <LoadingBlock label="Carregando as regras" />;
+  if (rules.status === "error") return <ErrorState message={rules.error.message} onRetry={rules.reload} />;
+  return (
+    <CommissionRulesEditor
+      title="Regras para todos os afiliados"
+      description="Comissão diferente por tipo de conta ou por quantidade de seguidores, para todo afiliado. Ex.: Shop piloto paga R$ 20 por venda. Cada afiliado ainda pode ter regras só dele na ficha."
+      rules={rules.data}
+      owner={{ kind: "all" }}
+      onChanged={rules.reload}
+    />
+  );
+}
+
 export function AffiliateProgramTab({ program, onSaved }: { program: AffiliateProgram; onSaved: () => void }) {
+  return (
+    <div className="grid max-w-3xl grid-cols-1 gap-6">
+      <ProgramForm program={program} onSaved={onSaved} />
+      <GlobalRulesSection />
+    </div>
+  );
+}
+
+function ProgramForm({ program, onSaved }: { program: AffiliateProgram; onSaved: () => void }) {
   const toast = useToast();
   const [values, setValues] = useState<ProgramFormValues>(() => fromProgram(program));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -125,7 +192,7 @@ export function AffiliateProgramTab({ program, onSaved }: { program: AffiliatePr
   };
 
   return (
-    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid max-w-3xl grid-cols-1 gap-6">
+    <form noValidate onSubmit={onSubmit} aria-busy={save.pending} className="grid grid-cols-1 gap-6">
       <FormSection title="Programa" description="Desligado, ninguém se cadastra e os links param de contar venda. As comissões já geradas continuam.">
         <ToggleField label="Programa de afiliados ligado" checked={values.enabled} onChange={(enabled) => update({ enabled })} />
         <ToggleField
@@ -172,24 +239,25 @@ export function AffiliateProgramTab({ program, onSaved }: { program: AffiliatePr
       </FormSection>
 
       <FormSection
-        title="Pagamento das comissões"
-        description="Você paga em lotes: quando um afiliado junta esse número de indicações vendidas, o lote aparece pronto na aba Pagamentos."
+        title="Exemplo de ganho da página Seja afiliado"
+        description="Não existe mais lote: cada venda pode ser paga quando a garantia acaba. Este número só monta o exemplo que motiva quem está conhecendo o programa."
       >
         <TextField
-          label="Pagar a cada quantas indicações"
-          name="payoutBatchSize"
+          label="Vendas no exemplo de ganho da página Seja afiliado"
+          name="incentiveSales"
           inputMode="numeric"
           autoComplete="off"
-          value={values.payoutBatchSize}
-          onChange={(event) => update({ payoutBatchSize: event.target.value.replace(/\D/g, "") })}
-          error={errors.payoutBatchSize}
-          hint="O afiliado vê no painel quantas já foram pagas e quantas faltam para o próximo pagamento."
+          value={values.incentiveSales}
+          onChange={(event) => update({ incentiveSales: event.target.value.replace(/\D/g, "") })}
+          error={errors.incentiveSales}
+          hint="Ex.: 10 mostra quanto a pessoa ganha a cada 10 vendas de uma conta de R$ 1.500,00."
         />
+        <IncentivePreview values={values} />
       </FormSection>
 
       <FormSection
         title="Saques"
-        description="Travas de segurança dos pagamentos de comissão. Os saques entram na próxima etapa; já pode deixar os valores definidos."
+        description="Travas de segurança dos pagamentos. O mínimo é R$ 1,00: qualquer venda liberada já pode ser paga."
       >
         <div className="grid gap-4 sm:grid-cols-3">
           <TextField
@@ -222,7 +290,10 @@ export function AffiliateProgramTab({ program, onSaved }: { program: AffiliatePr
         </div>
       </FormSection>
 
-      <FormSection title="Textos" description="A faixa e o recado aparecem no topo do painel do afiliado. Os termos aparecem no cadastro e precisam ser aceitos.">
+      <FormSection
+        title="Textos"
+        description="A faixa e o recado aparecem no topo do painel do afiliado; os outros, na página Seja afiliado, no painel e no convite. Os termos aparecem no cadastro e precisam ser aceitos."
+      >
         <TextField
           label="Chamada da faixa do painel (opcional)"
           name="bannerTitle"
@@ -243,6 +314,20 @@ export function AffiliateProgramTab({ program, onSaved }: { program: AffiliatePr
           onChange={(event) => update({ bannerText: event.target.value })}
           error={errors.bannerText}
         />
+        {TEXT_FIELDS.map((field) => (
+          <TextAreaField
+            key={field.key}
+            label={`${field.label} (opcional)`}
+            name={`text-${field.key}`}
+            rows={field.rows}
+            maxLength={AFFILIATE_TEXT_LIMITS[field.key]}
+            placeholder={AFFILIATE_TEXT_DEFAULTS[field.key]}
+            value={values.texts[field.key]}
+            onChange={(event) => update({ texts: { ...values.texts, [field.key]: event.target.value } })}
+            error={errors[`texts.${field.key}`]}
+            hint={`Em branco, vale o texto de exemplo. ${field.hint}`}
+          />
+        ))}
         <TextAreaField
           label="Recado de boas-vindas (opcional)"
           name="welcomeText"

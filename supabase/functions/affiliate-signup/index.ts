@@ -1,6 +1,8 @@
 // Cadastro público do programa de afiliados ("Seja afiliado").
 // O cadastro aberto do Supabase Auth continua desligado: esta função cria o login com a chave de serviço e grava o
 // afiliado pela register_affiliate, que confere programa ligado, termos atuais, CPF e limite por IP.
+// Com `inviteToken` (link /seja-afiliado?convite=...), o convite vale mesmo com o programa fechado: quem confere o
+// convite é a register_affiliate.
 // Se a gravação falhar, o login recém-criado é apagado para não sobrar usuário sem afiliado.
 // Deploy: npx supabase functions deploy affiliate-signup --no-verify-jwt
 import { createClient } from "npm:@supabase/supabase-js@2.117.3";
@@ -18,7 +20,7 @@ const isStrongPassword = (password: string) =>
   password.length >= 10 && password.length <= 72 && /[A-Za-z]/.test(password) && /\d/.test(password);
 
 /** Erros que a register_affiliate devolve e que a tela sabe explicar. */
-const KNOWN_ERRORS = ["program_closed", "outdated_terms", "too_many_attempts", "invalid_document", "document_taken"] as const;
+const KNOWN_ERRORS = ["program_closed", "outdated_terms", "too_many_attempts", "invalid_document", "document_taken", "invalid_invite"] as const;
 type KnownError = (typeof KNOWN_ERRORS)[number];
 type ErrorCode = KnownError | "invalid" | "email_taken" | "server";
 
@@ -29,6 +31,7 @@ const STATUS: Record<ErrorCode, number> = {
   email_taken: 409,
   document_taken: 409,
   program_closed: 403,
+  invalid_invite: 410,
   too_many_attempts: 429,
   server: 500,
 };
@@ -46,7 +49,10 @@ interface SignupInput {
   whatsapp: string | null;
   document: string;
   termsSha256: string;
+  inviteToken: string | null;
 }
+
+const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{20,64}$/;
 
 function parse(body: Record<string, unknown>): SignupInput | null {
   const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -56,13 +62,15 @@ function parse(body: Record<string, unknown>): SignupInput | null {
   const whatsapp = text(body.whatsapp).replace(/\D/g, "");
   const document = text(body.document).replace(/\D/g, "");
   const termsSha256 = text(body.termsSha256);
+  const inviteToken = text(body.inviteToken);
   if (name.length < 2 || name.length > 80) return null;
   if (!EMAIL_PATTERN.test(email) || email.length > 254) return null;
   if (!isStrongPassword(password)) return null;
   if (whatsapp && !/^\d{10,13}$/.test(whatsapp)) return null;
   if (!/^\d{11}$/.test(document)) return null;
   if (!/^[0-9a-f]{64}$/.test(termsSha256)) return null;
-  return { name, email, password, whatsapp: whatsapp || null, document, termsSha256 };
+  if (inviteToken && !INVITE_TOKEN_PATTERN.test(inviteToken)) return null;
+  return { name, email, password, whatsapp: whatsapp || null, document, termsSha256, inviteToken: inviteToken || null };
 }
 
 function clientIp(request: Request): string | null {
@@ -94,7 +102,7 @@ Deno.serve(async (request) => {
     console.error(programError);
     return failWith("server");
   }
-  if (!program.enabled) return failWith("program_closed");
+  if (!program.enabled && !input.inviteToken) return failWith("program_closed");
 
   const { data: created, error: createError } = await service.auth.admin.createUser({
     email: input.email,
@@ -116,6 +124,7 @@ Deno.serve(async (request) => {
     p_document: input.document,
     p_terms_sha256: input.termsSha256,
     p_ip: clientIp(request),
+    p_invite_token: input.inviteToken,
   });
   if (registerError) {
     const { error: cleanupError } = await service.auth.admin.deleteUser(created.user.id);

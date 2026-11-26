@@ -2,12 +2,13 @@ import { Plus, TicketPercent } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listCouponSummaries, type CouponSummary } from "@/application/admin-use-cases";
-import { COUPON_STATUS_LABEL, couponStatusOf, couponValueLabel, type Coupon, type CouponStatus } from "@/domain/coupon";
+import { COUPON_STATUS_LABEL, couponStatusOf, couponValueLabel, isAffiliateBalanceCoupon, type Coupon, type CouponStatus } from "@/domain/coupon";
 import { formatBRL } from "@/domain/money";
 import { ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { cn } from "@/ui/lib/cn";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
+import { FilterChips } from "../components/FilterChips";
 import { Kpi } from "../components/Kpi";
 import { SearchInput } from "../components/SearchInput";
 import { useAdminQuery } from "../hooks";
@@ -59,8 +60,13 @@ function CouponCard({ summary }: { summary: CouponSummary }) {
             {coupon.code}
           </Link>
           <p className="mt-0.5 text-sm text-fog">
-            {couponValueLabel(coupon, formatBRL)} de desconto
+            {isAffiliateBalanceCoupon(coupon) ? `${formatBRL(coupon.value)} de saldo de afiliado` : `${couponValueLabel(coupon, formatBRL)} de desconto`}
           </p>
+          {isAffiliateBalanceCoupon(coupon) && (
+            <p className="mt-1.5 inline-flex rounded-full border border-violet/40 bg-violet/15 px-2 py-0.5 text-[0.68rem] font-semibold text-white">
+              Saldo de afiliado: não é desconto da loja
+            </p>
+          )}
         </div>
         <StatusBadge status={status} />
       </div>
@@ -84,11 +90,18 @@ function CouponCard({ summary }: { summary: CouponSummary }) {
 
 const matches = (summary: CouponSummary, query: string) => summary.coupon.code.includes(query.trim().toUpperCase());
 
+type CouponKindFilter = "store" | "balance";
+
 export default function CouponsPage() {
   const summaries = useAdminQuery(listCouponSummaries, "admin-coupons");
   const [query, setQuery] = useState("");
-  const data = summaries.status === "success" ? summaries.data : null;
-  const visible = useMemo(() => (data ? data.filter((summary) => matches(summary, query)) : []), [data, query]);
+  const [kind, setKind] = useState<CouponKindFilter>("store");
+  const all = summaries.status === "success" ? summaries.data : null;
+  // Código de saldo de afiliado fica separado: é o afiliado pagando com a comissão, não desconto da loja.
+  const data = all ? all.filter((summary) => !isAffiliateBalanceCoupon(summary.coupon)) : null;
+  const balance = all ? all.filter((summary) => isAffiliateBalanceCoupon(summary.coupon)) : [];
+  const listed = kind === "store" ? data : balance;
+  const visible = useMemo(() => (listed ? listed.filter((summary) => matches(summary, query)) : []), [listed, query]);
 
   return (
     <div className="space-y-6">
@@ -104,7 +117,7 @@ export default function CouponsPage() {
 
       {summaries.status === "loading" && <LoadingBlock />}
       {summaries.status === "error" && <ErrorState message={summaries.error.message} onRetry={summaries.reload} />}
-      {data && data.length === 0 && (
+      {all && all.length === 0 && (
         <EmptyState
           title="Nenhum cupom ainda"
           description="Crie um código, escolha o desconto em % ou em reais e, se quiser, a validade e o limite de usos."
@@ -115,7 +128,7 @@ export default function CouponsPage() {
           }
         />
       )}
-      {data && data.length > 0 && (
+      {data && all && all.length > 0 && (
         <>
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <Kpi label="Cupons valendo" value={String(data.filter((summary) => couponStatusOf(summary.coupon) === "active").length)} />
@@ -123,6 +136,17 @@ export default function CouponsPage() {
             <Kpi label="Desconto dado" value={formatBRL(data.reduce((sum, summary) => sum + summary.discountGiven, 0))} />
           </dl>
           <SearchInput label="Buscar cupom" placeholder="Buscar pelo código" value={query} onChange={setQuery} />
+          {balance.length > 0 && (
+            <FilterChips
+              label="Tipo de código"
+              value={kind}
+              options={[
+                { value: "store" as const, label: "Cupons da loja" },
+                { value: "balance" as const, label: `Saldo de afiliados (${balance.length})` },
+              ]}
+              onChange={setKind}
+            />
+          )}
           {visible.length === 0 ? (
             <EmptyState title="Nenhum cupom encontrado" description="Confira o código digitado." />
           ) : (

@@ -1,14 +1,29 @@
-import { ArrowRight, Gift, MessageCircle, Rocket, Store, TrendingUp, Users } from "lucide-react";
-import { useId, useState } from "react";
+import { ArrowRight, BellRing, Gift, Hourglass, MessageCircle, Rocket, ShoppingBag, Store, TrendingUp, Users, Wallet, X } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { AffiliateHome } from "@/application/affiliate-use-cases";
-import { commissionRuleLabel, type CommissionRule } from "@/domain/affiliate";
-import { affiliateWhatsAppLink, earningExamples, earningSentence, monthlyEarning, topEarningAccounts, type PayoutProgress } from "@/domain/affiliate-rewards";
+import {
+  cancelAffiliateBalanceCoupon,
+  createAffiliateBalanceCoupon,
+  requestAffiliatePayout,
+  type AffiliateHome,
+} from "@/application/affiliate-use-cases";
+import { affiliateText, commissionRuleLabel, type CommissionRule } from "@/domain/affiliate";
+import { commissionRuleSummary } from "@/domain/affiliate-commission-rules";
+import {
+  MIN_BALANCE_COUPON_CENTS,
+  affiliateWhatsAppLink,
+  canRequestPayout,
+  earningExamples,
+  earningSentence,
+  monthlyEarning,
+  topEarningAccounts,
+} from "@/domain/affiliate-rewards";
+import { Button } from "@/ui/components/Button";
 import { formatBRL } from "@/domain/money";
 import { STOCK_CATEGORY_LABEL } from "@/domain/stock";
 import { cn } from "@/ui/lib/cn";
-import { useAffiliatePath } from "../session";
-import { LinkBox, PanelSection } from "./AffiliateUi";
+import { useAffiliatePath, useAffiliatePortal, useAffiliateSession } from "../session";
+import { CopyButton, LinkBox, PanelSection } from "./AffiliateUi";
 
 const DEFAULT_BANNER_TITLE = "Indique e ganhe em cada conta vendida";
 const DEFAULT_BANNER_TEXT = "Divulgue as contas da vitrine com o seu link ou cupom. Cada venda paga gera comissão para você.";
@@ -81,57 +96,171 @@ export function StoreNumbers({ home }: { home: AffiliateHome }) {
   );
 }
 
-/** "10 já pagas, faltam 6 para o próximo pagamento": como o Jota paga, em lotes. */
-export function PayoutProgressCard({ progress, title = "Próximo pagamento" }: { progress: PayoutProgress; title?: string }) {
-  const percent = Math.round((progress.readyBatches > 0 ? 1 : progress.inCurrentBatch / progress.batchSize) * 100);
-  const labelId = useId();
+const requestedDay = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** Ação do painel com estado de envio e erro explícito (na visualização pela equipe, só leitura). */
+function usePanelAction(onDone: () => void) {
+  const { preview } = useAffiliateSession();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (action: () => Promise<unknown>) => {
+    setPending(true);
+    setError(null);
+    try {
+      await action();
+      onDone();
+    } catch (reason) {
+      console.error(reason);
+      setError(reason instanceof Error ? reason.message : "Não deu certo agora. Tente de novo.");
+    } finally {
+      setPending(false);
+    }
+  };
+  return { run, pending, error, readOnly: preview !== null };
+}
+
+function ActionError({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="mt-3 rounded-xl border border-alert/40 bg-alert/10 px-3 py-2 text-sm text-[#ffb4b4]">
+      {message}
+    </p>
+  );
+}
+
+/** "Liberado para receber: R$ X" e o "Pedir pagamento". Sem lote: cada venda libera quando a garantia acaba. */
+export function PayoutCard({ home, onChanged, title = "Seus ganhos" }: { home: AffiliateHome; onChanged: () => void; title?: string }) {
+  const portal = useAffiliatePortal();
+  const { payout } = home;
+  const action = usePanelAction(onChanged);
+  const canRequest = canRequestPayout(payout);
+  const info = affiliateText(home.program.texts, "payoutInfo", { dias: home.guaranteeDays });
   return (
     <PanelSection title={title}>
-      <p className="text-sm text-fog">
-        A loja paga a cada <strong className="text-white">{progress.batchSize} indicações</strong> que viram venda.
-      </p>
-      <div className="mt-4">
-        <div className="flex items-baseline justify-between gap-3 text-sm">
-          <span id={labelId} className="font-semibold text-white">
-            {progress.readyBatches > 0
-              ? `${progress.readyBatches === 1 ? "Um pagamento pronto" : `${progress.readyBatches} pagamentos prontos`} para sair`
-              : `${progress.inCurrentBatch} de ${progress.batchSize} indicações`}
-          </span>
-          <span className="text-mist tabular-nums">{formatBRL(progress.waitingAmount)} esperando</span>
-        </div>
-        <div
-          role="progressbar"
-          aria-labelledby={labelId}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent}
-          className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.07]"
-        >
-          <div className="h-full rounded-full bg-electric transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${percent}%` }} />
-        </div>
-        <p className="mt-2 text-xs text-mist">
-          {progress.readyBatches > 0
-            ? "O Jota já pode te pagar. Confira se a sua chave Pix está certa no Perfil."
-            : `Faltam ${progress.missingForNextBatch} ${progress.missingForNextBatch === 1 ? "indicação" : "indicações"} para fechar o próximo pagamento.`}
+      <div className="rounded-2xl border border-electric/40 bg-electric/[0.07] p-4">
+        <p className="flex items-center gap-2 text-sm text-fog">
+          <Wallet aria-hidden className="size-4 text-electric" /> Liberado para receber
         </p>
+        <p className="mt-1 font-display text-3xl font-bold text-white tabular-nums">{formatBRL(payout.readyAmount)}</p>
+        <p className="mt-1 text-xs text-mist">
+          {payout.ready.length} {payout.ready.length === 1 ? "venda liberada" : "vendas liberadas"}
+        </p>
+        {payout.requestedAt ? (
+          <p className="mt-3 flex items-center gap-2 text-sm text-amber-100">
+            <BellRing aria-hidden className="size-4 shrink-0" /> Você pediu o pagamento em {requestedDay.format(new Date(payout.requestedAt))}. A loja já
+            recebeu o aviso.
+          </p>
+        ) : null}
+        <Button
+          className="mt-4 w-full sm:w-auto"
+          disabled={!canRequest || action.pending || action.readOnly}
+          onClick={() => void action.run(() => requestAffiliatePayout(portal))}
+        >
+          <BellRing aria-hidden className="size-4" /> {action.pending ? "Pedindo..." : "Pedir pagamento"}
+        </Button>
+        {!canRequest && payout.readyAmount > 0 && payout.requestedAt && (
+          <p className="mt-2 text-xs text-mist">Dá para pedir de novo 24 horas depois do último pedido.</p>
+        )}
+        <ActionError message={action.error} />
       </div>
+      <p className="mt-4 text-sm text-fog">{info}</p>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-2xl border border-line bg-ink/50 p-3">
-          <dt className="text-xs text-mist">Já pagas</dt>
-          <dd className="mt-0.5 font-semibold text-white tabular-nums">
-            {progress.paidCount} {progress.paidCount === 1 ? "indicação" : "indicações"}
+          <dt className="flex items-center gap-1 text-xs text-mist">
+            <Hourglass aria-hidden className="size-3" /> Na garantia
+          </dt>
+          <dd className="mt-0.5 font-semibold text-white tabular-nums">{formatBRL(payout.inGuaranteeAmount)}</dd>
+          <dd className="text-xs text-mist">
+            {payout.inGuarantee.length} {payout.inGuarantee.length === 1 ? "venda" : "vendas"}
           </dd>
-          <dd className="text-xs text-mist tabular-nums">{formatBRL(progress.paidAmount)}</dd>
         </div>
         <div className="rounded-2xl border border-line bg-ink/50 p-3">
-          <dt className="text-xs text-mist">Esperando pagamento</dt>
-          <dd className="mt-0.5 font-semibold text-white tabular-nums">
-            {progress.waiting.length} {progress.waiting.length === 1 ? "indicação" : "indicações"}
+          <dt className="text-xs text-mist">Já recebido</dt>
+          <dd className="mt-0.5 font-semibold text-white tabular-nums">{formatBRL(payout.paidAmount)}</dd>
+          <dd className="text-xs text-mist">
+            {payout.paidCount} {payout.paidCount === 1 ? "venda" : "vendas"}
           </dd>
-          <dd className="text-xs text-mist tabular-nums">{formatBRL(progress.waitingAmount)}</dd>
         </div>
       </dl>
     </PanelSection>
+  );
+}
+
+/** "Comprar conta com seu saldo": gera o código de uso único, mostra para copiar e deixa cancelar. */
+export function BalanceCouponCard({ home, onChanged }: { home: AffiliateHome; onChanged: () => void }) {
+  const portal = useAffiliatePortal();
+  const action = usePanelAction(onChanged);
+  const coupon = home.balanceCoupon;
+  const available = home.payout.readyAmount;
+  return (
+    <PanelSection title="Comprar conta com seu saldo">
+      <p className="flex gap-2 text-sm text-fog">
+        <ShoppingBag aria-hidden className="mt-0.5 size-4 shrink-0 text-electric" />
+        {affiliateText(home.program.texts, "balanceNotice")}
+      </p>
+      {coupon ? (
+        <div className="mt-4 rounded-2xl border border-line bg-ink/60 p-4">
+          <p className="text-xs text-mist">Seu código de saldo ({formatBRL(coupon.value)})</p>
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <span className="min-w-0 flex-1 truncate font-mono text-lg font-semibold tracking-wide text-white">{coupon.code}</span>
+            <CopyButton text={coupon.code} label="Copiar código" />
+          </div>
+          <p className="mt-3 text-xs text-mist">
+            Use no checkout, no campo de cupom. Vale uma compra e a conta precisa custar mais que o saldo: você paga só a diferença.
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Link
+              to="/contas"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-ink transition-colors hover:bg-white/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric"
+            >
+              Ver as contas da vitrine <ArrowRight aria-hidden className="size-4" />
+            </Link>
+            <Button
+              variant="ghost"
+              disabled={coupon.inUse || action.pending || action.readOnly}
+              onClick={() => void action.run(() => cancelAffiliateBalanceCoupon(portal))}
+            >
+              <X aria-hidden className="size-4" /> Cancelar o código
+            </Button>
+          </div>
+          {coupon.inUse && <p className="mt-2 text-xs text-amber-100">Esse código está num pedido em aberto. Ele some quando o pedido for pago.</p>}
+        </div>
+      ) : (
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            disabled={available < MIN_BALANCE_COUPON_CENTS || action.pending || action.readOnly}
+            onClick={() => void action.run(() => createAffiliateBalanceCoupon(portal))}
+          >
+            <ShoppingBag aria-hidden className="size-4" /> {action.pending ? "Gerando..." : `Gerar código de saldo (${formatBRL(available)})`}
+          </Button>
+          <p className="mt-2 text-xs text-mist">
+            {available < MIN_BALANCE_COUPON_CENTS
+              ? "O código aparece quando você tiver saldo liberado."
+              : "O saldo fica reservado no código até você usar ou cancelar. Enquanto isso, ele não entra no pagamento por Pix."}
+          </p>
+        </div>
+      )}
+      <ActionError message={action.error} />
+    </PanelSection>
+  );
+}
+
+/** Regras especiais que valem para ele (as dele e as de todos), para saber quanto ganha em cada tipo de conta. */
+export function MyCommissionRules({ home }: { home: AffiliateHome }) {
+  if (home.commissionRules.length === 0) return null;
+  return (
+    <ul className="mt-3 space-y-1.5 text-sm">
+      {home.commissionRules.map((rule) => (
+        <li key={rule.id} className="flex items-start gap-2 text-fog">
+          <span aria-hidden className="mt-1.5 size-1.5 shrink-0 rounded-full bg-electric" />
+          <span>
+            {commissionRuleSummary(rule, formatBRL)}
+            {rule.mine && <span className="ml-1.5 rounded-full bg-electric/15 px-2 py-0.5 text-xs font-semibold text-electric-soft">só sua</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -20,7 +20,9 @@ import { FormSection, InlineError } from "../components/AdminUi";
 import { SegmentedField, ToggleField } from "../components/FormControls";
 import { useMutation } from "../hooks";
 import { useToast } from "../toast";
-import { AffiliatePayoutCard, PayDialog, type PayRequest } from "./AffiliatePayoutsTab";
+import type { AffiliateSummary } from "@/application/affiliate-use-cases";
+import { AffiliatePayoutCard, PayDialog } from "./AffiliatePayoutsTab";
+import { CommissionRulesEditor } from "./CommissionRulesEditor";
 
 const SAMPLE_PRICE = 150_000;
 
@@ -59,7 +61,7 @@ export function OwnCommissionSection({ detail, onSaved }: { detail: AffiliateDet
   return (
     <FormSection
       title="Comissão deste afiliado"
-      description={`Padrão do programa: ${commissionRuleLabel(detail.program.commission, formatBRL)}. Conta com comissão própria paga a dela, a não ser que a deste afiliado dê mais.`}
+      description={`Padrão do programa: ${commissionRuleLabel(detail.program.commission, formatBRL)}. Conta com comissão própria paga a dela, a não ser que a deste afiliado dê mais. As comissões personalizadas abaixo vencem esta.`}
     >
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <ToggleField label="Dar uma comissão só para ele" checked={custom} onChange={setCustom} />
@@ -101,23 +103,36 @@ export function OwnCommissionSection({ detail, onSaved }: { detail: AffiliateDet
   );
 }
 
-/** Progresso até o próximo lote e o "Paguei" direto da ficha. */
+/** O que está liberado para pagar e o "Paguei" direto da ficha. */
 export function PayoutSection({ detail, onPaid }: { detail: AffiliateDetail; onPaid: () => void }) {
-  const [request, setRequest] = useState<PayRequest | null>(null);
+  const [paying, setPaying] = useState<AffiliateSummary | null>(null);
   return (
-    <FormSection title="Pagamento" description={`Você paga a cada ${detail.program.payoutBatchSize} indicações. Mude o número na aba Programa.`}>
+    <FormSection title="Pagamento" description="Cada venda pode ser paga quando a garantia da conta acaba. Não precisa juntar vendas.">
       <ul>
-        <AffiliatePayoutCard summary={detail} onPay={setRequest} showName={false} />
+        <AffiliatePayoutCard summary={detail} onPay={setPaying} showName={false} />
       </ul>
       <PayDialog
-        request={request}
-        onClose={() => setRequest(null)}
+        summary={paying}
+        onClose={() => setPaying(null)}
         onPaid={() => {
-          setRequest(null);
+          setPaying(null);
           onPaid();
         }}
       />
     </FormSection>
+  );
+}
+
+/** Comissões só dele por tipo de conta e seguidores (ex.: R$ 40 em contas a partir de 2.000 seguidores). */
+export function AffiliateRulesSection({ detail, onChanged }: { detail: AffiliateDetail; onChanged: () => void }) {
+  return (
+    <CommissionRulesEditor
+      title="Comissões personalizadas"
+      description={`Regras só para ${detail.affiliate.name.split(" ")[0]}. Vencem as regras para todos os afiliados (aba Programa).`}
+      rules={detail.rules}
+      owner={{ kind: "affiliate", affiliateId: detail.affiliate.id }}
+      onChanged={onChanged}
+    />
   );
 }
 

@@ -8,6 +8,7 @@ const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", y
 function releaseNote(commission: AffiliateCommission): string | null {
   const state = commissionStateOf(commission);
   if (state === "canceled") return commission.canceledReason ? COMMISSION_CANCEL_REASON_LABEL[commission.canceledReason] : null;
+  if (state === "released" && commission.balanceCouponId !== null) return "Reservada no código de saldo";
   if (state !== "pending") return null;
   return commission.releaseAt ? `Libera em ${day.format(new Date(commission.releaseAt))}` : "Espera a entrega da conta";
 }

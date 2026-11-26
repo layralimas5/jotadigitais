@@ -11,7 +11,17 @@ import {
   type AffiliateProgram,
   type RankingEntry,
 } from "@/domain/affiliate";
-import type { AffiliateGift, AffiliateGiftClaim, AffiliatePayout, AffiliateStoreStats, AffiliateWhatsAppLead } from "@/domain/affiliate-rewards";
+import { bestCommissionRule, sortCommissionRules, type MyCommissionRule } from "@/domain/affiliate-commission-rules";
+import type { AffiliateInvitePreview } from "@/domain/affiliate-invite";
+import type {
+  AffiliateBalanceCoupon,
+  AffiliateGift,
+  AffiliateGiftClaim,
+  AffiliatePayout,
+  AffiliateStoreStats,
+  AffiliateWhatsAppLead,
+} from "@/domain/affiliate-rewards";
+import { stockCategoryOf } from "@/domain/stock";
 import { PreviewReadOnlyError } from "@/domain/errors";
 import { maskEmail, maskPhone, maskSecret } from "@/domain/privacy-mask";
 import type { AffiliateAdminRepository, AffiliateAuthState, AffiliatePortalService, AffiliateSignupResult } from "./affiliate-ports";
@@ -99,10 +109,11 @@ export class PreviewAffiliatePortalService implements AffiliatePortalService {
 
   /** Igual a `affiliate_account_commissions`: só para aprovado, com o programa ligado, contas liberadas e não vendidas. */
   async accountCommissions(): Promise<AccountCommissions> {
-    const [affiliate, program, rules, accounts] = await Promise.all([
+    const [affiliate, program, rules, commissionRules, accounts] = await Promise.all([
       this.admin.findAffiliate(this.affiliateId),
       this.admin.getProgram(),
       this.admin.listAccountRules(),
+      this.admin.listCommissionRules(),
       this.accounts.list({ onlyAvailable: true }),
     ]);
     if (affiliate?.status !== "approved" || !program.enabled) return new Map();
@@ -110,7 +121,12 @@ export class PreviewAffiliatePortalService implements AffiliatePortalService {
     for (const account of accounts) {
       const rule = rules.get(account.id) ?? DEFAULT_ACCOUNT_AFFILIATE_RULE;
       if (account.status === "sold" || !rule.enabled) continue;
-      entries.push([account.id, affiliateAmountFor(program.commission, affiliate.commission, rule.commission, account.price)]);
+      const matched = bestCommissionRule(commissionRules, affiliate.id, { category: stockCategoryOf(account), followers: account.followers });
+      const amount = affiliateAmountFor(
+        { program: program.commission, affiliate: affiliate.commission, account: rule.commission, matchedRule: matched?.commission ?? null },
+        account.price,
+      );
+      entries.push([account.id, amount]);
     }
     return new Map(entries);
   }
@@ -170,5 +186,34 @@ export class PreviewAffiliatePortalService implements AffiliatePortalService {
 
   storeStats(days: number): Promise<AffiliateStoreStats> {
     return this.admin.storeStats(days);
+  }
+
+  async invitePreview(): Promise<AffiliateInvitePreview | null> {
+    return null;
+  }
+
+  requestPayout(): Promise<void> {
+    return this.readOnly();
+  }
+
+  /** Igual a `my_affiliate_commission_rules`: as dele e as de todos. */
+  async myCommissionRules(): Promise<MyCommissionRule[]> {
+    const rules = await this.admin.listCommissionRules();
+    return sortCommissionRules(rules.filter((rule) => rule.inviteId === null && (rule.affiliateId === null || rule.affiliateId === this.affiliateId))).map(
+      (rule) => ({ id: rule.id, mine: rule.affiliateId !== null, category: rule.category, minFollowers: rule.minFollowers, commission: rule.commission }),
+    );
+  }
+
+  /** O código de saldo não aparece para a equipe pelo "Ver como" (a lista de cupons já mostra). */
+  async myBalanceCoupon(): Promise<AffiliateBalanceCoupon | null> {
+    return null;
+  }
+
+  createBalanceCoupon(): Promise<AffiliateBalanceCoupon> {
+    return this.readOnly();
+  }
+
+  cancelBalanceCoupon(): Promise<void> {
+    return this.readOnly();
   }
 }

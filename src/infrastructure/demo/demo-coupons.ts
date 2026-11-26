@@ -2,6 +2,7 @@ import type { AdminCouponRepository, CouponService } from "@/application/ports";
 import { effectiveStatus, isPurchasable } from "@/domain/account";
 import {
   COUPON_REJECTION_MESSAGE,
+  balanceFits,
   couponDiscount,
   couponStatusOf,
   normalizeCouponCode,
@@ -16,13 +17,17 @@ import { isCartMember, type Order } from "@/domain/order";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 
 /** No navegador o cupom fica sem a contagem de usos: ela sai dos pedidos, como no banco. */
-export type StoredCoupon = Omit<Coupon, "uses">;
+export type StoredCoupon = Omit<Coupon, "uses" | "affiliateBalanceOf"> & { affiliateBalanceOf?: string | null };
 
 /** Como `coupon_uses`: o carrinho conta um uso só, no pedido principal. */
 const usesOf = (orders: readonly Order[], code: string) =>
   orders.filter((order) => order.couponCode === code && order.status !== "canceled" && !isCartMember({ code: order.code, cartCode: order.cartCode ?? null })).length;
 
-const withUses = (coupon: StoredCoupon, orders: readonly Order[]): Coupon => ({ ...coupon, uses: usesOf(orders, coupon.code) });
+const withUses = (coupon: StoredCoupon, orders: readonly Order[]): Coupon => ({
+  ...coupon,
+  affiliateBalanceOf: coupon.affiliateBalanceOf ?? null,
+  uses: usesOf(orders, coupon.code),
+});
 
 const REJECTION_BY_STATUS: Record<Exclude<CouponStatus, "active">, CouponRejection> = {
   inactive: "coupon_inactive",
@@ -42,6 +47,7 @@ export function applyDemoCoupon(state: DemoState, rawCode: string, price: number
   if (!stored) return reject("coupon_not_found");
   const status = couponStatusOf(withUses(stored, state.orders));
   if (status !== "active") return reject(REJECTION_BY_STATUS[status]);
+  if (stored.affiliateBalanceOf && !balanceFits(stored.value, price)) return reject("balance_exceeds_price");
   return { code, discount: couponDiscount(stored, price) };
 }
 

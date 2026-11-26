@@ -26,6 +26,9 @@ const AffiliateGiftsPage = lazy(() => import("@/ui/affiliate/pages/AffiliateGift
 const AffiliateSharePage = lazy(() => import("@/ui/affiliate/pages/AffiliateSharePage"));
 const AffiliateStatementPage = lazy(() => import("@/ui/affiliate/pages/AffiliateStatementPage"));
 const AffiliateProfilePage = lazy(() => import("@/ui/affiliate/pages/AffiliateProfilePage"));
+const AffiliateEarningsPage = lazy(() => import("@/ui/affiliate/pages/AffiliateEarningsPage"));
+const AffiliateBalancePage = lazy(() => import("@/ui/affiliate/pages/AffiliateBalancePage"));
+const AffiliateMorePage = lazy(() => import("@/ui/affiliate/pages/AffiliateMorePage"));
 const NotFoundPage = lazy(() => import("@/ui/pages/NotFoundPage"));
 
 // Painel em pedaços separados: quem visita a loja não baixa nada dele.
@@ -111,6 +114,9 @@ export const router = createBrowserRouter([
           { path: "divulgar", element: <AffiliateSharePage /> },
           { path: "brindes", element: <AffiliateGiftsPage /> },
           { path: "extrato", element: <AffiliateStatementPage /> },
+          { path: "ganhos", element: <AffiliateEarningsPage /> },
+          { path: "saldo", element: <AffiliateBalancePage /> },
+          { path: "mais", element: <AffiliateMorePage /> },
           { path: "perfil", element: <AffiliateProfilePage /> },
         ],
       },
@@ -131,6 +137,9 @@ export const router = createBrowserRouter([
           { path: "divulgar", element: <AffiliateSharePage /> },
           { path: "brindes", element: <AffiliateGiftsPage /> },
           { path: "extrato", element: <AffiliateStatementPage /> },
+          { path: "ganhos", element: <AffiliateEarningsPage /> },
+          { path: "saldo", element: <AffiliateBalancePage /> },
+          { path: "mais", element: <AffiliateMorePage /> },
           { path: "perfil", element: <AffiliateProfilePage /> },
         ],
       },

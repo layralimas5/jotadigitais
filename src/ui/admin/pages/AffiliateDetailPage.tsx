@@ -21,7 +21,7 @@ import { CommissionList } from "@/ui/components/affiliate/CommissionList";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { TextField } from "@/ui/components/form/Fields";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
-import { AssignOrderSection, OwnCommissionSection, PayoutSection, ReferralLinksSection } from "../affiliates/AffiliateDetailSections";
+import { AffiliateRulesSection, AssignOrderSection, OwnCommissionSection, PayoutSection, ReferralLinksSection } from "../affiliates/AffiliateDetailSections";
 import { FormSection, InlineError, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { affiliatePreviewPath } from "../affiliates/AffiliatePreviewRoot";
 import { partnersTabPath } from "../affiliates/PartnersTabs";
@@ -296,7 +296,7 @@ function AffiliateDetailView({ detail, reload, backPath }: { detail: AffiliateDe
         <Kpi label="Cliques" value={String(detail.clicks)} />
         <Kpi label="Vendas" value={String(totals.sales)} hint={detail.conversion === null ? "Sem cliques ainda" : `${detail.conversion.toLocaleString("pt-BR")}% dos cliques`} />
         <Kpi label="Pendente" value={formatBRL(totals.pending)} hint="Garantia correndo" />
-        <Kpi label="Liberado" value={formatBRL(totals.released)} hint="Pronto para pagar" />
+        <Kpi label="Liberado" value={formatBRL(totals.balance)} hint={totals.reserved > 0 ? `+ ${formatBRL(totals.reserved)} em código de saldo` : "Pronto para pagar"} />
         <Kpi label="Pago" value={formatBRL(totals.paid)} />
       </dl>
 
@@ -310,6 +310,7 @@ function AffiliateDetailView({ detail, reload, backPath }: { detail: AffiliateDe
         <div className="space-y-6">
           <StatusSection key={`${affiliate.status}:${affiliate.statusNote ?? ""}`} detail={detail} onSaved={reload} />
           <OwnCommissionSection key={JSON.stringify(affiliate.commission)} detail={detail} onSaved={reload} />
+          <AffiliateRulesSection detail={detail} onChanged={reload} />
           <CouponSection detail={detail} onSaved={reload} />
           <AssignOrderSection detail={detail} onAssigned={reload} />
         </div>

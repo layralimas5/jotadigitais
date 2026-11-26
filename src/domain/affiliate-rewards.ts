@@ -1,13 +1,13 @@
-import { commissionCents, type AffiliateAnnouncement, type AffiliateCommission, type CommissionRule } from "./affiliate";
+import { commissionCents, commissionStateOf, type AffiliateAnnouncement, type AffiliateCommission, type CommissionRule } from "./affiliate";
 import { formatBRL, type Cents } from "./money";
 
 /**
- * Entrega 2 dos afiliados: pagamento em lotes, brindes, avisos do painel e exemplos de ganho.
- * Mesmas regras de supabase/migrations/20270101120000_affiliates_v2.sql.
+ * Entregas 2 e 3 dos afiliados: pagamento, saldo para comprar conta, brindes, avisos do painel e exemplos de ganho.
+ * Mesmas regras de supabase/migrations/20270101120000_affiliates_v2.sql e 20270103120000_affiliates_v3.sql.
  */
 
 // ---------------------------------------------------------------------------
-// Pagamento em lotes ("pago a cada 10 indicações")
+// Pagamento (desde a entrega 3, sem lote: toda comissão liberada pode ser paga)
 // ---------------------------------------------------------------------------
 
 export interface AffiliatePayout {
@@ -17,56 +17,92 @@ export interface AffiliatePayout {
   amount: Cents;
   pixKey: string | null;
   note: string | null;
+  /** Saldo usado numa compra (código de saldo), e não Pix. Esse não se desfaz. */
+  usedInPurchase: boolean;
   paidAt: string;
 }
 
-export const MIN_PAYOUT_BATCH = 1;
-export const MAX_PAYOUT_BATCH = 100;
+/** Vendas da página "Seja afiliado" no exemplo de ganho ("a cada 10 vendas"). */
+export const MIN_INCENTIVE_SALES = 1;
+export const MAX_INCENTIVE_SALES = 100;
 
-export interface PayoutProgress {
-  batchSize: number;
-  /** Indicações já pagas. */
+export interface PayoutStatus {
+  /** Liberadas (garantia acabou), não pagas e fora de código de saldo: o que o Jota pode pagar agora. */
+  ready: AffiliateCommission[];
+  readyAmount: Cents;
+  /** Ainda na garantia (ou o pedido nem foi entregue). */
+  inGuarantee: AffiliateCommission[];
+  inGuaranteeAmount: Cents;
+  /** Liberadas, mas reservadas num código de saldo para comprar conta. */
+  reservedAmount: Cents;
   paidCount: number;
   paidAmount: Cents;
-  /** Indicações válidas esperando pagamento (na garantia ou já liberadas). */
-  waiting: AffiliateCommission[];
-  waitingAmount: Cents;
-  /** Lotes completos prontos para pagar. */
-  readyBatches: number;
-  /** Quantas já contam para o próximo lote (de 0 a batchSize - 1). */
-  inCurrentBatch: number;
-  /** Quantas faltam para fechar o próximo lote. */
-  missingForNextBatch: number;
-  /** As indicações do próximo lote a pagar, das mais antigas para as mais novas. */
-  nextBatch: AffiliateCommission[];
-  nextBatchAmount: Cents;
-  /** Do próximo lote, quantas ainda estão na garantia (o Jota pode esperar ou pagar assim mesmo). */
-  nextBatchInGuarantee: number;
+  /** Quando o afiliado pediu o pagamento. */
+  requestedAt: string | null;
 }
 
 const byOldest = (a: AffiliateCommission, b: AffiliateCommission) => a.createdAt.localeCompare(b.createdAt);
 const sumAmounts = (items: readonly AffiliateCommission[]) => items.reduce((total, item) => total + item.amount, 0);
 
-export function payoutProgressOf(commissions: readonly AffiliateCommission[], batchSize: number, now: Date = new Date()): PayoutProgress {
-  const size = Math.min(MAX_PAYOUT_BATCH, Math.max(MIN_PAYOUT_BATCH, Math.round(batchSize)));
+export function payoutStatusOf(commissions: readonly AffiliateCommission[], requestedAt: string | null, now: Date = new Date()): PayoutStatus {
+  const released = commissions.filter((commission) => commissionStateOf(commission, now) === "released");
+  const ready = released.filter((commission) => commission.balanceCouponId === null).sort(byOldest);
+  const inGuarantee = commissions.filter((commission) => commissionStateOf(commission, now) === "pending").sort(byOldest);
   const paid = commissions.filter((commission) => commission.status === "paid");
-  const waiting = commissions.filter((commission) => commission.status === "pending").sort(byOldest);
-  const nextBatch = waiting.slice(0, size);
-  const inCurrentBatch = waiting.length % size;
   return {
-    batchSize: size,
+    ready,
+    readyAmount: sumAmounts(ready),
+    inGuarantee,
+    inGuaranteeAmount: sumAmounts(inGuarantee),
+    reservedAmount: sumAmounts(released.filter((commission) => commission.balanceCouponId !== null)),
     paidCount: paid.length,
     paidAmount: sumAmounts(paid),
-    waiting,
-    waitingAmount: sumAmounts(waiting),
-    readyBatches: Math.floor(waiting.length / size),
-    inCurrentBatch,
-    missingForNextBatch: size - inCurrentBatch,
-    nextBatch,
-    nextBatchAmount: sumAmounts(nextBatch),
-    nextBatchInGuarantee: nextBatch.filter((commission) => commission.releaseAt === null || new Date(commission.releaseAt) > now).length,
+    requestedAt,
   };
 }
+
+/** O afiliado pode pedir de novo 24 horas depois do último pedido. */
+export const PAYOUT_REQUEST_COOLDOWN_MS = 24 * 3_600_000;
+
+export function canRequestPayout(status: PayoutStatus, now: Date = new Date()): boolean {
+  if (status.readyAmount <= 0) return false;
+  return status.requestedAt === null || now.getTime() - Date.parse(status.requestedAt) >= PAYOUT_REQUEST_COOLDOWN_MS;
+}
+
+export const PAYOUT_REQUEST_ERRORS = ["nothing_to_pay", "payout_already_requested"] as const;
+export type PayoutRequestError = (typeof PAYOUT_REQUEST_ERRORS)[number];
+
+export const PAYOUT_REQUEST_MESSAGE: Record<PayoutRequestError, string> = {
+  nothing_to_pay: "Ainda não há saldo liberado. Ele aparece quando a garantia de uma venda acaba.",
+  payout_already_requested: "Você já pediu o pagamento nas últimas 24 horas. A loja já recebeu o aviso.",
+};
+
+// ---------------------------------------------------------------------------
+// Saldo para comprar conta (código de saldo)
+// ---------------------------------------------------------------------------
+
+export interface AffiliateBalanceCoupon {
+  code: string;
+  value: Cents;
+  /** Já está num pedido em aberto: não dá para cancelar. */
+  inUse: boolean;
+}
+
+/** Valor mínimo de saldo para gerar o código (o mesmo mínimo de cupom de valor fixo). */
+export const MIN_BALANCE_COUPON_CENTS = 100;
+
+export const BALANCE_COUPON_ERRORS = ["balance_too_low", "balance_too_high", "balance_coupon_not_found", "balance_coupon_in_use"] as const;
+export type BalanceCouponError = (typeof BALANCE_COUPON_ERRORS)[number];
+
+export const BALANCE_COUPON_MESSAGE: Record<BalanceCouponError, string> = {
+  balance_too_low: "Você ainda não tem saldo liberado para gerar o código.",
+  balance_too_high: "Seu saldo passou do limite de um código. Peça o pagamento por Pix.",
+  balance_coupon_not_found: "Você não tem um código de saldo valendo.",
+  balance_coupon_in_use: "Esse código está num pedido em aberto. Espere o pedido ser pago ou cancelado.",
+};
+
+export const balanceCouponErrorOf = (message: string): BalanceCouponError | null => BALANCE_COUPON_ERRORS.find((code) => message.includes(code)) ?? null;
+export const payoutRequestErrorOf = (message: string): PayoutRequestError | null => PAYOUT_REQUEST_ERRORS.find((code) => message.includes(code)) ?? null;
 
 // ---------------------------------------------------------------------------
 // Brindes
@@ -166,7 +202,7 @@ export function affiliateNoticesOf(sources: AffiliateNoticeSources, seenAt: stri
         id: `released:${commission.id}`,
         kind: "released",
         title: "Comissão liberada",
-        body: `A garantia de ${accountName(commission)} acabou: ${formatBRL(commission.amount)} entram no próximo pagamento.`,
+        body: `A garantia de ${accountName(commission)} acabou: ${formatBRL(commission.amount)} já podem ser pagos.`,
         at: commission.releaseAt,
       });
     }
@@ -175,8 +211,10 @@ export function affiliateNoticesOf(sources: AffiliateNoticeSources, seenAt: stri
     notices.push({
       id: `payout:${payout.id}`,
       kind: "payout",
-      title: "Pagamento enviado",
-      body: `A loja pagou ${formatBRL(payout.amount)} de ${payout.commissionsCount} ${payout.commissionsCount === 1 ? "indicação" : "indicações"}.`,
+      title: payout.usedInPurchase ? "Saldo usado numa compra" : "Pagamento enviado",
+      body: payout.usedInPurchase
+        ? `Você usou ${formatBRL(payout.amount)} de saldo para comprar uma conta.`
+        : `A loja pagou ${formatBRL(payout.amount)} de ${payout.commissionsCount} ${payout.commissionsCount === 1 ? "indicação" : "indicações"}.`,
       at: payout.paidAt,
     });
   }
@@ -230,6 +268,12 @@ export const EXAMPLE_PRICES: readonly Cents[] = [50_000, 150_000, 300_000];
 export function earningExamples(rule: CommissionRule, prices: readonly Cents[] = EXAMPLE_PRICES): EarningExample[] {
   return prices.map((price) => ({ price, commission: commissionCents(rule, price) }));
 }
+
+/** Preço da conta de exemplo do incentivo e da conta por mês da página "Seja afiliado". */
+export const EXAMPLE_ACCOUNT_PRICE: Cents = 150_000;
+
+/** "A cada 10 vendas você recebe R$ 450": a comissão da conta de exemplo vezes as vendas. */
+export const incentiveEarning = (rule: CommissionRule, sales: number): Cents => commissionCents(rule, EXAMPLE_ACCOUNT_PRICE) * Math.max(0, sales);
 
 /** Quanto rende por mês vendendo `sales` contas de `price`. */
 export const monthlyEarning = (rule: CommissionRule, price: Cents, sales: number): Cents => commissionCents(rule, price) * Math.max(0, sales);

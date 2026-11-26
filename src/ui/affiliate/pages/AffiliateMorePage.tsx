@@ -1,0 +1,54 @@
+import { ChevronRight, ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
+import { AFFILIATE_MORE_ITEMS } from "../navigation";
+import { useAffiliatePath } from "../session";
+
+const rowClass =
+  "flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.03] active:bg-white/[0.05] focus-visible:bg-white/[0.05] focus-visible:outline-none";
+
+function Row({ icon, title, description, trailing }: { icon: ReactNode; title: string; description: string; trailing: ReactNode }) {
+  return (
+    <>
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-line-strong bg-ink text-electric">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium text-white">{title}</span>
+        <span className="block truncate text-xs text-mist">{description}</span>
+      </span>
+      {trailing}
+    </>
+  );
+}
+
+/** No celular, as seções que não cabem na barra de baixo (igual ao "Mais" do painel da loja). */
+export default function AffiliateMorePage() {
+  useDocumentMeta("Mais | Painel do afiliado");
+  const pathTo = useAffiliatePath();
+  return (
+    <div className="space-y-6">
+      <h1 className="font-display text-2xl font-semibold text-white sm:text-3xl">Mais</h1>
+      <ul className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/60">
+        {AFFILIATE_MORE_ITEMS.map(({ page, label, icon: Icon, description }) => (
+          <li key={page}>
+            <Link to={pathTo(page)} className={rowClass}>
+              <Row icon={<Icon aria-hidden className="size-5" />} title={label} description={description} trailing={<ChevronRight aria-hidden className="size-4 text-mist" />} />
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <ul className="divide-y divide-line overflow-hidden rounded-3xl border border-line bg-surface/60">
+        <li>
+          <a href="/" target="_blank" rel="noreferrer" className={rowClass}>
+            <Row
+              icon={<ExternalLink aria-hidden className="size-5" />}
+              title="Ver a loja"
+              description="Abre a vitrine em outra aba"
+              trailing={<ExternalLink aria-hidden className="size-4 text-mist" />}
+            />
+          </a>
+        </li>
+      </ul>
+    </div>
+  );
+}

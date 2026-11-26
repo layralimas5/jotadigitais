@@ -72,7 +72,7 @@ import {
   type MessageTemplates,
 } from "@/domain/message-template";
 import type { StoredNotification } from "@/domain/notification";
-import { COUPON_REJECTION_MESSAGE, couponRejectionOf } from "@/domain/coupon";
+import { COUPON_REJECTION_MESSAGE, couponRejectionOf, isCouponOwnRejection } from "@/domain/coupon";
 import type { EmailAccount, EmailAccountData, EmailAccountListItem } from "@/domain/email-account";
 import type { Partner, PartnerData } from "@/domain/partner";
 import { PLATFORMS } from "@/domain/platform";
@@ -119,7 +119,7 @@ export function fail(error: PostgrestError): never {
 /** Checkout e página do pedido: o limite de tentativas tem mensagem própria (a do Meus dados fala de privacidade). */
 function failFromOrderRpc(error: PostgrestError): never {
   const rejection = couponRejectionOf(error.message);
-  if (rejection && rejection.startsWith("coupon_")) throw new CouponRejectedError(rejection, COUPON_REJECTION_MESSAGE[rejection]);
+  if (rejection && isCouponOwnRejection(rejection)) throw new CouponRejectedError(rejection, COUPON_REJECTION_MESSAGE[rejection]);
   if (error.message.includes("too_many_attempts")) throw new TooManyAttemptsError();
   return failFromRpc(error);
 }

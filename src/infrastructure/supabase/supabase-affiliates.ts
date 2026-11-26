@@ -32,11 +32,23 @@ import {
   type CommissionRule,
   type RankingEntry,
 } from "@/domain/affiliate";
+import type { AffiliateCommissionRule, CommissionRuleData, CommissionRuleOwner, MyCommissionRule } from "@/domain/affiliate-commission-rules";
+import {
+  AFFILIATE_INVITE_STATUSES,
+  type AffiliateInvite,
+  type AffiliateInviteData,
+  type AffiliateInvitePreview,
+} from "@/domain/affiliate-invite";
 import {
   ASSIGN_ORDER_MESSAGE,
+  BALANCE_COUPON_MESSAGE,
   GIFT_ERRORS,
   GIFT_ERROR_MESSAGE,
+  PAYOUT_REQUEST_MESSAGE,
   assignOrderErrorOf,
+  balanceCouponErrorOf,
+  payoutRequestErrorOf,
+  type AffiliateBalanceCoupon,
   type AffiliateGift,
   type AffiliateGiftClaim,
   type AffiliateGiftData,
@@ -45,6 +57,7 @@ import {
   type AffiliateWhatsAppLead,
 } from "@/domain/affiliate-rewards";
 import { CouponCodeTakenError, InvalidCredentialsError } from "@/domain/errors";
+import { STOCK_CATEGORIES } from "@/domain/stock";
 import { fail } from "./supabase-repositories";
 
 export const AFFILIATE_SIGNUP_FUNCTION = "affiliate-signup";
@@ -68,11 +81,16 @@ const programRowSchema = z.object({
   payout_batch_size: z.number(),
   banner_title: z.string().nullable(),
   banner_text: z.string().nullable(),
+  incentive_text: z.string().nullable(),
+  earn_rule_text: z.string().nullable(),
+  payout_info_text: z.string().nullable(),
+  balance_notice_text: z.string().nullable(),
+  invite_message: z.string().nullable(),
   updated_at: z.string(),
 });
 
 const PROGRAM_COLUMNS =
-  "enabled, auto_approve, commission_kind, commission_value, link_days, min_withdrawal_cents, daily_auto_limit_cents, manual_approval_above_cents, terms, welcome_text, payout_batch_size, banner_title, banner_text, updated_at";
+  "enabled, auto_approve, commission_kind, commission_value, link_days, min_withdrawal_cents, daily_auto_limit_cents, manual_approval_above_cents, terms, welcome_text, payout_batch_size, banner_title, banner_text, incentive_text, earn_rule_text, payout_info_text, balance_notice_text, invite_message, updated_at";
 
 function toProgram(raw: unknown): AffiliateProgram {
   const row = programRowSchema.parse(raw);
@@ -86,9 +104,17 @@ function toProgram(raw: unknown): AffiliateProgram {
     manualApprovalAbove: row.manual_approval_above_cents,
     terms: row.terms,
     welcomeText: row.welcome_text,
-    payoutBatchSize: row.payout_batch_size,
+    // A coluna antiga do lote virou o número de vendas do exemplo da página "Seja afiliado".
+    incentiveSales: row.payout_batch_size,
     bannerTitle: row.banner_title,
     bannerText: row.banner_text,
+    texts: {
+      incentive: row.incentive_text,
+      earnRule: row.earn_rule_text,
+      payoutInfo: row.payout_info_text,
+      balanceNotice: row.balance_notice_text,
+      inviteMessage: row.invite_message,
+    },
     updatedAt: row.updated_at,
   };
 }
@@ -104,9 +130,14 @@ const toProgramRow = (data: AffiliateProgramData) => ({
   manual_approval_above_cents: data.manualApprovalAbove,
   terms: data.terms,
   welcome_text: data.welcomeText,
-  payout_batch_size: data.payoutBatchSize,
+  payout_batch_size: data.incentiveSales,
   banner_title: data.bannerTitle,
   banner_text: data.bannerText,
+  incentive_text: data.texts.incentive,
+  earn_rule_text: data.texts.earnRule,
+  payout_info_text: data.texts.payoutInfo,
+  balance_notice_text: data.texts.balanceNotice,
+  invite_message: data.texts.inviteMessage,
 });
 
 async function readProgram(client: SupabaseClient): Promise<AffiliateProgram> {
@@ -116,7 +147,7 @@ async function readProgram(client: SupabaseClient): Promise<AffiliateProgram> {
 }
 
 const AFFILIATE_COLUMNS =
-  "id, code, name, email, whatsapp, pix_key, status, status_note, partner_id, commission_kind, commission_value, notifications_seen_at, terms_accepted_at, approved_at, created_at";
+  "id, code, name, email, whatsapp, pix_key, status, status_note, partner_id, commission_kind, commission_value, notifications_seen_at, payout_requested_at, terms_accepted_at, approved_at, created_at";
 
 const affiliateRowSchema = z.object({
   id: z.string(),
@@ -131,6 +162,7 @@ const affiliateRowSchema = z.object({
   commission_kind: z.enum(COMMISSION_KINDS).nullable(),
   commission_value: z.number().nullable(),
   notifications_seen_at: z.string().nullable(),
+  payout_requested_at: z.string().nullable(),
   terms_accepted_at: z.string(),
   approved_at: z.string().nullable(),
   created_at: z.string(),
@@ -150,6 +182,7 @@ function toAffiliate(raw: unknown): Affiliate {
     partnerId: row.partner_id,
     commission: row.commission_kind && row.commission_value !== null ? { kind: row.commission_kind, value: row.commission_value } : null,
     notificationsSeenAt: row.notifications_seen_at,
+    payoutRequestedAt: row.payout_requested_at,
     termsAcceptedAt: row.terms_accepted_at,
     approvedAt: row.approved_at,
     createdAt: row.created_at,
@@ -157,7 +190,7 @@ function toAffiliate(raw: unknown): Affiliate {
 }
 
 const COMMISSION_COLUMNS =
-  "id, affiliate_id, order_code, via, account_handle, account_platform, base_cents, amount_cents, status, release_at, canceled_reason, payout_id, created_at";
+  "id, affiliate_id, order_code, via, account_handle, account_platform, base_cents, amount_cents, status, release_at, canceled_reason, payout_id, balance_coupon_id, created_at";
 
 const commissionRowSchema = z.object({
   id: z.string(),
@@ -172,6 +205,7 @@ const commissionRowSchema = z.object({
   release_at: z.string().nullable(),
   canceled_reason: z.enum(COMMISSION_CANCEL_REASONS).nullable(),
   payout_id: z.string().nullable(),
+  balance_coupon_id: z.string().nullable(),
   created_at: z.string(),
 });
 
@@ -190,6 +224,7 @@ function toCommission(raw: unknown): AffiliateCommission {
     releaseAt: row.release_at,
     canceledReason: row.canceled_reason,
     payoutId: row.payout_id,
+    balanceCouponId: row.balance_coupon_id,
     createdAt: row.created_at,
   };
 }
@@ -235,13 +270,14 @@ const payoutRowSchema = z.object({
   amount_cents: z.number(),
   pix_key: z.string().nullable(),
   note: z.string().nullable(),
+  coupon_id: z.string().nullable(),
   paid_at: z.string(),
 });
 
 async function readPayouts(client: SupabaseClient): Promise<AffiliatePayout[]> {
   const { data, error } = await client
     .from("affiliate_payouts")
-    .select("id, affiliate_id, commissions_count, amount_cents, pix_key, note, paid_at")
+    .select("id, affiliate_id, commissions_count, amount_cents, pix_key, note, coupon_id, paid_at")
     .order("paid_at", { ascending: false });
   if (error) fail(error);
   return data.map((raw) => {
@@ -253,6 +289,7 @@ async function readPayouts(client: SupabaseClient): Promise<AffiliatePayout[]> {
       amount: row.amount_cents,
       pixKey: row.pix_key,
       note: row.note,
+      usedInPurchase: row.coupon_id !== null,
       paidAt: row.paid_at,
     };
   });
@@ -322,6 +359,91 @@ async function readStoreStats(client: SupabaseClient, days: number): Promise<Aff
   const row = storeStatsSchema.parse(data);
   return { approvedAffiliates: row?.affiliates ?? 0, soldAccountIds: row?.sold_account_ids ?? [] };
 }
+
+const RULE_COLUMNS = "id, affiliate_id, invite_id, category, min_followers, kind, value, created_at";
+
+const ruleRowSchema = z.object({
+  id: z.string(),
+  affiliate_id: z.string().nullable(),
+  invite_id: z.string().nullable(),
+  category: z.enum(STOCK_CATEGORIES).nullable(),
+  min_followers: z.number().nullable(),
+  kind: z.enum(COMMISSION_KINDS),
+  value: z.number(),
+  created_at: z.string(),
+});
+
+function toRule(raw: unknown): AffiliateCommissionRule {
+  const row = ruleRowSchema.parse(raw);
+  return {
+    id: row.id,
+    affiliateId: row.affiliate_id,
+    inviteId: row.invite_id,
+    category: row.category,
+    minFollowers: row.min_followers,
+    commission: { kind: row.kind, value: row.value },
+    createdAt: row.created_at,
+  };
+}
+
+const toRuleRow = (data: CommissionRuleData) => ({
+  category: data.category,
+  min_followers: data.minFollowers,
+  kind: data.commission.kind,
+  value: data.commission.value,
+});
+
+const ownerColumns = (owner: CommissionRuleOwner) => ({
+  affiliate_id: owner.kind === "affiliate" ? owner.affiliateId : null,
+  invite_id: owner.kind === "invite" ? owner.inviteId : null,
+});
+
+const INVITE_COLUMNS = "id, token, name, whatsapp, email, commission_kind, commission_value, note, status, claimed_affiliate_id, created_at";
+
+const inviteRowSchema = z.object({
+  id: z.string(),
+  token: z.string(),
+  name: z.string(),
+  whatsapp: z.string().nullable(),
+  email: z.string().nullable(),
+  commission_kind: z.enum(COMMISSION_KINDS).nullable(),
+  commission_value: z.number().nullable(),
+  note: z.string().nullable(),
+  status: z.enum(AFFILIATE_INVITE_STATUSES),
+  claimed_affiliate_id: z.string().nullable(),
+  created_at: z.string(),
+});
+
+function toInvite(raw: unknown): AffiliateInvite {
+  const row = inviteRowSchema.parse(raw);
+  return {
+    id: row.id,
+    token: row.token,
+    name: row.name,
+    whatsapp: row.whatsapp,
+    email: row.email,
+    commission: row.commission_kind && row.commission_value !== null ? { kind: row.commission_kind, value: row.commission_value } : null,
+    note: row.note,
+    status: row.status,
+    claimedAffiliateId: row.claimed_affiliate_id,
+    createdAt: row.created_at,
+  };
+}
+
+const toInviteRow = (data: AffiliateInviteData) => ({
+  name: data.name,
+  whatsapp: data.whatsapp,
+  email: data.email,
+  commission_kind: data.commission?.kind ?? null,
+  commission_value: data.commission?.value ?? null,
+  note: data.note,
+});
+
+const balanceCouponRowSchema = z.object({ code: z.string(), value: z.number(), in_use: z.boolean() });
+const toBalanceCoupon = (raw: unknown): AffiliateBalanceCoupon => {
+  const row = balanceCouponRowSchema.parse(raw);
+  return { code: row.code, value: row.value, inUse: row.in_use };
+};
 
 // ---------------------------------------------------------------------------
 // Aba Parceiros
@@ -497,7 +619,7 @@ export class SupabaseAffiliateAdminRepository implements AffiliateAdminRepositor
       p_note: note,
     });
     if (error?.message.includes("commissions_not_payable")) {
-      throw new Error("Alguma dessas indicações já foi paga ou cancelada. Atualize a página e tente de novo.");
+      throw new Error("Alguma dessas comissões já foi paga, cancelada ou virou código de saldo. Atualize a página e tente de novo.");
     }
     if (error) fail(error);
     return z.string().parse(data);
@@ -505,6 +627,50 @@ export class SupabaseAffiliateAdminRepository implements AffiliateAdminRepositor
 
   async undoPayout(payoutId: string): Promise<void> {
     const { error } = await this.client.rpc("undo_affiliate_payout", { p_payout_id: payoutId });
+    if (error?.message.includes("payout_is_purchase")) throw new Error("Saldo usado numa compra não se desfaz por aqui.");
+    if (error) fail(error);
+  }
+
+  async listCommissionRules(): Promise<AffiliateCommissionRule[]> {
+    const { data, error } = await this.client.from("affiliate_commission_rules").select(RULE_COLUMNS).order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toRule);
+  }
+
+  async saveCommissionRule(id: string | null, owner: CommissionRuleOwner, input: CommissionRuleData): Promise<AffiliateCommissionRule> {
+    const query = id
+      ? this.client.from("affiliate_commission_rules").update(toRuleRow(input)).eq("id", id)
+      : this.client.from("affiliate_commission_rules").insert({ ...toRuleRow(input), ...ownerColumns(owner) });
+    const { data, error } = await query.select(RULE_COLUMNS).single();
+    if (error) fail(error);
+    return toRule(data);
+  }
+
+  async removeCommissionRule(id: string): Promise<void> {
+    const { error } = await this.client.from("affiliate_commission_rules").delete().eq("id", id);
+    if (error) fail(error);
+  }
+
+  async listInvites(): Promise<AffiliateInvite[]> {
+    const { data, error } = await this.client.from("affiliate_invites").select(INVITE_COLUMNS).order("created_at", { ascending: false });
+    if (error) fail(error);
+    return data.map(toInvite);
+  }
+
+  async createInvite(input: AffiliateInviteData): Promise<AffiliateInvite> {
+    const { data, error } = await this.client.from("affiliate_invites").insert(toInviteRow(input)).select(INVITE_COLUMNS).single();
+    if (error) fail(error);
+    return toInvite(data);
+  }
+
+  async updateInvite(id: string, input: AffiliateInviteData): Promise<AffiliateInvite> {
+    const { data, error } = await this.client.from("affiliate_invites").update(toInviteRow(input)).eq("id", id).select(INVITE_COLUMNS).single();
+    if (error) fail(error);
+    return toInvite(data);
+  }
+
+  async revokeInvite(id: string): Promise<void> {
+    const { error } = await this.client.from("affiliate_invites").update({ status: "revoked" }).eq("id", id);
     if (error) fail(error);
   }
 
@@ -735,6 +901,70 @@ export class SupabaseAffiliatePortalService implements AffiliatePortalService {
 
   storeStats(days: number): Promise<AffiliateStoreStats> {
     return readStoreStats(this.client, days);
+  }
+
+  async invitePreview(token: string): Promise<AffiliateInvitePreview | null> {
+    const { data, error } = await this.client.rpc("affiliate_invite_preview", { p_token: token });
+    if (error) fail(error);
+    const parsed = z
+      .union([z.object({ error: z.string() }), z.object({ name: z.string(), whatsapp: z.string().nullable(), email: z.string().nullable() })])
+      .nullable()
+      .parse(data);
+    if (parsed === null) return null;
+    if ("error" in parsed) throw new Error("Muitas tentativas de abrir convites. Espere um pouco e tente de novo.");
+    return parsed;
+  }
+
+  async requestPayout(): Promise<void> {
+    const { error } = await this.client.rpc("request_affiliate_payout");
+    if (!error) return;
+    const known = payoutRequestErrorOf(error.message);
+    if (known) throw new Error(PAYOUT_REQUEST_MESSAGE[known]);
+    fail(error);
+  }
+
+  async myCommissionRules(): Promise<MyCommissionRule[]> {
+    const { data, error } = await this.client.rpc("my_affiliate_commission_rules");
+    if (error) fail(error);
+    return z
+      .array(
+        z.object({
+          id: z.string(),
+          mine: z.boolean(),
+          category: z.enum(STOCK_CATEGORIES).nullable(),
+          min_followers: z.number().nullable(),
+          kind: z.enum(COMMISSION_KINDS),
+          value: z.number(),
+        }),
+      )
+      .parse(data)
+      .map((row) => ({ id: row.id, mine: row.mine, category: row.category, minFollowers: row.min_followers, commission: { kind: row.kind, value: row.value } }));
+  }
+
+  async myBalanceCoupon(): Promise<AffiliateBalanceCoupon | null> {
+    const { data, error } = await this.client.rpc("my_affiliate_balance_coupon");
+    if (error) fail(error);
+    const [first] = z.array(z.unknown()).parse(data);
+    return first === undefined ? null : toBalanceCoupon(first);
+  }
+
+  async createBalanceCoupon(): Promise<AffiliateBalanceCoupon> {
+    const { data, error } = await this.client.rpc("create_affiliate_balance_coupon");
+    if (error) {
+      const known = balanceCouponErrorOf(error.message);
+      if (known) throw new Error(BALANCE_COUPON_MESSAGE[known]);
+      fail(error);
+    }
+    const [first] = z.array(z.unknown()).min(1).parse(data);
+    return toBalanceCoupon(first);
+  }
+
+  async cancelBalanceCoupon(): Promise<void> {
+    const { error } = await this.client.rpc("cancel_affiliate_balance_coupon");
+    if (!error) return;
+    const known = balanceCouponErrorOf(error.message);
+    if (known) throw new Error(BALANCE_COUPON_MESSAGE[known]);
+    fail(error);
   }
 }
 

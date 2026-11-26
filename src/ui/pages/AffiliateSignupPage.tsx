@@ -1,10 +1,12 @@
-import { BadgeCheck, CircleDollarSign, Link2, LogIn, ShieldCheck, UserPlus } from "lucide-react";
+import { BadgeCheck, CircleDollarSign, Link2, LogIn, MailOpen, ShieldCheck, UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { container } from "@/app/container";
 import { affiliateSignupSchema, sha256Hex, signUpAffiliate } from "@/application/affiliate-use-cases";
 import type { AffiliateSignupResult } from "@/application/affiliate-ports";
 import { fieldErrorsOf, PASSWORD_RULE_HINT } from "@/application/schemas";
 import { commissionRuleLabel, type AffiliateProgram } from "@/domain/affiliate";
+import { INVITE_PARAM, parseInviteToken, type AffiliateInvitePreview } from "@/domain/affiliate-invite";
 import { maskDocumentInput } from "@/domain/brazil";
 import { formatBRL } from "@/domain/money";
 import { Button, ButtonLink, buttonClasses } from "@/ui/components/Button";
@@ -14,6 +16,7 @@ import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { AffiliateFaq, AffiliatePerks, EarningsShowcase } from "@/ui/sections/affiliate/AffiliateLanding";
 import { useAsync } from "@/ui/hooks/useAsync";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
+import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 
 const { portal } = container.affiliates;
 
@@ -81,8 +84,29 @@ function SignupDone({ result }: { result: AffiliateSignupResult }) {
   );
 }
 
-function SignupForm({ program }: { program: AffiliateProgram }) {
-  const [values, setValues] = useState<SignupValues>(EMPTY);
+/** Convite aberto pelo link: quem convidou já combinou a comissão, então a pessoa entra aprovada. */
+interface InviteContext {
+  token: string;
+  preview: AffiliateInvitePreview;
+}
+
+const valuesFromInvite = (invite: InviteContext | null): SignupValues =>
+  invite ? { ...EMPTY, name: invite.preview.name, whatsapp: invite.preview.whatsapp ?? "", email: invite.preview.email ?? "" } : EMPTY;
+
+function InviteNote({ invite }: { invite: InviteContext }) {
+  return (
+    <div role="status" className="mb-4 flex gap-3 rounded-2xl border border-electric/40 bg-electric/[0.08] p-4 text-sm text-fog">
+      <MailOpen aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
+      <p>
+        <strong className="block text-white">Você foi convidado(a), {invite.preview.name.split(" ")[0]}!</strong>
+        A loja já combinou a sua comissão. Confira os dados, crie a senha, informe o CPF e aceite os termos: o seu cadastro entra aprovado.
+      </p>
+    </div>
+  );
+}
+
+function SignupForm({ program, invite }: { program: AffiliateProgram; invite: InviteContext | null }) {
+  const [values, setValues] = useState<SignupValues>(() => valuesFromInvite(invite));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -90,7 +114,11 @@ function SignupForm({ program }: { program: AffiliateProgram }) {
   const [result, setResult] = useState<AffiliateSignupResult | null>(null);
   const termsSha = useAsync(() => sha256Hex(program.terms), program.terms);
 
-  const rawOf = (current: SignupValues) => ({ ...current, termsSha256: termsSha.status === "success" ? termsSha.data : "" });
+  const rawOf = (current: SignupValues) => ({
+    ...current,
+    termsSha256: termsSha.status === "success" ? termsSha.data : "",
+    inviteToken: invite?.token ?? null,
+  });
 
   const update = (patch: Partial<SignupValues>) => {
     const next = { ...values, ...patch };
@@ -130,7 +158,8 @@ function SignupForm({ program }: { program: AffiliateProgram }) {
 
   return (
     <form noValidate onSubmit={onSubmit} aria-busy={pending} className="space-y-4 rounded-3xl border border-line bg-surface p-5 sm:p-7">
-      <h2 className="font-display text-xl font-semibold text-white">Quero ser afiliado</h2>
+      {invite && <InviteNote invite={invite} />}
+      <h2 className="font-display text-xl font-semibold text-white">{invite ? "Aceitar o convite" : "Quero ser afiliado"}</h2>
       <TextField label="Nome completo" name="name" autoComplete="name" value={values.name} onChange={(event) => update({ name: event.target.value })} error={errors.name} />
       <TextField
         label="E-mail"
@@ -222,9 +251,25 @@ function ProgramClosed() {
   );
 }
 
+/** Convite do link (?convite=...): nulo sem convite; "invalid" quando o link não vale mais. */
+function useInvite(): { status: "none" | "loading" | "invalid" } | { status: "valid"; invite: InviteContext } {
+  const [params] = useSearchParams();
+  const raw = params.get(INVITE_PARAM);
+  const token = parseInviteToken(raw);
+  const preview = useAsync(() => (token ? portal.invitePreview(token) : Promise.resolve(null)), `affiliate-invite:${token ?? ""}`);
+  if (raw === null) return { status: "none" };
+  if (!token) return { status: "invalid" };
+  if (preview.status === "loading") return { status: "loading" };
+  if (preview.status === "error" || preview.data === null) return { status: "invalid" };
+  return { status: "valid", invite: { token, preview: preview.data } };
+}
+
 export default function AffiliateSignupPage() {
   useDocumentMeta("Seja afiliado", "Divulgue as contas da Jota Digitais com o seu link e ganhe comissão por venda paga.");
   const program = useAsync(() => portal.getProgram(), "affiliate-program");
+  const inviteState = useInvite();
+  const invite = inviteState.status === "valid" ? inviteState.invite : null;
+  const { guaranteeDays } = useStoreSettings();
 
   return (
     <div className="pt-28 pb-14 sm:pb-20 md:pt-36 md:pb-28">
@@ -247,7 +292,14 @@ export default function AffiliateSignupPage() {
           </div>
         </Reveal>
 
-        {program.status === "loading" && <div className="mt-10 h-48 animate-pulse rounded-3xl bg-surface" aria-label="Carregando" />}
+        {inviteState.status === "invalid" && (
+          <p role="alert" className="mt-8 rounded-2xl border border-amber-400/30 bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
+            Este link de convite não vale mais (já foi usado ou foi cancelado). Peça um link novo para a loja ou faça o cadastro normal abaixo.
+          </p>
+        )}
+        {(program.status === "loading" || inviteState.status === "loading") && (
+          <div className="mt-10 h-48 animate-pulse rounded-3xl bg-surface" aria-label="Carregando" />
+        )}
         {program.status === "error" && (
           <p role="alert" className="mt-10 text-sm text-[#ffb4b4]">
             Não deu para carregar o programa agora.{" "}
@@ -256,19 +308,19 @@ export default function AffiliateSignupPage() {
             </button>
           </p>
         )}
-        {program.status === "success" && (
+        {program.status === "success" && inviteState.status !== "loading" && (
           <>
-            {program.data.enabled && (
+            {(program.data.enabled || invite) && (
               <>
                 <Steps program={program.data} />
-                <EarningsShowcase program={program.data} />
-                <AffiliatePerks program={program.data} />
+                <EarningsShowcase program={program.data} guaranteeDays={guaranteeDays} />
+                <AffiliatePerks guaranteeDays={guaranteeDays} />
               </>
             )}
             <div id="cadastro" className="mx-auto mt-10 max-w-xl scroll-mt-28 sm:mt-14">
-              {program.data.enabled ? <SignupForm program={program.data} /> : <ProgramClosed />}
+              {program.data.enabled || invite ? <SignupForm key={invite?.token ?? "aberto"} program={program.data} invite={invite} /> : <ProgramClosed />}
             </div>
-            {program.data.enabled && <AffiliateFaq program={program.data} />}
+            {(program.data.enabled || invite) && <AffiliateFaq program={program.data} guaranteeDays={guaranteeDays} />}
           </>
         )}
       </div>

@@ -1,19 +1,28 @@
 import { ArrowRight, Megaphone, Pin, TicketPercent, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
-import { loadAffiliateHome, type AffiliateHome } from "@/application/affiliate-use-cases";
+import type { AffiliateHome } from "@/application/affiliate-use-cases";
 import { affiliateLink, commissionRuleLabel } from "@/domain/affiliate";
 import { earningExamples, earningSentence } from "@/domain/affiliate-rewards";
-import { container } from "@/app/container";
 import { formatBRL } from "@/domain/money";
 import { CommissionList } from "@/ui/components/affiliate/CommissionList";
 import { ErrorState } from "@/ui/components/StateViews";
-import { useAsync } from "@/ui/hooks/useAsync";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { cn } from "@/ui/lib/cn";
 import { AffiliateSpinner } from "../AffiliateLayout";
-import { AffiliateBanner, EarningsCard, GiftReminder, PayoutProgressCard, StoreNumbers, WhatsAppReferral, ruleFor } from "../components/AffiliateRewards";
+import {
+  AffiliateBanner,
+  BalanceCouponCard,
+  EarningsCard,
+  GiftReminder,
+  MyCommissionRules,
+  PayoutCard,
+  StoreNumbers,
+  WhatsAppReferral,
+  ruleFor,
+} from "../components/AffiliateRewards";
 import { CopyButton, LinkBox, PanelSection, StatTile } from "../components/AffiliateUi";
-import { useAffiliateMe, useAffiliatePath, useAffiliatePortal } from "../session";
+import { useAffiliateMe, useAffiliatePath } from "../session";
+import { useAffiliateHome } from "../useAffiliateHome";
 
 const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -21,7 +30,12 @@ function Stats({ home }: { home: AffiliateHome }) {
   const { totals, clicks, conversion } = home;
   return (
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <StatTile label="Saldo liberado" value={formatBRL(totals.balance)} hint="Garantia já acabou" highlight />
+      <StatTile
+        label="Liberado para receber"
+        value={formatBRL(totals.balance)}
+        hint={totals.reserved > 0 ? `+ ${formatBRL(totals.reserved)} no código de saldo` : "Garantia já acabou"}
+        highlight
+      />
       <StatTile label="Pendente" value={formatBRL(totals.pending)} hint="Libera quando a garantia acabar" />
       <StatTile label="Vendas" value={String(totals.sales)} hint={`${formatBRL(totals.pending + totals.released + totals.paid)} em comissões`} />
       <StatTile label="Cliques" value={String(clicks.length)} hint={conversion === null ? "Divulgue o seu link" : `${conversion.toLocaleString("pt-BR")}% viraram venda`} />
@@ -48,6 +62,12 @@ function QuickShare({ home }: { home: AffiliateHome }) {
         {commissionRuleLabel(rule, formatBRL)}. Quem clicar e comprar em até {program.linkDays} dias conta para você.
         {example && <span className="mt-1 block font-medium text-white">Exemplo: {earningSentence(rule, example)}.</span>}
       </p>
+      {home.commissionRules.length > 0 && (
+        <div className="mb-4 rounded-2xl border border-line bg-ink/50 p-4">
+          <p className="text-sm font-medium text-white">Comissões especiais que valem para você</p>
+          <MyCommissionRules home={home} />
+        </div>
+      )}
       <LinkBox link={link} />
       {me.coupon && (
         <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-line bg-ink/60 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -118,9 +138,8 @@ function Ranking({ home }: { home: AffiliateHome }) {
 export default function AffiliateHomePage() {
   useDocumentMeta("Painel do afiliado");
   const me = useAffiliateMe();
-  const affiliatePortal = useAffiliatePortal();
   const pathTo = useAffiliatePath();
-  const home = useAsync(() => loadAffiliateHome(affiliatePortal, container.store.accounts, me), `affiliate-home:${me.id}:${me.status}`);
+  const { home, reload } = useAffiliateHome();
 
   if (home.status === "loading") return <AffiliateSpinner />;
   if (home.status === "error") return <ErrorState message={home.error.message} onRetry={home.retry} />;
@@ -145,7 +164,8 @@ export default function AffiliateHomePage() {
             <Mural home={data} />
           </div>
           <div className="space-y-6">
-            <PayoutProgressCard progress={data.payout} />
+            <PayoutCard home={data} onChanged={reload} />
+            <BalanceCouponCard home={data} onChanged={reload} />
             <EarningsCard home={data} />
             <Ranking home={data} />
           </div>
