@@ -16,7 +16,10 @@ import type {
   CommissionRule,
   RankingEntry,
 } from "@/domain/affiliate";
+import type { AffiliateCommissionRule, CommissionRuleData, CommissionRuleOwner, MyCommissionRule } from "@/domain/affiliate-commission-rules";
+import type { AffiliateInvite, AffiliateInviteData, AffiliateInvitePreview } from "@/domain/affiliate-invite";
 import type {
+  AffiliateBalanceCoupon,
   AffiliateGift,
   AffiliateGiftClaim,
   AffiliateGiftData,
@@ -63,6 +66,14 @@ export interface AffiliateAdminRepository {
   assignOrder(orderCode: string, affiliateId: string): Promise<number>;
   listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]>;
   storeStats(days: number): Promise<AffiliateStoreStats>;
+  /** Regras de comissão personalizadas (de todos, de afiliados e de convites). */
+  listCommissionRules(): Promise<AffiliateCommissionRule[]>;
+  saveCommissionRule(id: string | null, owner: CommissionRuleOwner, data: CommissionRuleData): Promise<AffiliateCommissionRule>;
+  removeCommissionRule(id: string): Promise<void>;
+  listInvites(): Promise<AffiliateInvite[]>;
+  createInvite(data: AffiliateInviteData): Promise<AffiliateInvite>;
+  updateInvite(id: string, data: AffiliateInviteData): Promise<AffiliateInvite>;
+  revokeInvite(id: string): Promise<void>;
 }
 
 export type AffiliateAuthState = { status: "signed-out" } | { status: "signed-in"; email: string };
@@ -106,6 +117,15 @@ export interface AffiliatePortalService {
   markNoticesSeen(): Promise<void>;
   listWhatsAppLeads(): Promise<AffiliateWhatsAppLead[]>;
   storeStats(days: number): Promise<AffiliateStoreStats>;
+  /** Nome, WhatsApp e e-mail do convite para preencher o cadastro. Nulo quando o convite não vale. */
+  invitePreview(token: string): Promise<AffiliateInvitePreview | null>;
+  /** Pede o pagamento do saldo liberado (a loja recebe o aviso). */
+  requestPayout(): Promise<void>;
+  /** Regras de comissão que valem para ele (as dele e as de todos). */
+  myCommissionRules(): Promise<MyCommissionRule[]>;
+  myBalanceCoupon(): Promise<AffiliateBalanceCoupon | null>;
+  createBalanceCoupon(): Promise<AffiliateBalanceCoupon>;
+  cancelBalanceCoupon(): Promise<void>;
 }
 
 export interface TrackedClick {

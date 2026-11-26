@@ -81,6 +81,55 @@ Migration `supabase/migrations/20270101120000_affiliates_v2.sql`.
 2. Push da main (Netlify publica). Nenhuma função nova.
 3. O Jota confere em Programa o "Pagar a cada quantas indicações" e, se quiser, a faixa do painel.
 
+## Entrega 3 (26/11, chamado do Jota)
+
+Migration `supabase/migrations/20270103120000_affiliates_v3.sql`.
+
+- **Pagamento sem lote:** acabou o "pagar a cada 10 indicações". Toda comissão liberada (a garantia da conta acabou)
+  pode ser paga. A aba **Pagamentos** mostra em "Pronto para pagar" cada afiliado com valor liberado, a chave Pix e o
+  "Paguei" (paga todas as liberadas de uma vez, dá para desfazer), e quanto ainda está na garantia. O saque mínimo
+  passou para R$ 1,00.
+- **Pedir pagamento:** no painel, o afiliado vê "Liberado para receber: R$ X" e o botão "Pedir pagamento" (uma vez a
+  cada 24 horas). O Jota recebe o aviso no sininho e o afiliado aparece primeiro em Pagamentos com "Pediu pagamento
+  em ...". Pagar limpa o pedido.
+- **Página "Seja afiliado":** incentivo "A cada {vendas} vendas você recebe {valor} no total" (comissão de uma conta
+  de R$ 1.500 vezes as vendas), explicação de que ganha em cada venda, liberada depois da garantia, e o aviso de que o
+  saldo compra conta. O número de vendas fica em Programa > "Vendas no exemplo de ganho da página Seja afiliado" (no
+  banco é a antiga coluna `payout_batch_size`).
+- **Textos editáveis** (Programa > Textos, em branco vale o texto de exemplo): incentivo ({vendas}, {valor}), como
+  ganha ({dias}), explicação do pagamento no painel ({dias}), aviso do saldo e mensagem do convite no WhatsApp
+  ({nome}, {link}).
+- **Comissões personalizadas:** regras por afiliado e por tipo de conta (Shop ativo, Shop piloto, TikTok monetizado,
+  TikTok, Instagram, YouTube, Facebook), com mínimo de seguidores opcional e valor em % ou R$. Regras para todos ficam
+  em Programa; regras de uma pessoa, na ficha dela ("Comissões personalizadas"). Desempate: a do afiliado vence a de
+  todos, depois a que fala do tipo de conta, depois a de mais seguidores. Se a conta tiver comissão própria maior,
+  vale a da conta. A migration já cria "Shop piloto: R$ 20 por venda" para todos.
+- **Novo afiliado por convite** (aba Afiliados > Novo afiliado): nome, WhatsApp, e-mail, comissão própria e regras.
+  Sai um link `/seja-afiliado?convite=...` para copiar ou mandar no WhatsApp. A pessoa confere os dados, cria a
+  senha, informa o CPF e aceita os termos; entra aprovada com a comissão e as regras combinadas, mesmo com o programa
+  fechado. Convites esperando aparecem como "Convite enviado", com regras editáveis e "Cancelar convite".
+- **Comprar conta com o saldo:** no painel, "Comprar conta com seu saldo" gera um código de uso único (ex.:
+  `SALDOANA3F1A1B2`) no valor do saldo liberado. O saldo fica reservado (sai do Pix) até usar ou cancelar. No
+  checkout o saldo inteiro precisa caber na conta (sem troco): se não couber, aparece "Seu saldo é maior que o valor
+  dessa conta...". Pedido pago com o código vira um pagamento "Usado na compra JD-..." (sem Pix, não se desfaz) e as
+  comissões ficam pagas. Na aba Cupons esses códigos ficam separados em "Saldo de afiliados".
+
+Para Gimena e Thais: Afiliados > Novo afiliado, sem comissão própria, com a regra "Todos os tipos, a partir de 2.000
+seguidores, R$ 40,00" (Gimena) ou "R$ 50,00" (Thais). Os demais seguem nos 3% do programa e no Shop piloto a R$ 20.
+
+### Ligar em produção (entrega 3)
+
+1. SQL Editor: colar `supabase/migrations/20270103120000_affiliates_v3.sql` inteiro (registra a versão no fim).
+   Precisa entrar antes do push: o site novo lê as colunas e funções novas.
+2. Publicar a função de cadastro (aceita o convite):
+   `npx supabase functions deploy affiliate-signup --no-verify-jwt`.
+3. Push da main (Netlify publica).
+4. O Jota confere em Programa o número de vendas do exemplo, os textos e a regra do Shop piloto.
+
+Limites conhecidos: se o pedido pago com o código de saldo for cancelado depois, o pagamento "Usado na compra" fica
+como está (o Jota resolve à mão); comissão reservada que é cancelada desliga o código ainda não usado e o afiliado gera
+outro com o valor certo.
+
 ## Próximas entregas
 
 - **Pix automático do lote** pela API do C6 (depende do gerente liberar o Pix de saída), comprovante anexado ao

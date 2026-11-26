@@ -14,7 +14,7 @@ import { fail } from "./supabase-repositories";
 
 const UNIQUE_VIOLATION = "23505";
 // `coupon_uses` é a coluna calculada no banco: pedidos com o cupom que não foram cancelados.
-const COUPON_COLUMNS = "id, code, kind, value, active, starts_at, ends_at, max_uses, notes, created_at, uses:coupon_uses";
+const COUPON_COLUMNS = "id, code, kind, value, active, starts_at, ends_at, max_uses, notes, affiliate_balance_of, created_at, uses:coupon_uses";
 
 const couponRowSchema = z.object({
   id: z.string(),
@@ -26,6 +26,7 @@ const couponRowSchema = z.object({
   ends_at: z.string().nullable(),
   max_uses: z.number().nullable(),
   notes: z.string().nullable(),
+  affiliate_balance_of: z.string().nullable(),
   created_at: z.string(),
   uses: z.number(),
 });
@@ -42,6 +43,7 @@ function toCoupon(raw: unknown): Coupon {
     endsAt: row.ends_at,
     maxUses: row.max_uses,
     notes: row.notes,
+    affiliateBalanceOf: row.affiliate_balance_of,
     createdAt: row.created_at,
     uses: row.uses,
   };

@@ -1,15 +1,46 @@
-import { Check, ChevronDown } from "lucide-react";
-import type { AffiliateProgram } from "@/domain/affiliate";
-import { earningExamples, monthlyEarning } from "@/domain/affiliate-rewards";
+import { Check, ChevronDown, ShoppingBag, Wallet } from "lucide-react";
+import { affiliateText, type AffiliateProgram } from "@/domain/affiliate";
+import { EXAMPLE_ACCOUNT_PRICE, earningExamples, incentiveEarning, monthlyEarning } from "@/domain/affiliate-rewards";
 import { formatBRL } from "@/domain/money";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 
 /** Seções da página "Seja afiliado": quanto ganha, o que recebe e as dúvidas de quem está decidindo. */
 
 const MONTHLY_SALES = 10;
-const MONTHLY_PRICE = 150_000;
+const MONTHLY_PRICE = EXAMPLE_ACCOUNT_PRICE;
 
-export function EarningsShowcase({ program }: { program: AffiliateProgram }) {
+/** Textos com os marcadores da página: vendas e valor do exemplo, e os dias de garantia. */
+function landingTokens(program: AffiliateProgram, guaranteeDays: number) {
+  return {
+    vendas: program.incentiveSales,
+    valor: formatBRL(incentiveEarning(program.commission, program.incentiveSales)),
+    dias: guaranteeDays,
+  };
+}
+
+/** "A cada 10 vendas você recebe R$ 450" e como cada venda é liberada (o Jota edita os textos na aba Programa). */
+export function EarningIncentive({ program, guaranteeDays }: { program: AffiliateProgram; guaranteeDays: number }) {
+  const tokens = landingTokens(program, guaranteeDays);
+  return (
+    <Reveal className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-5">
+      <div className="rounded-3xl border border-electric/35 bg-gradient-to-br from-electric/15 via-surface to-ink p-5 sm:p-6">
+        <p className="flex items-center gap-2 text-sm font-semibold text-electric-soft">
+          <Wallet aria-hidden className="size-4" /> Ganho por venda
+        </p>
+        <p className="mt-2 font-display text-xl font-bold text-balance text-white sm:text-2xl">{affiliateText(program.texts, "incentive", tokens)}</p>
+        <p className="mt-2 text-sm leading-relaxed text-fog">{affiliateText(program.texts, "earnRule", tokens)}</p>
+      </div>
+      <div className="rounded-3xl border border-line bg-surface/70 p-5 sm:p-6">
+        <p className="flex items-center gap-2 text-sm font-semibold text-electric-soft">
+          <ShoppingBag aria-hidden className="size-4" /> Seu saldo vira conta
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-fog">{affiliateText(program.texts, "balanceNotice", tokens)}</p>
+      </div>
+    </Reveal>
+  );
+}
+
+export function EarningsShowcase({ program, guaranteeDays }: { program: AffiliateProgram; guaranteeDays: number }) {
   const examples = earningExamples(program.commission);
   return (
     <section aria-labelledby="ganhos-title" className="mt-14 sm:mt-20">
@@ -36,16 +67,18 @@ export function EarningsShowcase({ program }: { program: AffiliateProgram }) {
         </p>
         <p className="mt-1 font-display text-4xl font-bold text-white tabular-nums">{formatBRL(monthlyEarning(program.commission, MONTHLY_PRICE, MONTHLY_SALES))}</p>
       </Reveal>
+      <EarningIncentive program={program} guaranteeDays={guaranteeDays} />
     </section>
   );
 }
 
-export function AffiliatePerks({ program }: { program: AffiliateProgram }) {
+export function AffiliatePerks({ guaranteeDays }: { guaranteeDays: number }) {
   const perks = [
     "Painel próprio com saldo, vendas e cliques em tempo real",
     "Link de cada conta, QR Code, cupom e link de WhatsApp",
     "Texto e imagens prontos para divulgar cada conta",
-    `Pagamento por Pix a cada ${program.payoutBatchSize} indicações vendidas`,
+    `Comissão em cada venda, liberada ${guaranteeDays} dias depois da entrega, e pagamento por Pix quando você pedir`,
+    "Saldo que também compra conta no site (você paga só a diferença)",
     "Brindes da loja para quem divulga",
     "Ranking dos afiliados que mais vendem",
   ];
@@ -66,13 +99,12 @@ export function AffiliatePerks({ program }: { program: AffiliateProgram }) {
   );
 }
 
-export function AffiliateFaq({ program }: { program: AffiliateProgram }) {
+export function AffiliateFaq({ program, guaranteeDays }: { program: AffiliateProgram; guaranteeDays: number }) {
+  const tokens = landingTokens(program, guaranteeDays);
   const questions = [
     { q: "Preciso pagar alguma coisa?", a: "Não. O cadastro é grátis, sem mensalidade e sem compra obrigatória." },
-    {
-      q: "Quando eu recebo?",
-      a: `A comissão nasce quando o cliente paga e libera quando a garantia da conta acaba. A loja paga por Pix a cada ${program.payoutBatchSize} indicações, e você acompanha no painel quantas faltam.`,
-    },
+    { q: "Quando eu recebo?", a: affiliateText(program.texts, "earnRule", tokens) },
+    { q: "Posso usar o saldo para comprar uma conta?", a: affiliateText(program.texts, "balanceNotice", tokens) },
     {
       q: "E se o cliente esquecer o cupom?",
       a: `Quem clica no seu link fica marcado por ${program.linkDays} dias. Quem chega pelo seu link de WhatsApp também conta para você. E se mesmo assim a venda escapar, a loja consegue atribuir o pedido a você.`,

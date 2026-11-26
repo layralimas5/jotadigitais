@@ -23,6 +23,7 @@ import { SearchInput } from "../components/SearchInput";
 import { useMutation } from "../hooks";
 import { localIsoDate } from "../lib/dates";
 import { useToast } from "../toast";
+import { AffiliateInvitesSection } from "./AffiliateInvites";
 
 type StatusFilter = AffiliateStatus | "all";
 
@@ -129,7 +130,7 @@ function AffiliateRow({ summary }: { summary: AffiliateSummary }) {
       <td className="px-4 py-3 text-right text-fog tabular-nums">{totals.sales}</td>
       <td className="px-4 py-3 text-right text-fog tabular-nums">{conversionLabel(summary.conversion)}</td>
       <td className="px-4 py-3 text-right text-fog tabular-nums">{formatBRL(totals.pending)}</td>
-      <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(totals.released)}</td>
+      <td className="px-4 py-3 text-right font-semibold text-white tabular-nums">{formatBRL(totals.balance)}</td>
     </tr>
   );
 }
@@ -155,7 +156,7 @@ function AffiliateCard({ summary }: { summary: AffiliateSummary }) {
           {summary.clicks} cliques · {totals.sales} {totals.sales === 1 ? "venda" : "vendas"} · {conversionLabel(summary.conversion)}
         </span>
         <span className="text-right">
-          <span className="block font-semibold text-white tabular-nums">{formatBRL(totals.released)}</span>
+          <span className="block font-semibold text-white tabular-nums">{formatBRL(totals.balance)}</span>
           <span className="block text-xs text-mist">liberado</span>
         </span>
       </div>
@@ -197,15 +198,17 @@ export function AffiliatesTab({ board, onReload, onOpenProgram }: AffiliatesTabP
         <Kpi label="Esperando aprovação" value={String(pending.length)} />
         <Kpi label="Vendas de afiliados" value={String(board.totals.sales)} hint="Pagas, sem as canceladas" />
         <Kpi label="Comissão pendente" value={formatBRL(board.totals.pending)} hint="Garantia ainda correndo" />
-        <Kpi label="Comissão liberada" value={formatBRL(board.totals.released)} hint="Pronta para pagar" />
+        <Kpi label="Comissão liberada" value={formatBRL(board.totals.balance)} hint="Pronta para pagar" />
       </dl>
 
       {pending.length > 0 && <PendingApprovals pending={pending} onDone={onReload} />}
 
+      <AffiliateInvitesSection texts={board.program.texts} />
+
       {board.summaries.length === 0 ? (
         <EmptyState
           title="Nenhum afiliado ainda"
-          description="Quando alguém se cadastrar em jotadigitais.com.br/seja-afiliado, aparece aqui para você aprovar."
+          description="Quando alguém se cadastrar em jotadigitais.com.br/seja-afiliado, aparece aqui para você aprovar. Para cadastrar alguém com comissão combinada, use Novo afiliado."
         />
       ) : (
         <>

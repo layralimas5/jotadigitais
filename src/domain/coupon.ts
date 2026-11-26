@@ -36,8 +36,15 @@ export interface Coupon extends CouponData {
   id: string;
   /** Pedidos com o cupom que não foram cancelados. */
   uses: number;
+  /**
+   * Código de saldo de um afiliado (ele paga a compra com a comissão). Não é desconto da loja: o afiliado gera e
+   * cancela pelo painel dele. Nulo nos cupons normais.
+   */
+  affiliateBalanceOf: string | null;
   createdAt: string;
 }
+
+export const isAffiliateBalanceCoupon = (coupon: Pick<Coupon, "affiliateBalanceOf">) => coupon.affiliateBalanceOf !== null;
 
 /** Desconto do cupom num preço, igual ao banco: arredonda a porcentagem e para em R$ 5,00 de total. */
 export function couponDiscount(coupon: Pick<CouponData, "kind" | "value">, price: Cents): Cents {
@@ -96,6 +103,7 @@ export const COUPON_REJECTIONS = [
   "coupon_not_started",
   "coupon_expired",
   "coupon_exhausted",
+  "balance_exceeds_price",
   "too_many_attempts",
   "account_unavailable",
 ] as const;
@@ -107,9 +115,16 @@ export const COUPON_REJECTION_MESSAGE: Record<CouponRejection, string> = {
   coupon_not_started: "Este cupom ainda não começou a valer.",
   coupon_expired: "Este cupom venceu.",
   coupon_exhausted: "Este cupom já atingiu o limite de usos.",
+  balance_exceeds_price: "Seu saldo é maior que o valor dessa conta. Escolha uma conta mais cara ou peça o pagamento do saldo.",
   too_many_attempts: "Muitas tentativas de cupom. Espere um pouco e tente de novo.",
   account_unavailable: "Esta conta não está mais disponível.",
 };
 
 export const couponRejectionOf = (message: string): CouponRejection | null =>
   COUPON_REJECTIONS.find((reason) => message.includes(reason)) ?? null;
+
+/** Recusa que é do próprio cupom (e não do limite de tentativas ou da conta). */
+export const isCouponOwnRejection = (reason: CouponRejection) => reason.startsWith("coupon_") || reason === "balance_exceeds_price";
+
+/** Código de saldo do afiliado: o saldo inteiro precisa caber, sem deixar o pedido abaixo do mínimo. */
+export const balanceFits = (value: Cents, price: Cents) => price - COUPON_MIN_TOTAL_CENTS >= value;

@@ -32,8 +32,23 @@ import {
   publicAffiliateName,
 } from "@/domain/affiliate";
 import {
+  bestCommissionRule,
+  sortCommissionRules,
+  type AffiliateCommissionRule,
+  type CommissionRuleData,
+  type CommissionRuleOwner,
+  type MyCommissionRule,
+} from "@/domain/affiliate-commission-rules";
+import type { AffiliateInvite, AffiliateInviteData, AffiliateInvitePreview } from "@/domain/affiliate-invite";
+import {
   ASSIGN_ORDER_MESSAGE,
+  BALANCE_COUPON_MESSAGE,
   GIFT_ERROR_MESSAGE,
+  MIN_BALANCE_COUPON_CENTS,
+  PAYOUT_REQUEST_MESSAGE,
+  canRequestPayout,
+  payoutStatusOf,
+  type AffiliateBalanceCoupon,
   type AffiliateGift,
   type AffiliateGiftClaim,
   type AffiliateGiftData,
@@ -42,6 +57,9 @@ import {
   type AffiliateWhatsAppLead,
 } from "@/domain/affiliate-rewards";
 import { CouponCodeTakenError, InvalidCredentialsError } from "@/domain/errors";
+import { isCartMember, type Order } from "@/domain/order";
+import { stockCategoryOf } from "@/domain/stock";
+import type { StoredCoupon } from "./demo-coupons";
 import { newId, simulateLatency, type DemoDatabase, type DemoState } from "./demo-database";
 
 /** Afiliado no navegador: a senha fica guardada aberta porque é só demonstração. */
@@ -76,7 +94,51 @@ export interface DemoAffiliateState {
   gifts: AffiliateGift[];
   giftClaims: AffiliateGiftClaim[];
   whatsappLeads: AffiliateWhatsAppLead[];
+  /** Entrega 3: regras de comissão, convites e comissões reservadas em código de saldo (id da comissão -> código). */
+  commissionRules: AffiliateCommissionRule[];
+  invites: AffiliateInvite[];
+  balanceReservations: Record<string, string>;
 }
+
+/** Código de convite da demonstração: /seja-afiliado?convite=demoConviteGimena2026xy */
+export const DEMO_INVITE_TOKEN = "demoConviteGimena2026xy";
+
+/** Igual à regra que a migration cria: Shop piloto paga R$ 20 para todo afiliado. */
+const seedRules = (): AffiliateCommissionRule[] => [
+  {
+    id: "rule_demo_pilot",
+    affiliateId: null,
+    inviteId: null,
+    category: "shop_pilot",
+    minFollowers: null,
+    commission: { kind: "fixed", value: 2000 },
+    createdAt: new Date(0).toISOString(),
+  },
+  {
+    id: "rule_demo_gimena",
+    affiliateId: null,
+    inviteId: "inv_demo_gimena",
+    category: null,
+    minFollowers: 2000,
+    commission: { kind: "fixed", value: 4000 },
+    createdAt: new Date(0).toISOString(),
+  },
+];
+
+const seedInvites = (): AffiliateInvite[] => [
+  {
+    id: "inv_demo_gimena",
+    token: DEMO_INVITE_TOKEN,
+    name: "Gimena Alves",
+    whatsapp: "84999991111",
+    email: "gimena@exemplo.com",
+    commission: null,
+    note: "Combinado: R$ 40 por venda em contas a partir de 2.000 seguidores.",
+    status: "pending",
+    claimedAffiliateId: null,
+    createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+  },
+];
 
 export const DEMO_AFFILIATE_LOGIN = { email: "ana@exemplo.com", password: "afiliado123" } as const;
 
@@ -98,6 +160,7 @@ function seed(): DemoAffiliateState {
     partnerId: null,
     commission: null,
     notificationsSeenAt: daysAgo(3),
+    payoutRequestedAt: null,
     termsAcceptedAt: daysAgo(40),
     approvedAt: daysAgo(39),
     createdAt: daysAgo(40),
@@ -130,6 +193,7 @@ function seed(): DemoAffiliateState {
     releaseAt: releaseInDays === null ? null : new Date(Date.now() + releaseInDays * 86_400_000).toISOString(),
     canceledReason: status === "canceled" ? "order_canceled" : null,
     payoutId: null,
+    balanceCouponId: null,
     createdAt: daysAgo(days),
   });
   return {
@@ -143,6 +207,7 @@ function seed(): DemoAffiliateState {
         payoutId: "pay_demo_1",
       })),
       commission("c01", 20, 3700, "pending", -5),
+      commission("c06", 16, 2000, "pending", -2),
       commission("c02", 6, 4500, "pending", 9),
       commission("c03", 2, 2900, "pending", null),
       commission("c05", 1, 4500, "pending", null),
@@ -155,7 +220,7 @@ function seed(): DemoAffiliateState {
     couponOwners: {},
     sessionEmail: null,
     payouts: [
-      { id: "pay_demo_1", affiliateId: ana.id, commissionsCount: 10, amount: 45000, pixKey: ana.pixKey, note: "Pix do lote 1", paidAt: daysAgo(10) },
+      { id: "pay_demo_1", affiliateId: ana.id, commissionsCount: 10, amount: 45000, pixKey: ana.pixKey, note: "Pix de outubro", usedInPurchase: false, paidAt: daysAgo(10) },
     ],
     paidCommissions: {},
     gifts: [
@@ -171,13 +236,28 @@ function seed(): DemoAffiliateState {
     ],
     giftClaims: [],
     whatsappLeads: [{ affiliateId: ana.id, createdAt: daysAgo(2) }],
+    commissionRules: seedRules(),
+    invites: seedInvites(),
+    balanceReservations: {},
   };
 }
 
 /** Estado salvo no navegador antes da entrega 2 ganha os campos novos sem perder o resto. */
 function stateOf(state: DemoState): DemoAffiliateState {
   const affiliates = (state.affiliateProgram ??= seed());
-  affiliates.program = { ...DEFAULT_AFFILIATE_PROGRAM, ...affiliates.program };
+  // Antes da entrega 3 o número de vendas do exemplo era o lote de pagamento (payoutBatchSize).
+  const legacy: Partial<AffiliateProgram> & { payoutBatchSize?: number } = affiliates.program;
+  affiliates.program = {
+    ...DEFAULT_AFFILIATE_PROGRAM,
+    ...affiliates.program,
+    incentiveSales: legacy.incentiveSales ?? legacy.payoutBatchSize ?? DEFAULT_AFFILIATE_PROGRAM.incentiveSales,
+    texts: { ...DEFAULT_AFFILIATE_PROGRAM.texts, ...legacy.texts },
+  };
+  affiliates.commissionRules ??= seedRules();
+  affiliates.invites ??= seedInvites();
+  affiliates.balanceReservations ??= {};
+  for (const affiliate of affiliates.affiliates) affiliate.payoutRequestedAt ??= null;
+  for (const commission of affiliates.seededCommissions) commission.balanceCouponId ??= null;
   affiliates.payouts ??= [];
   affiliates.paidCommissions ??= {};
   affiliates.gifts ??= [];
@@ -190,12 +270,105 @@ const publicAffiliate = ({ password: _password, document: _document, ...affiliat
   ...affiliate,
   commission: affiliate.commission ?? null,
   notificationsSeenAt: affiliate.notificationsSeenAt ?? null,
+  payoutRequestedAt: affiliate.payoutRequestedAt ?? null,
 });
 
 const affiliateRuleOf = (affiliates: DemoAffiliateState, affiliateId: string) =>
   affiliates.affiliates.find((item) => item.id === affiliateId)?.commission ?? null;
 
 const ruleOf = (affiliates: DemoAffiliateState, accountId: string) => affiliates.accountRules[accountId] ?? DEFAULT_ACCOUNT_AFFILIATE_RULE;
+
+/** Igual a `affiliate_amount_for`: regra personalizada que casa, comissão do afiliado, da conta ou a padrão. */
+function amountFor(state: DemoState, affiliateId: string, accountId: string | null, base: number): number {
+  const affiliates = stateOf(state);
+  const account = accountId ? state.accounts.find((item) => item.id === accountId) : undefined;
+  const matched = account ? bestCommissionRule(affiliates.commissionRules, affiliateId, { category: stockCategoryOf(account), followers: account.followers }) : null;
+  return affiliateAmountFor(
+    {
+      program: affiliates.program.commission,
+      affiliate: affiliateRuleOf(affiliates, affiliateId),
+      account: accountId ? ruleOf(affiliates, accountId).commission : null,
+      matchedRule: matched?.commission ?? null,
+    },
+    base,
+  );
+}
+
+const PURCHASE_PAYOUT_PREFIX = "pay_saldo_";
+
+const balanceCouponsOf = (state: DemoState): StoredCoupon[] => (state.coupons ?? []).filter((coupon) => Boolean(coupon.affiliateBalanceOf));
+
+const isLeadOrder = (order: Order) => !isCartMember({ code: order.code, cartCode: order.cartCode ?? null });
+
+/** Pedido pago com o código de saldo (o saldo foi usado). */
+const purchaseWith = (state: DemoState, code: string): Order | undefined =>
+  state.orders.find((order) => order.couponCode === code && isLeadOrder(order) && (order.status === "paid" || order.status === "delivered"));
+
+const openOrderWith = (state: DemoState, code: string): boolean =>
+  state.orders.some((order) => order.couponCode === code && isLeadOrder(order) && order.status !== "canceled");
+
+/** Reserva em código de saldo e, se o pedido com o código foi pago, a comissão vira paga (como o gatilho do banco). */
+function withBalance(state: DemoState, commission: AffiliateCommission): AffiliateCommission {
+  const code = stateOf(state).balanceReservations[commission.id];
+  const coupon = code ? balanceCouponsOf(state).find((item) => item.code === code) : undefined;
+  if (!coupon || commission.status === "canceled") return { ...commission, balanceCouponId: null };
+  if (commission.status === "pending" && purchaseWith(state, coupon.code)) {
+    return { ...commission, status: "paid", payoutId: `${PURCHASE_PAYOUT_PREFIX}${coupon.id}`, balanceCouponId: coupon.id };
+  }
+  return { ...commission, balanceCouponId: coupon.active && commission.status === "pending" ? coupon.id : null };
+}
+
+/** Pagamentos "Usado na compra" que nascem dos pedidos pagos com código de saldo. */
+function purchasePayouts(state: DemoState, commissions: readonly AffiliateCommission[]): AffiliatePayout[] {
+  return balanceCouponsOf(state).flatMap((coupon): AffiliatePayout[] => {
+    const order = purchaseWith(state, coupon.code);
+    const used = commissions.filter((commission) => commission.payoutId === `${PURCHASE_PAYOUT_PREFIX}${coupon.id}`);
+    if (!order || used.length === 0 || !coupon.affiliateBalanceOf) return [];
+    return [
+      {
+        id: `${PURCHASE_PAYOUT_PREFIX}${coupon.id}`,
+        affiliateId: coupon.affiliateBalanceOf,
+        commissionsCount: used.length,
+        amount: used.reduce((total, commission) => total + commission.amount, 0),
+        pixKey: null,
+        note: `Usado na compra ${order.code}`,
+        usedInPurchase: true,
+        paidAt: order.createdAt,
+      },
+    ];
+  });
+}
+
+function allPayouts(state: DemoState): AffiliatePayout[] {
+  return [...stateOf(state).payouts, ...purchasePayouts(state, derivedCommissions(state))].sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+}
+
+/** Código de saldo valendo do afiliado: ligado e ainda não usado numa compra paga. */
+function activeBalanceCoupon(state: DemoState, affiliateId: string): StoredCoupon | undefined {
+  return balanceCouponsOf(state)
+    .filter((coupon) => coupon.affiliateBalanceOf === affiliateId && coupon.active && !purchaseWith(state, coupon.code))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+}
+
+const toBalanceCoupon = (state: DemoState, coupon: StoredCoupon): AffiliateBalanceCoupon => ({
+  code: coupon.code,
+  value: coupon.value,
+  inUse: openOrderWith(state, coupon.code),
+});
+
+/** Comissão reservada cancelada: desliga o código de saldo sem uso e solta o resto, como o gatilho do banco. */
+function releaseReservation(state: DemoState, commissionId: string): void {
+  const affiliates = stateOf(state);
+  const code = affiliates.balanceReservations[commissionId];
+  if (!code) return;
+  delete affiliates.balanceReservations[commissionId];
+  const coupon = balanceCouponsOf(state).find((item) => item.code === code);
+  if (!coupon || openOrderWith(state, code)) return;
+  coupon.active = false;
+  for (const [otherId, otherCode] of Object.entries(affiliates.balanceReservations)) {
+    if (otherCode === code) delete affiliates.balanceReservations[otherId];
+  }
+}
 
 /** Comissões dos pedidos ligados, com a mesma regra do gatilho do banco. */
 function derivedCommissions(state: DemoState): AffiliateCommission[] {
@@ -206,7 +379,7 @@ function derivedCommissions(state: DemoState): AffiliateCommission[] {
     if (!order || order.status === "awaiting_payment") return [];
     const rule = order.accountId ? ruleOf(affiliates, order.accountId) : DEFAULT_ACCOUNT_AFFILIATE_RULE;
     if (!rule.enabled) return [];
-    const amount = affiliateAmountFor(affiliates.program.commission, affiliateRuleOf(affiliates, link.affiliateId), rule.commission, order.total);
+    const amount = amountFor(state, link.affiliateId, order.accountId, order.total);
     const canceled = order.status === "canceled" || link.canceledManually === true;
     const id = `com_${order.code}`;
     const payoutId = affiliates.paidCommissions[id] ?? null;
@@ -224,21 +397,23 @@ function derivedCommissions(state: DemoState): AffiliateCommission[] {
         releaseAt: order.deliveredAt ? new Date(Date.parse(order.deliveredAt) + guaranteeDays * 86_400_000).toISOString() : null,
         canceledReason: canceled ? (link.canceledManually ? "manual" : "order_canceled") : null,
         payoutId,
+        balanceCouponId: null,
         createdAt: order.createdAt,
       },
     ];
   });
-  return [...fromOrders, ...affiliates.seededCommissions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return [...fromOrders, ...affiliates.seededCommissions]
+    .map((commission) => withBalance(state, commission))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 function accountCommissionsFor(state: DemoState, affiliateId: string): AccountCommissions {
   const affiliates = stateOf(state);
   if (!affiliates.program.enabled) return new Map();
-  const own = affiliateRuleOf(affiliates, affiliateId);
   return new Map(
     state.accounts
       .filter((account) => account.status !== "sold" && ruleOf(affiliates, account.id).enabled)
-      .map((account) => [account.id, affiliateAmountFor(affiliates.program.commission, own, ruleOf(affiliates, account.id).commission, account.price)]),
+      .map((account) => [account.id, amountFor(state, affiliateId, account.id, account.price)]),
   );
 }
 
@@ -340,6 +515,7 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
     await simulateLatency();
     this.db.write((state) => {
       const affiliates = stateOf(state);
+      releaseReservation(state, id);
       const seeded = affiliates.seededCommissions.find((commission) => commission.id === id);
       if (seeded) {
         seeded.status = "canceled";
@@ -423,7 +599,7 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
   }
 
   async listPayouts(): Promise<AffiliatePayout[]> {
-    return [...stateOf(this.db.read()).payouts].sort((a, b) => b.paidAt.localeCompare(a.paidAt));
+    return allPayouts(this.db.read());
   }
 
   async payCommissions(affiliateId: string, commissionIds: readonly string[], note: string | null): Promise<string> {
@@ -431,18 +607,22 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
     return this.db.write((state) => {
       const affiliates = stateOf(state);
       const picked = derivedCommissions(state).filter(
-        (commission) => commissionIds.includes(commission.id) && commission.affiliateId === affiliateId && commission.status === "pending",
+        (commission) =>
+          commissionIds.includes(commission.id) && commission.affiliateId === affiliateId && commission.status === "pending" && commission.balanceCouponId === null,
       );
       if (picked.length === 0 || picked.length !== commissionIds.length) {
-        throw new Error("Alguma dessas indicações já foi paga ou cancelada. Atualize a página e tente de novo.");
+        throw new Error("Alguma dessas comissões já foi paga, cancelada ou virou código de saldo. Atualize a página e tente de novo.");
       }
+      const owner = affiliates.affiliates.find((item) => item.id === affiliateId);
+      if (owner) owner.payoutRequestedAt = null;
       const payout: AffiliatePayout = {
         id: newId("pay"),
         affiliateId,
         commissionsCount: picked.length,
         amount: picked.reduce((total, commission) => total + commission.amount, 0),
-        pixKey: affiliates.affiliates.find((item) => item.id === affiliateId)?.pixKey ?? null,
+        pixKey: owner?.pixKey ?? null,
         note,
+        usedInPurchase: false,
         paidAt: new Date().toISOString(),
       };
       affiliates.payouts.push(payout);
@@ -461,6 +641,7 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
 
   async undoPayout(payoutId: string): Promise<void> {
     await simulateLatency();
+    if (payoutId.startsWith(PURCHASE_PAYOUT_PREFIX)) throw new Error("Saldo usado numa compra não se desfaz por aqui.");
     this.db.write((state) => {
       const affiliates = stateOf(state);
       affiliates.payouts = affiliates.payouts.filter((payout) => payout.id !== payoutId);
@@ -540,6 +721,71 @@ export class DemoAffiliateAdminRepository implements AffiliateAdminRepository {
   async storeStats(days: number): Promise<AffiliateStoreStats> {
     return storeStatsOf(this.db.read(), days);
   }
+
+  async listCommissionRules(): Promise<AffiliateCommissionRule[]> {
+    return sortCommissionRules(stateOf(this.db.read()).commissionRules);
+  }
+
+  async saveCommissionRule(id: string | null, owner: CommissionRuleOwner, data: CommissionRuleData): Promise<AffiliateCommissionRule> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const affiliates = stateOf(state);
+      const existing = id ? affiliates.commissionRules.find((rule) => rule.id === id) : undefined;
+      if (existing) {
+        Object.assign(existing, data);
+        return { ...existing };
+      }
+      const created: AffiliateCommissionRule = {
+        ...data,
+        id: newId("rule"),
+        affiliateId: owner.kind === "affiliate" ? owner.affiliateId : null,
+        inviteId: owner.kind === "invite" ? owner.inviteId : null,
+        createdAt: new Date().toISOString(),
+      };
+      affiliates.commissionRules.push(created);
+      return created;
+    });
+  }
+
+  async removeCommissionRule(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const affiliates = stateOf(state);
+      affiliates.commissionRules = affiliates.commissionRules.filter((rule) => rule.id !== id);
+    });
+  }
+
+  async listInvites(): Promise<AffiliateInvite[]> {
+    return [...stateOf(this.db.read()).invites].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async createInvite(data: AffiliateInviteData): Promise<AffiliateInvite> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const token = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
+      const created: AffiliateInvite = { ...data, id: newId("inv"), token, status: "pending", claimedAffiliateId: null, createdAt: new Date().toISOString() };
+      stateOf(state).invites.push(created);
+      return created;
+    });
+  }
+
+  async updateInvite(id: string, data: AffiliateInviteData): Promise<AffiliateInvite> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const invite = stateOf(state).invites.find((item) => item.id === id && item.status !== "claimed");
+      if (!invite) throw new Error("Esse convite já foi aceito e não muda mais.");
+      Object.assign(invite, data);
+      return { ...invite };
+    });
+  }
+
+  async revokeInvite(id: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const invite = stateOf(state).invites.find((item) => item.id === id && item.status === "pending");
+      if (invite) invite.status = "revoked";
+    });
+  }
 }
 
 /** Login de demonstração: ana@exemplo.com / afiliado123 (ou quem se cadastrar pelo "Seja afiliado"). */
@@ -568,11 +814,16 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
 
   async signUp(input: AffiliateSignup): Promise<AffiliateSignupResult> {
     await simulateLatency();
-    const program = stateOf(this.db.read()).program;
-    if (!program.enabled) throw new Error(AFFILIATE_SIGNUP_MESSAGE.program_closed);
+    const current = stateOf(this.db.read());
+    const program = current.program;
+    const pendingInvite = input.inviteToken ? current.invites.find((item) => item.token === input.inviteToken && item.status === "pending") : undefined;
+    if (input.inviteToken && !pendingInvite) throw new Error(AFFILIATE_SIGNUP_MESSAGE.invalid_invite);
+    if (!program.enabled && !pendingInvite) throw new Error(AFFILIATE_SIGNUP_MESSAGE.program_closed);
     if (input.termsSha256 !== (await sha256Hex(program.terms))) throw new Error(AFFILIATE_SIGNUP_MESSAGE.outdated_terms);
     return this.db.write((state) => {
       const affiliates = stateOf(state);
+      const invite = pendingInvite ? affiliates.invites.find((item) => item.id === pendingInvite.id) : undefined;
+      const approved = invite !== undefined || program.autoApprove;
       if (affiliates.affiliates.some((item) => item.email === input.email)) throw new Error(AFFILIATE_SIGNUP_MESSAGE.email_taken);
       if (affiliates.affiliates.some((item) => item.document === input.document)) throw new Error(AFFILIATE_SIGNUP_MESSAGE.document_taken);
       const now = new Date().toISOString();
@@ -584,18 +835,28 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
         email: input.email,
         whatsapp: input.whatsapp,
         pixKey: null,
-        status: program.autoApprove ? "approved" : "pending",
+        status: approved ? "approved" : "pending",
         statusNote: null,
         partnerId: null,
-        commission: null,
+        commission: invite?.commission ?? null,
         notificationsSeenAt: null,
+        payoutRequestedAt: null,
         termsAcceptedAt: now,
-        approvedAt: program.autoApprove ? now : null,
+        approvedAt: approved ? now : null,
         createdAt: now,
         password: input.password,
         document: input.document,
       };
       affiliates.affiliates.push(created);
+      if (invite) {
+        for (const rule of affiliates.commissionRules) {
+          if (rule.inviteId !== invite.id) continue;
+          rule.inviteId = null;
+          rule.affiliateId = created.id;
+        }
+        invite.status = "claimed";
+        invite.claimedAffiliateId = created.id;
+      }
       return { status: created.status, code: created.code };
     });
   }
@@ -700,7 +961,7 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
   async listPayouts(): Promise<AffiliatePayout[]> {
     const state = this.db.read();
     const me = this.me(state);
-    return me ? stateOf(state).payouts.filter((payout) => payout.affiliateId === me.id) : [];
+    return me ? allPayouts(state).filter((payout) => payout.affiliateId === me.id) : [];
   }
 
   async listGifts(): Promise<AffiliateGift[]> {
@@ -744,6 +1005,89 @@ export class DemoAffiliatePortalService implements AffiliatePortalService {
   async storeStats(days: number): Promise<AffiliateStoreStats> {
     const state = this.db.read();
     return this.approvedMe(state) ? storeStatsOf(state, days) : { approvedAffiliates: 0, soldAccountIds: [] };
+  }
+
+  async invitePreview(token: string): Promise<AffiliateInvitePreview | null> {
+    const invite = stateOf(this.db.read()).invites.find((item) => item.token === token && item.status === "pending");
+    return invite ? { name: invite.name, whatsapp: invite.whatsapp, email: invite.email } : null;
+  }
+
+  async requestPayout(): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const me = this.approvedMe(state);
+      if (!me) throw new Error(PAYOUT_REQUEST_MESSAGE.nothing_to_pay);
+      const status = payoutStatusOf(
+        derivedCommissions(state).filter((commission) => commission.affiliateId === me.id),
+        me.payoutRequestedAt ?? null,
+      );
+      if (status.readyAmount <= 0) throw new Error(PAYOUT_REQUEST_MESSAGE.nothing_to_pay);
+      if (!canRequestPayout(status)) throw new Error(PAYOUT_REQUEST_MESSAGE.payout_already_requested);
+      me.payoutRequestedAt = new Date().toISOString();
+    });
+  }
+
+  async myCommissionRules(): Promise<MyCommissionRule[]> {
+    const state = this.db.read();
+    const me = this.approvedMe(state);
+    if (!me) return [];
+    return sortCommissionRules(stateOf(state).commissionRules.filter((rule) => rule.inviteId === null && (rule.affiliateId === null || rule.affiliateId === me.id))).map(
+      (rule) => ({ id: rule.id, mine: rule.affiliateId !== null, category: rule.category, minFollowers: rule.minFollowers, commission: rule.commission }),
+    );
+  }
+
+  async myBalanceCoupon(): Promise<AffiliateBalanceCoupon | null> {
+    const state = this.db.read();
+    const me = this.approvedMe(state);
+    const coupon = me ? activeBalanceCoupon(state, me.id) : undefined;
+    return coupon ? toBalanceCoupon(state, coupon) : null;
+  }
+
+  async createBalanceCoupon(): Promise<AffiliateBalanceCoupon> {
+    await simulateLatency();
+    return this.db.write((state) => {
+      const me = this.approvedMe(state);
+      if (!me) throw new Error(BALANCE_COUPON_MESSAGE.balance_too_low);
+      const existing = activeBalanceCoupon(state, me.id);
+      if (existing) return toBalanceCoupon(state, existing);
+      const ready = payoutStatusOf(derivedCommissions(state).filter((commission) => commission.affiliateId === me.id), null).ready;
+      const total = ready.reduce((sum, commission) => sum + commission.amount, 0);
+      if (total < MIN_BALANCE_COUPON_CENTS) throw new Error(BALANCE_COUPON_MESSAGE.balance_too_low);
+      const code = `SALDO${me.code.toUpperCase()}${crypto.randomUUID().slice(0, 4).toUpperCase()}`;
+      const coupon: StoredCoupon = {
+        id: newId("cpn"),
+        code,
+        kind: "fixed",
+        value: total,
+        active: true,
+        startsAt: null,
+        endsAt: null,
+        maxUses: 1,
+        notes: `Saldo de comissão de ${me.name} (afiliado). Criado pelo painel do afiliado, vale uma compra.`,
+        affiliateBalanceOf: me.id,
+        createdAt: new Date().toISOString(),
+      };
+      state.coupons = [...(state.coupons ?? []), coupon];
+      const affiliates = stateOf(state);
+      for (const commission of ready) affiliates.balanceReservations[commission.id] = code;
+      me.payoutRequestedAt = null;
+      return toBalanceCoupon(state, coupon);
+    });
+  }
+
+  async cancelBalanceCoupon(): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const me = this.approvedMe(state);
+      const coupon = me ? activeBalanceCoupon(state, me.id) : undefined;
+      if (!coupon) throw new Error(BALANCE_COUPON_MESSAGE.balance_coupon_not_found);
+      if (openOrderWith(state, coupon.code)) throw new Error(BALANCE_COUPON_MESSAGE.balance_coupon_in_use);
+      coupon.active = false;
+      const affiliates = stateOf(state);
+      for (const [commissionId, code] of Object.entries(affiliates.balanceReservations)) {
+        if (code === coupon.code) delete affiliates.balanceReservations[commissionId];
+      }
+    });
   }
 }
 

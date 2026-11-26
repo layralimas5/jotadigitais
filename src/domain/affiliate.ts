@@ -63,11 +63,60 @@ export interface AffiliateProgramData {
   manualApprovalAbove: Cents;
   terms: string;
   welcomeText: string | null;
-  /** O Jota paga a cada tantas indicações (padrão 10). */
-  payoutBatchSize: number;
+  /**
+   * Quantas vendas entram no exemplo de ganho da página "Seja afiliado" ("a cada 10 vendas você recebe R$ X").
+   * No banco é a coluna payout_batch_size: até a entrega 3 ela era o lote de pagamento, que deixou de existir
+   * (toda comissão liberada pode ser paga). O nome da coluna ficou para não quebrar o site em cache.
+   */
+  incentiveSales: number;
   /** Faixa de chamada no topo do painel do afiliado. */
   bannerTitle: string | null;
   bannerText: string | null;
+  /** Textos editáveis em Programa > Textos. Nulo = o texto padrão (AFFILIATE_TEXT_DEFAULTS). */
+  texts: AffiliateProgramTexts;
+}
+
+/** Textos que o Jota troca na aba Programa. Aceitam marcadores como {vendas}, {valor} e {dias}. */
+export interface AffiliateProgramTexts {
+  /** Página "Seja afiliado": "A cada {vendas} vendas você recebe {valor} no total." */
+  incentive: string | null;
+  /** Página "Seja afiliado": como a comissão de cada venda é liberada ({dias}). */
+  earnRule: string | null;
+  /** Painel do afiliado, cartão de pagamento ({dias}). */
+  payoutInfo: string | null;
+  /** Aviso de que o saldo compra uma conta no site (painel e página "Seja afiliado"). */
+  balanceNotice: string | null;
+  /** Mensagem do WhatsApp que leva o convite ({nome}, {link}). */
+  inviteMessage: string | null;
+}
+
+export type AffiliateTextKey = keyof AffiliateProgramTexts;
+
+export const AFFILIATE_TEXT_DEFAULTS: Record<AffiliateTextKey, string> = {
+  incentive: "A cada {vendas} vendas você recebe {valor} no total.",
+  earnRule:
+    "Você ganha em cada venda, sem precisar juntar um número mínimo. A comissão de cada venda fica liberada {dias} dias depois da entrega, quando a garantia da conta acaba, e aí você pede o pagamento por Pix quando quiser.",
+  payoutInfo:
+    "Cada venda fica liberada para receber {dias} dias depois da entrega, quando a garantia acaba. Com saldo liberado, peça o pagamento quando quiser.",
+  balanceNotice: "Seu saldo liberado também compra conta no site: gere o código de saldo, use no checkout e pague só a diferença.",
+  inviteMessage:
+    "Oi, {nome}! Você foi convidado(a) para ser afiliado(a) da Jota Digitais e ganhar comissão em cada conta vendida. Faça o seu cadastro por este link: {link}",
+};
+
+export const AFFILIATE_TEXT_LIMITS: Record<AffiliateTextKey, number> = {
+  incentive: 300,
+  earnRule: 600,
+  payoutInfo: 600,
+  balanceNotice: 600,
+  inviteMessage: 1000,
+};
+
+export const EMPTY_AFFILIATE_TEXTS: AffiliateProgramTexts = { incentive: null, earnRule: null, payoutInfo: null, balanceNotice: null, inviteMessage: null };
+
+/** Texto do programa com os marcadores trocados: {vendas}, {valor}, {dias}, {nome}, {link}. */
+export function affiliateText(texts: AffiliateProgramTexts, key: AffiliateTextKey, tokens: Readonly<Record<string, string | number>> = {}): string {
+  const template = texts[key]?.trim() || AFFILIATE_TEXT_DEFAULTS[key];
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => (name in tokens ? String(tokens[name]) : match));
 }
 
 export interface AffiliateProgram extends AffiliateProgramData {
@@ -79,14 +128,15 @@ export const DEFAULT_AFFILIATE_PROGRAM: AffiliateProgram = {
   autoApprove: false,
   commission: { kind: "percent", value: 10 },
   linkDays: 30,
-  minWithdrawal: 5000,
+  minWithdrawal: 100,
   dailyAutoLimit: 50000,
   manualApprovalAbove: 20000,
   terms: "",
   welcomeText: null,
-  payoutBatchSize: 10,
+  incentiveSales: 10,
   bannerTitle: null,
   bannerText: null,
+  texts: EMPTY_AFFILIATE_TEXTS,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -105,6 +155,8 @@ export interface Affiliate {
   commission: CommissionRule | null;
   /** Até quando ele já viu os avisos do painel. */
   notificationsSeenAt: string | null;
+  /** Quando ele pediu o pagamento do saldo liberado. Nulo depois que o Jota paga. */
+  payoutRequestedAt: string | null;
   termsAcceptedAt: string;
   approvedAt: string | null;
   createdAt: string;
@@ -158,8 +210,10 @@ export interface AffiliateCommission {
   /** Fim da garantia. Nulo enquanto o pedido não foi entregue. */
   releaseAt: string | null;
   canceledReason: CommissionCancelReason | null;
-  /** Lote em que foi paga. */
+  /** Pagamento em que foi paga. */
   payoutId: string | null;
+  /** Código de saldo em que está reservada (o afiliado vai usar o saldo numa compra). */
+  balanceCouponId: string | null;
   createdAt: string;
 }
 
@@ -186,18 +240,21 @@ export interface CommissionTotals {
   released: Cents;
   paid: Cents;
   canceled: Cents;
-  /** O que dá para sacar agora. Com os saques, desconta o que já foi pedido. */
+  /** Liberado, mas reservado num código de saldo para comprar uma conta. */
+  reserved: Cents;
+  /** O que dá para receber agora: liberado e fora de código de saldo. */
   balance: Cents;
 }
 
 export function summarizeCommissions(commissions: readonly AffiliateCommission[], now: Date = new Date()): CommissionTotals {
-  const totals: CommissionTotals = { sales: 0, pending: 0, released: 0, paid: 0, canceled: 0, balance: 0 };
+  const totals: CommissionTotals = { sales: 0, pending: 0, released: 0, paid: 0, canceled: 0, reserved: 0, balance: 0 };
   for (const commission of commissions) {
     const state = commissionStateOf(commission, now);
     totals[state] += commission.amount;
     if (state !== "canceled") totals.sales += 1;
+    if (state === "released" && commission.balanceCouponId !== null) totals.reserved += commission.amount;
   }
-  totals.balance = totals.released;
+  totals.balance = totals.released - totals.reserved;
   return totals;
 }
 
@@ -238,20 +295,28 @@ export interface RankingEntry {
 /** Comissão de cada conta liberada para o afiliado, no preço atual. */
 export type AccountCommissions = ReadonlyMap<string, Cents>;
 
+/** O que decide a comissão de uma venda (ver affiliateAmountFor). */
+export interface CommissionSources {
+  program: CommissionRule;
+  /** Comissão própria do afiliado. */
+  affiliate: CommissionRule | null;
+  /** Comissão própria da conta. */
+  account: CommissionRule | null;
+  /** Regra personalizada que casou com o afiliado e a conta (bestCommissionRule). */
+  matchedRule: CommissionRule | null;
+}
+
 /**
- * Comissão de uma venda, igual a `affiliate_amount_for` no banco: a comissão própria do afiliado entra no lugar da
- * padrão do programa; conta com comissão própria vale a da conta, a não ser que a do afiliado dê mais.
+ * Comissão de uma venda, igual a `affiliate_amount_for` no banco. Com regra que casa: o valor da regra, a não ser
+ * que a comissão própria da conta dê mais. Sem regra: a comissão própria do afiliado entra no lugar da padrão do
+ * programa; conta com comissão própria vale a da conta, a não ser que a do afiliado dê mais.
  */
-export function affiliateAmountFor(
-  program: CommissionRule,
-  affiliate: CommissionRule | null,
-  account: CommissionRule | null,
-  base: Cents,
-): Cents {
-  const own = affiliate ? commissionCents(affiliate, base) : null;
-  const ofAccount = account ? commissionCents(account, base) : null;
+export function affiliateAmountFor(sources: CommissionSources, base: Cents): Cents {
+  const ofAccount = sources.account ? commissionCents(sources.account, base) : null;
+  if (sources.matchedRule) return Math.max(commissionCents(sources.matchedRule, base), ofAccount ?? 0);
+  const own = sources.affiliate ? commissionCents(sources.affiliate, base) : null;
   if (own !== null && ofAccount !== null) return Math.max(own, ofAccount);
-  return ofAccount ?? own ?? commissionCents(program, base);
+  return ofAccount ?? own ?? commissionCents(sources.program, base);
 }
 
 /** Regra própria de uma conta. Nula = vale a comissão padrão do programa. */
@@ -298,6 +363,8 @@ export interface AffiliateSignup {
   whatsapp: string | null;
   document: string;
   termsSha256: string;
+  /** Código do convite (link /seja-afiliado?convite=...). Nulo no cadastro aberto. */
+  inviteToken: string | null;
 }
 
 export const AFFILIATE_SIGNUP_ERRORS = [
@@ -307,6 +374,7 @@ export const AFFILIATE_SIGNUP_ERRORS = [
   "invalid_document",
   "document_taken",
   "email_taken",
+  "invalid_invite",
   "invalid",
 ] as const;
 export type AffiliateSignupError = (typeof AFFILIATE_SIGNUP_ERRORS)[number];
@@ -318,6 +386,7 @@ export const AFFILIATE_SIGNUP_MESSAGE: Record<AffiliateSignupError, string> = {
   invalid_document: "Confira o CPF: ele precisa ser válido e estar no seu nome.",
   document_taken: "Já existe um afiliado com esse CPF. Se for você, entre com o seu e-mail.",
   email_taken: "Esse e-mail já tem cadastro. Entre com ele ou recupere a senha.",
+  invalid_invite: "Esse convite não vale mais (já foi usado ou foi cancelado). Peça um link novo para a loja.",
   invalid: "Confira os dados do formulário.",
 };
 

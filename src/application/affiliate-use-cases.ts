@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AFFILIATE_STATUSES,
+  AFFILIATE_TEXT_LIMITS,
   COMMISSION_KINDS,
   MAX_COMMISSION_PERCENT,
   MAX_FIXED_COMMISSION_CENTS,
@@ -21,12 +22,22 @@ import {
   type RankingEntry,
 } from "@/domain/affiliate";
 import {
-  MAX_PAYOUT_BATCH,
-  MIN_PAYOUT_BATCH,
+  MAX_RULE_MIN_FOLLOWERS,
+  sortCommissionRules,
+  type AffiliateCommissionRule,
+  type CommissionRuleData,
+  type CommissionRuleOwner,
+  type MyCommissionRule,
+} from "@/domain/affiliate-commission-rules";
+import type { AffiliateInvite, AffiliateInviteData } from "@/domain/affiliate-invite";
+import {
+  MAX_INCENTIVE_SALES,
+  MIN_INCENTIVE_SALES,
   STORE_STATS_DAYS,
   affiliateNoticesOf,
   giftStateOf,
-  payoutProgressOf,
+  payoutStatusOf,
+  type AffiliateBalanceCoupon,
   type AffiliateGift,
   type AffiliateGiftClaim,
   type AffiliateNotice,
@@ -34,7 +45,7 @@ import {
   type AffiliateStoreStats,
   type AffiliateWhatsAppLead,
   type GiftState,
-  type PayoutProgress,
+  type PayoutStatus,
 } from "@/domain/affiliate-rewards";
 import type { Account } from "@/domain/account";
 import { isValidCpf } from "@/domain/brazil";
@@ -43,8 +54,10 @@ import type { Cents } from "@/domain/money";
 import type { Partner } from "@/domain/partner";
 import { STOCK_CATEGORIES, stockCategoryOf, type StockCategory } from "@/domain/stock";
 import type { AffiliateAdminRepository, AffiliatePortalService, AffiliateSignupResult, AffiliateTrackingService, TrackedClick } from "./affiliate-ports";
-import type { AccountRepository } from "./ports";
+import type { AccountRepository, StoreSettingsRepository } from "./ports";
 import { newPassword, optionalText, optionalWhatsapp, parseOrThrow, personName } from "./schemas";
+
+const DEFAULT_GUARANTEE_DAYS = 7;
 
 // ---------------------------------------------------------------------------
 // Regras de validação (mesmas checagens do banco)
@@ -81,13 +94,46 @@ export const affiliateProgramSchema = z.object({
   manualApprovalAbove: cents("o valor", 0, 100_000_000),
   terms: z.string().trim().max(20_000, "Use no máximo 20.000 caracteres."),
   welcomeText: optionalText(2000),
-  payoutBatchSize: z
-    .number({ message: "Informe de quantas em quantas indicações você paga." })
+  incentiveSales: z
+    .number({ message: "Informe quantas vendas entram no exemplo." })
     .int("Use um número inteiro.")
-    .min(MIN_PAYOUT_BATCH, "Use pelo menos 1.")
-    .max(MAX_PAYOUT_BATCH, `Use no máximo ${MAX_PAYOUT_BATCH}.`),
+    .min(MIN_INCENTIVE_SALES, "Use pelo menos 1.")
+    .max(MAX_INCENTIVE_SALES, `Use no máximo ${MAX_INCENTIVE_SALES}.`),
   bannerTitle: optionalText(120),
   bannerText: optionalText(500),
+  texts: z.object({
+    incentive: optionalText(AFFILIATE_TEXT_LIMITS.incentive),
+    earnRule: optionalText(AFFILIATE_TEXT_LIMITS.earnRule),
+    payoutInfo: optionalText(AFFILIATE_TEXT_LIMITS.payoutInfo),
+    balanceNotice: optionalText(AFFILIATE_TEXT_LIMITS.balanceNotice),
+    inviteMessage: optionalText(AFFILIATE_TEXT_LIMITS.inviteMessage),
+  }),
+});
+
+export const commissionRuleDataSchema = z.object({
+  category: z.enum(STOCK_CATEGORIES).nullable(),
+  minFollowers: z
+    .number({ message: "Informe os seguidores." })
+    .int("Use um número inteiro.")
+    .min(1, "Use pelo menos 1 seguidor.")
+    .max(MAX_RULE_MIN_FOLLOWERS, "Número alto demais.")
+    .nullable(),
+  commission: commissionRuleSchema,
+});
+
+export const affiliateInviteSchema = z.object({
+  name: personName,
+  whatsapp: optionalWhatsapp,
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .nullable()
+    .transform((value) => value || null)
+    .refine((value) => value === null || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value), "Informe um e-mail válido.")
+    .refine((value) => value === null || value.length <= 254, "E-mail longo demais."),
+  commission: commissionRuleSchema.nullable(),
+  note: optionalText(500),
 });
 
 export const affiliateCommissionSchema = commissionRuleSchema.nullable();
@@ -158,6 +204,10 @@ export const affiliateSignupSchema = z.object({
   document: cpfField,
   termsSha256: z.string().regex(/^[0-9a-f]{64}$/, "Recarregue a página e aceite os termos de novo."),
   acceptedTerms: z.literal(true, { message: "Para participar, aceite os termos do programa." }),
+  inviteToken: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{20,64}$/, "O link do convite está incompleto. Abra de novo o link que a loja mandou.")
+    .nullable(),
 });
 
 export const affiliateProfileSchema = z.object({
@@ -200,8 +250,8 @@ export interface AffiliateSummary {
   totals: CommissionTotals;
   /** Vendas por clique, em %. */
   conversion: number | null;
-  /** Lote de pagamento: quantas pagas, quantas esperando e quanto falta para o próximo. */
-  payout: PayoutProgress;
+  /** Pagamento: o que está liberado para pagar, o que está na garantia e o que já foi pago. */
+  payout: PayoutStatus;
 }
 
 export interface AffiliatesBoard {
@@ -231,7 +281,7 @@ function summarize(affiliates: readonly Affiliate[], sources: SummarySources, no
       whatsappLeads: sources.leads.filter((lead) => lead.affiliateId === affiliate.id).length,
       totals,
       conversion: conversionRate(totals.sales, clickCount),
-      payout: payoutProgressOf(own, sources.program.payoutBatchSize, now),
+      payout: payoutStatusOf(own, affiliate.payoutRequestedAt, now),
     };
   });
 }
@@ -268,14 +318,17 @@ export interface AffiliateDetail extends AffiliateSummary {
   coupons: AffiliateCoupon[];
   partners: Partner[];
   payouts: AffiliatePayout[];
+  /** Regras de comissão só dele. */
+  rules: AffiliateCommissionRule[];
 }
 
 export async function loadAffiliateDetail(deps: AdminAffiliateDeps, id: string, now: Date = new Date()): Promise<AffiliateDetail | null> {
-  const [affiliate, sources, coupons, payouts] = await Promise.all([
+  const [affiliate, sources, coupons, payouts, rules] = await Promise.all([
     deps.affiliates.findAffiliate(id),
     loadSummarySources(deps),
     deps.affiliates.listCoupons(id),
     deps.affiliates.listPayouts(),
+    deps.affiliates.listCommissionRules(),
   ]);
   if (!affiliate) return null;
   const [summary] = summarize([affiliate], sources, now);
@@ -287,6 +340,7 @@ export async function loadAffiliateDetail(deps: AdminAffiliateDeps, id: string, 
     coupons,
     partners: [...sources.partners],
     payouts: payouts.filter((payout) => payout.affiliateId === id),
+    rules: sortCommissionRules(rules.filter((rule) => rule.affiliateId === id)),
   };
 }
 
@@ -294,20 +348,74 @@ export function saveAffiliateCommission(deps: Pick<AdminAffiliateDeps, "affiliat
   return deps.affiliates.saveAffiliateCommission(id, parseOrThrow(affiliateCommissionSchema, raw));
 }
 
-/** "Paguei" do próximo lote: as indicações mais antigas que esperam pagamento. */
-export function payAffiliateBatch(
+/** "Paguei": as comissões liberadas (garantia acabou) que estão esperando pagamento. */
+export function payAffiliateCommissions(
   deps: Pick<AdminAffiliateDeps, "affiliates">,
   affiliateId: string,
   commissionIds: readonly string[],
   note: string | null,
 ): Promise<string> {
-  if (commissionIds.length === 0) return Promise.reject(new Error("Não há indicação esperando pagamento."));
+  if (commissionIds.length === 0) return Promise.reject(new Error("Não há comissão liberada para pagar."));
   const cleanNote = note?.trim().slice(0, 500) || null;
   return deps.affiliates.payCommissions(affiliateId, commissionIds, cleanNote);
 }
 
 export function undoAffiliatePayout(deps: Pick<AdminAffiliateDeps, "affiliates">, payoutId: string): Promise<void> {
   return deps.affiliates.undoPayout(payoutId);
+}
+
+// ---------------------------------------------------------------------------
+// Regras de comissão e convites (o Jota)
+// ---------------------------------------------------------------------------
+
+/** Regras para todos os afiliados (aba Programa). */
+export async function listGlobalCommissionRules(deps: Pick<AdminAffiliateDeps, "affiliates">): Promise<AffiliateCommissionRule[]> {
+  const rules = await deps.affiliates.listCommissionRules();
+  return sortCommissionRules(rules.filter((rule) => rule.affiliateId === null && rule.inviteId === null));
+}
+
+export function saveCommissionRule(
+  deps: Pick<AdminAffiliateDeps, "affiliates">,
+  id: string | null,
+  owner: CommissionRuleOwner,
+  raw: unknown,
+): Promise<AffiliateCommissionRule> {
+  return deps.affiliates.saveCommissionRule(id, owner, parseOrThrow(commissionRuleDataSchema, raw));
+}
+
+export function removeCommissionRule(deps: Pick<AdminAffiliateDeps, "affiliates">, id: string): Promise<void> {
+  return deps.affiliates.removeCommissionRule(id);
+}
+
+export interface InviteBoardItem {
+  invite: AffiliateInvite;
+  rules: AffiliateCommissionRule[];
+}
+
+/** Convites ainda não aceitos, com as regras combinadas em cada um. */
+export async function loadPendingInvites(deps: Pick<AdminAffiliateDeps, "affiliates">): Promise<InviteBoardItem[]> {
+  const [invites, rules] = await Promise.all([deps.affiliates.listInvites(), deps.affiliates.listCommissionRules()]);
+  return invites
+    .filter((invite) => invite.status === "pending")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map((invite) => ({ invite, rules: sortCommissionRules(rules.filter((rule) => rule.inviteId === invite.id)) }));
+}
+
+/** "Novo afiliado": cria o convite com a comissão e as regras combinadas. */
+export async function createAffiliateInvite(
+  deps: Pick<AdminAffiliateDeps, "affiliates">,
+  raw: unknown,
+  rawRules: readonly unknown[],
+): Promise<AffiliateInvite> {
+  const data: AffiliateInviteData = parseOrThrow(affiliateInviteSchema, raw);
+  const rules: CommissionRuleData[] = rawRules.map((rule) => parseOrThrow(commissionRuleDataSchema, rule));
+  const invite = await deps.affiliates.createInvite(data);
+  for (const rule of rules) await deps.affiliates.saveCommissionRule(null, { kind: "invite", inviteId: invite.id }, rule);
+  return invite;
+}
+
+export function revokeAffiliateInvite(deps: Pick<AdminAffiliateDeps, "affiliates">, id: string): Promise<void> {
+  return deps.affiliates.revokeInvite(id);
 }
 
 export function assignOrderToAffiliate(deps: Pick<AdminAffiliateDeps, "affiliates">, raw: unknown): Promise<number> {
@@ -443,8 +551,14 @@ export interface AffiliateHome {
   conversion: number | null;
   ranking: RankingEntry[];
   announcements: AffiliateAnnouncement[];
-  payout: PayoutProgress;
+  payout: PayoutStatus;
   payouts: AffiliatePayout[];
+  /** Dias de garantia da loja: é quando cada venda fica liberada para receber. */
+  guaranteeDays: number;
+  /** Código de saldo valendo (para comprar conta), se ele gerou. */
+  balanceCoupon: AffiliateBalanceCoupon | null;
+  /** Regras de comissão que valem para ele. */
+  commissionRules: MyCommissionRule[];
   whatsappLeads: number;
   /** Brindes esperando ele tocar em "Receber". */
   giftsToClaim: number;
@@ -483,11 +597,20 @@ export function storeSnapshotOf(accounts: readonly Account[], stats: AffiliateSt
 /** Tudo da tela inicial. Afiliado não aprovado vê só a própria ficha (o banco não devolve o resto). */
 export async function loadAffiliateHome(
   portal: AffiliatePortalService,
-  accounts: AccountRepository,
+  store: { accounts: AccountRepository; settings: StoreSettingsRepository },
   me: AffiliateMe,
   now: Date = new Date(),
 ): Promise<AffiliateHome> {
   const approved = me.status === "approved";
+  const { accounts } = store;
+  const [settings, balanceCoupon, commissionRules] = await Promise.all([
+    store.settings.get().catch((error: unknown) => {
+      console.error("Falha ao ler os dias de garantia", error);
+      return null;
+    }),
+    approved ? portal.myBalanceCoupon() : Promise.resolve(null),
+    approved ? portal.myCommissionRules() : Promise.resolve([]),
+  ]);
   const [program, commissions, clicks, ranking, announcements, payouts, leads, gifts, claims, stats, allAccounts, accountCommissions] =
     await Promise.all([
       portal.getProgram(),
@@ -514,8 +637,11 @@ export async function loadAffiliateHome(
     conversion: conversionRate(totals.sales, clicks.length),
     ranking,
     announcements: sortAnnouncements(announcements),
-    payout: payoutProgressOf(commissions, program.payoutBatchSize, now),
+    payout: payoutStatusOf(commissions, me.payoutRequestedAt, now),
     payouts,
+    guaranteeDays: settings?.guaranteeDays ?? DEFAULT_GUARANTEE_DAYS,
+    balanceCoupon,
+    commissionRules,
     whatsappLeads: leads.length,
     giftsToClaim: gifts.filter((gift) => !claimed.has(gift.id) && (gift.expiresAt === null || new Date(gift.expiresAt) > now)).length,
     store: storeSnapshotOf(allAccounts, stats),
@@ -558,6 +684,18 @@ export async function loadAffiliateGifts(portal: AffiliatePortalService, now: Da
 
 export function claimAffiliateGift(portal: AffiliatePortalService, giftId: string): Promise<void> {
   return portal.claimGift(giftId);
+}
+
+export function requestAffiliatePayout(portal: AffiliatePortalService): Promise<void> {
+  return portal.requestPayout();
+}
+
+export function createAffiliateBalanceCoupon(portal: AffiliatePortalService): Promise<AffiliateBalanceCoupon> {
+  return portal.createBalanceCoupon();
+}
+
+export function cancelAffiliateBalanceCoupon(portal: AffiliatePortalService): Promise<void> {
+  return portal.cancelBalanceCoupon();
 }
 
 export interface ShareableAccount<A> {
