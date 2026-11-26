@@ -117,7 +117,7 @@ export default function CouponsPage() {
 
       {summaries.status === "loading" && <LoadingBlock />}
       {summaries.status === "error" && <ErrorState message={summaries.error.message} onRetry={summaries.reload} />}
-      {data && data.length === 0 && (
+      {all && all.length === 0 && (
         <EmptyState
           title="Nenhum cupom ainda"
           description="Crie um código, escolha o desconto em % ou em reais e, se quiser, a validade e o limite de usos."
@@ -128,7 +128,7 @@ export default function CouponsPage() {
           }
         />
       )}
-      {data && data.length > 0 && (
+      {data && all && all.length > 0 && (
         <>
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <Kpi label="Cupons valendo" value={String(data.filter((summary) => couponStatusOf(summary.coupon) === "active").length)} />
