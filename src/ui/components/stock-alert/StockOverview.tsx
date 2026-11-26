@@ -63,3 +63,29 @@ export function StockOverview({ accounts, alertPreset }: { accounts: readonly Ac
     </section>
   );
 }
+
+/**
+ * Enquanto o estoque carrega: o mesmo quadro, com os tipos e a contagem pulsando. Sem isso a vitrine mostrava o botão
+ * "Me avise" sozinho e trocava de layout segundos depois (chamado "Delay também quando abre").
+ */
+export function StockOverviewLoading() {
+  const { stockTitle } = useSiteContent().catalogPage;
+  return (
+    <section aria-labelledby="estoque-title" aria-busy className="mt-6">
+      <h2 id="estoque-title" className="text-xs font-semibold tracking-wide text-mist uppercase">
+        {stockTitle}
+      </h2>
+      <ul className="-mx-4 mt-3 flex gap-2 overflow-x-hidden px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        {STOCK_ALERT_CATEGORIES.map((category) => (
+          <li key={category} className="flex shrink-0 items-center gap-2 rounded-full border border-line bg-white/[0.03] py-1.5 pr-3 pl-2.5 text-sm text-mist">
+            <span aria-hidden className="size-2 rounded-full bg-white/15" />
+            <span className="font-medium text-fog">{STOCK_ALERT_CATEGORY_LABEL[category]}</span>
+            <span aria-hidden className="h-3 w-16 rounded-full bg-white/[0.08] motion-safe:animate-pulse" />
+          </li>
+        ))}
+      </ul>
+      <span aria-hidden className="mt-3 block h-10 w-48 rounded-full border border-line bg-white/[0.03] motion-safe:animate-pulse" />
+      <span className="sr-only">Carregando o estoque</span>
+    </section>
+  );
+}

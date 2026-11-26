@@ -17,7 +17,7 @@ import { OTHER_NETWORKS_PARAM, OTHER_NETWORKS_VALUE } from "@/ui/lib/catalog-lin
 import { cn } from "@/ui/lib/cn";
 import { editable } from "@/ui/lib/site-preview";
 import { StockAlertButton } from "@/ui/components/stock-alert/StockAlertButton";
-import { StockOverview } from "@/ui/components/stock-alert/StockOverview";
+import { StockOverview, StockOverviewLoading } from "@/ui/components/stock-alert/StockOverview";
 import type { StockAlertCategory } from "@/domain/stock-alert";
 import { ACCOUNT_KIND_LABEL, isAccountKind, type AccountKind } from "@/domain/account-kind";
 import { X } from "lucide-react";
@@ -185,8 +185,10 @@ export default function CatalogPage() {
           </p>
           {allAccounts.status === "success" ? (
             <StockOverview accounts={allAccounts.data} alertPreset={alertPreset} />
-          ) : (
+          ) : allAccounts.status === "error" ? (
             <StockAlertButton initial={alertPreset} className="mt-5" />
+          ) : (
+            <StockOverviewLoading />
           )}
         </header>
 
