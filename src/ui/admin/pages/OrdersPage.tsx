@@ -1,13 +1,13 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, CreditCard, Mail, MessageCircle, QrCode, ShoppingBag } from "lucide-react";
+import { AlertTriangle, ArrowRight, CreditCard, Mail, MessageCircle, QrCode, ShoppingBag } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { changeOrderStatus, confirmPixPayment, loadOrdersBoard } from "@/application/admin-use-cases";
+import { changeOrderStatus, confirmPixPayment, loadOrdersBoard, markOrderRefunded } from "@/application/admin-use-cases";
 import { dashboardRangeOf, type DashboardPeriod } from "@/domain/dashboard-period";
 import type { MessageTemplates } from "@/domain/message-template";
 import { matchesOrderFilters, ORDER_SORT_LABEL, sortOrders, type OrderSort, type PaymentFilter } from "@/domain/order-filters";
 import { formatBRL } from "@/domain/money";
-import { ORDER_TRANSITIONS, isCartLead, type Order, type OrderStatus } from "@/domain/order";
+import { ORDER_TRANSITIONS, isCartLead, needsRefund, paidAmountOf, type Order, type OrderStatus } from "@/domain/order";
 import { paymentPartLabel, PAYMENT_PLANS, PAYMENT_PLAN_LABEL, type OrderPayment } from "@/domain/payment";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { ORDER_STAGES, ORDER_STAGE_LABEL, deliveredAtOf, matchesOrderQuery, orderStageOf, type OrderStage } from "@/domain/sale";
@@ -176,6 +176,29 @@ function CartNote({ order, cartSize, onShowCart }: { order: Order; cartSize: num
   );
 }
 
+/** Pagamento que caiu depois do cancelamento, com a conta já em outras mãos: o cliente precisa do dinheiro de volta. */
+function RefundNotice({ order, busy, onRefunded }: { order: Order; busy: boolean; onRefunded: (order: Order) => void }) {
+  if (!needsRefund(order)) return null;
+  return (
+    <div
+      role="alert"
+      className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="flex gap-2 text-fog">
+        <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-300" />
+        <span>
+          <strong className="font-semibold text-white">Pago sem conta: estornar {formatBRL(paidAmountOf(order))}.</strong>{" "}
+          {order.customer.name.split(" ")[0]} pagou depois que o pedido foi cancelado e a conta não estava mais livre. Devolva o
+          valor ou ofereça outra conta.
+        </span>
+      </p>
+      <Button variant="secondary" disabled={busy} onClick={() => onRefunded(order)} className="h-9 shrink-0 px-4 text-xs">
+        Já estornei
+      </Button>
+    </div>
+  );
+}
+
 interface OrderCardProps {
   order: Order;
   /** Quantas contas tem o carrinho deste pedido (0 fora de carrinho). */
@@ -186,11 +209,12 @@ interface OrderCardProps {
   busy: boolean;
   onAction: (order: Order, status: OrderStatus) => void;
   onConfirmPix: (order: Order, payment: OrderPayment) => void;
+  onRefunded: (order: Order) => void;
   /** Mostra o atalho para Finalizados: só para quem pode abrir a tela. */
   showFinalized: boolean;
 }
 
-function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy, onAction, onConfirmPix, showFinalized }: OrderCardProps) {
+function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy, onAction, onConfirmPix, onRefunded, showFinalized }: OrderCardProps) {
   const actions = ORDER_TRANSITIONS[order.status];
   const reduceMotion = useReducedMotion();
   return (
@@ -267,6 +291,7 @@ function OrderCard({ order, cartSize, onShowCart, guaranteeDays, templates, busy
 
       <CartNote order={order} cartSize={cartSize} onShowCart={onShowCart} />
       <PaymentParts order={order} busy={busy} onConfirmPix={onConfirmPix} />
+      <RefundNotice order={order} busy={busy} onRefunded={onRefunded} />
 
       {order.status === "delivered" && (order.customer.whatsapp || showFinalized) && (
         <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-end">
@@ -337,6 +362,28 @@ export default function OrdersPage() {
     return true;
   });
 
+  const [toRefund, setToRefund] = useState<Order | null>(null);
+  const refund = useMutation(async (deps, order: Order) => {
+    await markOrderRefunded(deps, order);
+    return true;
+  });
+  const applyRefund = async () => {
+    if (!toRefund) return;
+    const result = await refund.run(toRefund);
+    setToRefund(null);
+    if (!result) {
+      toast.show("Não foi possível marcar o estorno.", "error");
+      return;
+    }
+    toast.show("Estorno registrado. O aviso saiu do painel.");
+    board.reload();
+  };
+  const showRefunds = () => {
+    setQuery("");
+    clearFilters();
+    setTab("canceled");
+  };
+
   const applyPix = async () => {
     if (!pixToConfirm) return;
     const { order, payment } = pixToConfirm;
@@ -352,6 +399,7 @@ export default function OrdersPage() {
   };
 
   const data = board.status === "success" ? board.data : null;
+  const refundsDue = useMemo(() => (data ? data.orders.filter(needsRefund) : []), [data]);
   const staged = useMemo(
     () => (data ? data.orders.map((order) => ({ order, stage: orderStageOf(order, data.guaranteeDays) })) : []),
     [data],
@@ -451,7 +499,28 @@ export default function OrdersPage() {
         })}
       </div>
 
+      {refundsDue.length > 0 && (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-2xl border border-amber-400/40 bg-amber-400/[0.08] p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p className="flex gap-2 text-fog">
+            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-300" />
+            <span>
+              <strong className="font-semibold text-white">
+                {refundsDue.length === 1 ? "1 cliente pagou e ficou sem conta" : `${refundsDue.length} clientes pagaram e ficaram sem conta`}
+              </strong>
+              : o pagamento caiu depois que o pedido foi cancelado. Estorne ou ofereça outra conta.
+            </span>
+          </p>
+          <Button variant="secondary" onClick={showRefunds} className="h-9 shrink-0 px-4 text-xs">
+            Ver em Cancelados
+          </Button>
+        </div>
+      )}
+
       {change.error && <InlineError message={change.error.message} />}
+      {refund.error && <InlineError message={refund.error.message} />}
       {confirmPix.error && <InlineError message={confirmPix.error.message} />}
       {board.status === "loading" && <LoadingBlock />}
       {board.status === "error" && <ErrorState message={board.error.message} onRetry={board.reload} />}
@@ -476,9 +545,10 @@ export default function OrdersPage() {
                 onShowCart={showCart}
                 guaranteeDays={data?.guaranteeDays ?? 0}
                 templates={templates}
-                busy={change.pending || confirmPix.pending}
+                busy={change.pending || confirmPix.pending || refund.pending}
                 onAction={onAction}
                 onConfirmPix={(order, payment) => setPixToConfirm({ order, payment })}
+                onRefunded={setToRefund}
                 showFinalized={showFinalized}
               />
             ))}
@@ -499,6 +569,23 @@ export default function OrdersPage() {
         pending={change.pending}
         onConfirm={() => toCancel && void apply(toCancel, "canceled")}
         onClose={() => setToCancel(null)}
+      />
+
+      <ConfirmDialog
+        open={toRefund !== null}
+        title="Já devolveu o dinheiro?"
+        description={
+          <>
+            Marque só depois de estornar{" "}
+            <strong className="text-white">{toRefund ? formatBRL(paidAmountOf(toRefund)) : ""}</strong> do pedido{" "}
+            <strong className="text-white">{toRefund?.code}</strong> (na InfinitePay ou no C6) ou de combinar outra conta com o
+            cliente. O aviso sai do painel.
+          </>
+        }
+        confirmLabel="Já estornei"
+        pending={refund.pending}
+        onConfirm={() => void applyRefund()}
+        onClose={() => setToRefund(null)}
       />
 
       <ConfirmDialog

@@ -51,6 +51,7 @@ const PREVIEW_ORDER: Order = {
   expiresAt: new Date(0).toISOString(),
   createdAt: new Date(0).toISOString(),
   deliveredAt: null,
+  refundedAt: null,
   payments: [],
   cartCode: null,
   cartItems: [],
@@ -136,6 +137,8 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
   useDocumentMeta(`Pedido ${order.code}`);
   const awaiting = order.status === "awaiting_payment";
   const canceled = order.status === "canceled";
+  // Cancelado com pagamento: a conta foi para outra pessoa antes de o pagamento cair (o banco reativa sozinho quando dá).
+  const paidLate = canceled && order.payments.some((payment) => payment.status === "paid");
   // Pago: a mensagem com o código faz o acesso sair sozinho no WhatsApp (entrega automática).
   const canRequestAccess = (order.status === "paid" || order.status === "delivered") && !isCartMember(order) && whatsappUrl;
   const charged = chargedAmounts(order);
@@ -172,12 +175,20 @@ function OrderConfirmation({ order, onPaid }: { order: Order; onPaid: () => void
       {canceled ? (
         <>
           <h1 id="pedido-title" className="mt-8 font-display text-3xl font-semibold tracking-tight text-balance text-white md:text-5xl">
-            Pedido cancelado
+            {paidLate ? "Pagamento recebido depois da reserva" : "Pedido cancelado"}
           </h1>
-          <p className="mx-auto mt-4 max-w-md text-mist">
-            A reserva de <span className="font-semibold text-white">{accountsLabel(order)}</span> terminou sem pagamento confirmado. Se você
-            já pagou, fale com o suporte com o código do pedido.
-          </p>
+          {paidLate ? (
+            <p className="mx-auto mt-4 max-w-md text-mist">
+              Seu pagamento chegou depois que a reserva de <span className="font-semibold text-white">{accountsLabel(order)}</span>{" "}
+              terminou, e a conta já tinha sido reservada por outra pessoa. O valor não se perde: fale com a loja pelo WhatsApp com o
+              código do pedido para receber o estorno ou escolher outra conta.
+            </p>
+          ) : (
+            <p className="mx-auto mt-4 max-w-md text-mist">
+              A reserva de <span className="font-semibold text-white">{accountsLabel(order)}</span> terminou sem pagamento confirmado. Se
+              você já pagou, fale com o suporte com o código do pedido.
+            </p>
+          )}
         </>
       ) : (
         <>

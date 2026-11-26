@@ -178,6 +178,7 @@ const orderRowSchema = z.object({
   created_at: z.string(),
   // A página pública do pedido (`get_order`) não devolve a data de entrega.
   delivered_at: z.string().nullish(),
+  refunded_at: z.string().nullish(),
   // Pedidos de antes do carrinho vêm sem estes; cart_items só vem na página pública do pedido principal.
   cart_code: z.string().nullish(),
   cart_items: z
@@ -222,7 +223,7 @@ const ORDER_PAYMENT_COLUMNS =
 
 export const ORDER_COLUMNS =
   // O CPF/CNPJ fica cifrado no banco; customer_document_plain devolve o número aberto só para administrador.
-  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, customer_source, customer_referred_by, payment_method, total_cents, coupon_code, discount_cents, status, expires_at, created_at, delivered_at, cart_code, " +
+  "code, account_id, account_handle, account_name, account_platform, customer_name, customer_email, customer_whatsapp, customer_document:customer_document_plain, customer_birth_date, customer_instagram, customer_city, customer_state, customer_source, customer_referred_by, payment_method, total_cents, coupon_code, discount_cents, status, expires_at, created_at, delivered_at, refunded_at, cart_code, " +
   `payments:order_payments(${ORDER_PAYMENT_COLUMNS})`;
 
 export function toOrder(raw: unknown): Order {
@@ -253,6 +254,7 @@ export function toOrder(raw: unknown): Order {
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     deliveredAt: row.delivered_at ?? null,
+    refundedAt: row.refunded_at ?? null,
     cartCode: row.cart_code ?? null,
     cartItems: (row.cart_items ?? []).map((item) => ({
       code: item.code,

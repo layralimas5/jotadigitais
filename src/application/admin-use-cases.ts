@@ -38,7 +38,7 @@ import { z } from "zod";
 import type { DeliveryLogin, ProfileLogin } from "@/domain/delivery-login";
 import { MAX_SAVED_DELIVERY_MESSAGES, type DeliveryMessage } from "@/domain/delivery-message";
 import { TooManyDeliveryMessagesError } from "@/domain/errors";
-import { buyerOrderOf, canTransition, isReservationExpired, type Order, type OrderStatus } from "@/domain/order";
+import { buyerOrderOf, canTransition, isReservationExpired, needsRefund, type Order, type OrderStatus } from "@/domain/order";
 import { PLATFORM_LABEL } from "@/domain/platform";
 import { summarizePartners, type Partner, type PartnerSummary } from "@/domain/partner";
 import type { ProfileLookup } from "@/domain/profile-lookup";
@@ -248,6 +248,12 @@ export async function confirmPixPayment(deps: AdminDeps, order: Order, paymentId
     throw new InvalidTransitionError();
   }
   await deps.orders.confirmPixPayment(paymentId);
+}
+
+/** O Jota devolveu o dinheiro (ou resolveu com o cliente) de um pagamento que caiu em pedido cancelado. */
+export async function markOrderRefunded(deps: AdminDeps, order: Order): Promise<void> {
+  if (!needsRefund(order)) throw new InvalidTransitionError();
+  await deps.orders.markRefunded(order.code);
 }
 
 export async function listCustomers(deps: AdminDeps): Promise<CustomerSummary[]> {

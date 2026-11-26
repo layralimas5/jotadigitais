@@ -1,7 +1,7 @@
 import { canUseStoreArea, type StaffAccess, type StaffPermission } from "./admin-user";
 import { toLocalIsoDate } from "./finance";
 import { followUpStatusOf, type Lead } from "./lead";
-import type { Order } from "./order";
+import { needsRefund, type Order } from "./order";
 
 /**
  * O sininho junta três origens:
@@ -55,6 +55,15 @@ export function remindersOf(orders: readonly Order[], leads: readonly Lead[], no
       createdAt: order.createdAt,
     }));
 
+  const toRefund: AppNotification[] = orders.filter(needsRefund).map((order) => ({
+    key: `reminder:refund:${order.code}`,
+    kind: "reminder",
+    title: `Estornar o pedido ${order.code}`,
+    body: `${order.customer.name} pagou depois do cancelamento e ficou sem a conta ${order.accountHandle}.`,
+    link: "/admin/pedidos",
+    createdAt: order.createdAt,
+  }));
+
   const expiring: AppNotification[] = orders
     .filter((order) => {
       const left = new Date(order.expiresAt).getTime() - now.getTime();
@@ -90,7 +99,7 @@ export function remindersOf(orders: readonly Order[], leads: readonly Lead[], no
       ]
     : [];
 
-  return [...toDeliver, ...expiring, ...followUps];
+  return [...toRefund, ...toDeliver, ...expiring, ...followUps];
 }
 
 /** Área do painel que cada aviso exige do ajudante. Suporte, segurança, LGPD e novidades são só do Jota e da Lay. */

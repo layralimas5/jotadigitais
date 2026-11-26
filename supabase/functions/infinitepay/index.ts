@@ -91,6 +91,10 @@ async function createCheckout(service: SupabaseClient, body: Record<string, unkn
   const order = data.orders;
   const open = order.status === "awaiting_payment" && new Date(order.expires_at).getTime() > Date.now();
   if (data.method !== "card" || data.status !== "pending" || !open) return failWith("unavailable");
+
+  // O link da InfinitePay não vence: quem foi para a tela do cartão ganha mais tempo de reserva.
+  const { error: holdError } = await service.rpc("extend_card_hold", { p_payment_id: data.id });
+  if (holdError) throw holdError;
   if (data.checkout_url) return json({ url: data.checkout_url });
 
   const response = await fetch(`${API}/links`, {

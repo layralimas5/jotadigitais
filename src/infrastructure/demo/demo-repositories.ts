@@ -47,6 +47,7 @@ import {
 } from "@/domain/errors";
 import {
   RESERVATION_HOLD_MINUTES,
+  needsRefund,
   canTransition,
   isCartLead,
   generateOrderCode,
@@ -415,6 +416,7 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
         expiresAt,
         createdAt: new Date(now).toISOString(),
         deliveredAt: null,
+        refundedAt: null,
         // Só o principal cobra, e cobra o carrinho inteiro.
         payments:
           index > 0
@@ -475,6 +477,15 @@ export class DemoOrderRepository implements OrderRepository, AdminOrderRepositor
   async confirmPixPayment(paymentId: string): Promise<void> {
     await simulateLatency();
     this.settlePart(paymentId, "pix");
+  }
+
+  async markRefunded(code: string): Promise<void> {
+    await simulateLatency();
+    this.db.write((state) => {
+      const order = state.orders.find((item) => item.code === code);
+      if (!order || !needsRefund(order)) throw new InvalidTransitionError();
+      order.refundedAt = new Date().toISOString();
+    });
   }
 
   /**

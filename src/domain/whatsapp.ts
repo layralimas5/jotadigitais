@@ -32,7 +32,7 @@ export interface WhatsAppSettings {
   followUps: WhatsAppFollowUps;
 }
 
-/** Limites da migration 20261219120000_whatsapp_followups; com a reserva de 10 minutos, o lembrete sai na metade. */
+/** Limites da migration 20261219120000_whatsapp_followups; com a reserva de 15 minutos, o lembrete sai no primeiro terço. */
 export const REMINDER_MINUTE_OPTIONS = [5] as const;
 export const AFTER_SALE_DAY_OPTIONS = [1, 2, 3, 5, 7, 15] as const;
 
