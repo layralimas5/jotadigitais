@@ -54,6 +54,9 @@ const SUPABASE_STUBS = `
     select (string_to_array(name, '/'))[1:greatest(cardinality(string_to_array(name, '/')) - 1, 0)]
   $$;
   alter table storage.objects enable row level security;
+  -- As migrations coladas no SQL Editor se registram aqui (no projeto, o Supabase já cria a tabela).
+  create schema supabase_migrations;
+  create table supabase_migrations.schema_migrations (version text primary key, name text, statements text[]);
   grant usage on schema public, auth, storage to anon, authenticated;
   grant execute on function auth.uid(), auth.jwt() to anon, authenticated;
   grant select, insert, update, delete on storage.objects to anon, authenticated;
@@ -754,6 +757,7 @@ async function main() {
   await supportMergeChecks();
   await tagColorChecks();
   await affiliateChecks();
+  await affiliateV3Checks();
 
   console.log(failures === 0 ? "\nTudo certo." : `\n${failures} verificação(ões) falharam.`);
   process.exitCode = failures === 0 ? 0 : 1;
@@ -2772,6 +2776,10 @@ async function affiliateChecks() {
   // Os testes anteriores gastam o limite do checkout sem IP; aqui cada pedido começa do zero.
   await db.exec(`delete from public.rate_limit_hits; grant usage on schema public to service_role;`);
 
+  // A regra de fábrica (Shop piloto R$ 20) sai aqui para as contas de teste (TikTok de 1.000 seguidores = Shop
+  // piloto) seguirem a comissão padrão; affiliateV3Checks cria de novo e testa as regras.
+  const seededRule = await db.query(`delete from public.affiliate_commission_rules where affiliate_id is null and category = 'shop_pilot' returning kind, value`);
+  check(seededRule.rows.length === 1 && seededRule.rows[0].kind === "fixed" && seededRule.rows[0].value === 2000, "migration já traz a regra Shop piloto R$ 20 para todos");
   const program = await as("anon", null, () => db.query(`select enabled, commission_kind, commission_value, terms from public.affiliate_program`));
   check(program.rows.length === 1 && program.rows[0].enabled === false, "visitante lê as regras do programa (desligado de fábrica)");
   check(
@@ -2789,13 +2797,13 @@ async function affiliateChecks() {
 
   await db.exec(`insert into auth.users (id, email) values
     ('${AFFILIATE_A}', 'ana@exemplo.com'), ('${AFFILIATE_B}', 'bruno@exemplo.com'), ('${AFFILIATE_C}', 'carla@exemplo.com')`);
-  const register = (userId, name, document, sha = termsSha, ip = "10.9.0.1") =>
+  const register = (userId, name, document, sha = termsSha, ip = "10.9.0.1", inviteToken = null) =>
     as("service_role", null, () =>
-      db.query(`select public.register_affiliate($1, $2, $3, '(84) 99999-0000', $4, $5, $6) as data`, [userId, name, `${name}@exemplo.com`, document, sha, ip]),
+      db.query(`select public.register_affiliate($1, $2, $3, '(84) 99999-0000', $4, $5, $6, $7) as data`, [userId, name, `${name}@exemplo.com`, document, sha, ip, inviteToken]),
     ).then((result) => result.rows[0].data);
 
   check(
-    await rejects(() => as("anon", null, () => db.query(`select public.register_affiliate($1, 'Invasor', 'x@x.com', null, $2, $3, null)`, [AFFILIATE_A, cpfFrom("123456789"), termsSha])), /permission denied/),
+    await rejects(() => as("anon", null, () => db.query(`select public.register_affiliate($1, 'Invasor', 'x@x.com', null, $2, $3, null, null)`, [AFFILIATE_A, cpfFrom("123456789"), termsSha])), /permission denied/),
     "visitante não chama o cadastro direto (só a função do servidor)",
   );
   check(await rejects(() => register(AFFILIATE_A, "Ana Souza", cpfFrom("123456789"), "0".repeat(64)), /outdated_terms/), "cadastro com termos antigos é recusado");
@@ -2957,6 +2965,287 @@ async function affiliateChecks() {
   );
   CONSENT = previousConsent;
 }
+const AFFILIATE_D = "00000000-0000-0000-0000-0000000af004";
+const AFFILIATE_E = "00000000-0000-0000-0000-0000000af005";
+const AFFILIATE_F = "00000000-0000-0000-0000-0000000af006";
+
+/** Entrega 3: regras de comissão, convites, pedido de pagamento e saldo como código de compra. */
+async function affiliateV3Checks() {
+  const { createHash } = await import("node:crypto");
+  const asAdmin = (fn) => as("authenticated", ADMIN_ID, fn);
+  const asAffiliate = (userId, fn) => as("authenticated", userId, fn);
+  await db.exec(`delete from public.rate_limit_hits;`);
+  const latest = async (slug) =>
+    (await db.query(`select version, sha256 from public.legal_documents where slug = $1 order by published_at desc, version desc limit 1`, [slug])).rows[0];
+  const [terms, privacy] = [await latest("terms"), await latest("privacy")];
+  const previousConsent = CONSENT;
+  CONSENT = `'${terms.version}', '${terms.sha256}', '${privacy.version}', '${privacy.sha256}'`;
+
+  const affiliateOf = async (userId) => (await db.query(`select id, code from public.affiliates where user_id = $1`, [userId])).rows[0];
+  const ana = await affiliateOf(AFFILIATE_A);
+  const bruno = await affiliateOf(AFFILIATE_B);
+  const amountFor = async (affiliate, accountId, base) =>
+    (await db.query(`select public.affiliate_amount_for($1, $2, $3) as cents`, [affiliate, accountId, base])).rows[0].cents;
+  const account = async (slug, followers, price, stats, platform = "tiktok") =>
+    (
+      await db.query(
+        `insert into public.accounts (slug, platform, display_name, handle, followers, price_cents, stats)
+         values ($1, $2::public.platform, 'Conta V3', '@' || $1, $3, $4, $5) returning id`,
+        [slug, platform, followers, price, JSON.stringify(stats)],
+      )
+    ).rows[0].id;
+  const released = async (affiliate) => (await db.query(`select public.affiliate_released_cents($1) as cents`, [affiliate])).rows[0].cents;
+
+  console.log("\nafiliados: regras de comissão");
+  await asAdmin(() => db.query(`update public.affiliate_program set commission_kind = 'percent', commission_value = 3`));
+  check(
+    await rejects(
+      () => as("authenticated", STRANGER_ID, () => db.query(`insert into public.affiliate_commission_rules (kind, value) values ('fixed', 2000)`)),
+      /row-level security|permission denied/,
+    ),
+    "usuário sem acesso a Parceiros não cria regra de comissão",
+  );
+  await asAdmin(() => db.query(`insert into public.affiliate_commission_rules (category, kind, value) values ('shop_pilot', 'fixed', 2000)`));
+  check(
+    await rejects(() => asAdmin(() => db.query(`insert into public.affiliate_commission_rules (kind, value) values ('percent', 95)`)), /affiliate_commission_rules_value/),
+    "regra acima de 90% é recusada",
+  );
+  check((await asAffiliate(AFFILIATE_A, () => db.query(`select id from public.affiliate_commission_rules`))).rows.length === 0, "afiliado não lê a tabela de regras");
+
+  const pilot = await account("v3-piloto", 1000, 37000, { likes: 10, following: 0 });
+  const full = await account("v3-shop", 2500, 150000, { likes: 10, following: 0 });
+  const markedPilot = await account("v3-piloto-marcado", 2500, 150000, { likes: 10, following: 0, shop: "pilot" });
+  const monetized = await account("v3-monetizada", 2500, 150000, { likes: 10, following: 0, shop: "none", monetized: true });
+  const channel = await account("v3-canal", 5400, 150000, { views: 1, videos: 1, watchHours: 1, monetized: true }, "youtube");
+  const categories = await db.query(`select a.id, public.account_stock_category(a) as category from public.accounts a where a.id = any($1)`, [
+    [pilot, full, markedPilot, monetized, channel],
+  ]);
+  const categoryOf = (id) => categories.rows.find((row) => row.id === id)?.category;
+  check(
+    categoryOf(pilot) === "shop_pilot" &&
+      categoryOf(full) === "shop_full" &&
+      categoryOf(markedPilot) === "shop_pilot" &&
+      categoryOf(monetized) === "tiktok_monetized" &&
+      categoryOf(channel) === "youtube",
+    "tipo de conta no banco igual ao do site (seguidores, Shop marcado, monetizada, outra rede)",
+  );
+
+  check((await amountFor(ana.id, pilot, 37000)) === 2000, "Shop piloto paga R$ 20 para qualquer afiliado (regra de todos)");
+  check((await amountFor(ana.id, full, 150000)) === 4500, "sem regra que case, vale a padrão de 3%");
+  await asAdmin(() =>
+    db.query(`insert into public.affiliate_commission_rules (affiliate_id, min_followers, kind, value) values ($1, 2000, 'fixed', 4000)`, [bruno.id]),
+  );
+  check((await amountFor(bruno.id, full, 150000)) === 4000, "regra do afiliado (R$ 40 a partir de 2.000 seguidores) vale na conta grande");
+  check((await amountFor(bruno.id, pilot, 37000)) === 2000, "conta abaixo do mínimo de seguidores não usa a regra dele (cai na de todos)");
+  check((await amountFor(bruno.id, markedPilot, 150000)) === 4000, "regra do afiliado vence a regra de todos na mesma conta");
+  check(
+    (await amountFor(bruno.id, channel, 150000)) === 4000 && (await amountFor(ana.id, channel, 150000)) === 4500,
+    "regra sem tipo vale em qualquer rede; outro afiliado segue nos 3%",
+  );
+  await asAdmin(() =>
+    db.query(`insert into public.affiliate_commission_rules (affiliate_id, category, min_followers, kind, value) values ($1, 'shop_full', 2000, 'fixed', 5000)`, [
+      bruno.id,
+    ]),
+  );
+  check((await amountFor(bruno.id, full, 150000)) === 5000 && (await amountFor(bruno.id, channel, 150000)) === 4000, "regra com tipo de conta vence a regra sem tipo");
+  await asAdmin(() => db.query(`update public.accounts set affiliate_commission_kind = 'fixed', affiliate_commission_value = 6000 where id = $1`, [pilot]));
+  check((await amountFor(ana.id, pilot, 37000)) === 6000, "comissão própria da conta maior que a regra vale a da conta");
+  await asAdmin(() => db.query(`update public.accounts set affiliate_commission_kind = null, affiliate_commission_value = null where id = $1`, [pilot]));
+  const listed = await asAffiliate(AFFILIATE_A, () =>
+    db.query(`select account_id, commission_cents from public.affiliate_account_commissions() where account_id = $1`, [pilot]),
+  );
+  check(listed.rows[0]?.commission_cents === 2000, "vitrine do afiliado já mostra os R$ 20 da regra");
+  const brunoRules = await asAffiliate(AFFILIATE_B, () => db.query(`select mine, category, value from public.my_affiliate_commission_rules()`));
+  check(
+    brunoRules.rows.length === 3 && brunoRules.rows[0].mine === true && brunoRules.rows.some((row) => !row.mine && row.category === "shop_pilot"),
+    "afiliado vê as regras dele e as de todos",
+  );
+  check(
+    (await asAffiliate(AFFILIATE_A, () => db.query(`select mine from public.my_affiliate_commission_rules()`))).rows.every((row) => !row.mine),
+    "afiliado não vê a regra de outro",
+  );
+
+  console.log("\nafiliados: convite");
+  await db.exec(
+    `insert into auth.users (id, email) values ('${AFFILIATE_D}', 'gimena@exemplo.com'), ('${AFFILIATE_E}', 'thais@exemplo.com'), ('${AFFILIATE_F}', 'sem@exemplo.com')`,
+  );
+  const invite = (
+    await asAdmin(() =>
+      db.query(`insert into public.affiliate_invites (name, whatsapp, email) values ('Gimena Alves', '84999991111', 'gimena@exemplo.com') returning id, token, status`),
+    )
+  ).rows[0];
+  check(/^[A-Za-z0-9_-]{24}$/.test(invite.token) && invite.status === "pending", "convite nasce pendente com um código aleatório de link");
+  await asAdmin(() => db.query(`insert into public.affiliate_commission_rules (invite_id, min_followers, kind, value) values ($1, 2000, 'fixed', 4000)`, [invite.id]));
+  check((await as("authenticated", STRANGER_ID, () => db.query(`select id from public.affiliate_invites`))).rows.length === 0, "usuário sem acesso a Parceiros não vê os convites");
+  check(await rejects(() => as("anon", null, () => db.query(`select id from public.affiliate_invites`)), /permission denied/), "visitante não lê a tabela de convites");
+  const previewInvite = (token) => as("anon", null, () => db.query(`select public.affiliate_invite_preview($1) as data`, [token])).then((r) => r.rows[0].data);
+  const preview = await previewInvite(invite.token);
+  check(
+    preview?.name === "Gimena Alves" && preview.whatsapp === "84999991111" && preview.email === "gimena@exemplo.com" && Object.keys(preview).length === 3,
+    "link do convite devolve só nome, WhatsApp e e-mail",
+  );
+  check((await previewInvite("curto")) === null, "código fora do formato não consulta nada");
+  check((await previewInvite("A".repeat(24))) === null, "código que não existe devolve vazio");
+
+  const termsText = (await db.query(`select terms from public.affiliate_program`)).rows[0].terms;
+  const termsSha = createHash("sha256").update(termsText).digest("hex");
+  const register = (userId, name, document, ip, token) =>
+    as("service_role", null, () =>
+      db.query(`select public.register_affiliate($1, $2, $3, '84999991111', $4, $5, $6, $7) as data`, [
+        userId,
+        name,
+        `${userId.slice(-4)}@exemplo.com`,
+        document,
+        termsSha,
+        ip,
+        token,
+      ]),
+    ).then((result) => result.rows[0].data);
+
+  await asAdmin(() => db.query(`update public.affiliate_program set enabled = false`));
+  check(await rejects(() => register(AFFILIATE_F, "Sem Convite", cpfFrom("333444555"), "10.9.3.1", null), /program_closed/), "programa fechado recusa cadastro sem convite");
+  const gimena = await register(AFFILIATE_D, "Gimena Alves", cpfFrom("111222333"), "10.9.3.2", invite.token);
+  check(gimena.status === "approved", "convite vale mesmo com o programa fechado e já entra aprovado");
+  const moved = await db.query(`select invite_id from public.affiliate_commission_rules where affiliate_id = $1 and value = 4000 and min_followers = 2000`, [gimena.id]);
+  check(moved.rows.length === 1 && moved.rows[0].invite_id === null, "as regras do convite passam para a afiliada nova");
+  const claimed = await db.query(`select status, claimed_affiliate_id from public.affiliate_invites where id = $1`, [invite.id]);
+  check(claimed.rows[0].status === "claimed" && claimed.rows[0].claimed_affiliate_id === gimena.id, "convite fica marcado como aceito");
+  check((await amountFor(gimena.id, full, 150000)) === 4000, "a regra combinada no convite já vale nas vendas dela");
+  check(await rejects(() => register(AFFILIATE_F, "Outra Pessoa", cpfFrom("333444555"), "10.9.3.3", invite.token), /invalid_invite/), "convite aceito não serve de novo");
+  check((await previewInvite(invite.token)) === null, "convite aceito some do link");
+  check((await db.query(`select id from public.notifications where title = 'Convite de afiliado aceito'`)).rows.length === 1, "o Jota recebe o aviso de convite aceito");
+
+  const withCommission = (
+    await asAdmin(() => db.query(`insert into public.affiliate_invites (name, commission_kind, commission_value) values ('Thais Rocha', 'fixed', 5000) returning id, token`))
+  ).rows[0];
+  const thais = await register(AFFILIATE_E, "Thais Rocha", cpfFrom("222333444"), "10.9.3.4", withCommission.token);
+  const thaisRow = await db.query(`select commission_kind, commission_value, status from public.affiliates where id = $1`, [thais.id]);
+  check(
+    thaisRow.rows[0].commission_kind === "fixed" && thaisRow.rows[0].commission_value === 5000 && thaisRow.rows[0].status === "approved",
+    "comissão própria do convite é copiada para a afiliada",
+  );
+  const revoked = (await asAdmin(() => db.query(`insert into public.affiliate_invites (name) values ('Cancelado') returning id, token`))).rows[0];
+  await asAdmin(() => db.query(`update public.affiliate_invites set status = 'revoked' where id = $1`, [revoked.id]));
+  check(await rejects(() => register(AFFILIATE_F, "Cancelado", cpfFrom("333444555"), "10.9.3.5", revoked.token), /invalid_invite/), "convite cancelado não cadastra");
+  check(
+    (await asAdmin(() => db.query(`update public.affiliate_invites set status = 'pending' where id = $1 returning id`, [invite.id]))).rows.length === 0,
+    "convite aceito não volta a valer pelo painel",
+  );
+  await asAdmin(() => db.query(`update public.affiliate_program set enabled = true`));
+
+  console.log("\nafiliados: pedido de pagamento");
+  const buyer = (n) => ({ email: `v3comprador${n}@exemplo.com`, whatsapp: `1195558100${n}`, document: cpfFrom(`7${n}${n}222444`.slice(0, 9)) });
+  const sellFor = async (affiliate, accountId, n) => {
+    const click = (await as("anon", null, () => db.query(`select public.track_affiliate_click($1, null) as data`, [affiliate.code]))).rows[0].data;
+    const order = (await placeWithCoupon(accountId, buyer(n), "pix", null, null)).rows[0].data;
+    await as("anon", null, () => db.query(`select public.attach_affiliate_click($1, $2)`, [order.code, click.click_id]));
+    await db.query(`update public.orders set status = 'paid' where code = $1`, [order.code]);
+    await db.query(`update public.orders set status = 'delivered', delivered_at = now() where code = $1`, [order.code]);
+    return (await db.query(`select id, amount_cents from public.affiliate_commissions where order_code = $1`, [order.code])).rows[0];
+  };
+  const tiktokSale = (slug) => account(slug, 1000, 37000, { likes: 1, following: 0 });
+  const first = await sellFor(gimena, await tiktokSale("v3-venda-1"), 1);
+  const second = await sellFor(gimena, await tiktokSale("v3-venda-2"), 2);
+  check(first?.amount_cents === 2000 && second?.amount_cents === 2000, "venda de Shop piloto gera a comissão de R$ 20 da regra");
+  const requestPayout = () => asAffiliate(AFFILIATE_D, () => db.query(`select public.request_affiliate_payout() as at`));
+  check(await rejects(requestPayout, /nothing_to_pay/), "na garantia ainda não dá para pedir pagamento");
+  await db.query(`update public.affiliate_commissions set release_at = now() - interval '1 minute' where id in ($1, $2)`, [first.id, second.id]);
+  check((await released(gimena.id)) === 4000, "garantia acabou: R$ 40 liberados, sem esperar lote");
+  await requestPayout();
+  const requested = await db.query(`select payout_requested_at from public.affiliates where id = $1`, [gimena.id]);
+  const notice = await db.query(`select body, link from public.notifications where title = 'Afiliado pediu pagamento'`);
+  check(
+    requested.rows[0].payout_requested_at !== null && notice.rows[0]?.link === "/admin/parceiros?aba=pagamentos" && notice.rows[0].body.includes("R$ 40,00"),
+    "afiliado pede o pagamento e o Jota recebe o aviso com o valor",
+  );
+  check(await rejects(requestPayout, /payout_already_requested/), "só um pedido de pagamento a cada 24 horas");
+  check(await rejects(() => asAffiliate(AFFILIATE_F, () => db.query(`select public.request_affiliate_payout()`)), /not_affiliate/), "quem não é afiliado não pede pagamento");
+  const payout = (await asAdmin(() => db.query(`select public.pay_affiliate_commissions($1, $2, 'Pix') as id`, [gimena.id, [first.id]]))).rows[0].id;
+  const cleared = await db.query(`select payout_requested_at from public.affiliates where id = $1`, [gimena.id]);
+  check(typeof payout === "string" && cleared.rows[0].payout_requested_at === null, "pagar limpa o pedido de pagamento");
+  check((await released(gimena.id)) === 2000, "o que não foi pago continua liberado");
+
+  console.log("\nafiliados: saldo para comprar conta");
+  const third = await sellFor(gimena, await tiktokSale("v3-venda-3"), 3);
+  await db.query(`update public.affiliate_commissions set release_at = now() - interval '1 minute' where id = $1`, [third.id]);
+  const createBalance = () => asAffiliate(AFFILIATE_D, () => db.query(`select * from public.create_affiliate_balance_coupon()`)).then((r) => r.rows[0]);
+  const coupon = await createBalance();
+  check(
+    coupon.code.startsWith(`SALDO${gimena.code.toUpperCase()}`) && /^[A-Z0-9_-]{3,30}$/.test(coupon.code) && coupon.value === 4000,
+    `saldo de R$ 40 vira o código ${coupon.code}`,
+  );
+  const reserved = await db.query(`select count(*)::int as n from public.affiliate_commissions where affiliate_id = $1 and balance_coupon_id is not null`, [gimena.id]);
+  check(reserved.rows[0].n === 2, "as comissões do saldo ficam reservadas no código");
+  check((await createBalance()).code === coupon.code, "gerar de novo devolve o mesmo código");
+  check((await released(gimena.id)) === 0, "saldo reservado sai do liberado para Pix");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.pay_affiliate_commissions($1, $2, null)`, [gimena.id, [second.id]])), /commissions_not_payable/),
+    "Paguei ignora comissão reservada no código de saldo",
+  );
+  const stored = await db.query(`select kind, max_uses, affiliate_balance_of, affiliate_id from public.coupons where code = $1`, [coupon.code]);
+  check(
+    stored.rows[0].kind === "fixed" && stored.rows[0].max_uses === 1 && stored.rows[0].affiliate_balance_of === gimena.id && stored.rows[0].affiliate_id === null,
+    "código de saldo é desconto fixo de uso único, sem contar venda para ninguém",
+  );
+  check(
+    (await asAffiliate(AFFILIATE_A, () => db.query(`select * from public.my_affiliate_balance_coupon()`))).rows.length === 0,
+    "outro afiliado não vê o código de saldo dela",
+  );
+
+  await asAffiliate(AFFILIATE_D, () => db.query(`select public.cancel_affiliate_balance_coupon()`));
+  const afterCancel = await db.query(`select active from public.coupons where code = $1`, [coupon.code]);
+  check(afterCancel.rows[0].active === false && (await released(gimena.id)) === 4000, "cancelar o código desliga e devolve o saldo");
+  const again = await createBalance();
+  check(again.code !== coupon.code && again.value === 4000, "depois de cancelar, gera um código novo");
+
+  const cheap = await account("v3-barata", 1000, 4200, { likes: 1, following: 0 });
+  const tooBig = (await as("anon", null, () => db.query(`select public.preview_coupon($1, $2) as data`, [again.code, cheap]), { ip: "10.9.4.1" })).rows[0].data;
+  check(tooBig.error === "balance_exceeds_price", "saldo maior que a conta é recusado na prévia (balance_exceeds_price)");
+  check(await rejects(() => placeWithCoupon(cheap, buyer(4), "pix", null, again.code), /balance_exceeds_price/), "checkout também recusa saldo maior que a conta");
+
+  const target = await tiktokSale("v3-compra");
+  const purchase = (await placeWithCoupon(target, buyer(5), "pix", null, again.code)).rows[0].data;
+  check(purchase.total_cents === 33000 && purchase.discount_cents === 4000, "compra com o saldo paga só a diferença (R$ 370 - R$ 40)");
+  check(
+    await rejects(() => asAffiliate(AFFILIATE_D, () => db.query(`select public.cancel_affiliate_balance_coupon()`)), /balance_coupon_in_use/),
+    "código usado num pedido aberto não pode ser cancelado",
+  );
+  await db.query(`update public.orders set status = 'paid' where code = $1`, [purchase.code]);
+  const used = await db.query(
+    `select id, amount_cents, commissions_count, pix_key, note from public.affiliate_payouts where affiliate_id = $1 and coupon_id is not null`,
+    [gimena.id],
+  );
+  check(
+    used.rows.length === 1 &&
+      used.rows[0].amount_cents === 4000 &&
+      used.rows[0].commissions_count === 2 &&
+      used.rows[0].pix_key === null &&
+      used.rows[0].note === `Usado na compra ${purchase.code}`,
+    'pedido pago com o saldo vira pagamento "Usado na compra", sem Pix',
+  );
+  const paidNow = await db.query(`select count(*)::int as n from public.affiliate_commissions where payout_id = $1 and status = 'paid'`, [used.rows[0].id]);
+  check(paidNow.rows[0].n === 2, "as comissões reservadas ficam pagas nesse pagamento");
+  check((await db.query(`select active from public.coupons where code = $1`, [again.code])).rows[0].active === false, "o código de saldo é desligado depois do uso");
+  check((await asAffiliate(AFFILIATE_D, () => db.query(`select * from public.my_affiliate_balance_coupon()`))).rows.length === 0, "painel não mostra mais código depois da compra");
+  check(
+    await rejects(() => asAdmin(() => db.query(`select public.undo_affiliate_payout($1)`, [used.rows[0].id])), /payout_is_purchase/),
+    "saldo usado em compra não se desfaz pelo Pagamentos",
+  );
+  check(await rejects(createBalance, /balance_too_low/), "sem saldo liberado não gera código");
+
+  const fourth = await sellFor(gimena, await tiktokSale("v3-venda-4"), 6);
+  const fifth = await sellFor(gimena, await tiktokSale("v3-venda-5"), 7);
+  await db.query(`update public.affiliate_commissions set release_at = now() - interval '1 minute' where id in ($1, $2)`, [fourth.id, fifth.id]);
+  const late = await createBalance();
+  await asAdmin(() => db.query(`select public.cancel_affiliate_commission($1)`, [fourth.id]));
+  const afterRefund = await db.query(`select active from public.coupons where code = $1`, [late.code]);
+  const freed = await db.query(`select balance_coupon_id from public.affiliate_commissions where id = $1`, [fifth.id]);
+  check(afterRefund.rows[0].active === false && freed.rows[0].balance_coupon_id === null, "comissão reservada cancelada desliga o código e solta o resto do saldo");
+
+  check((await db.query(`select min_withdrawal_cents from public.affiliate_program`)).rows[0].min_withdrawal_cents === 100, "saque mínimo passa a R$ 1,00 (qualquer venda)");
+  CONSENT = previousConsent;
+}
+
 /** IA do WhatsApp: configuração pelo painel, conversas escritas só pelas funções e registro atômico da mensagem. */
 async function whatsappAiChecks() {
   console.log("\natendimento com IA do WhatsApp");
