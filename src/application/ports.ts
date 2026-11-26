@@ -317,6 +317,8 @@ export interface AdminOrderRepository {
   updateStatus(code: string, status: OrderStatus): Promise<void>;
   /** O Jota viu o Pix cair na conta. Com todas as partes pagas, o pedido vira "pago". */
   confirmPixPayment(paymentId: string): Promise<void>;
+  /** O Jota devolveu o dinheiro de quem pagou depois do cancelamento. */
+  markRefunded(code: string): Promise<void>;
 }
 
 export interface AdminCustomerRepository {

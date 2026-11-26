@@ -67,6 +67,8 @@ export interface Order {
   createdAt: string;
   /** Quando o pedido foi marcado como entregue; a garantia conta daqui. */
   deliveredAt: string | null;
+  /** Pedido cancelado que recebeu pagamento: quando o Jota marcou que já devolveu o dinheiro. */
+  refundedAt: string | null;
   /** Cobranças do pedido, na ordem. Pedidos de antes do pagamento dividido chegam sem nenhuma. */
   payments: OrderPayment[];
   /**
@@ -98,7 +100,7 @@ export function chargedAmounts(order: Pick<Order, "total" | "discount" | "cartIt
 export const MAX_CARD_INSTALLMENTS = 12;
 
 /** Tempo que a conta fica segura para quem fez o pedido. Passou disso sem pagar, o pedido cai sozinho (pg_cron) e a conta volta. */
-export const RESERVATION_HOLD_MINUTES = 10;
+export const RESERVATION_HOLD_MINUTES = 15;
 
 /** Mesmas regras do gatilho `sync_order_status` no banco. */
 export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
@@ -110,6 +112,21 @@ export const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
 
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_TRANSITIONS[from].includes(to);
+}
+
+/**
+ * Pagamento que caiu depois do cancelamento (cartão aberto além da reserva, Pix atrasado) e a conta já
+ * não estava livre: o cliente pagou e ficou sem conta. Fica no painel até o Jota marcar o estorno.
+ */
+export function needsRefund(order: Pick<Order, "status" | "payments" | "refundedAt">): boolean {
+  return order.status === "canceled" && !order.refundedAt && order.payments.some((payment) => payment.status === "paid");
+}
+
+/** Quanto o cliente pagou no pedido (com juros do cartão, quando houver). */
+export function paidAmountOf(order: Pick<Order, "payments">): Cents {
+  return order.payments
+    .filter((payment) => payment.status === "paid")
+    .reduce((sum, payment) => sum + (payment.card?.paidAmount ?? payment.pix?.paidAmount ?? payment.amount), 0);
 }
 
 export function isReservationExpired(order: Pick<Order, "status" | "expiresAt">, now: Date = new Date()): boolean {

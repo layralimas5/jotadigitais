@@ -378,6 +378,11 @@ export class SupabaseOrderRepository implements OrderRepository, AdminOrderRepos
     if (error) failFromRpc(error);
   }
 
+  async markRefunded(code: string): Promise<void> {
+    const { error } = await this.client.rpc("mark_order_refunded", { p_code: code });
+    if (error) failFromRpc(error);
+  }
+
   async confirmPixPayment(paymentId: string): Promise<void> {
     const { error } = await this.client
       .from("order_payments")
