@@ -1,9 +1,5 @@
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, Eye, EyeOff, FlaskConical, LogOut, Settings, ShieldUser } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { Link } from "react-router-dom";
-import { cn } from "@/ui/lib/cn";
-import { useCloseOnOutsideClick } from "../lib/use-close-on-outside";
+import { Eye, EyeOff, FlaskConical, LogOut, Settings, ShieldUser } from "lucide-react";
+import { PanelUserMenu, type PanelMenuItem } from "@/ui/components/panel-shell/PanelUserMenu";
 import { SETTINGS_PATH } from "../navigation";
 import { JOTA_SUBJECT, useAdminView } from "../admin-view";
 import { usePreviewToggle } from "../preview/PreviewControls";
@@ -11,174 +7,35 @@ import { useAdminSession } from "../session";
 import { PersonAvatar } from "./PersonAvatar";
 import { RoleBadge } from "./RoleBadge";
 
-const itemClass =
-  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-fog transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:bg-white/[0.06] focus-visible:text-white focus-visible:outline-none";
-
-function initialOf(email: string): string {
-  return email.trim().charAt(0).toUpperCase() || "J";
-}
-
 /** Ícone do usuário no canto superior direito: Configurações, Usuários (só o Jota) e Sair. */
 export function UserMenu() {
   const { state, signOut } = useAdminSession();
   const { viewRole } = useAdminView();
   const preview = usePreviewToggle();
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuId = useId();
-  const reduceMotion = useReducedMotion();
-
-  const close = useCallback(() => setOpen(false), []);
-  useCloseOnOutsideClick(open, close, rootRef);
-
-  useEffect(() => {
-    if (open) menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus();
-  }, [open]);
 
   if (state.status !== "signed-in") return null;
   const { email, name, role, avatarUrl } = state.session;
 
-  const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>("[role='menuitem']") ?? []);
-    const current = items.indexOf(document.activeElement as HTMLElement);
-    const focusAt = (index: number) => items[(index + items.length) % items.length]?.focus();
-    switch (event.key) {
-      case "ArrowDown":
-        focusAt(current + 1);
-        break;
-      case "ArrowUp":
-        focusAt(current - 1);
-        break;
-      case "Home":
-        focusAt(0);
-        break;
-      case "End":
-        focusAt(items.length - 1);
-        break;
-      case "Escape":
-        close();
-        triggerRef.current?.focus();
-        break;
-      case "Tab":
-        close();
-        return;
-      default:
-        return;
-    }
-    event.preventDefault();
-  };
+  const items: PanelMenuItem[] = [{ key: "settings", label: "Configurações", icon: Settings, to: SETTINGS_PATH }];
+  if (role === "developer" && preview.asSomeone) {
+    items.push({ key: "exit-preview", label: "Voltar ao meu painel", icon: EyeOff, onSelect: preview.exit });
+  }
+  if (role === "developer" && !preview.asSomeone) {
+    items.push(
+      { key: "preview", label: "Ver como o Jota", icon: Eye, onSelect: () => preview.enter(JOTA_SUBJECT) },
+      { key: "sandbox", label: "Testar como o Jota", icon: FlaskConical, onSelect: () => preview.enterSandbox(JOTA_SUBJECT) },
+    );
+  }
+  if (viewRole === "admin") items.push({ key: "users", label: "Usuários", icon: ShieldUser, to: "/admin/usuarios" });
+  items.push({ key: "sign-out", label: "Sair", icon: LogOut, danger: true, onSelect: () => void signOut() });
 
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        aria-label="Menu do usuário"
-        onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-1.5 rounded-full p-1 text-mist transition-colors hover:bg-white/[0.06] hover:text-white"
-      >
-        {avatarUrl ? (
-          <PersonAvatar name={name ?? email} src={avatarUrl} className="size-8 ring-1 ring-electric/40" />
-        ) : (
-          <span
-            aria-hidden
-            className="grid size-8 place-items-center rounded-full border border-electric/40 bg-electric/15 font-display text-sm font-semibold text-electric-soft"
-          >
-            {initialOf(name ?? email)}
-          </span>
-        )}
-        <ChevronDown aria-hidden className={cn("size-4 transition-transform", open && "rotate-180")} />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            ref={menuRef}
-            id={menuId}
-            role="menu"
-            aria-label="Conta"
-            onKeyDown={onMenuKeyDown}
-            initial={reduceMotion ? false : { opacity: 0, y: -6, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: -6, scale: 0.97 }}
-            transition={{ duration: 0.16 }}
-            className="absolute top-full right-0 z-50 mt-2 w-60 origin-top-right rounded-2xl border border-line-strong bg-surface p-1.5 shadow-2xl shadow-black/60"
-          >
-            <p className="truncate border-b border-line px-3 pt-2 pb-3 text-xs text-mist" title={email}>
-              Conectado como
-              <span className="mt-0.5 block truncate text-sm font-medium text-white">{name ?? email}</span>
-              {name && <span className="block truncate">{email}</span>}
-              <RoleBadge role={role} className="mt-2" />
-            </p>
-            <div className="pt-1.5">
-              <Link role="menuitem" tabIndex={-1} to={SETTINGS_PATH} onClick={close} className={itemClass}>
-                <Settings aria-hidden className="size-4" /> Configurações
-              </Link>
-              {role === "developer" && preview.asSomeone && (
-                <button
-                  role="menuitem"
-                  tabIndex={-1}
-                  type="button"
-                  onClick={() => {
-                    close();
-                    preview.exit();
-                  }}
-                  className={itemClass}
-                >
-                  <EyeOff aria-hidden className="size-4" /> Voltar ao meu painel
-                </button>
-              )}
-              {role === "developer" && !preview.asSomeone && (
-                <>
-                  <button
-                    role="menuitem"
-                    tabIndex={-1}
-                    type="button"
-                    onClick={() => {
-                      close();
-                      preview.enter(JOTA_SUBJECT);
-                    }}
-                    className={itemClass}
-                  >
-                    <Eye aria-hidden className="size-4" /> Ver como o Jota
-                  </button>
-                  <button
-                    role="menuitem"
-                    tabIndex={-1}
-                    type="button"
-                    onClick={() => {
-                      close();
-                      preview.enterSandbox(JOTA_SUBJECT);
-                    }}
-                    className={itemClass}
-                  >
-                    <FlaskConical aria-hidden className="size-4" /> Testar como o Jota
-                  </button>
-                </>
-              )}
-              {viewRole === "admin" && (
-                <Link role="menuitem" tabIndex={-1} to="/admin/usuarios" onClick={close} className={itemClass}>
-                  <ShieldUser aria-hidden className="size-4" /> Usuários
-                </Link>
-              )}
-              <button
-                role="menuitem"
-                tabIndex={-1}
-                type="button"
-                onClick={() => void signOut()}
-                className={cn(itemClass, "text-[#ff9a9a] hover:text-[#ffb3b3] focus-visible:text-[#ffb3b3]")}
-              >
-                <LogOut aria-hidden className="size-4" /> Sair
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <PanelUserMenu
+      name={name}
+      email={email}
+      avatar={avatarUrl ? <PersonAvatar name={name ?? email} src={avatarUrl} className="size-8 ring-1 ring-electric/40" /> : undefined}
+      badge={<RoleBadge role={role} className="mt-2" />}
+      items={items}
+    />
   );
 }

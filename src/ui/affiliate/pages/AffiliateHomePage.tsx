@@ -1,13 +1,11 @@
 import { ArrowRight, Megaphone, Pin, TicketPercent, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
-import { loadAffiliateHome, type AffiliateHome } from "@/application/affiliate-use-cases";
+import type { AffiliateHome } from "@/application/affiliate-use-cases";
 import { affiliateLink, commissionRuleLabel } from "@/domain/affiliate";
 import { earningExamples, earningSentence } from "@/domain/affiliate-rewards";
-import { container } from "@/app/container";
 import { formatBRL } from "@/domain/money";
 import { CommissionList } from "@/ui/components/affiliate/CommissionList";
 import { ErrorState } from "@/ui/components/StateViews";
-import { useAsync } from "@/ui/hooks/useAsync";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
 import { cn } from "@/ui/lib/cn";
 import { AffiliateSpinner } from "../AffiliateLayout";
@@ -23,7 +21,8 @@ import {
   ruleFor,
 } from "../components/AffiliateRewards";
 import { CopyButton, LinkBox, PanelSection, StatTile } from "../components/AffiliateUi";
-import { useAffiliateMe, useAffiliatePath, useAffiliatePortal, useAffiliateSession } from "../session";
+import { useAffiliateMe, useAffiliatePath } from "../session";
+import { useAffiliateHome } from "../useAffiliateHome";
 
 const day = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
 
@@ -139,16 +138,8 @@ function Ranking({ home }: { home: AffiliateHome }) {
 export default function AffiliateHomePage() {
   useDocumentMeta("Painel do afiliado");
   const me = useAffiliateMe();
-  const affiliatePortal = useAffiliatePortal();
-  const { refresh } = useAffiliateSession();
   const pathTo = useAffiliatePath();
-  const home = useAsync(() => loadAffiliateHome(affiliatePortal, container.store, me), `affiliate-home:${me.id}:${me.status}:${me.payoutRequestedAt ?? ""}`, {
-    keepPrevious: true,
-  });
-  const reload = () => {
-    refresh();
-    home.retry();
-  };
+  const { home, reload } = useAffiliateHome();
 
   if (home.status === "loading") return <AffiliateSpinner />;
   if (home.status === "error") return <ErrorState message={home.error.message} onRetry={home.retry} />;

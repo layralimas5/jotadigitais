@@ -6,7 +6,7 @@ import type { AffiliateMe } from "@/domain/affiliate";
 export const AFFILIATE_BASE_PATH = "/afiliado";
 
 /** Telas do painel do afiliado ("" = início). */
-export type AffiliatePage = "" | "divulgar" | "brindes" | "extrato" | "perfil";
+export type AffiliatePage = "" | "divulgar" | "brindes" | "extrato" | "ganhos" | "saldo" | "perfil" | "mais";
 
 export type AffiliateSessionState =
   | { status: "loading" }

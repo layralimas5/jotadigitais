@@ -1,8 +1,8 @@
-import { motion, useReducedMotion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight, Ellipsis, ExternalLink, MonitorCog, type LucideIcon } from "lucide-react";
+import { Ellipsis, ExternalLink, MonitorCog } from "lucide-react";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { PixReconciler } from "./PixReconciler";
-import { Link, Navigate, NavLink, Outlet, matchPath, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, matchPath, useLocation } from "react-router-dom";
+import { PanelBottomNav, PanelSidebar, type PanelBottomNavEntry, type PanelNavGroup } from "@/ui/components/panel-shell/PanelShell";
 import { Logo, LogoMark } from "@/ui/components/Logo";
 import { cn } from "@/ui/lib/cn";
 import { LoadingBlock } from "./components/AdminUi";
@@ -24,7 +24,7 @@ import { usePanelApp } from "./pwa/usePanelApp";
 import { AdminSessionProvider, useAdminSession } from "./session";
 import { ToastProvider } from "./toast";
 import { FocusLayoutProvider } from "./focus-layout";
-import { useSidebarCollapsed } from "./useSidebarCollapsed";
+import { useSidebarCollapsed } from "@/ui/components/panel-shell/useSidebarCollapsed";
 
 /** Cadastros com a própria barra fixa de salvar no celular: ali a navegação de baixo sai do caminho. */
 const EDITOR_ROUTES = [
@@ -122,24 +122,6 @@ function Brand({ home, stacked = false }: { home: string; stacked?: boolean }) {
   );
 }
 
-/** Seta na borda do menu lateral: encolhe para só os ícones ou abre de novo. */
-function SidebarToggle({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
-  const Icon = collapsed ? ChevronsRight : ChevronsLeft;
-  const label = collapsed ? "Abrir o menu" : "Encolher o menu";
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={label}
-      aria-expanded={!collapsed}
-      title={label}
-      className="absolute top-[4.75rem] -right-3.5 z-10 grid size-7 place-items-center rounded-full border border-line-strong bg-surface text-mist shadow-lg shadow-black/40 transition-colors hover:border-electric/50 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-electric"
-    >
-      <Icon aria-hidden className="size-4" />
-    </button>
-  );
-}
-
 interface SidebarProps {
   access: StaffAccess;
   /** A desenvolvedora tem o atalho para ver o painel como o Jota. */
@@ -148,77 +130,44 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-/** Menu lateral fixo à esquerda, do tablet para cima. Encolhido, mostra só os ícones (o nome vem no "title"). */
+/** Menu lateral fixo à esquerda, do tablet para cima (a casca é a mesma do painel do afiliado). */
 function Sidebar({ access, canPreview, collapsed, onToggle }: SidebarProps) {
-  const reduceMotion = useReducedMotion();
   const attention = useSupportAttention();
   const whatsapp = useWhatsAppAttention();
+  const groups: PanelNavGroup[] = navGroupsFor(access).map((group) => ({
+    label: group.label ?? null,
+    items: group.items.map(({ to, label, icon }) => {
+      const count = to === SUPPORT_PATH ? attention : to === WHATSAPP_PATH ? whatsapp : 0;
+      const countLabel = to === WHATSAPP_PATH ? whatsAppAttentionLabel(count) : undefined;
+      return {
+        to,
+        label,
+        icon,
+        dot: count > 0,
+        collapsedLabel: count > 0 ? `${label}, ${count} pendentes` : undefined,
+        trailing: count > 0 ? <AttentionCount count={count} label={countLabel} className="relative ml-auto" /> : undefined,
+      };
+    }),
+  }));
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[var(--sidebar-w,15rem)] flex-col border-r border-line bg-night transition-[width] duration-300 ease-out motion-reduce:transition-none md:flex">
-      <SidebarToggle collapsed={collapsed} onToggle={onToggle} />
-      <div className={cn("flex h-[6.25rem] shrink-0 items-center justify-center border-b border-line", collapsed ? "px-2" : "px-5")}>
-        {collapsed ? (
-          <Link to={homePathFor(access)} aria-label="Sistema Jota Digitais, início" className="rounded-md">
-            <LogoMark />
-          </Link>
-        ) : (
-          <Brand home={homePathFor(access)} stacked />
-        )}
-      </div>
-      <nav aria-label="Sistema" className={cn("flex-1 overflow-x-hidden overflow-y-auto p-3", collapsed ? "space-y-3" : "space-y-5")}>
-        {navGroupsFor(access).map((group, index) => (
-          <div key={group.label ?? "inicio"}>
-            {group.label &&
-              (collapsed ? (
-                index > 0 && <span aria-hidden className="mx-auto mb-3 block h-px w-6 bg-line" />
-              ) : (
-                <p className="px-3 pb-1.5 text-[0.65rem] font-semibold tracking-[0.16em] whitespace-nowrap text-mist/70 uppercase">{group.label}</p>
-              ))}
-            <ul className="space-y-0.5">
-              {group.items.map(({ to, label, icon: Icon }) => {
-                const count = to === SUPPORT_PATH ? attention : to === WHATSAPP_PATH ? whatsapp : 0;
-                const countLabel = to === WHATSAPP_PATH ? whatsAppAttentionLabel(count) : undefined;
-                return (
-                  <li key={to}>
-                    <NavLink
-                      to={to}
-                      title={collapsed ? label : undefined}
-                      aria-label={collapsed && count > 0 ? `${label}, ${count} pendentes` : undefined}
-                      className={cn("relative flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium", collapsed ? "justify-center px-0" : "px-3")}
-                    >
-                      {({ isActive }) => (
-                        <>
-                          {isActive && (
-                            <motion.span
-                              layoutId="sidebar-active"
-                              transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 40 }}
-                              className="absolute inset-0 rounded-xl border border-electric/30 bg-electric/10"
-                            />
-                          )}
-                          <Icon aria-hidden className={cn("relative size-[1.1rem] shrink-0", isActive ? "text-electric" : "text-mist")} />
-                          {collapsed ? (
-                            count > 0 && <span aria-hidden className="absolute top-1.5 right-3 size-2 rounded-full bg-pink ring-2 ring-night" />
-                          ) : (
-                            <>
-                              <span className={cn("relative whitespace-nowrap", isActive ? "text-white" : "text-mist hover:text-white")}>{label}</span>
-                              {count > 0 && <AttentionCount count={count} label={countLabel} className="relative ml-auto" />}
-                            </>
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-      </nav>
-      <div className="space-y-1 border-t border-line p-3">
-        {canPreview && <SidebarPreviewEntry iconOnly={collapsed} />}
-        <SiteLink iconOnly={collapsed} />
-      </div>
-    </aside>
+    <PanelSidebar
+      navLabel="Sistema"
+      collapsed={collapsed}
+      onToggle={onToggle}
+      groups={groups}
+      collapsedBrand={
+        <Link to={homePathFor(access)} aria-label="Sistema Jota Digitais, início" className="rounded-md">
+          <LogoMark />
+        </Link>
+      }
+      brand={<Brand home={homePathFor(access)} stacked />}
+      footer={(iconOnly) => (
+        <>
+          {canPreview && <SidebarPreviewEntry iconOnly={iconOnly} />}
+          <SiteLink iconOnly={iconOnly} />
+        </>
+      )}
+    />
   );
 }
 
@@ -269,16 +218,8 @@ function TopBar({ access }: { access: StaffAccess }) {
   return useMediaQuery(DESKTOP_QUERY) ? <DesktopTopBar access={access} /> : <MobileTopBar access={access} />;
 }
 
-interface BottomNavEntry {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  /** "Mais" fica ativo também nas seções que moram dentro dele. */
-  activeOn?: readonly string[];
-}
-
-function bottomNavOf(access: StaffAccess): BottomNavEntry[] {
-  const items: BottomNavEntry[] = bottomNavItemsFor(access);
+function bottomNavOf(access: StaffAccess): PanelBottomNavEntry[] {
+  const items: PanelBottomNavEntry[] = bottomNavItemsFor(access);
   if (fitsBottomNav(access)) return items;
   const moreRoutes = ["/admin/mais", ...moreItemsFor(access).map((item) => `${item.to}/*`)];
   return [...items, { to: "/admin/mais", label: "Mais", icon: Ellipsis, activeOn: moreRoutes }];
@@ -286,46 +227,21 @@ function bottomNavOf(access: StaffAccess): BottomNavEntry[] {
 
 /** Navegação no polegar: fixa embaixo no celular, com a aba ativa deslizando entre os itens. */
 function BottomNav({ access }: { access: StaffAccess }) {
-  const reduceMotion = useReducedMotion();
-  const { pathname } = useLocation();
-  const entries = bottomNavOf(access);
   const attention = useSupportAttention();
   const whatsapp = useWhatsAppAttention();
+  const items = bottomNavOf(access);
   // Sem lugar próprio na barra, o número do Suporte aparece no "Mais".
-  const attentionTarget = entries.some((entry) => entry.to === SUPPORT_PATH) ? SUPPORT_PATH : "/admin/mais";
-  return (
-    <nav
-      aria-label="Sistema"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-black/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
-    >
-      <div className="grid px-1 py-1.5" style={{ gridTemplateColumns: `repeat(${entries.length}, minmax(0, 1fr))` }}>
-        {entries.map(({ to, label, icon: Icon, activeOn }) => (
-          <NavLink key={to} to={to} className="relative flex flex-col items-center gap-0.5 rounded-2xl py-2 text-[0.7rem] font-medium">
-            {({ isActive: linkActive }) => {
-              const isActive = activeOn ? matchesAny(activeOn, pathname) : linkActive;
-              return (
-              <>
-                {isActive && (
-                  <motion.span
-                    layoutId="bottom-nav-active"
-                    transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 38 }}
-                    className="absolute inset-0 rounded-2xl bg-white/[0.08]"
-                  />
-                )}
-                <Icon aria-hidden className={cn("relative size-5", isActive ? "text-electric" : "text-mist")} />
-                <span className={cn("relative", isActive ? "text-white" : "text-mist")}>{label}</span>
-                {to === attentionTarget && <AttentionCount count={attention} className="absolute top-1 left-1/2 ml-2" />}
-                {to === WHATSAPP_PATH && (
-                  <AttentionCount count={whatsapp} label={whatsAppAttentionLabel(whatsapp)} className="absolute top-1 left-1/2 ml-2" />
-                )}
-              </>
-              );
-            }}
-          </NavLink>
-        ))}
-      </div>
-    </nav>
-  );
+  const attentionTarget = items.some((entry) => entry.to === SUPPORT_PATH) ? SUPPORT_PATH : "/admin/mais";
+  const entries = items.map((entry) => ({
+    ...entry,
+    extra: (
+      <>
+        {entry.to === attentionTarget && <AttentionCount count={attention} className="absolute top-1 left-1/2 ml-2" />}
+        {entry.to === WHATSAPP_PATH && <AttentionCount count={whatsapp} label={whatsAppAttentionLabel(whatsapp)} className="absolute top-1 left-1/2 ml-2" />}
+      </>
+    ),
+  }));
+  return <PanelBottomNav navLabel="Sistema" entries={entries} />;
 }
 
 /** Rotas do sistema. Com o Supabase ligado, exigem login de administrador. */

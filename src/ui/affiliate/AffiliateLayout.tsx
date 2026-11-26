@@ -1,28 +1,26 @@
-import { ArrowLeft, Eye, Gift, House, LogOut, Megaphone, ReceiptText, UserRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Ellipsis, ExternalLink, Eye, LogOut, Store, UserRound } from "lucide-react";
 import { Suspense, type ReactNode } from "react";
-import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
-import { AFFILIATE_STATUS_MESSAGE } from "@/domain/affiliate";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
+import { AFFILIATE_STATUS_MESSAGE, type AffiliateMe } from "@/domain/affiliate";
+import { AffiliateStatusBadge } from "@/ui/components/affiliate/AffiliateBadges";
 import { Button, ButtonLink } from "@/ui/components/Button";
-import { Logo } from "@/ui/components/Logo";
+import { Logo, LogoMark } from "@/ui/components/Logo";
+import { PanelBottomNav, PanelCrumb, PanelSidebar, type PanelNavGroup } from "@/ui/components/panel-shell/PanelShell";
+import { PanelUserMenu, type PanelMenuItem } from "@/ui/components/panel-shell/PanelUserMenu";
+import { useSidebarCollapsed } from "@/ui/components/panel-shell/useSidebarCollapsed";
+import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import { cn } from "@/ui/lib/cn";
 import { NoticesBell } from "./components/NoticesBell";
-import { AffiliateSessionProvider, useAffiliatePath, useAffiliateSession, type AffiliatePage } from "./session";
+import { AFFILIATE_BOTTOM_NAV, AFFILIATE_MORE_ITEMS, AFFILIATE_NAV_GROUPS, affiliateCrumbOf } from "./navigation";
+import { AffiliateSessionProvider, useAffiliatePath, useAffiliateSession } from "./session";
 
 export const AFFILIATE_LOGIN_PATH = "/afiliado/entrar";
 
-interface NavItem {
-  page: AffiliatePage;
-  label: string;
-  icon: LucideIcon;
-}
+/** A escolha de menu encolhido do afiliado fica separada da do painel da loja (pode ser o mesmo navegador). */
+const SIDEBAR_KEY = "jota:affiliate-sidebar-collapsed";
 
-const NAV: readonly NavItem[] = [
-  { page: "", label: "Início", icon: House },
-  { page: "divulgar", label: "Divulgar", icon: Megaphone },
-  { page: "brindes", label: "Brindes", icon: Gift },
-  { page: "extrato", label: "Extrato", icon: ReceiptText },
-  { page: "perfil", label: "Perfil", icon: UserRound },
-];
+/** Mesmo ponto do `md:` do Tailwind, onde o menu lateral aparece. */
+const DESKTOP_QUERY = "(min-width: 48rem)";
 
 export function AffiliateSpinner({ label = "Carregando" }: { label?: string }) {
   return (
@@ -72,7 +70,7 @@ function StatusBanner({ status }: { status: keyof typeof AFFILIATE_STATUS_MESSAG
 function PreviewBar({ name, backPath }: { name: string; backPath: string }) {
   return (
     <div role="status" className="bg-violet text-white">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm sm:px-6 md:px-8">
         <span className="flex min-w-0 items-center gap-2">
           <Eye aria-hidden className="size-4 shrink-0" />
           <span className="min-w-0">
@@ -87,11 +85,95 @@ function PreviewBar({ name, backPath }: { name: string; backPath: string }) {
   );
 }
 
-/** Telas do afiliado logado: menu no topo (computador) ou embaixo (celular). */
+/** Logo e o nome do painel ("Afiliado"), como o "Sistema" do painel da loja. */
+function AffiliateBrand({ home, stacked = false }: { home: string; stacked?: boolean }) {
+  return (
+    <Link to={home} aria-label="Painel do afiliado, início" className={cn("flex min-w-0 rounded-md", stacked ? "flex-col items-center gap-2" : "items-center gap-3")}>
+      <Logo />
+      <span
+        className={cn(
+          "flex items-center gap-1.5 font-display text-[0.7rem] font-semibold tracking-[0.2em] text-mist uppercase",
+          !stacked && "max-[400px]:hidden",
+        )}
+      >
+        <Store aria-hidden className="size-3.5 text-electric" />
+        Afiliado
+      </span>
+    </Link>
+  );
+}
+
+function StoreLink({ iconOnly }: { iconOnly: boolean }) {
+  return (
+    <a
+      href="/"
+      target="_blank"
+      rel="noreferrer"
+      title={iconOnly ? "Ver a loja" : undefined}
+      className={cn(
+        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-mist transition-colors hover:bg-white/[0.06] hover:text-white",
+        iconOnly && "justify-center px-0",
+      )}
+    >
+      <ExternalLink aria-hidden className="size-4" /> <span className={iconOnly ? "sr-only" : undefined}>Ver a loja</span>
+    </a>
+  );
+}
+
+/** Menu da conta: perfil, loja e sair (na visualização pela equipe não tem sair). */
+function AffiliateUserMenu({ me }: { me: AffiliateMe }) {
+  const { signOut, preview } = useAffiliateSession();
+  const pathTo = useAffiliatePath();
+  const items: PanelMenuItem[] = [
+    { key: "profile", label: "Perfil", icon: UserRound, to: pathTo("perfil") },
+    { key: "store", label: "Ver a loja", icon: ExternalLink, to: "/", external: true },
+  ];
+  if (!preview) items.push({ key: "sign-out", label: "Sair", icon: LogOut, danger: true, onSelect: () => void signOut() });
+  return <PanelUserMenu name={me.name} email={me.email} badge={<span className="mt-2 block"><AffiliateStatusBadge status={me.status} /></span>} items={items} />;
+}
+
+/** Topo: no computador, onde você está à esquerda e avisos e conta à direita; no celular, a marca no lugar. */
+function AffiliateTopBar({ me }: { me: AffiliateMe }) {
+  const desktop = useMediaQuery(DESKTOP_QUERY);
+  const pathTo = useAffiliatePath();
+  const { pathname } = useLocation();
+  const page = pathname.replace(pathTo(""), "").replace(/^\//, "").split("/")[0] ?? "";
+  const crumb = affiliateCrumbOf(page);
+  if (desktop) {
+    return (
+      <header className="sticky top-0 z-30 border-b border-line bg-ink/85 backdrop-blur-xl">
+        <div className="flex h-16 items-center justify-between gap-6 px-8">
+          <PanelCrumb section={crumb.section} page={crumb.page} />
+          <div className="flex items-center gap-1">
+            <NoticesBell />
+            <AffiliateUserMenu me={me} />
+          </div>
+        </div>
+      </header>
+    );
+  }
+  return (
+    <header className="sticky top-0 z-40 border-b border-line bg-black/85 backdrop-blur-xl">
+      <div className="flex h-14 items-center justify-between gap-2 px-4">
+        <AffiliateBrand home={pathTo("")} />
+        <div className="flex shrink-0 items-center">
+          <NoticesBell />
+          <AffiliateUserMenu me={me} />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/**
+ * Telas do afiliado logado, na mesma casca do painel da loja: menu lateral em grupos (encolhe para os ícones),
+ * topo com onde você está, sininho e conta, e no celular a barra de baixo com o "Mais".
+ */
 export function AffiliateProtected() {
   const { state, refresh, signOut, preview } = useAffiliateSession();
   const pathTo = useAffiliatePath();
   const location = useLocation();
+  const sidebar = useSidebarCollapsed(false, SIDEBAR_KEY);
 
   if (state.status === "loading") return <AffiliateSpinner label="Abrindo o painel" />;
   if (state.status === "error") {
@@ -130,83 +212,43 @@ export function AffiliateProtected() {
   }
 
   const { me } = state;
-  const firstName = me.name.split(" ")[0] ?? me.name;
+  const groups: PanelNavGroup[] = AFFILIATE_NAV_GROUPS.map((group) => ({
+    label: group.label,
+    items: group.items.map((item) => ({ to: pathTo(item.page), label: item.label, icon: item.icon, end: item.page === "" })),
+  }));
+  const moreRoutes = [pathTo("mais"), ...AFFILIATE_MORE_ITEMS.map((item) => `${pathTo(item.page)}/*`)];
+  const bottom = [
+    ...AFFILIATE_BOTTOM_NAV.map((item) => ({ to: pathTo(item.page), label: item.label, icon: item.icon, end: item.page === "" })),
+    { to: pathTo("mais"), label: "Mais", icon: Ellipsis, activeOn: moreRoutes },
+  ];
 
   return (
-    <div className="min-h-screen pb-24 md:pb-10">
-      <div className="sticky top-0 z-30">
+    <div className="min-h-screen bg-ink">
+      <PanelSidebar
+        navLabel="Painel do afiliado"
+        layoutId="affiliate-sidebar-active"
+        collapsed={sidebar.collapsed}
+        onToggle={sidebar.toggle}
+        groups={groups}
+        brand={<AffiliateBrand home={pathTo("")} stacked />}
+        collapsedBrand={
+          <Link to={pathTo("")} aria-label="Painel do afiliado, início" className="rounded-md">
+            <LogoMark />
+          </Link>
+        }
+        footer={(iconOnly) => <StoreLink iconOnly={iconOnly} />}
+      />
+      <div className="transition-[padding] duration-300 ease-out motion-reduce:transition-none md:pl-[var(--sidebar-w,15rem)]">
         {preview && <PreviewBar name={me.name} backPath={preview.backPath} />}
-        <header className="border-b border-line bg-ink/85 backdrop-blur">
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-            <Link to="/" aria-label="Ir para a loja" className="shrink-0">
-              <Logo size="sm" />
-            </Link>
-            <nav aria-label="Painel do afiliado" className="hidden md:block">
-              <ul className="flex gap-1">
-                {NAV.map((item) => (
-                  <li key={item.page}>
-                    <NavLink
-                      to={pathTo(item.page)}
-                      end={item.page === ""}
-                      className={({ isActive }) =>
-                        cn(
-                          "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-electric",
-                          isActive ? "bg-white/[0.08] text-white" : "text-mist hover:text-white",
-                        )
-                      }
-                    >
-                      <item.icon aria-hidden className="size-4" /> {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-            <div className="flex items-center gap-3">
-              <span className="hidden text-sm text-fog sm:inline">Olá, {firstName}</span>
-              <NoticesBell />
-              {!preview && (
-                <button
-                  type="button"
-                  onClick={() => void signOut()}
-                  aria-label="Sair do painel"
-                  className="grid size-10 place-items-center rounded-full text-mist transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-electric"
-                >
-                  <LogOut aria-hidden className="size-5" />
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
+        <AffiliateTopBar me={me} />
+        <main id="conteudo" className="mx-auto max-w-6xl space-y-6 px-4 pt-5 pb-32 sm:px-6 md:px-8 md:pt-8 md:pb-16">
+          {me.status !== "approved" && <StatusBanner status={me.status} />}
+          <Suspense fallback={<AffiliateSpinner />}>
+            <Outlet />
+          </Suspense>
+        </main>
       </div>
-
-      <main id="conteudo" className="mx-auto max-w-6xl space-y-6 px-4 pt-6 sm:px-6 sm:pt-8">
-        {me.status !== "approved" && <StatusBanner status={me.status} />}
-        <Suspense fallback={<AffiliateSpinner />}>
-          <Outlet />
-        </Suspense>
-      </main>
-
-      <nav aria-label="Painel do afiliado" className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <ul className="grid grid-cols-5">
-          {NAV.map((item) => (
-            <li key={item.page}>
-              <NavLink
-                to={pathTo(item.page)}
-                end={item.page === ""}
-                className={({ isActive }) =>
-                  cn(
-                    "flex flex-col items-center gap-1 py-2.5 text-[0.7rem] font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-electric",
-                    isActive ? "text-white" : "text-mist",
-                  )
-                }
-              >
-                <item.icon aria-hidden className="size-5" />
-                {item.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <PanelBottomNav navLabel="Painel do afiliado" layoutId="affiliate-bottom-active" entries={bottom} />
     </div>
   );
 }

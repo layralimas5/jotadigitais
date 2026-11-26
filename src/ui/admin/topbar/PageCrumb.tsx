@@ -1,5 +1,5 @@
-import { ChevronRight } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { PanelCrumb } from "@/ui/components/panel-shell/PanelShell";
 import { NAV_GROUPS } from "../navigation";
 
 interface Crumb {
@@ -27,17 +27,5 @@ export function PageCrumb() {
   const { pathname } = useLocation();
   const crumb = crumbOf(pathname);
   if (!crumb) return null;
-  return (
-    <nav aria-label="Você está em" className="min-w-0">
-      <ol className="flex min-w-0 items-center gap-1.5 text-sm">
-        <li className="hidden shrink-0 text-mist xl:block">{crumb.section}</li>
-        <li aria-hidden className="hidden shrink-0 text-line-strong xl:block">
-          <ChevronRight className="size-3.5" />
-        </li>
-        <li aria-current="page" className="truncate font-medium text-white">
-          {crumb.page}
-        </li>
-      </ol>
-    </nav>
-  );
+  return <PanelCrumb section={crumb.section} page={crumb.page} />;
 }

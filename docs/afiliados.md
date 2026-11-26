@@ -117,6 +117,13 @@ Migration `supabase/migrations/20270103120000_affiliates_v3.sql`.
 Para Gimena e Thais: Afiliados > Novo afiliado, sem comissão própria, com a regra "Todos os tipos, a partir de 2.000
 seguidores, R$ 40,00" (Gimena) ou "R$ 50,00" (Thais). Os demais seguem nos 3% do programa e no Shop piloto a R$ 20.
 
+**Painel do afiliado com a cara do painel da loja** (pedido do Jota: "cópia dos nossos dashboards, com as
+funcionalidades do afiliado"): menu lateral em grupos (Início; Divulgação: Contas e links; Ganhos: Extrato,
+Pagamentos, Comprar com saldo; Brindes; Conta: Perfil), seta para encolher, topo com onde você está, sininho e menu
+da conta; no celular, barra de baixo (Início, Divulgar, Pagamentos, Brindes, Mais). A casca é a mesma do painel da
+loja (`src/ui/components/panel-shell`). Telas novas: `/afiliado/ganhos`, `/afiliado/saldo` e `/afiliado/mais`
+(também no "Ver como").
+
 ### Ligar em produção (entrega 3)
 
 1. SQL Editor: colar `supabase/migrations/20270103120000_affiliates_v3.sql` inteiro (registra a versão no fim).
