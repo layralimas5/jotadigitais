@@ -15,6 +15,7 @@ import { useCartAccounts } from "@/ui/hooks/useStore";
 import { audienceLabel } from "@/ui/lib/account-presenter";
 import { cn } from "@/ui/lib/cn";
 import { subtotalOf } from "@/ui/sections/checkout/OrderSummary";
+import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
 
 function CartItem({ account, onRemove }: { account: Account; onRemove: () => void }) {
   const available = isPurchasable(account);
@@ -157,6 +158,7 @@ function CartContent() {
 
 export default function CartPage() {
   useDocumentMeta("Carrinho");
+  const closed = useStorefrontClosed();
   return (
     <div className="relative pt-24 pb-24 md:pt-32">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
@@ -165,7 +167,7 @@ export default function CartPage() {
         </Link>
         <h1 className="mt-6 font-display text-3xl font-semibold tracking-tight text-white md:text-4xl">Carrinho</h1>
         <div className="mt-10">
-          <CartContent />
+          {closed ? <StorefrontClosed /> : <CartContent />}
         </div>
       </div>
     </div>

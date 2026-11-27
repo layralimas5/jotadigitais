@@ -18,6 +18,7 @@ import { cn } from "@/ui/lib/cn";
 import { ShareAccountDialog, type MessageMode } from "../accounts/ShareAccountDialog";
 import { announcedAccountIdOf } from "../accounts/announce";
 import { StockByCategory } from "../accounts/StockByCategory";
+import { StorefrontSwitch } from "../accounts/StorefrontSwitch";
 import { DeleteDialog, MobileSelectAll, RowTrashButton, SelectAllCheckbox, SelectCheckbox, SelectionBar } from "../components/BulkSelection";
 import { Fab, LoadingBlock, PageHeader } from "../components/AdminUi";
 import { FilterSelect } from "../components/FilterSelect";
@@ -343,6 +344,8 @@ export default function AccountsListPage() {
           </ButtonLink>
         }
       />
+
+      <StorefrontSwitch />
 
       <StockByCategory counts={stockCounts} selected={category} onSelect={setCategory} />
 

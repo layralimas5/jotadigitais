@@ -186,6 +186,12 @@ export interface SiteContent {
     guideNone: string;
     guideButton: string;
     guideClose: string;
+    /** Vitrine desligada (entre uma remessa e outra): nenhuma conta aparece e o site mostra o aviso abaixo. */
+    closed: boolean;
+    closedTitle: string;
+    closedMessage: string;
+    /** Mensagem para a comunidade quando a vitrine volta: {link} vira o endereço da vitrine. */
+    reopenMessage: string;
   };
   /** Ficha do cliente no checkout: a pergunta de origem e as opções que aparecem nela. */
   checkoutPage: {
@@ -265,7 +271,8 @@ export interface SiteContent {
     nicheNote: string;
     /** Quadro "O que esta conta tem": explica o Shop e a monetização da conta. O título vale para todas as redes. */
     tiktokStatus: { title: string; full: string; pilot: string; none: string; monetized: string; notMonetized: string };
-    instagramStatus: { shop: string; noShop: string; monetized: string; notMonetized: string };
+    /** earnings: formas de ganhar com a conta, no lugar dos "sem Shop" e "não monetizada", que não vendem. */
+    instagramStatus: { shop: string; noShop: string; monetized: string; notMonetized: string; earnings: string };
     youtubeStatus: { monetized: string; notMonetized: string };
     specsTitle: string;
     /** Linhas iguais em toda conta de cada rede, entre os números e a data do anúncio. */
@@ -480,6 +487,11 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     guideNone: "Não dá para vender produtos como afiliada por ela. Você leva o perfil e os seguidores.",
     guideButton: "O que é cada tipo de conta?",
     guideClose: "Entendi",
+    closed: false,
+    closedTitle: "Estoque esgotado por enquanto",
+    closedMessage:
+      "Todas as contas foram vendidas e estamos preparando uma remessa nova. Toque em \"Me avise\" e deixe seu WhatsApp para saber assim que as contas novas chegarem.",
+    reopenMessage: "Remessa nova no ar! Contas novas acabaram de entrar na vitrine da Jota Digitais. Corre para garantir a sua: {link}",
   },
   checkoutPage: {
     sourceQuestion: "Como você conheceu a Jota Digitais?",
@@ -602,6 +614,8 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       noShop: "Esta conta não tem a loja do Instagram ativa. Você leva o perfil e os seguidores.",
       monetized: "A conta já recebe dinheiro do Instagram (bônus, assinaturas ou presentes).",
       notMonetized: "A conta ainda não recebe dinheiro do Instagram.",
+      earnings:
+        "Dá para ganhar com a conta de várias formas: publis e parcerias com marcas, divulgação de produtos como afiliado, anúncios pagos e venda dos seus próprios produtos ou serviços.",
     },
     youtubeStatus: {
       monetized: "O canal está no Programa de Parcerias do YouTube e já recebe pelos anúncios dos vídeos.",

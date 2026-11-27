@@ -262,6 +262,18 @@ const CatalogPageForm: Form<"catalogPage"> = (props) => {
       {copy("guideNone", "Card dos tipos: Sem TikTok Shop", 240, { multiline: true })}
       {copy("guideButton", "Botão que abre o card dos tipos", 50)}
       {copy("guideClose", "Botão que fecha o card dos tipos", 30)}
+      <ToggleField
+        label="Vitrine desligada"
+        description="Esconde todas as contas do site e mostra o aviso abaixo. Também dá para ligar e desligar na aba Contas."
+        checked={props.value.closed}
+        onChange={(closed) => props.onChange({ ...props.value, closed })}
+      />
+      {copy("closedTitle", "Vitrine desligada: título do aviso", 90)}
+      {copy("closedMessage", "Vitrine desligada: texto do aviso", 400, { multiline: true })}
+      {copy("reopenMessage", "Mensagem para a comunidade quando a vitrine volta", 400, {
+        multiline: true,
+        hint: "Use {link} para o endereço da vitrine.",
+      })}
     </>
   );
 };
@@ -435,9 +447,8 @@ const STATUS_GROUPS = [
     section: "instagramStatus",
     fields: [
       ["shop", "Instagram Shop ativo"],
-      ["noShop", "Sem Instagram Shop"],
       ["monetized", "Monetizada"],
-      ["notMonetized", "Não monetizada"],
+      ["earnings", "Formas de ganhar com a conta (aparece em toda conta de Instagram)"],
     ],
   },
   {
