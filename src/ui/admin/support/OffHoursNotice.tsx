@@ -1,6 +1,6 @@
 import { CalendarClock, MessageCircle } from "lucide-react";
 import { useState } from "react";
-import { DEVELOPER_WHATSAPP, SUPPORT_HOURS_LABEL, isSupportWeekend } from "@/domain/support-hours";
+import { DEVELOPER_WHATSAPP, SUPPORT_HOURS_LABEL, supportOffHoursOf, type SupportOffHours } from "@/domain/support-hours";
 import type { SupportRole } from "@/domain/support-ticket";
 import { buttonClasses, Button } from "@/ui/components/Button";
 import { Modal } from "../components/Modal";
@@ -8,16 +8,22 @@ import { whatsappChatUrl } from "../lib/whatsapp";
 
 const URGENT_MESSAGE = "Oi Lay, é urgente: ";
 
+const TITLE: Record<SupportOffHours, string> = {
+  weekend: "Hoje é fim de semana",
+  "after-hours": "Estamos fora do horário de atendimento",
+};
+
 /**
- * Pedido da Lay: no sábado e no domingo, quem abre o Suporte do lado do Jota vê o horário de atendimento
- * e o WhatsApp dela para o que for urgente.
+ * Pedido da Lay: fora do expediente (fim de semana, ou dia útil antes das 08:00 e a partir das 20:00), quem abre
+ * o Suporte do lado do Jota vê o horário de atendimento e o WhatsApp dela para o que for urgente.
  */
-export function WeekendNotice({ role }: { role: SupportRole }) {
-  const [open, setOpen] = useState(() => role === "admin" && isSupportWeekend(new Date()));
+export function OffHoursNotice({ role }: { role: SupportRole }) {
+  const [offHours] = useState(() => (role === "admin" ? supportOffHoursOf(new Date()) : null));
+  const [open, setOpen] = useState(offHours !== null);
   const close = () => setOpen(false);
 
   return (
-    <Modal open={open} title="Hoje é fim de semana" onClose={close} placement="center">
+    <Modal open={open} title={offHours ? TITLE[offHours] : ""} onClose={close} placement="center">
       <div className="flex gap-3 rounded-2xl border border-electric/35 bg-electric/[0.07] p-4">
         <CalendarClock aria-hidden className="mt-0.5 size-5 shrink-0 text-electric" />
         <div className="space-y-2 text-sm leading-relaxed text-fog">

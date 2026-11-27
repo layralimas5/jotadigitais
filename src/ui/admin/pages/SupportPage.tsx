@@ -73,7 +73,7 @@ import { DeleteTicketButton } from "../support/DeleteTicketButton";
 import { MergeDialog } from "../support/MergeDialog";
 import { useToast } from "../toast";
 import { TicketProgress } from "../support/TicketProgress";
-import { WeekendNotice } from "../support/WeekendNotice";
+import { OffHoursNotice } from "../support/OffHoursNotice";
 
 type StatusFilter = "mine" | "active" | SupportStatus | "all";
 type KindFilter = SupportKind | "all";
@@ -527,7 +527,7 @@ export default function SupportPage() {
 
   return (
     <div className="space-y-6">
-      <WeekendNotice role={role} />
+      <OffHoursNotice role={role} />
       <PageHeader
         title="Suporte"
         description={DESCRIPTION[role]}
