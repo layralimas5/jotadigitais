@@ -70,6 +70,7 @@ import type {
 } from "@/domain/support-ticket";
 import type { Testimonial, TestimonialData } from "@/domain/testimonial";
 import type { StickerId } from "@/domain/sticker";
+import type { ChatPresence, ChatReads, ChatRole, StaffChatMessage } from "@/domain/staff-chat";
 
 // ---------------------------------------------------------------------------
 // Loja (site público)
@@ -471,6 +472,30 @@ export interface AdminUserRepository {
  * Chamados de suporte. Quem abre e quem responde é sempre o usuário logado (o banco grava sozinho);
  * a situação só muda pela desenvolvedora, e o banco confere isso também.
  */
+/** Ouve o chat em tempo real: quem está com ele aberto, quem digita e quando chegou novidade (mensagem ou leitura). */
+export interface StaffChatListener {
+  onPresence: (presence: ChatPresence) => void;
+  /** Algo mudou no banco: buscar de novo (o aviso não carrega o conteúdo). */
+  onActivity: () => void;
+}
+
+export interface StaffChatConnection {
+  typing: () => void;
+  /** Mandou mensagem ou leu: avisa o outro lado para buscar de novo. */
+  announceActivity: () => void;
+  leave: () => void;
+}
+
+/** Chat da Lay com o Jota. O banco confere que só os dois leem e escrevem. */
+export interface StaffChatRepository {
+  /** Últimas mensagens em ordem de envio, com a última leitura de cada lado. */
+  list(): Promise<{ messages: StaffChatMessage[]; reads: ChatReads }>;
+  send(body: string, sticker: StickerId | null): Promise<StaffChatMessage>;
+  markRead(): Promise<void>;
+  /** Entra no canal em tempo real enquanto o chat está aberto: é isso que faz aparecer "online" para o outro. */
+  connect(role: ChatRole, listener: StaffChatListener): StaffChatConnection;
+}
+
 export interface SupportTicketRepository {
   /** Sem endereço dos anexos: a lista só precisa saber quantos são. */
   listAll(): Promise<SupportTicket[]>;

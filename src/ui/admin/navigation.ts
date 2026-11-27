@@ -21,6 +21,7 @@ import {
   Users,
   Wallet,
   type LucideIcon,
+  MessagesSquare,
 } from "lucide-react";
 import { matchPath } from "react-router-dom";
 import { helperCan, type AdminRole, type StaffAccess, type StaffPermission } from "@/domain/admin-user";
@@ -47,6 +48,7 @@ export interface NavGroup {
 export const HOME_PATH = "/admin/dashboard";
 export const SETTINGS_PATH = "/admin/configuracoes";
 export const SUPPORT_PATH = "/admin/suporte";
+export const CHAT_PATH = "/admin/chat";
 export const WHATSAPP_PATH = "/admin/whatsapp";
 
 const EVERYONE: readonly AdminRole[] = ["admin", "developer"];
@@ -101,6 +103,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { to: "/admin/armazenamento", label: "Armazenamento", icon: HardDrive, inBottomNav: false, description: "Quanto o banco e os arquivos ocupam", roles: EVERYONE },
       { to: "/admin/apis", label: "APIs", icon: PlugZap, inBottomNav: false, description: "Google Agenda e outras conexões", roles: STORE },
       { to: SUPPORT_PATH, label: "Suporte", icon: LifeBuoy, inBottomNav: false, description: "Chamados de ajustes no sistema e no site", roles: EVERYONE },
+      { to: CHAT_PATH, label: "Chat", icon: MessagesSquare, inBottomNav: false, description: "Conversa direta entre a Layra e o Jota", roles: EVERYONE },
       { to: ACCESS_PATH, label: "Acessos", icon: KeyRound, inBottomNav: false, description: "TI: e-mail, senha e sessões de cada usuário", roles: DEVELOPER },
       { to: SETTINGS_PATH, label: "Configurações", icon: Settings, inBottomNav: false, description: "Perfil, senha e backup", roles: ALL_STAFF },
     ],

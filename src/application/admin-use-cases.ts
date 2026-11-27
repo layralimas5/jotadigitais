@@ -87,6 +87,7 @@ import type {
   ProfileUpdateResult,
   UploadedImage,
   PaymentGateway,
+  StaffChatRepository,
 } from "./ports";
 import {
   accountAccessSchema,
@@ -151,6 +152,7 @@ export interface AdminDeps {
   images: ImageStorage;
   privacy: AdminPrivacyRepository;
   support: SupportTicketRepository;
+  chat: StaffChatRepository;
   access: AccessRepository;
   /** Um leitor por banco conectado: a aba Armazenamento soma todos. */
   storage: readonly StorageUsageReader[];

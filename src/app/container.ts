@@ -34,6 +34,7 @@ import {
 import { DemoPrivacyRepository, DemoPrivacyService } from "@/infrastructure/demo/demo-privacy";
 import { DemoAuthService, DemoImageStorage } from "@/infrastructure/demo/demo-services";
 import { DemoSupportTicketRepository } from "@/infrastructure/demo/demo-support";
+import { DemoStaffChatRepository } from "@/infrastructure/demo/demo-staff-chat";
 import { DemoAccessRepository } from "@/infrastructure/demo/demo-access";
 import { DemoStorageUsageReader } from "@/infrastructure/demo/demo-storage-usage";
 import { DemoPushService } from "@/infrastructure/demo/demo-push";
@@ -65,6 +66,7 @@ import { SupabasePrivacyRepository, SupabasePrivacyService } from "@/infrastruct
 import { PUBLIC_ACCOUNT_COLUMNS } from "@/infrastructure/supabase/rows";
 import { SupabaseAuthService, SupabaseImageStorage } from "@/infrastructure/supabase/supabase-services";
 import { SupabaseSupportTicketRepository } from "@/infrastructure/supabase/supabase-support";
+import { SupabaseStaffChatRepository } from "@/infrastructure/supabase/supabase-staff-chat";
 import { SupabaseAccessRepository } from "@/infrastructure/supabase/supabase-access";
 import { SupabaseTagColorRepository } from "@/infrastructure/supabase/supabase-tag-colors";
 import { DemoTagColorRepository } from "@/infrastructure/demo/demo-tag-colors";
@@ -148,6 +150,7 @@ function supabaseContainer(url: string, anonKey: string): Container {
       images: new SupabaseImageStorage(client),
       privacy: new SupabasePrivacyRepository(client),
       support: new SupabaseSupportTicketRepository(client),
+      chat: new SupabaseStaffChatRepository(client),
       access: new SupabaseAccessRepository(client),
       // Banco novo: acrescente aqui o leitor dele e a aba Armazenamento passa a mostrar os dois.
       storage: [new SupabaseStorageUsageReader(client, backendConfig.supabasePlan)],
@@ -198,6 +201,7 @@ function demoAdminDeps(db: DemoDatabase, authKeyPrefix?: string) {
     images: new DemoImageStorage(),
     privacy: new DemoPrivacyRepository(db),
     support: new DemoSupportTicketRepository(db, auth),
+    chat: new DemoStaffChatRepository(auth),
     access: new DemoAccessRepository(db, users, auth),
     storage: [new DemoStorageUsageReader()],
   };
