@@ -21,7 +21,6 @@ const LINKS = [
   { to: "/#como-funciona", label: "Como funciona" },
   { to: "/#garantia", label: "Garantia" },
   { to: "/seja-afiliado", label: "Seja afiliado" },
-  { to: "/seja-parceiro", label: "Seja parceiro" },
   { to: "/quem-sou-eu", label: "Quem sou eu" },
 ] as const;
 

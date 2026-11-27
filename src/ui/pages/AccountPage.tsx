@@ -29,6 +29,7 @@ import { AccountGallery } from "@/ui/sections/account/AccountGallery";
 import { MobileBuyBar } from "@/ui/sections/account/MobileBuyBar";
 import { RelatedAccounts } from "@/ui/sections/account/RelatedAccounts";
 import { FaqItem, useAccountFaqItems } from "@/ui/sections/home/Faq";
+import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
 
 function Breadcrumb({ account }: { account?: Account }) {
   const crumbs = [
@@ -243,6 +244,21 @@ function AccountPreview() {
 }
 
 function LiveAccountPage({ slug }: { slug: string }) {
+  const closed = useStorefrontClosed();
+  return closed ? <ClosedAccountPage /> : <OpenAccountPage slug={slug} />;
+}
+
+function ClosedAccountPage() {
+  return (
+    <div className="relative pt-24 pb-24 md:pt-32">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+        <StorefrontClosed />
+      </div>
+    </div>
+  );
+}
+
+function OpenAccountPage({ slug }: { slug: string }) {
   const account = useAccount(slug);
 
   return (

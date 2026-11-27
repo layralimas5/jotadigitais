@@ -19,6 +19,7 @@ import { cn } from "@/ui/lib/cn";
 import { editable } from "@/ui/lib/site-preview";
 import { StockAlertButton } from "@/ui/components/stock-alert/StockAlertButton";
 import { StockOverview, StockOverviewLoading } from "@/ui/components/stock-alert/StockOverview";
+import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
 import type { StockAlertCategory } from "@/domain/stock-alert";
 import { ACCOUNT_KIND_LABEL, isAccountKind, type AccountKind } from "@/domain/account-kind";
 import { X } from "lucide-react";
@@ -139,6 +140,7 @@ export default function CatalogPage() {
   );
   const { platform, country, range, sort, kind, otherNetworksFirst, update, reset } = useCatalogParams();
   const copy = useSiteContent().catalogPage;
+  const closed = useStorefrontClosed();
 
   const filter = useMemo<AccountFilter>(
     () => ({
@@ -184,8 +186,8 @@ export default function CatalogPage() {
           <p {...editable("catalogPage.description")} className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
             {copy.description}
           </p>
-          <AccountKindsGuide className="mt-3" />
-          {allAccounts.status === "success" ? (
+          {!closed && <AccountKindsGuide className="mt-3" />}
+          {closed ? null : allAccounts.status === "success" ? (
             <StockOverview accounts={allAccounts.data} alertPreset={alertPreset} />
           ) : allAccounts.status === "error" ? (
             <StockAlertButton initial={alertPreset} className="mt-5" />
@@ -194,6 +196,10 @@ export default function CatalogPage() {
           )}
         </header>
 
+        {closed ? (
+          <StorefrontClosed className="mt-8 sm:mt-12" />
+        ) : (
+          <>
         <div className="sticky top-14 z-30 -mx-4 mt-6 border-b border-line bg-black/80 px-4 py-3 backdrop-blur-xl sm:top-16 sm:-mx-6 sm:mt-10 sm:px-6 sm:py-4">
           {/* Filtros pedidos pelo Jota: rede social, país, faixa de seguidores e ordem (destaques primeiro: TikTok com Shop do menor para o maior). Sem busca por nome. */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -321,6 +327,8 @@ export default function CatalogPage() {
             </Reveal>
           )}
         </div>
+          </>
+        )}
       </div>
     </div>
   );

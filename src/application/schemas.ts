@@ -926,6 +926,10 @@ export const siteContentSchema = z.object({
     guideNone: copy(240),
     guideButton: copy(50),
     guideClose: copy(30),
+    closed: z.boolean(),
+    closedTitle: copy(90),
+    closedMessage: copy(400),
+    reopenMessage: copy(400),
   }),
   checkoutPage: z.object({
     sourceQuestion: copy(80),
@@ -984,7 +988,7 @@ export const siteContentSchema = z.object({
     descriptionTemplates: descriptionTemplatesSchema,
     nicheNote: z.string().trim().max(240, "Use no máximo 240 caracteres."),
     tiktokStatus: z.object({ title: copy(60), full: copy(240), pilot: copy(240), none: copy(240), monetized: copy(240), notMonetized: copy(240) }),
-    instagramStatus: z.object({ shop: copy(240), noShop: copy(240), monetized: copy(240), notMonetized: copy(240) }),
+    instagramStatus: z.object({ shop: copy(240), noShop: copy(240), monetized: copy(240), notMonetized: copy(240), earnings: copy(300) }),
     youtubeStatus: z.object({ monetized: copy(240), notMonetized: copy(240) }),
     specsTitle: copy(60),
     fixedSpecs: z.object({

@@ -16,6 +16,7 @@ import { useAccount, useAccounts, useCartAccounts, usePlaceOrder } from "@/ui/ho
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { savePendingOrder } from "@/ui/lib/pending-order";
 import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
+import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
 import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
 import { MonetizedConfirmDialog } from "@/ui/sections/checkout/MonetizedConfirmDialog";
@@ -207,6 +208,7 @@ function CheckoutPreview() {
 export default function CheckoutPage() {
   const { slug } = useParams();
   const preview = IS_SITE_PREVIEW && slug === PREVIEW_ACCOUNT_SLUG;
+  const closed = useStorefrontClosed();
 
   return (
     <div className="relative pt-24 pb-24 md:pt-32">
@@ -221,7 +223,7 @@ export default function CheckoutPage() {
           Finalizar compra
         </h1>
         <div className="mt-10">
-          {preview ? <CheckoutPreview /> : slug ? <SingleCheckout slug={slug} /> : <CartCheckout />}
+          {preview ? <CheckoutPreview /> : closed ? <StorefrontClosed /> : slug ? <SingleCheckout slug={slug} /> : <CartCheckout />}
         </div>
       </div>
     </div>

@@ -137,7 +137,7 @@ export interface StatusItem {
 
 export type StatusText =
   | { section: "tiktokStatus"; field: "full" | "pilot" | "none" | "monetized" | "notMonetized" }
-  | { section: "instagramStatus"; field: "shop" | "noShop" | "monetized" | "notMonetized" }
+  | { section: "instagramStatus"; field: "shop" | "monetized" | "earnings" }
   | { section: "youtubeStatus"; field: "monetized" | "notMonetized" };
 
 const TIKTOK_SHOP_ALTERNATIVE: Partial<Record<ShopTier, StatusItem["alternative"]>> = {
@@ -168,25 +168,27 @@ export function statusItemsOf(account: Account): StatusItem[] {
       return [shop, monetization];
     }
     case "instagram": {
-      const shop: StatusItem = account.stats.shop
-        ? { id: "shop", label: "Instagram Shop ativo", has: true, text: { section: "instagramStatus", field: "shop" } }
-        : {
-            id: "no-shop",
-            label: "Sem Instagram Shop",
-            has: false,
-            text: { section: "instagramStatus", field: "noShop" },
-            alternative: { kind: "instagram-shop", label: "Ver contas com Instagram Shop" },
-          };
-      const monetization: StatusItem = account.stats.monetized
-        ? { id: "monetized", label: "Monetizada", has: true, text: { section: "instagramStatus", field: "monetized" } }
-        : {
-            id: "not-monetized",
-            label: "Não monetizada",
-            has: false,
-            text: { section: "instagramStatus", field: "notMonetized" },
-            alternative: { kind: "instagram-monetizada", label: "Ver contas monetizadas" },
-          };
-      return [shop, monetization];
+      // A pedido do Jota: no Instagram, "sem Shop" e "não monetizada" não vendem. Mostra o que a conta tem
+      // e sempre as formas de ganhar com ela (publi, afiliado, anúncios).
+      const items: StatusItem[] = [];
+      if (account.stats.shop) {
+        items.push({ id: "shop", label: "Instagram Shop ativo", has: true, text: { section: "instagramStatus", field: "shop" } });
+      }
+      if (account.stats.monetized) {
+        items.push({ id: "monetized", label: "Monetizada", has: true, text: { section: "instagramStatus", field: "monetized" } });
+      }
+      items.push({
+        id: "earnings",
+        label: "Formas de ganhar com a conta",
+        has: true,
+        text: { section: "instagramStatus", field: "earnings" },
+        alternative: !account.stats.shop
+          ? { kind: "instagram-shop", label: "Ver contas com Instagram Shop" }
+          : !account.stats.monetized
+            ? { kind: "instagram-monetizada", label: "Ver contas monetizadas" }
+            : undefined,
+      });
+      return items;
     }
     case "youtube":
       return [
@@ -481,7 +483,7 @@ export function includedOf(account: Account, fixedByPlatform: Record<Account["pl
 
 /** Pergunta das Dúvidas que explica cada item do quadro "O que esta conta tem" (o link "Entenda"). */
 export function statusTopicOf(platform: Account["platform"], item: Pick<StatusItem, "id">): FaqTopic | null {
-  const monetization = item.id === "monetized" || item.id === "not-monetized";
+  const monetization = item.id === "monetized" || item.id === "not-monetized" || item.id === "earnings";
   switch (platform) {
     case "tiktok":
       if (monetization) return "tiktok-monetized";

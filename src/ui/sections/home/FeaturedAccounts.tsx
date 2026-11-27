@@ -4,6 +4,7 @@ import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/Accoun
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { SectionHeading } from "@/ui/components/SectionHeading";
 import { ErrorState } from "@/ui/components/StateViews";
+import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
 import { VerifiedBadge } from "@/ui/components/VerifiedBadge";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { useAccounts } from "@/ui/hooks/useStore";
@@ -38,6 +39,7 @@ function StockStrip({ count }: { count: number }) {
 export function FeaturedAccounts() {
   const accounts = useAccounts({ onlyAvailable: true, sort: "featured" });
   const { featured } = useSiteContent();
+  const closed = useStorefrontClosed();
 
   return (
     <section aria-labelledby="destaques-title" className="relative border-y border-line bg-night py-14 sm:py-20 md:py-32">
@@ -55,8 +57,10 @@ export function FeaturedAccounts() {
           </ButtonLink>
         </div>
 
-        {accounts.status === "success" && <StockStrip count={accounts.data.length} />}
+        {closed && <StorefrontClosed className="mt-6 sm:mt-12" />}
+        {!closed && accounts.status === "success" && <StockStrip count={accounts.data.length} />}
 
+        {!closed && (
         <div className="mt-6 sm:mt-12">
           {accounts.status === "loading" && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3" aria-busy="true">
@@ -81,6 +85,7 @@ export function FeaturedAccounts() {
             </ButtonLink>
           )}
         </div>
+        )}
       </div>
     </section>
   );
