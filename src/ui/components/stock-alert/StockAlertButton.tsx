@@ -128,7 +128,9 @@ interface StockAlertButtonProps {
 /** "Me avise quando chegar": o cliente entra na lista de espera do tipo de conta que quer. */
 export function StockAlertButton({ initial = [], variant = "secondary", className, label, editPath = "catalogPage.alertButton" }: StockAlertButtonProps) {
   const [open, setOpen] = useState(false);
-  const { alertButton } = useSiteContent().catalogPage;
+  const { alertButton, waitlist } = useSiteContent().catalogPage;
+  // Lista de espera desligada pelo Jota (ninguém era avisado a tempo): os botões somem do site.
+  if (!waitlist) return null;
   return (
     <>
       <Button variant={variant} className={className} onClick={() => setOpen(true)} {...editable(editPath)}>

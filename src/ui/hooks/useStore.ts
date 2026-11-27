@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { container } from "@/app/container";
 import type { AccountFilter } from "@/application/ports";
 import type { CheckoutData } from "@/application/schemas";
@@ -12,13 +12,21 @@ import {
   placeOrder,
   type PlacedOrder,
 } from "@/application/use-cases";
+import { isShownInStorefront } from "@/domain/storefront";
+import { useStorefrontVisibility } from "@/ui/components/stock-alert/StorefrontClosed";
 import { attachStoredAffiliateClick } from "./useAffiliateRef";
 import { useAsync } from "./useAsync";
 
 const { store } = container;
 
+/** Contas da vitrine, sem os tipos de estoque que o Jota tirou do site. */
 export function useAccounts(filter: AccountFilter) {
-  return useAsync(() => listAccounts(store, filter), JSON.stringify(filter), { keepPrevious: true });
+  const state = useAsync(() => listAccounts(store, filter), JSON.stringify(filter), { keepPrevious: true });
+  const visibility = useStorefrontVisibility();
+  const hiddenKey = `${visibility.closed}:${visibility.hiddenCategories.join(",")}`;
+  // hiddenKey resume a visibilidade: o objeto muda a cada render, a chave só quando o Jota muda a vitrine.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => (state.status === "success" ? { ...state, data: state.data.filter((account) => isShownInStorefront(visibility, account)) } : state), [state, hiddenKey]);
 }
 
 export function useAccount(slug: string) {

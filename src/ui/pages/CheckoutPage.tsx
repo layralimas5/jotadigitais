@@ -16,7 +16,8 @@ import { useAccount, useAccounts, useCartAccounts, usePlaceOrder } from "@/ui/ho
 import { useStoreSettings } from "@/ui/hooks/useStoreSettings";
 import { savePendingOrder } from "@/ui/lib/pending-order";
 import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
-import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
+import { StorefrontClosed, useStorefrontClosed, useStorefrontVisibility } from "@/ui/components/stock-alert/StorefrontClosed";
+import { isShownInStorefront } from "@/domain/storefront";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
 import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
 import { MonetizedConfirmDialog } from "@/ui/sections/checkout/MonetizedConfirmDialog";
@@ -118,7 +119,8 @@ function CheckoutContent({ accounts, preview = false, onPlaced }: CheckoutConten
     subtotalOf(accounts),
     preview,
   );
-  const unavailable = preview ? [] : accounts.filter((account) => !isPurchasable(account));
+  const visibility = useStorefrontVisibility();
+  const unavailable = preview ? [] : accounts.filter((account) => !isPurchasable(account) || !isShownInStorefront(visibility, account));
 
   if (unavailable.length > 0) {
     return isCart ? (

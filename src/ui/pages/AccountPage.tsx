@@ -29,7 +29,8 @@ import { AccountGallery } from "@/ui/sections/account/AccountGallery";
 import { MobileBuyBar } from "@/ui/sections/account/MobileBuyBar";
 import { RelatedAccounts } from "@/ui/sections/account/RelatedAccounts";
 import { FaqItem, useAccountFaqItems } from "@/ui/sections/home/Faq";
-import { StorefrontClosed, useStorefrontClosed } from "@/ui/components/stock-alert/StorefrontClosed";
+import { StorefrontClosed, useStorefrontClosed, useStorefrontVisibility } from "@/ui/components/stock-alert/StorefrontClosed";
+import { isShownInStorefront } from "@/domain/storefront";
 
 function Breadcrumb({ account }: { account?: Account }) {
   const crumbs = [
@@ -260,6 +261,7 @@ function ClosedAccountPage() {
 
 function OpenAccountPage({ slug }: { slug: string }) {
   const account = useAccount(slug);
+  const visibility = useStorefrontVisibility();
 
   return (
     <div className="relative pt-24 pb-28 md:pt-32 lg:pb-24">
@@ -276,7 +278,8 @@ function OpenAccountPage({ slug }: { slug: string }) {
           ) : (
             <ErrorState message={account.error.message} onRetry={account.retry} />
           ))}
-        {account.status === "success" && <AccountDetail account={account.data} />}
+        {account.status === "success" &&
+          (isShownInStorefront(visibility, account.data) ? <AccountDetail account={account.data} /> : <StorefrontClosed />)}
       </div>
     </div>
   );
