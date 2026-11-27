@@ -1,4 +1,5 @@
 import type { AdminRole } from "./admin-user";
+import type { StickerId } from "./sticker";
 
 /** Onde está o ajuste: no painel (sistema) ou na loja (site). */
 export const SUPPORT_AREAS = ["system", "site"] as const;
@@ -155,6 +156,8 @@ export interface SupportReply {
   createdAt: string;
   /** Mensagem respondida: id de outra resposta, `SUPPORT_OPENING_ID` para a abertura, nulo quando não cita nenhuma. */
   replyToId: string | null;
+  /** Figurinha enviada no lugar do texto; nula em resposta comum. */
+  sticker: StickerId | null;
 }
 
 /** Mensagem citada numa resposta, como aparece no chat. Nula quando a original foi apagada. */

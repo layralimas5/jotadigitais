@@ -27,6 +27,7 @@ import {
   type SupportUpload,
 } from "@/domain/support-ticket";
 import { fail } from "./supabase-repositories";
+import { stickerOf, type StickerId } from "@/domain/sticker";
 
 const BUCKET = "support";
 /** Tempo do link para ver o anexo. */
@@ -55,7 +56,7 @@ const EXTENSION: Record<string, string> = {
 // O autor vem de admin_users pela chave estrangeira: nome, papel e foto de quem escreveu.
 // No chamado a chave vai explícita: support_ticket_views também liga chamado e usuário.
 const AUTHOR = "author:admin_users(name, role, avatar_url)";
-const REPLY_COLUMNS = `id, body, created_at, reply_to_id, quotes_opening, ${AUTHOR}`;
+const REPLY_COLUMNS = `id, body, created_at, reply_to_id, quotes_opening, sticker, ${AUTHOR}`;
 const ATTACHMENT_COLUMNS = "id, reply_id, path, kind, name";
 const EVENT_COLUMNS = `id, from_status, to_status, created_at, ${AUTHOR}`;
 const VIEW_COLUMNS = "seen_at, viewer:admin_users(role)";
@@ -77,6 +78,7 @@ const replyRowSchema = z.object({
   created_at: z.string(),
   reply_to_id: z.string().nullable(),
   quotes_opening: z.boolean(),
+  sticker: z.string().nullable(),
   author: authorSchema,
 });
 
@@ -148,6 +150,8 @@ function toReply(raw: unknown): SupportReply {
     author: toAuthor(row.author),
     createdAt: row.created_at,
     replyToId: row.quotes_opening ? SUPPORT_OPENING_ID : row.reply_to_id,
+    // Figurinha que este painel não conhece (removida do pacote) vira mensagem comum, com o texto "Figurinha …".
+    sticker: stickerOf(row.sticker)?.id ?? null,
   };
 }
 
@@ -246,11 +250,17 @@ export class SupabaseSupportTicketRepository implements SupportTicketRepository 
     return { saved: ticket, failedUploads: await this.attach(ticket.id, null, uploads) };
   }
 
-  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[], replyToId: string | null): Promise<SupportSubmitResult<SupportReply>> {
+  async reply(
+    ticketId: string,
+    body: string,
+    uploads: readonly SupportUpload[],
+    replyToId: string | null,
+    sticker: StickerId | null = null,
+  ): Promise<SupportSubmitResult<SupportReply>> {
     const quotesOpening = replyToId === SUPPORT_OPENING_ID;
     const { data, error } = await this.client
       .from("support_replies")
-      .insert({ ticket_id: ticketId, body, reply_to_id: quotesOpening ? null : replyToId, quotes_opening: quotesOpening })
+      .insert({ ticket_id: ticketId, body, reply_to_id: quotesOpening ? null : replyToId, quotes_opening: quotesOpening, sticker })
       .select(REPLY_COLUMNS)
       .single();
     if (error) failOnMerge(error);

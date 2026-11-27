@@ -1,0 +1,4 @@
+Figurinhas: Noto Emoji Animation, by Google.
+https://googlefonts.github.io/noto-emoji-animation/
+License: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Reduced to 160px and half the frames for the support chat.

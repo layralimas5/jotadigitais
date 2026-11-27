@@ -82,6 +82,8 @@ import { PRIORITY_TONE } from "../support/priority-tone";
 import { NudgeAdminSection, NudgedNotice } from "../support/NudgeAdmin";
 import { UrgentConfirmDialog } from "../support/UrgentConfirmDialog";
 import { useToast } from "../toast";
+import { stickerMessageBody, stickerOf, type Sticker, type StickerId } from "@/domain/sticker";
+import { ConversationExtras, StickerImage } from "../components/ConversationExtras";
 
 const LIST_PATH = "/admin/suporte";
 /** A conversa se atualiza sozinha: a resposta de um aparece para o outro sem recarregar. */
@@ -99,6 +101,8 @@ interface MessageProps {
   id: string;
   author: SupportAuthor | null;
   body: string;
+  /** Figurinha no lugar do texto. */
+  sticker?: Sticker | null;
   createdAt: string;
   attachments: readonly SupportAttachment[];
   /** Mensagem de quem está vendo: fica do lado direito, como num chat. */
@@ -121,7 +125,7 @@ function replyOnDoubleClick(onReply: () => void) {
   };
 }
 
-function Message({ id, author, body, createdAt, attachments, own, seen, quote, highlighted, onReply, onOpenQuote }: MessageProps) {
+function Message({ id, author, body, sticker, createdAt, attachments, own, seen, quote, highlighted, onReply, onOpenQuote }: MessageProps) {
   const name = authorNameOf(author);
   return (
     <li id={messageAnchorOf(id)} tabIndex={-1} className={cn("flex scroll-mt-24 gap-3 outline-none", own && "flex-row-reverse")}>
@@ -153,7 +157,11 @@ function Message({ id, author, body, createdAt, attachments, own, seen, quote, h
           </button>
         </p>
         {quote !== undefined && <QuoteInMessage quote={quote} onOpen={onOpenQuote} />}
-        <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-fog">{body}</p>
+        {sticker ? (
+          <StickerImage sticker={sticker} className="mt-2" />
+        ) : (
+          <p className="mt-2 text-sm leading-relaxed break-words whitespace-pre-wrap text-fog">{body}</p>
+        )}
         <AttachmentGallery attachments={attachments} />
         {seen && <SeenMark {...seen} className="mt-3" />}
       </div>
@@ -345,6 +353,7 @@ function WaitingNotice({ ticket, role, onApproved }: { ticket: SupportTicket; ro
 
 interface ReplyInput {
   body: string;
+  sticker: StickerId | null;
   replyToId: string | null;
   uploads: SupportUpload[];
   askAdmin: boolean;
@@ -369,7 +378,7 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
   const [error, setError] = useState<string | null>(null);
   const picked = usePickedFiles();
   const reply = useMutation(async (deps, input: ReplyInput) => {
-    const result = await replyToSupportTicket(deps, role, ticket, { body: input.body, replyToId: input.replyToId }, input.uploads, {
+    const result = await replyToSupportTicket(deps, role, ticket, { body: input.body, sticker: input.sticker, replyToId: input.replyToId }, input.uploads, {
       notifyAdmin: input.notifyAdmin,
     });
     if (input.askAdmin) await changeSupportStatus(deps, role, ticket.id, "waiting");
@@ -398,6 +407,23 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
     if (replyingTo) formRef.current?.querySelector<HTMLTextAreaElement>('textarea[name="body"]')?.focus();
   }, [replyingTo]);
 
+  /** Figurinha vai sozinha, na hora: o texto que está sendo escrito e os anexos ficam para a próxima mensagem. */
+  const sendSticker = async (sticker: Sticker) => {
+    setError(null);
+    const sent = await reply.run({
+      body: stickerMessageBody(sticker),
+      sticker: sticker.id,
+      replyToId: replyingTo?.id ?? null,
+      uploads: [],
+      askAdmin: false,
+      notifyAdmin: canNotify && notifyAdmin,
+    });
+    if (!sent) return;
+    if (!sent.notified) toast.show("Figurinha enviada, mas o aviso no sininho do Jota falhou.", "error");
+    onCancelReply();
+    onSent();
+  };
+
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const text = textOrVoice(body, picked.files);
@@ -408,6 +434,7 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
     setError(null);
     const sent = await reply.run({
       body: text,
+      sticker: null,
       replyToId: replyingTo?.id ?? null,
       uploads: uploadsOf(picked.files),
       askAdmin: canAskAdmin && askAdmin,
@@ -441,6 +468,7 @@ function ReplyForm({ ticket, role, replyingTo, onCancelReply, onSent }: ReplyFor
         error={error ?? reply.error?.message}
       />
       <div className="mt-4 space-y-3">
+        <ConversationExtras onEmoji={insertText} onSticker={(sticker) => void sendSticker(sticker)} disabled={reply.pending} />
         {role === "developer" && <CannedReplies role={role} currentText={body} onInsert={insertText} />}
         <AttachmentPicker files={picked.files} problem={picked.problem} onFiles={picked.addFiles} onRemove={picked.remove} disabled={reply.pending} />
       </div>
@@ -612,6 +640,7 @@ function TicketView({ ticket, labels, role, reload }: TicketViewProps) {
                 quote={item.reply.replyToId ? quotedMessageOf(ticket, item.reply.replyToId) : undefined}
                 author={item.reply.author}
                 body={item.reply.body}
+                sticker={stickerOf(item.reply.sticker)}
                 createdAt={item.reply.createdAt}
                 attachments={attachmentsOf(item.reply.id)}
                 own={item.reply.author?.role === role}
