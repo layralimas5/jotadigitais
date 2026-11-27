@@ -124,17 +124,9 @@ export function Footer() {
           <p>
             © {year} Jota Digitais. <span {...editable("footer.disclaimer")}>{footer.disclaimer}</span>
           </p>
-          {/* Crédito de quem desenvolveu: fixo no código, sem campo no painel e sem clique na prévia. */}
+          {/* Crédito de quem desenvolveu: fixo no código, sem campo no painel e sem link. */}
           <p>
-            Desenvolvido por{" "}
-            <a
-              href="https://limadigitalstudio.com.br"
-              target="_blank"
-              rel="noreferrer"
-              className="text-fog underline-offset-4 hover:text-white hover:underline"
-            >
-              Layra Lima
-            </a>
+            Desenvolvido por <span className="text-fog">Layra Lima</span>
           </p>
         </div>
       </div>
