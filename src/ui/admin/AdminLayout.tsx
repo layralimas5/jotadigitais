@@ -11,6 +11,7 @@ import { GlobalSearch } from "./topbar/GlobalSearch";
 import { MobileSearch } from "./topbar/MobileSearch";
 import { NotificationBell } from "./topbar/NotificationBell";
 import { PageCrumb } from "./topbar/PageCrumb";
+import { useFixedViewport } from "@/ui/hooks/useFixedViewport";
 import { useMediaQuery } from "@/ui/hooks/useMediaQuery";
 import { canUseStoreArea, type StaffAccess } from "@/domain/admin-user";
 import { supportRoleOf } from "@/domain/support-ticket";
@@ -294,6 +295,7 @@ export function AdminProtected() {
 
 export function AdminRoot() {
   useNoIndex();
+  useFixedViewport();
   usePanelApp();
   return (
     <AdminSessionProvider>
