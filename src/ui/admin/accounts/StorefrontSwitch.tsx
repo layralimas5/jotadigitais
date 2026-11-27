@@ -1,12 +1,14 @@
 import { Check, Megaphone, Store } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import { getSiteContent, saveSiteContent } from "@/application/admin-use-cases";
 import { siteConfig } from "@/app/config";
 import type { SiteContent } from "@/domain/site-content";
 import { STOCK_CATEGORIES, STOCK_CATEGORY_LABEL, type StockCategory } from "@/domain/stock";
 import { isStorefrontClosed } from "@/domain/storefront";
+import { Button } from "@/ui/components/Button";
+import { TextField } from "@/ui/components/form/Fields";
 import { cn } from "@/ui/lib/cn";
-import { ToggleField } from "../components/FormControls";
+import { TextAreaField, ToggleField } from "../components/FormControls";
 import { useAdminQuery, useMutation } from "../hooks";
 import { useToast } from "../toast";
 
@@ -22,6 +24,37 @@ function communityPostUrl(content: SiteContent): string {
 
 function toggledCategories(hidden: readonly StockCategory[], category: StockCategory): StockCategory[] {
   return hidden.includes(category) ? hidden.filter((item) => item !== category) : [...hidden, category];
+}
+
+interface ClosedNoticeEditorProps {
+  page: CatalogPage;
+  saving: boolean;
+  onSave: (patch: Pick<CatalogPage, "closedTitle" | "closedMessage">) => void;
+}
+
+/** O aviso que o site mostra no lugar das contas: o Jota edita aqui mesmo, sem procurar na aba Site. */
+function ClosedNoticeEditor({ page, saving, onSave }: ClosedNoticeEditorProps) {
+  const [title, setTitle] = useState(page.closedTitle);
+  const [message, setMessage] = useState(page.closedMessage);
+  const changed = title !== page.closedTitle || message !== page.closedMessage;
+  const valid = title.trim().length > 0 && message.trim().length > 0;
+  return (
+    <details className="group rounded-xl border border-line-strong bg-ink px-4 py-3">
+      <summary className="cursor-pointer text-sm font-medium text-white">Editar o aviso de fora de estoque</summary>
+      <div className="mt-3 space-y-3">
+        <TextField label="Título" value={title} maxLength={90} onChange={(event) => setTitle(event.target.value)} />
+        <TextAreaField label="Texto" value={message} maxLength={400} rows={4} onChange={(event) => setMessage(event.target.value)} />
+        <Button
+          type="button"
+          className="w-full sm:w-auto"
+          disabled={!changed || !valid || saving}
+          onClick={() => onSave({ closedTitle: title.trim(), closedMessage: message.trim() })}
+        >
+          Salvar o aviso
+        </Button>
+      </div>
+    </details>
+  );
 }
 
 /**
@@ -68,10 +101,7 @@ export function StorefrontSwitch() {
             <>
               <strong className="text-white">Vitrine ligada.</strong> As contas disponíveis aparecem no site.
             </>
-          )}{" "}
-          <Link to="/admin/site" className="text-electric underline-offset-4 hover:underline">
-            Editar o aviso
-          </Link>
+          )}
         </p>
       </div>
       <ToggleField
@@ -113,6 +143,7 @@ export function StorefrontSwitch() {
           </div>
         </fieldset>
       )}
+      <ClosedNoticeEditor page={page} saving={save.pending} onSave={(patch) => void update(patch, "Aviso de fora de estoque salvo.")} />
       <ToggleField
         label="Lista de espera (“Me avise quando chegar”)"
         description="Desligada, os botões de “Me avise” somem do site. Os cadastros que já existem continuam em Lista de espera."
