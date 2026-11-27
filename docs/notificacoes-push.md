@@ -9,7 +9,8 @@ notificações com som, na tela de bloqueio, mesmo com o painel fechado.
 | --- | --- | --- |
 | Venda nova | pedido entra no site | Jota, ajudante com Pedidos |
 | Pagamento confirmado | cartão (InfinitePay) ou Pix do C6 confirma sozinho | Jota, ajudante com Pedidos |
-| Suporte e pendências | chamado aberto, respondido ou encaminhado para o Jota | Jota (e a Layra, se houver aviso para ela) |
+| Suporte e pendências | chamado aberto, respondido ou encaminhado para o Jota | Jota |
+| Suporte (para a Layra) | Jota abre, responde ou reabre um chamado (gatilho no banco, migration `20270105120000`) | Layra |
 | Segurança | login novo, tentativas bloqueadas | Jota e Layra |
 | Privacidade (LGPD) | pedido em Meus dados | Jota |
 | Novidades do sistema | função nova | Jota |
