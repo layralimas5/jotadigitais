@@ -918,6 +918,14 @@ export const siteContentSchema = z.object({
     alertButton: copy(60),
     soldOutButton: copy(60),
     soldOutOneButton: copy(60),
+    guideTitle: copy(90),
+    guideIntro: copy(200),
+    guideFull: copy(240),
+    guidePilot: copy(240),
+    guideMonetized: copy(240),
+    guideNone: copy(240),
+    guideButton: copy(50),
+    guideClose: copy(30),
   }),
   checkoutPage: z.object({
     sourceQuestion: copy(80),
@@ -925,6 +933,10 @@ export const siteContentSchema = z.object({
     abroadNotice: copy(400),
     foreignTitle: copy(80),
     foreignNotice: copy(400),
+    monetizedTitle: copy(90),
+    monetizedNotice: copy(500),
+    monetizedConfirm: copy(50),
+    monetizedShopButton: copy(50),
     sources: z
       .array(z.enum(LEAD_SOURCES))
       .min(1, "Deixe pelo menos uma opção ligada.")

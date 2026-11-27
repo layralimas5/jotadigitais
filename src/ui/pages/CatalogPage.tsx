@@ -8,6 +8,7 @@ import { Button } from "@/ui/components/Button";
 import { ChipMarquee } from "@/ui/components/ChipMarquee";
 import { PlatformGlyph } from "@/ui/components/PlatformGlyph";
 import { AccountCard, AccountCardSkeleton } from "@/ui/components/account/AccountCard";
+import { AccountKindsGuide } from "@/ui/components/account/AccountKindsGuide";
 import { Reveal, RevealItem } from "@/ui/components/Reveal";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
 import { useDocumentMeta } from "@/ui/hooks/useDocumentMeta";
@@ -183,6 +184,7 @@ export default function CatalogPage() {
           <p {...editable("catalogPage.description")} className="mt-3 text-[0.95rem] text-mist sm:mt-4 md:text-lg">
             {copy.description}
           </p>
+          <AccountKindsGuide className="mt-3" />
           {allAccounts.status === "success" ? (
             <StockOverview accounts={allAccounts.data} alertPreset={alertPreset} />
           ) : allAccounts.status === "error" ? (
