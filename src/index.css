@@ -35,6 +35,9 @@
     scroll-behavior: smooth;
     scroll-padding-top: 5rem;
     color-scheme: dark;
+    /* Celular não aumenta o texto por conta própria (iPhone deitado, ajuste automático do Chrome). */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
