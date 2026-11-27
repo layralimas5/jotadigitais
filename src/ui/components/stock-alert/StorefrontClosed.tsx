@@ -1,11 +1,18 @@
 import { PackageOpen } from "lucide-react";
+import { isStorefrontClosed, type StorefrontVisibility } from "@/domain/storefront";
 import { useSiteContent } from "@/ui/hooks/useSiteContent";
 import { editable } from "@/ui/lib/site-preview";
 import { cn } from "@/ui/lib/cn";
 import { StockAlertButton } from "./StockAlertButton";
 
-/** Vitrine desligada pelo Jota (entre uma remessa e outra): nenhuma conta aparece no site. */
-export const useStorefrontClosed = (): boolean => useSiteContent().catalogPage.closed;
+/** O que o Jota tirou da vitrine (tudo ou só alguns tipos de estoque), pela aba Contas ou Site. */
+export function useStorefrontVisibility(): StorefrontVisibility {
+  const { closed, hiddenCategories } = useSiteContent().catalogPage;
+  return { closed, hiddenCategories };
+}
+
+/** Vitrine desligada (botão geral ou todos os tipos fora): nenhuma conta aparece no site. */
+export const useStorefrontClosed = (): boolean => isStorefrontClosed(useStorefrontVisibility());
 
 /** Aviso que entra no lugar das contas, com o "Me avise" para o cliente deixar o WhatsApp. */
 export function StorefrontClosed({ className }: { className?: string }) {

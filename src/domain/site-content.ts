@@ -10,6 +10,7 @@ import { EMPTY_DESCRIPTION_TEMPLATES, type DescriptionTemplates } from "./accoun
 import type { LeadSource } from "./lead";
 import type { PaymentPlan } from "./payment";
 import type { Platform } from "./platform";
+import type { StockCategory } from "./stock";
 
 export interface TitleBlock {
   eyebrow: string;
@@ -188,6 +189,10 @@ export interface SiteContent {
     guideClose: string;
     /** Vitrine desligada (entre uma remessa e outra): nenhuma conta aparece e o site mostra o aviso abaixo. */
     closed: boolean;
+    /** Tipos de estoque fora da vitrine (ex.: só TikTok), com o resto aparecendo normal. */
+    hiddenCategories: StockCategory[];
+    /** "Me avise quando chegar": desligado, os botões da lista de espera somem do site. */
+    waitlist: boolean;
     closedTitle: string;
     closedMessage: string;
     /** Mensagem para a comunidade quando a vitrine volta: {link} vira o endereço da vitrine. */
@@ -488,9 +493,11 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     guideButton: "O que é cada tipo de conta?",
     guideClose: "Entendi",
     closed: false,
+    hiddenCategories: [],
+    waitlist: false,
     closedTitle: "Estoque esgotado por enquanto",
     closedMessage:
-      "Todas as contas foram vendidas e estamos preparando uma remessa nova. Toque em \"Me avise\" e deixe seu WhatsApp para saber assim que as contas novas chegarem.",
+      "Todas as contas foram vendidas e estamos preparando uma remessa nova. Volte em breve ou acompanhe as novidades pelo nosso Instagram.",
     reopenMessage: "Remessa nova no ar! Contas novas acabaram de entrar na vitrine da Jota Digitais. Corre para garantir a sua: {link}",
   },
   checkoutPage: {

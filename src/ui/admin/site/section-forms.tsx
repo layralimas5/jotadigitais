@@ -268,6 +268,12 @@ const CatalogPageForm: Form<"catalogPage"> = (props) => {
         checked={props.value.closed}
         onChange={(closed) => props.onChange({ ...props.value, closed })}
       />
+      <ToggleField
+        label="Lista de espera (“Me avise quando chegar”)"
+        description="Desligada, os botões de “Me avise” somem do site. Os tipos fora da vitrine você escolhe na aba Contas."
+        checked={props.value.waitlist}
+        onChange={(waitlist) => props.onChange({ ...props.value, waitlist })}
+      />
       {copy("closedTitle", "Vitrine desligada: título do aviso", 90)}
       {copy("closedMessage", "Vitrine desligada: texto do aviso", 400, { multiline: true })}
       {copy("reopenMessage", "Mensagem para a comunidade quando a vitrine volta", 400, {

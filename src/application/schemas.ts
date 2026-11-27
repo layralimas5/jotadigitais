@@ -47,6 +47,7 @@ import { FAQ_TOPICS, isPageButtonUrl, MAX_ABOUT_HIGHLIGHTS, MAX_ABOUT_PHOTOS, MA
 import { HEX_COLOR_PATTERN, MAX_TAG_KEY_LENGTH, TAG_KEY_PATTERN } from "@/domain/tag-color";
 import { STOCK_ALERT_CATEGORIES } from "@/domain/stock-alert";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
+import { STOCK_CATEGORIES } from "@/domain/stock";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
 
@@ -927,6 +928,8 @@ export const siteContentSchema = z.object({
     guideButton: copy(50),
     guideClose: copy(30),
     closed: z.boolean(),
+    hiddenCategories: z.array(z.enum(STOCK_CATEGORIES)),
+    waitlist: z.boolean(),
     closedTitle: copy(90),
     closedMessage: copy(400),
     reopenMessage: copy(400),
