@@ -177,6 +177,15 @@ export interface SiteContent {
     soldOutButton: string;
     /** Botão com um tipo esgotado só: {tipo} vira o nome dele. */
     soldOutOneButton: string;
+    /** Card "o que é cada tipo de TikTok", que abre na primeira visita à vitrine e pelo botão guideButton. */
+    guideTitle: string;
+    guideIntro: string;
+    guideFull: string;
+    guidePilot: string;
+    guideMonetized: string;
+    guideNone: string;
+    guideButton: string;
+    guideClose: string;
   };
   /** Ficha do cliente no checkout: a pergunta de origem e as opções que aparecem nela. */
   checkoutPage: {
@@ -189,6 +198,12 @@ export interface SiteContent {
     /** Aviso da conta criada fora do Brasil, para qualquer cliente (inclusive quem mora no Brasil): {pais} vira o país da conta. */
     foreignTitle: string;
     foreignNotice: string;
+    /** Confirmação antes de pagar conta de TikTok monetizada sem TikTok Shop. */
+    monetizedTitle: string;
+    monetizedNotice: string;
+    monetizedConfirm: string;
+    /** Leva para a vitrine com as contas de TikTok com Shop. */
+    monetizedShopButton: string;
   };
   /** Página /seja-parceiro: explica a parceria e leva ao WhatsApp do Jota com a mensagem pronta. */
   partnerPage: TitleBlock & {
@@ -456,6 +471,15 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     alertButton: "Me avise quando chegar conta",
     soldOutButton: "Me avise quando chegar o que está esgotado",
     soldOutOneButton: "Me avise quando chegar {tipo}",
+    guideTitle: "Antes de escolher: o que é cada conta de TikTok",
+    guideIntro: "Confira a diferença para levar a conta certa para o que você quer fazer.",
+    guideFull: "Já vende como afiliada no TikTok Shop, com todos os produtos liberados.",
+    guidePilot: "O TikTok Shop já está ativo para vender como afiliada. Alguns produtos só liberam quando a conta cresce.",
+    guideMonetized:
+      "Recebe dinheiro do TikTok pelas visualizações dos vídeos. Monetizada não quer dizer que tem TikTok Shop: confira o selo da conta.",
+    guideNone: "Não dá para vender produtos como afiliada por ela. Você leva o perfil e os seguidores.",
+    guideButton: "O que é cada tipo de conta?",
+    guideClose: "Entendi",
   },
   checkoutPage: {
     sourceQuestion: "Como você conheceu a Jota Digitais?",
@@ -466,6 +490,11 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     foreignTitle: "Conta de fora do Brasil ({pais}). Leia antes de comprar",
     foreignNotice:
       "País da conta: {pais}. Se você não mora nesse país, mesmo morando no Brasil, precisa ter antes um proxy com IP desse país e um emulador (celular virtual) para usar sem bloqueio. Sem isso, a rede pode limitar ou bloquear a conta. Ficou com dúvida? Fale com a gente no WhatsApp antes de pagar.",
+    monetizedTitle: "Confira antes de pagar: é uma conta monetizada, sem TikTok Shop",
+    monetizedNotice:
+      "Conta monetizada é a que já recebe dinheiro do TikTok pelas visualizações dos vídeos (Programa de Recompensas para Criadores). Ela não tem o TikTok Shop: não dá para vender produtos como afiliada por ela. Se você quer vender produtos no TikTok, escolha uma conta com TikTok Shop.",
+    monetizedConfirm: "Entendi, quero a conta monetizada",
+    monetizedShopButton: "Quero uma conta com TikTok Shop",
   },
   partnerPage: {
     eyebrow: "Seja parceiro",

@@ -1,8 +1,10 @@
 import { ArrowLeft, Lock } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CheckoutData } from "@/application/schemas";
 import { isPurchasable, type Account } from "@/domain/account";
 import { formatBRL } from "@/domain/money";
+import { monetizedWithoutShop } from "@/domain/monetized-notice";
 import { acceptsPix } from "@/domain/store-settings";
 import { Button, ButtonLink } from "@/ui/components/Button";
 import { EmptyState, ErrorState } from "@/ui/components/StateViews";
@@ -16,6 +18,7 @@ import { savePendingOrder } from "@/ui/lib/pending-order";
 import { IS_SITE_PREVIEW, PREVIEW_ACCOUNT_SLUG } from "@/ui/lib/site-preview";
 import { CheckoutPaymentStep } from "@/ui/sections/checkout/CheckoutPaymentStep";
 import { CheckoutProfileFields, useCheckoutSources } from "@/ui/sections/checkout/CheckoutProfileFields";
+import { MonetizedConfirmDialog } from "@/ui/sections/checkout/MonetizedConfirmDialog";
 import { OrderSummary, subtotalOf } from "@/ui/sections/checkout/OrderSummary";
 
 interface CheckoutFormProps {
@@ -33,14 +36,32 @@ function CheckoutForm({ accounts, coupon, preview, onPlaced }: CheckoutFormProps
   const submitting = placeOrder.state.status === "submitting";
   const { defaultSource } = useCheckoutSources();
 
-  const onValid = async (data: CheckoutData) => {
-    if (preview) return;
+  const monetized = monetizedWithoutShop(accounts);
+  // Dados já validados esperando o cliente confirmar que a conta monetizada não tem TikTok Shop.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<CheckoutData | null>(null);
+
+  const register = async (data: CheckoutData) => {
     const accountIds = accounts.map((account) => account.id);
     const placed = await placeOrder.submit(accountIds, { ...data, couponCode: coupon.code });
     if (!placed) return;
     savePendingOrder({ code: placed.order.code, expiresAt: placed.order.expiresAt });
     navigate(`/pedido/${placed.order.code}`, { replace: true });
     onPlaced?.(accountIds);
+  };
+
+  const onValid = async (data: CheckoutData) => {
+    if (preview) return;
+    if (monetized.length > 0) {
+      setAwaitingConfirmation(data);
+      return;
+    }
+    await register(data);
+  };
+
+  const confirmMonetized = () => {
+    const data = awaitingConfirmation;
+    setAwaitingConfirmation(null);
+    if (data) void register(data);
   };
   const { values, errors, setField, setAbroad, handleSubmit } = useCheckoutForm(coupon.total, onValid, defaultSource);
   const pixEnabled = acceptsPix(useStoreSettings());
@@ -71,6 +92,12 @@ function CheckoutForm({ accounts, coupon, preview, onPlaced }: CheckoutFormProps
         </Button>
         <p className="mt-3 text-center text-xs text-mist">Seus dados são usados só para entregar a conta e dar suporte.</p>
       </div>
+
+      <MonetizedConfirmDialog
+        accounts={awaitingConfirmation ? monetized : []}
+        onConfirm={confirmMonetized}
+        onClose={() => setAwaitingConfirmation(null)}
+      />
     </form>
   );
 }

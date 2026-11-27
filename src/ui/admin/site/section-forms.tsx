@@ -254,6 +254,14 @@ const CatalogPageForm: Form<"catalogPage"> = (props) => {
       {copy("alertButton", "Botão “Me avise” (nada esgotado)", 60, { hint: "Também é o botão da lista vazia, quando o filtro não acha conta." })}
       {copy("soldOutButton", "Botão “Me avise” (vários tipos esgotados)", 60)}
       {copy("soldOutOneButton", "Botão “Me avise” (um tipo esgotado)", 60, { hint: "Use {tipo} para o nome do tipo esgotado, ex.: Shop ativo." })}
+      {copy("guideTitle", "Card dos tipos de TikTok: título", 90, { hint: "Abre sozinho na primeira visita à vitrine e depois pelo botão abaixo." })}
+      {copy("guideIntro", "Card dos tipos de TikTok: texto de apoio", 200, { multiline: true })}
+      {copy("guideFull", "Card dos tipos: TikTok Shop ativo", 240, { multiline: true })}
+      {copy("guidePilot", "Card dos tipos: TikTok Shop piloto", 240, { multiline: true })}
+      {copy("guideMonetized", "Card dos tipos: Monetizada", 240, { multiline: true })}
+      {copy("guideNone", "Card dos tipos: Sem TikTok Shop", 240, { multiline: true })}
+      {copy("guideButton", "Botão que abre o card dos tipos", 50)}
+      {copy("guideClose", "Botão que fecha o card dos tipos", 30)}
     </>
   );
 };
@@ -295,6 +303,13 @@ const CheckoutPageForm: Form<"checkoutPage"> = (props) => {
         multiline: true,
         hint: "Aparece em toda compra de conta criada fora do Brasil, inclusive para quem mora no Brasil. Use {pais} para o país da conta.",
       })}
+      {copy("monetizedTitle", "Confirmação de conta monetizada sem Shop: título", 90)}
+      {copy("monetizedNotice", "Confirmação de conta monetizada sem Shop: explicação", 500, {
+        multiline: true,
+        hint: "Abre ao finalizar a compra de conta de TikTok monetizada que não tem TikTok Shop. O pedido só é registrado depois que o cliente confirma.",
+      })}
+      {copy("monetizedConfirm", "Confirmação de conta monetizada: botão de confirmar", 50)}
+      {copy("monetizedShopButton", "Confirmação de conta monetizada: botão para ver contas com Shop", 50)}
     </>
   );
 };
