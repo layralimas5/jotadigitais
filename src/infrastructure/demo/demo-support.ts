@@ -49,6 +49,7 @@ import type { StoredNotification } from "@/domain/notification";
 import type { AdminRole } from "@/domain/admin-user";
 import { newId, simulateLatency, type DemoDatabase } from "./demo-database";
 import { MAX_NOTIFICATIONS, notificationsOf } from "./demo-repositories";
+import type { StickerId } from "@/domain/sticker";
 
 /** Responder avisando e encaminhar no mesmo envio vira um aviso só. */
 const FORWARD_NOTICE_WINDOW_MS = 2 * 60_000;
@@ -138,11 +139,17 @@ export class DemoSupportTicketRepository implements SupportTicketRepository {
     return { saved: this.withUrls(ticket), failedUploads: [] };
   }
 
-  async reply(ticketId: string, body: string, uploads: readonly SupportUpload[], replyToId: string | null): Promise<SupportSubmitResult<SupportReply>> {
+  async reply(
+    ticketId: string,
+    body: string,
+    uploads: readonly SupportUpload[],
+    replyToId: string | null,
+    sticker: StickerId | null = null,
+  ): Promise<SupportSubmitResult<SupportReply>> {
     await simulateLatency();
     const author = await this.currentAuthor();
     if (this.db.read().supportTickets?.find((item) => item.id === ticketId)?.mergedInto) throw new SupportMergeError(MERGED_REPLY_MESSAGE);
-    const reply: SupportReply = { id: newId("rep"), body, author, createdAt: new Date().toISOString(), replyToId };
+    const reply: SupportReply = { id: newId("rep"), body, author, createdAt: new Date().toISOString(), replyToId, sticker };
     const attachments = this.store(uploads, reply.id);
     this.updateTicket(ticketId, (ticket) => {
       // Igual ao banco: resposta do Jota num chamado que esperava por ele volta para a fila (troca automática, sem autor).

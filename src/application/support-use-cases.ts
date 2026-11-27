@@ -158,11 +158,11 @@ export async function replyToSupportTicket(
   uploads: readonly SupportUpload[] = [],
   option: SupportNotifyOption = {},
 ): Promise<SupportSubmitResult<SupportReply> & { notified: boolean }> {
-  const { body, replyToId } = parseOrThrow(supportReplySchema, raw);
+  const { body, replyToId, sticker } = parseOrThrow(supportReplySchema, raw);
   checkUploads(uploads);
   // Mensagem citada que sumiu (ou de outro chamado) não trava o envio: a resposta vai sem a citação.
   const target = replyToId && isQuotableIn(ticket, replyToId) ? replyToId : null;
-  const result = await deps.support.reply(ticket.id, body, uploads, target);
+  const result = await deps.support.reply(ticket.id, body, uploads, target, sticker);
   return { ...result, notified: await notifyAdminIfAsked(deps, role, ticket, "replied", option) };
 }
 

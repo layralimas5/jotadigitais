@@ -70,6 +70,7 @@ const FinancePage = lazy(() => import("@/ui/admin/pages/FinancePage"));
 const ExpenseEditorPage = lazy(() => import("@/ui/admin/pages/ExpenseEditorPage"));
 const RevenueEditorPage = lazy(() => import("@/ui/admin/pages/RevenueEditorPage"));
 const SupportPage = lazy(() => import("@/ui/admin/pages/SupportPage"));
+const ChatPage = lazy(() => import("@/ui/admin/pages/ChatPage"));
 const AccessPage = lazy(() => import("@/ui/admin/pages/AccessPage"));
 const StoragePage = lazy(() => import("@/ui/admin/pages/StoragePage"));
 const AccessUserPage = lazy(() => import("@/ui/admin/pages/AccessUserPage"));
@@ -194,6 +195,7 @@ export const router = createBrowserRouter([
           { path: "acessos", element: <AccessPage /> },
           { path: "acessos/novo", element: <UserEditorPage backPath="/admin/acessos" /> },
           { path: "acessos/:id", element: <AccessUserPage /> },
+          { path: "chat", element: <ChatPage /> },
           { path: "suporte", element: <SupportPage /> },
           { path: "suporte/novo", element: <SupportTicketEditorPage /> },
           { path: "suporte/:id", element: <SupportTicketPage /> },

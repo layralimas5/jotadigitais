@@ -48,6 +48,7 @@ import { HEX_COLOR_PATTERN, MAX_TAG_KEY_LENGTH, TAG_KEY_PATTERN } from "@/domain
 import { STOCK_ALERT_CATEGORIES } from "@/domain/stock-alert";
 import { TESTIMONIAL_KINDS } from "@/domain/testimonial";
 import { STOCK_CATEGORIES } from "@/domain/stock";
+import { STICKER_IDS } from "@/domain/sticker";
 
 const onlyDigits = (value: string) => value.replace(/\D/g, "");
 
@@ -1042,6 +1043,7 @@ export const supportReplySchema = z.object({
   body: z.string().trim().min(1, "Escreva a resposta.").max(SUPPORT_TEXT_MAX, `Use no máximo ${SUPPORT_TEXT_MAX} caracteres.`),
   /** Mensagem que está sendo respondida, quando a resposta cita uma. */
   replyToId: z.string().min(1).max(64).nullable().default(null),
+  sticker: z.enum(STICKER_IDS).nullable().default(null),
 });
 
 export const supportStatusSchema = z.enum(SUPPORT_STATUSES);
